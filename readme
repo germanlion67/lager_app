@@ -1,0 +1,14 @@
+Android app mit flutter
+Datenmodell: Anlagedatum, Ort, Artikelname, Beschreibung
+Orte können ergänzt werden
+Persistente Speicherung mit SQLite
+Funktionn: Anlegen/Bearbeiten/Löschen/Detailansicht/Druck 
+
+Bearbeiten/Löschen: Auf der Detailseite
+PDF-Druckfunktion inklusive Export und Teilen
+
+Sortierung nach Name oder Anlagedatum (id).
+Dropdown zum Filtern nach Ort (alle oder einer).
+Volltextsuche über Name, Beschreibung, QR-Code, Ort.
+Filter und Suche sind kombinierbar.
+Die Sortierung und Filterung ist sofort wirksam.
