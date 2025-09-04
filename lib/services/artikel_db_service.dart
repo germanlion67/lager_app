@@ -7,14 +7,15 @@
 
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
-import '../models/artikel_model.dart';
 import 'package:logger/logger.dart';
+import '../models/artikel_model.dart';
 
 class ArtikelDbService {
   static final ArtikelDbService _instance = ArtikelDbService._internal();
   factory ArtikelDbService() => _instance;
   ArtikelDbService._internal();
 
+  final logger = Logger();
   Database? _db;
 
   Future<Database> get database async {
@@ -41,7 +42,7 @@ class ArtikelDbService {
             beschreibung TEXT,
             bildPfad TEXT,
             erstelltAm TEXT,
-            aktualisiertAm TEXT
+            aktualisiertAm TEXT,
             remoteBildPfad TEXT
           )
         ''');
@@ -50,41 +51,67 @@ class ArtikelDbService {
   }
 
   Future<int> insertArtikel(Artikel artikel) async {
-    final db = await database;
-    return await db.insert('artikel', artikel.toMap());
+    try {
+      final db = await database;
+      return await db.insert('artikel', artikel.toMap());
+    } catch (e) {
+      logger.e('Fehler in insertArtikel:', e);
+      rethrow;
+    }
   }
 
   Future<List<Artikel>> getAlleArtikel() async {
-    final db = await database;
-    final maps = await db.query('artikel');
-    return maps.map((map) => Artikel.fromMap(map)).toList();
+    try {
+      final db = await database;
+      final maps = await db.query('artikel');
+      return maps.map((map) => Artikel.fromMap(map)).toList();
+    } catch (e) {
+      logger.e('Fehler in getAlleArtikel:', e);
+      rethrow;
+    }
   }
 
   Future<int> updateArtikel(Artikel artikel) async {
-    final db = await database;
-    return await db.update(
-      'artikel',
-      artikel.toMap(),
-      where: 'id = ?',
-      whereArgs: [artikel.id],
-    );
+    try {
+      final db = await database;
+      return await db.update(
+        'artikel',
+        artikel.toMap(),
+        where: 'id = ?',
+        whereArgs: [artikel.id],
+      );
+    } catch (e) {
+      logger.e('Fehler in updateArtikel:', e);
+      rethrow;
+    }
   }
 
   Future<int> deleteArtikel(int id) async {
-    final db = await database;
-    return await db.delete('artikel', where: 'id = ?', whereArgs: [id]);
+    try {
+      final db = await database;
+      return await db.delete('artikel', where: 'id = ?', whereArgs: [id]);
+    } catch (e) {
+      logger.e('Fehler in deleteArtikel:', e);
+      rethrow;
+    }
   }
 
   Future<int> updateRemoteBildPfad(int artikelId, String remotePfad) async {
-    final db = await database;
-    return await db.update(
-      'artikel',
-      {'remoteBildPfad': remotePfad},
-      where: 'id = ?',
-      whereArgs: [artikelId],
-    );
+    try {
+      final db = await database;
+      return await db.update(
+        'artikel',
+        {'remoteBildPfad': remotePfad},
+        where: 'id = ?',
+        whereArgs: [artikelId],
+      );
+    } catch (e) {
+      logger.e('Fehler in updateRemoteBildPfad:', e);
+      rethrow;
+    }
   }
 }
+
 // Diese Methode aktualisiert den remoteBildPfad eines Artikels in der Datenbank.
 // Sie nimmt die Artikel-ID und den neuen Pfad als Parameter entgegen.
 // Die Methode gibt die Anzahl der aktualisierten Datensätze zurück.
