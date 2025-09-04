@@ -1,18 +1,28 @@
+//lib/main.dart
+
+//Startpunkt der App
+//Lädt die Artikelliste als Hauptansicht
+//Kann später mit Routing zu weiteren Seiten erweitert werden (z. B. Detailansicht, QR-Scan, Einstellungen)
+
+
 import 'package:flutter/material.dart';
-import 'screens/item_list_screen.dart';
+import 'screens/artikel_list_screen.dart';
 
 void main() {
-  runApp(const LagerApp());
+  runApp(const MyApp());
 }
 
-class LagerApp extends StatelessWidget {
-  const LagerApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lagerverwaltung',
-      theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue)),
-      home: const ItemListScreen(),
+      title: 'Elektronik Verwaltung',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const ArtikelListScreen(),
     );
   }
 }
