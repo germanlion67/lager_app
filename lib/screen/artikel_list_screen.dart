@@ -1,4 +1,4 @@
-// /lib/screens/artikel_list_screen.dart
+//lib/screens/artikel_list_screen.dart
 
 // Diese Seite bietet:
 // Suche nach Name und Beschreibung
