@@ -8,6 +8,7 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/artikel_model.dart';
+import 'package:logger/logger.dart';
 
 class ArtikelDbService {
   static final ArtikelDbService _instance = ArtikelDbService._internal();
