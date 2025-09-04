@@ -5,6 +5,7 @@
 //und ist bereit für Erweiterungen wie Lagerbestandswarnungen oder Synchronisation.
 
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:logger/logger.dart';
@@ -19,6 +20,9 @@ class ArtikelDbService {
   Database? _db;
 
   Future<Database> get database async {
+    if (kIsWeb) {
+      throw UnsupportedError('SQLite wird im Web nicht unterstützt');
+    }
     if (_db != null) return _db!;
     _db = await _initDb();
     return _db!;
@@ -27,7 +31,6 @@ class ArtikelDbService {
   Future<Database> _initDb() async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, 'artikel.db');
-
     return await openDatabase(
       path,
       version: 1,
