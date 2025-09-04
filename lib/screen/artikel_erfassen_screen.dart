@@ -1,4 +1,4 @@
-// /lib/screens/artikel_erfassen_screen.dart
+//lib/screens/artikel_erfassen_screen.dart
 
 // Änderungen gegenüber vorherigem Stand:
 //Imports für WebDAV‑Client & Credentials sowie path
