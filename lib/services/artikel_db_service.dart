@@ -41,6 +41,7 @@ class ArtikelDbService {
             bildPfad TEXT,
             erstelltAm TEXT,
             aktualisiertAm TEXT
+            remoteBildPfad TEXT
           )
         ''');
       },
