@@ -1,4 +1,5 @@
-//..lib/models/artikel_model.dart
+//lib/models/artikel_model.dart
+
 //Diese Klasse bildet die Grundlage für die Datenstruktur deiner Artikel
 // und ist kompatibel mit SQLite.
 
@@ -43,7 +44,8 @@ class Artikel {
     };
   }
 
-  // Konstruktor aus Map
+  // Konstruktor aus Map. Die toMap- und fromMap-Methoden ermöglichen die einfache
+  // Speicherung und Wiederherstellung von Artikeln in einer SQLite-Datenbank.
   factory Artikel.fromMap(Map<String, dynamic> map) {
     return Artikel(
       id: map['id'],
@@ -59,7 +61,7 @@ class Artikel {
     );
   }
 
-  // Neue Methode: copyWith
+  // Neue Methode: copyWith, erleichtert das Erstellen modifizierter Kopien von Artikeln
   Artikel copyWith({
     int? id,
     String? name,
@@ -85,16 +87,11 @@ class Artikel {
     );
   }
 
-  // Neue Methode: isValid
-  bool isValid() {
-    return name.trim().isNotEmpty &&
-           ort.trim().isNotEmpty &&
-           fach.trim().isNotEmpty;
-  }
+  // Neue Methode: isValid, stellt sicher, dass wichtige Felder nicht leer sind
+bool isValid() {
+  return name.trim().isNotEmpty &&
+         ort.trim().isNotEmpty &&
+         fach.trim().isNotEmpty &&
+         bildPfad.trim().isNotEmpty;
 }
-// Die toMap- und fromMap-Methoden ermöglichen die einfache
-// Speicherung und Wiederherstellung von Artikeln in einer SQLite-Datenbank.
-// Die copyWith-Methode erleichtert das Erstellen modifizierter Kopien von Artikeln,
-// und die isValid-Methode stellt sicher, dass wichtige Felder nicht leer sind.
-// Diese Struktur bietet eine solide Grundlage für die Verwaltung
-// von Elektronikartikeln in deiner App.
+}
