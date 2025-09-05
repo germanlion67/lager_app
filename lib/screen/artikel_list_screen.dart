@@ -14,6 +14,7 @@ import '../services/artikel_db_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
+import 'qr_scan_screen_mobile_scanner.dart';
 
 
 // ⬇️ Neu: Nextcloud Settings + Logout
@@ -102,8 +103,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   @override
-  Widget build(BuildContext context) => WillPopScope(
-      onWillPop: _onWillPop, {
+  Widget build(BuildContext context) {
     final gefiltert = _gefilterteArtikel();
 
     return Scaffold(
@@ -162,9 +162,29 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(8),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Suche nach Name oder Beschreibung',
+            child: Row(
+            children: [
+              Expanded(child: TextField(
+                decoration: const InputDecoration(
+                  labelText: 'Suche nach Name oder Beschreibung',
+                  prefixIcon: Icon(Icons.search),
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (value) => setState(() => _suchbegriff = value),
+              )),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.qr_code_scanner),
+                tooltip: 'QR-Scan',
+                onPressed: () async {
+                  await Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => const QRScanScreen(),
+                  ));
+                  await _ladeArtikel();
+                },
+              )
+            ],
+          )
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
