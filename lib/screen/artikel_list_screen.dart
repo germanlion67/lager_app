@@ -102,7 +102,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => WillPopScope(
+      onWillPop: _onWillPop, {
     final gefiltert = _gefilterteArtikel();
 
     return Scaffold(
@@ -221,4 +222,26 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-enum _MenuAction { erfassen, settings, logout }
+enum _MenuAction { erfassen, settings, logout 
+  Future<bool> _onWillPop() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('App beenden'),
+        content: const Text('Möchtest du die App wirklich schließen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Beenden'),
+          ),
+        ],
+      ),
+    );
+    return confirm ?? false;
+  }
+
+}
