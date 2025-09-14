@@ -1,32 +1,12 @@
 //lib/screens/artikel_erfassen_screen.dart
 
-// Änderungen gegenüber vorherigem Stand:
-//Imports für WebDAV‑Client & Credentials sowie path
-//Erweiterte _save()‑Methode: Upload nach dem Insert
-//Robuste Remote‑Pfaderzeugung (Zeitstempel + Slug aus Artikelname)
-
-
-// Felder: Name, Beschreibung, Ort, Menge, Bilddatei.
-// Bildauswahl: über file_picker (Filter: übliche Bildformate).
-// Speichern: erstellt Artikel und ruft ArtikelDbService().insertArtikel(...).
-// Hinweis: Dein Artikel‑Modell im vorhandenen Code hat (Name, Beschreibung,
-// Ort, Menge). Für die Bilddatei zeige ich zwei Varianten:
-//
-// Ohne Schema‑Änderung: Bild wird nur ausgewählt/angezeigt, aber
-// nicht ins Modell geschrieben (kompiliert sofort).
-// Mit Schema‑Erweiterung (optional): Wenn du bildPfad in Artikel ergänzt,
-// kannst du die markierte Stelle freischalten.
-
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
-
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../widgets/article_icons.dart';
-
-// ⬇️ WebDAV / Nextcloud (Option B)
 import '../services/nextcloud_webdav_client.dart';
 import '../services/nextcloud_credentials.dart';
 
@@ -45,11 +25,26 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   final _fachCtrl = TextEditingController();
   final _mengeCtrl = TextEditingController(text: '0');
 
-  String? _bildPfad;         // Pfad der ausgewählten Datei (Desktop/Mobile)
-  Uint8List? _bildBytes;     // Bytes für Preview (Web/Allgemein)
+  String? _bildPfad;         
+  Uint8List? _bildBytes;     
   String? _bildDateiname;
 
   bool _isSaving = false;
+  bool _hasUnsavedChanges = false;   
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl.addListener(_markDirty);
+    _beschreibungCtrl.addListener(_markDirty);
+    _ortCtrl.addListener(_markDirty);
+    _fachCtrl.addListener(_markDirty);
+    _mengeCtrl.addListener(_markDirty);
+  }
+
+  void _markDirty() {
+    if (!_hasUnsavedChanges) setState(() => _hasUnsavedChanges = true);
+  }
 
   @override
   void dispose() {
@@ -66,20 +61,20 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       allowMultiple: false,
       type: FileType.custom,
       allowedExtensions: ['png','jpg','jpeg','gif','bmp','webp'],
-      withData: true, // ermöglicht Preview über bytes
+      withData: true, 
     );
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.single;
     setState(() {
       _bildPfad = file.path;
-      _bildBytes = file.bytes; // kann null sein, je nach Plattform/Größe
+      _bildBytes = file.bytes; 
       _bildDateiname = file.name;
+      _hasUnsavedChanges = true;   
     });
   }
 
   // --- Hilfsfunktionen für Remote-Pfad-Namen (ohne DB-ID-Abhängigkeit) ---
-
   String _slug(String input) {
     final s = input.toLowerCase();
     final replaced = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
@@ -97,6 +92,39 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     return p.posix.join(baseFolder, '$ts-$nameSlug', dateiname);
   }
 
+  // ---------- Abbrechen mit Bestätigung ----------
+  Future<void> _handleCancel() async {
+    if (!_hasUnsavedChanges) {
+      Navigator.pop(context);
+      return;
+    }
+
+    final discard = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Änderungen verwerfen?'),
+        content: const Text(
+          'Du hast bereits Daten eingegeben, die noch nicht gespeichert sind. '
+          'Möchtest du das Formular wirklich verlassen und alle Eingaben verlieren?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Weiter bearbeiten'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Verwerfen'),
+          ),
+        ],
+      ),
+    );
+
+    if (discard == true && mounted) {
+      Navigator.pop(context);
+    }
+  }
+  // ---------- Speichern mit Upload ----------
 Future<void> _save() async {
   if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -164,7 +192,7 @@ Future<void> _save() async {
           }
 
           // DB mit Remote-Pfad aktualisieren
-          if (!mounted) return; // 👈 neu
+          if (!mounted) return; 
           await ArtikelDbService().updateRemoteBildPfad(artikelId, remoteRelPath);
 
           if (!mounted) return;
@@ -185,8 +213,9 @@ Future<void> _save() async {
       }
     }
 
-    // --- 3) Screen schließen, nur einmal ---
+    // ---Screen schließen ---
     if (mounted) {
+      setState(() => _hasUnsavedChanges = false); 
       Navigator.of(context).pop(artikel.copyWith(id: artikelId));
     }
   } catch (e) {
@@ -242,7 +271,6 @@ Future<void> _save() async {
                     (v == null || v.trim().isEmpty) ? 'Bitte Ort eingeben' : null,
                 textInputAction: TextInputAction.next,
               ),
-
               TextFormField(
                 controller: _fachCtrl,
                 decoration: const InputDecoration(
@@ -253,7 +281,6 @@ Future<void> _save() async {
                     (v == null || v.trim().isEmpty) ? 'Bitte Fach eingeben' : null,
                 textInputAction: TextInputAction.next,
               ),
-
               const SizedBox(height: spacing),
               TextFormField(
                 controller: _mengeCtrl,
@@ -263,13 +290,14 @@ Future<void> _save() async {
                 ),
                 keyboardType: TextInputType.number,
                 validator: (v) {
-                  if (v == null || v.trim().isEmpty) return null; // optional
+                  if (v == null || v.trim().isEmpty) return null;
                   final n = int.tryParse(v.trim());
                   if (n == null || n < 0) return 'Ungültige Menge';
                   return null;
                 },
               ),
               const SizedBox(height: spacing),
+              
               // Bilddatei-Auswahl
               Row(
                 children: [
@@ -302,7 +330,7 @@ Future<void> _save() async {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: _isSaving ? null : () => Navigator.pop(context, false),
+                      onPressed: _isSaving ? null : _handleCancel,
                       child: const Text('Abbrechen'),
                     ),
                   ),
