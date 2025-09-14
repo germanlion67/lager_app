@@ -27,14 +27,25 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   late TextEditingController _ortController;
   late TextEditingController _fachController;
   late int _menge;
+  bool _isEditing = false;   // steuert ob Felder aktiv sind
+  bool _hasChanged = false;  // ob Änderungen gemacht wurden
 
   @override
   void initState() {
     super.initState();
-    _beschreibungController = TextEditingController(text: widget.artikel.beschreibung);
-    _ortController = TextEditingController(text: widget.artikel.ort);
-    _fachController = TextEditingController(text: widget.artikel.fach);
+    _beschreibungController = TextEditingController(text: widget.artikel.beschreibung)
+      ..addListener(_onChanged);
+    _ortController = TextEditingController(text: widget.artikel.ort)
+      ..addListener(_onChanged);
+    _fachController = TextEditingController(text: widget.artikel.fach)
+      ..addListener(_onChanged);
     _menge = widget.artikel.menge;
+  }
+
+  void _onChanged() {
+    if (_isEditing) {
+      setState(() => _hasChanged = true);
+    }
   }
 
   @override
@@ -61,6 +72,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     await ArtikelDbService().updateArtikel(aktualisierterArtikel);
     if (!mounted) return;
+    setState(() {
+      _isEditing = false;
+      _hasChanged = false;
+    });
     Navigator.pop(context, aktualisierterArtikel); // 👉 Artikel zurückgeben
   }
 
@@ -73,16 +88,29 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   }
 
   void _mengeErhoehen() {
-    setState(() {
-      _menge++;
-    });
+    if (_isEditing) {
+      setState(() {
+        _menge++;
+        _hasChanged = true;
+      });
+    }
   }
 
   void _mengeVerringern() {
-    setState(() {
-      if (_menge > 0) _menge--;
-    });
+    if (_isEditing) {
+      setState(() {
+        if (_menge > 0) _menge--;
+        _hasChanged = true;
+      });
+    }
   }
+
+  void _enableEdit() {
+    setState(() {
+      _isEditing = true;
+      _hasChanged = false;
+    });
+  }  
 
   void _zeigeBildVollbild(String bildPfad) {
     showDialog(
@@ -124,6 +152,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             // Ort bearbeiten
             TextField(
               controller: _ortController,
+              enabled: _isEditing,
               decoration: const InputDecoration(
                 labelText: 'Ort',
                 border: OutlineInputBorder(),
@@ -134,6 +163,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             // Fach bearbeiten
             TextField(
               controller: _fachController,
+              enabled: _isEditing,
               decoration: const InputDecoration(
                 labelText: 'Fach',
                 border: OutlineInputBorder(),
@@ -147,6 +177,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                 Text('Menge: $_menge'),
                 IconButton(icon: const Icon(Icons.add), onPressed: _mengeErhoehen),
                 IconButton(icon: const Icon(Icons.remove), onPressed: _mengeVerringern),
+                Text(
+                 'Art.-Nr.: ${artikel.id ?? "-"}',
+                 style: const TextStyle(fontSize: 12, color: Colors.grey),
+                )
               ],
             ),
             const SizedBox(height: 20),
@@ -154,6 +188,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             // Beschreibung bearbeiten            
             TextField(
               controller: _beschreibungController,
+              enabled: _isEditing,
               decoration: const InputDecoration(labelText: 'Beschreibung'),
               maxLines: 3,
             ),
@@ -188,8 +223,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _speichern,
-              child: const Text('Speichern'),
+              onPressed: !_isEditing
+                  ? _enableEdit
+                  : (_hasChanged ? _speichern : null),
+              child: Text(!_isEditing
+                  ? 'Ändern'
+                  : (_hasChanged ? 'Speichern' : 'Speichern (inaktiv)')),
             ),
           ],
         ),
