@@ -1,33 +1,21 @@
 //lib/screens/artikel_list_screen.dart
 
-// Diese Seite bietet:
-// Suche nach Name und Beschreibung
-// Filter nach Ort
-// Liste mit Artikelname, Beschreibung, Ort und Menge
-// Nur ein Button (Floating Action Button) – navigiert zur Erfassung.
-// Nach Navigator.push wird bei Erfolg die Liste neu geladen.
-
 import 'package:flutter/material.dart';
-
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
+import 'qr_scan_screen_mobile_scanner.dart';
 import 'dart:io';
 import 'package:flutter/services.dart';
-
 // Nextcloud Settings + Logout
 import '../services/nextcloud_credentials.dart';
 import 'nextcloud_settings_screen.dart';
-
-// Scanfunktion
-import 'package:mobile_scanner/mobile_scanner.dart';
+// Kamera-Check
 import 'package:camera/camera.dart';
 
 // ⬇️ Neu: prüft auf Camera vorhanden
-
-
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
 
@@ -35,37 +23,17 @@ class ArtikelListScreen extends StatefulWidget {
   State<ArtikelListScreen> createState() => _ArtikelListScreenState();
 }
 
-class _BarcodeScannerScreen extends StatelessWidget {
-  const _BarcodeScannerScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Barcode scannen")),
-      body: MobileScanner(
-        onDetect: (capture) {
-          final List<Barcode> barcodes = capture.barcodes;
-          if (barcodes.isNotEmpty) {
-            Navigator.of(context).pop(barcodes.first.rawValue);
-          }
-        },
-      ),
-    );
-  }
-}
-
-
 class _ArtikelListScreenState extends State<ArtikelListScreen> {
   List<Artikel> _artikelListe = [];
   String _suchbegriff = '';
   String _filterOrt = '';
-  bool _hasCamera = false; // 👈 Flag für Kamera
+  bool _hasCamera = false;
 
   @override
   void initState() {
     super.initState();
     _ladeArtikel();
-    _checkCameraAvailability(); // <--- Hier wird die Kamera-Verfügbarkeit geprüft
+    _checkCameraAvailability();
   }
 
   Future<void> _checkCameraAvailability() async {
@@ -96,15 +64,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       return (passtName || passtBeschreibung) && passtOrt;
     }).toList();
   }
-
-
   
   Future<void> _neuenArtikelErfassen() async {
     final result = await Navigator.of(context).push<Artikel>(
       MaterialPageRoute(builder: (_) => const ArtikelErfassenScreen()),
     );
     if (!mounted) return; // 👈 neu
-    if (result != null) {
+    if (result is Artikel) {
       setState(() => _artikelListe.add(result));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -115,23 +81,30 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   // --- Scanfunktion ---
   Future<void> _scanArtikel() async {
-    final code = await Navigator.of(context).push<String>(
-      MaterialPageRoute(
-        builder: (_) => const _BarcodeScannerScreen(),
-      ),
+    final result = await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const QRScanScreen()),
     );
-
-    if (code != null && code.isNotEmpty) {
+    if (!mounted) return;
+    if (result is Artikel) {
       setState(() {
-        _suchbegriff = code; // 🔍 Suchbegriff direkt setzen
+        final index = _artikelListe.indexWhere((a) => a.id == result.id);
+        if (index != -1) {
+          _artikelListe[index] = result;
+        }
       });
+    } else if (result == 'deleted') {
+      setState(() {
+        _artikelListe.removeWhere((a) => a.id == result.id);
+      });
+    } else {
+
+      // Falls kein Ergebnis: Liste einfach neu laden
+      await _ladeArtikel();
     }
   }
 
 
-
   // --- Menü/Actions ---
-
   Future<void> _openSettings() async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const NextcloudSettingsScreen()),
@@ -152,8 +125,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         ],
       ),
     );
-    if (!mounted) return; // 👈 neu
-
+    if (!mounted) return;
     if (confirm == true) {
       await NextcloudCredentialsStore().clear();
       if (!mounted) return;
@@ -166,7 +138,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   @override
   Widget build(BuildContext context) {
     final gefiltert = _gefilterteArtikel();
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Artikelliste'),
@@ -183,6 +154,34 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   break;
                 case _MenuAction.logout:
                   await _logoutNextcloud();
+                  break;
+                case _MenuAction.resetDb:
+                  final messenger = ScaffoldMessenger.of(context);
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Datenbank zurücksetzen'),
+                      content: const Text(
+                          'Alle Artikel werden gelöscht und die IDs neu ab 1000 vergeben.\nFortfahren?'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Abbrechen')),
+                        FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Zurücksetzen')),
+                      ],
+                    ),
+                  );
+                  if (confirm == true) {
+                    await ArtikelDbService().resetDatabase(startId: 1000);
+                    if (!mounted) return;
+                    await _ladeArtikel();
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
+                    );
+                  }
                   break;
                 case _MenuAction.exit:
                   if (Platform.isAndroid || Platform.isIOS) {
@@ -224,6 +223,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
+                value: _MenuAction.resetDb,
+                child: ListTile(
+                  leading: Icon(Icons.restart_alt),
+                  title: Text('Datenbank zurücksetzen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
                 value: _MenuAction.exit,
                 child: ListTile(
                   leading: Icon(Icons.close),
@@ -251,7 +260,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-
             child: 
               DropdownButton<String>(
                 value: _filterOrt.isEmpty ? null : _filterOrt,
@@ -270,12 +278,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                             value: ort,
                             child: Text(ort),
                           ))
-//                      .toList(),
                 ],
                 onChanged: (value) => setState(() => _filterOrt = value ?? ''),
               ),              
           ),
-
           Expanded(
             child: ListView.builder(
               itemCount: gefiltert.length,
@@ -304,16 +310,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   title: Text(artikel.name),
                   subtitle: Text('${artikel.beschreibung} • ${artikel.ort}'),
                   trailing: Text('Menge: ${artikel.menge}'),
-
                   onTap: () async {
                     final result = await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => ArtikelDetailScreen(artikel: artikel),
                       ),
                     );
-
                     if (!mounted) return;
-
                     if (result is Artikel) {
                       // 👉 Artikel wurde gespeichert
                       setState(() {
@@ -329,13 +332,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                       });
                     }
                   }
-
-
                 );
               },
             ),
           ),
-
         ],
       ),
 
@@ -358,10 +358,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ],
       ),
-
-
     );
   }
 }
 
-enum _MenuAction { erfassen, settings, logout, exit }
+enum _MenuAction { erfassen, settings, logout, resetDb, exit }
