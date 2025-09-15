@@ -307,7 +307,26 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                           ),
                           child: const Icon(Icons.image_not_supported, color: Colors.grey),
                         ),
-                  title: Text(artikel.name),
+                  // NEU:
+                  title: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          artikel.name,
+                          style: const TextStyle(fontSize: 16),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        "${artikel.menge}",
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -327,7 +346,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     ],
                   ),
                   isThreeLine: true,
-                  trailing: Text('Menge: ${artikel.menge}'),
                   onTap: () async {
                     final result = await Navigator.of(context).push(
                       MaterialPageRoute(
