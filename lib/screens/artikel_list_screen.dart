@@ -317,7 +317,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        artikel.ort,
+                        "${artikel.ort} • ${artikel.fach}",
                         style: const TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
