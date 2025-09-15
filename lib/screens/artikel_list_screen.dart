@@ -318,7 +318,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                       ),
                       Text(
                         "${artikel.ort} • ${artikel.fach}",
-                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic, // ⬅️ Kursiv!
+                        ),
                       ),
                     ],
                   ),
