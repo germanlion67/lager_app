@@ -308,7 +308,21 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                           child: const Icon(Icons.image_not_supported, color: Colors.grey),
                         ),
                   title: Text(artikel.name),
-                  subtitle: Text('${artikel.beschreibung} • ${artikel.ort}'),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        artikel.beschreibung,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        artikel.ort,
+                        style: const TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                  isThreeLine: true,
                   trailing: Text('Menge: ${artikel.menge}'),
                   onTap: () async {
                     final result = await Navigator.of(context).push(
