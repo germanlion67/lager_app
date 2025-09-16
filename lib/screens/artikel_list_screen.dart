@@ -1,21 +1,24 @@
 //lib/screens/artikel_list_screen.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
+import '../services/artikel_import_service.dart';
+import '../services/artikel_export_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
 import 'qr_scan_screen_mobile_scanner.dart';
 import 'dart:io';
-import 'package:flutter/services.dart';
+
 // Nextcloud Settings + Logout
 import '../services/nextcloud_credentials.dart';
 import 'nextcloud_settings_screen.dart';
 // Kamera-Check
 import 'package:camera/camera.dart';
+import 'package:file_picker/file_picker.dart';
 
-// ⬇️ Neu: prüft auf Camera vorhanden
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
 
@@ -75,6 +78,156 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Artikel hinzugefügt: ${result.name}')),
+      );
+    }
+  }
+
+    // Import/Export-Funktion als Dialog
+  Future<void> _importExportDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return SimpleDialog(
+          title: const Text('Artikel Import/Export'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _importArtikel();
+              },
+              child: Row(
+                children: const [
+                  Icon(Icons.file_upload, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Artikel importieren (JSON/CSV)',
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  )
+                ]
+              )
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _exportArtikelDialog();
+              },
+              child: Row(
+                children: const [
+                  Icon(Icons.file_download, color: Colors.green),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Artikel exportieren (JSON/CSV)',
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  )
+                ]
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Import-Logik (JSON/CSV FilePicker)
+  Future<void> _importArtikel() async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      type: FileType.custom,
+      allowedExtensions: ['json', 'csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    final ext = file.extension?.toLowerCase();
+    final content = file.bytes != null
+        ? String.fromCharCodes(file.bytes!)
+        : await File(file.path!).readAsString();
+
+    List<Artikel> artikelList = [];
+    String importMsg = "";
+
+    try {
+      if (ext == 'json') {
+        artikelList = await ArtikelImportService().importFromJson(content);
+        importMsg = "Importierte Artikel aus JSON: ${artikelList.length}";
+      } else if (ext == 'csv') {
+        artikelList = await ArtikelImportService().importFromCsv(content);
+        importMsg = "Importierte Artikel aus CSV: ${artikelList.length}";
+      } else {
+        importMsg = "Dateiformat nicht unterstützt.";
+      }
+      if (artikelList.isNotEmpty) {
+        await ArtikelImportService().insertArtikelList(artikelList);
+        await _ladeArtikel();
+      }
+    } catch (e) {
+      importMsg = "Fehler beim Import: $e";
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(importMsg)),
+    );
+  }
+
+  // Export-Logik (Dialog zum Speichern als Datei)
+  Future<void> _exportArtikelDialog() async {
+    String? exportType = await showDialog<String>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('Exportformat wählen'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'json'),
+            child: const Text('Export als JSON'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, 'csv'),
+            child: const Text('Export als CSV'),
+          ),
+        ],
+      ),
+    );
+    if (exportType == null) return;
+
+    String? exportData;
+    String fileName = 'artikel_export_${DateTime.now().toIso8601String().replaceAll(':','-')}.$exportType';
+    if (exportType == 'json') {
+      exportData = await ArtikelExportService().exportAllArtikelAsJson();
+    } else if (exportType == 'csv') {
+      exportData = await ArtikelExportService().exportAllArtikelAsCsv();
+    }
+    if (exportData == null || exportData.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
+      );
+      return;
+    }
+    // Speichern als Datei (nur Desktop/Mobile, nicht im Web)
+    if (!Platform.isAndroid && !Platform.isIOS && !Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Dateiexport auf diesem System nicht unterstützt.')),
+      );
+      return;
+    }
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Exportiere Artikeldaten',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: [exportType],
+    );
+    if (result != null) {
+      final file = File(result);
+      await file.writeAsString(exportData);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Export erfolgreich: $fileName')),
       );
     }
   }
@@ -149,7 +302,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.erfassen:
                   await _neuenArtikelErfassen();
                   break;
-                case _MenuAction.settings:
+                case _MenuAction.importExport:
+                  await _importExportDialog();
+                  break;
+               case _MenuAction.settings:
                   await _openSettings();
                   break;
                 case _MenuAction.logout:
@@ -198,6 +354,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: AddArticleIcon(),
                   title: Text('Artikel erfassen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: _MenuAction.importExport,
+                child: ListTile(
+                  leading: Icon(Icons.import_export),
+                  title: Text('Artikel import/export'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -398,4 +563,4 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-enum _MenuAction { erfassen, settings, logout, resetDb, exit }
+enum _MenuAction { erfassen, importExport, settings, logout, resetDb, exit }
