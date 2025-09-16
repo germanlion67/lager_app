@@ -3,6 +3,8 @@
 //Diese Klasse bildet die Grundlage für die Datenstruktur deiner Artikel
 // und ist kompatibel mit SQLite.
 
+// lib/models/artikel_model.dart
+
 class Artikel {
   final int? id;
   final String name;
