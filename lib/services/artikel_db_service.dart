@@ -167,4 +167,15 @@ class ArtikelDbService {
       whereArgs: [artikelId],
     );
   }
+
+  /// Findet alle Artikel mit lokalen Bildern, die noch nicht zu Nextcloud synchronisiert wurden
+  Future<List<Artikel>> getUnsyncedArtikel() async {
+    final db = await database;
+    final maps = await db.query(
+      'artikel',
+      where: 'bildPfad IS NOT NULL AND bildPfad != "" AND (remoteBildPfad IS NULL OR remoteBildPfad = "")',
+      orderBy: 'id DESC',
+    );
+    return maps.map((map) => Artikel.fromMap(map)).toList();
+  }
 }

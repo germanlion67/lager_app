@@ -6,6 +6,7 @@ import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
+import '../services/nextcloud_sync_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
@@ -126,6 +127,24 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 ]
               ),
             ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _resyncPendingFiles();
+              },
+              child: Row(
+                children: const [
+                  Icon(Icons.sync, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Nextcloud Nachsynchronisation',
+                      overflow: TextOverflow.ellipsis,
+                    )
+                  )
+                ]
+              ),
+            ),
           ],
         );
       },
@@ -228,6 +247,96 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Export erfolgreich: $fileName')),
+      );
+    }
+  }
+
+  // --- Nachsynchronisation von Nextcloud-Dateien ---
+  Future<void> _resyncPendingFiles() async {
+    if (!mounted) return;
+
+    // Lade-Dialog anzeigen
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Synchronisiere Dateien...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final syncService = NextcloudSyncService();
+      final result = await syncService.resyncPendingFiles();
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Lade-Dialog schließen
+
+      // Ergebnis anzeigen
+      final message = result.failed == 0
+          ? 'Synchronisation erfolgreich!\n${result.successfullysynced} Datei(en) hochgeladen.'
+          : 'Synchronisation abgeschlossen mit Fehlern:\n'
+            '✓ ${result.successfullysynced} erfolgreich\n'
+            '✗ ${result.failed} fehlgeschlagen';
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Nextcloud Synchronisation'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(message),
+              if (result.errors.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Fehler-Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...result.errors.take(3).map((error) => 
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $error', style: const TextStyle(fontSize: 12)),
+                  )
+                ),
+                if (result.errors.length > 3)
+                  Text('... und ${result.errors.length - 3} weitere Fehler'),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      // Zusätzlich SnackBar für schnelle Info
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.failed == 0 
+            ? '${result.successfullysynced} Datei(en) synchronisiert' 
+            : '${result.successfullysynced} erfolgreich, ${result.failed} Fehler'),
+          backgroundColor: result.failed == 0 ? Colors.green : Colors.orange,
+        ),
+      );
+
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Lade-Dialog schließen
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Synchronisation fehlgeschlagen: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
