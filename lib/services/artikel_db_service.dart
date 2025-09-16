@@ -54,6 +54,8 @@ class ArtikelDbService {
             onCreate: (db, version) async {
               logger.i("🛠️ Erstelle Tabelle 'artikel' (Version $version)");
               await db.execute(_createTableSql);
+              // ⬇️ Startwert für IDs auf 1000 setzen
+              await db.insert('sqlite_sequence', {'name': 'artikel', 'seq': 999});
             },
             onUpgrade: (db, oldVersion, newVersion) async {
               await _upgradeDb(db, oldVersion, newVersion);
@@ -112,6 +114,23 @@ class ArtikelDbService {
     //   logger.i("➕ Spalte 'barcode' hinzugefügt");
     // }
   }
+
+  // Datenbank zurücksetzen nach testphase
+  Future<void> resetDatabase({int startId = 1000}) async {
+    final db = await database;
+
+    // Tabelle löschen
+    await db.execute("DROP TABLE IF EXISTS artikel");
+
+    // Neu erstellen
+    await db.execute(_createTableSql);
+
+    // Startwert für ID setzen
+    await db.insert('sqlite_sequence', {'name': 'artikel', 'seq': startId - 1});
+
+    logger.w("🗑️ Datenbank zurückgesetzt. Nächste ID startet bei $startId");
+  }
+
 
   Future<int> insertArtikel(Artikel artikel) async {
     final db = await database;
