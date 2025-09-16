@@ -310,36 +310,47 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     return ValueListenableBuilder<NextcloudConnectionStatus>(
       valueListenable: _connectionService.connectionStatus,
       builder: (context, status, child) {
+        Widget icon;
+        String tooltipMessage;
+        
         switch (status) {
           case NextcloudConnectionStatus.online:
-            return Tooltip(
-              message: 'Nextcloud: Online',
-              child: Icon(
-                Icons.cloud_done,
-                color: Colors.green[600],
-                size: 20,
-              ),
+            icon = Icon(
+              Icons.cloud_done,
+              color: Colors.green[600],
+              size: 20,
             );
+            tooltipMessage = 'Nextcloud: Online';
+            break;
           case NextcloudConnectionStatus.offline:
-            return Tooltip(
-              message: 'Nextcloud: Offline',
-              child: Icon(
-                Icons.cloud_off,
-                color: Colors.red[600],
-                size: 20,
-              ),
+            icon = Icon(
+              Icons.cloud_off,
+              color: Colors.red[600],
+              size: 20,
             );
+            tooltipMessage = 'Nextcloud: Offline';
+            break;
           case NextcloudConnectionStatus.unknown:
           default:
-            return Tooltip(
-              message: 'Nextcloud: Status unbekannt',
-              child: Icon(
-                Icons.cloud_queue,
-                color: Colors.grey[600],
-                size: 20,
-              ),
+            icon = Icon(
+              Icons.cloud_queue,
+              color: Colors.grey[600],
+              size: 20,
             );
+            tooltipMessage = 'Nextcloud: Status unbekannt';
+            break;
         }
+        
+        return GestureDetector(
+          onTap: () {
+            // Optional: Manual refresh on tap (for debugging)
+            _connectionService.checkConnectionNow();
+          },
+          child: Tooltip(
+            message: tooltipMessage,
+            child: icon,
+          ),
+        );
       },
     );
   }

@@ -171,8 +171,14 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
                 validator: (v) {
                   if (v == null || v.trim().isEmpty) return 'Bitte Intervall eingeben';
                   final interval = int.tryParse(v.trim());
-                  if (interval == null || interval < 1 || interval > 1440) {
-                    return 'Intervall muss zwischen 1 und 1440 Minuten liegen';
+                  if (interval == null) {
+                    return 'Bitte eine gültige Zahl eingeben';
+                  }
+                  if (interval < 1) {
+                    return 'Intervall muss mindestens 1 Minute betragen';
+                  }
+                  if (interval > 1440) {
+                    return 'Intervall darf maximal 1440 Minuten (24h) betragen';
                   }
                   return null;
                 },

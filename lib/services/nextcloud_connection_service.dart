@@ -45,7 +45,13 @@ class NextcloudConnectionService {
     final intervalMinutes = _currentCredentials!.checkIntervalMinutes;
     _timer = Timer.periodic(
       Duration(minutes: intervalMinutes),
-      (_) => _checkConnection(),
+      (_) async {
+        try {
+          await _checkConnection();
+        } catch (e) {
+          _logger.e('Error during periodic connection check', error: e);
+        }
+      },
     );
     
     _logger.i('Nextcloud connection monitoring started with ${intervalMinutes}min interval');
@@ -92,7 +98,7 @@ class NextcloudConnectionService {
       final response = await http.head(
         uri,
         headers: {'Authorization': 'Basic $basicAuth'},
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 30)); // Increased timeout for reliability
 
       if (response.statusCode == 200 || response.statusCode == 207) {
         if (_connectionStatus.value != NextcloudConnectionStatus.online) {
@@ -104,6 +110,11 @@ class NextcloudConnectionService {
           _logger.w('Nextcloud connection: Offline (Status: ${response.statusCode})');
           _connectionStatus.value = NextcloudConnectionStatus.offline;
         }
+      }
+    } on TimeoutException catch (e) {
+      if (_connectionStatus.value != NextcloudConnectionStatus.offline) {
+        _logger.w('Nextcloud connection: Offline (Timeout: $e)');
+        _connectionStatus.value = NextcloudConnectionStatus.offline;
       }
     } catch (e) {
       if (_connectionStatus.value != NextcloudConnectionStatus.offline) {
