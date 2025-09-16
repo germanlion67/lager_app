@@ -14,6 +14,7 @@ import 'dart:io';
 
 // Nextcloud Settings + Logout
 import '../services/nextcloud_credentials.dart';
+import '../services/nextcloud_connection_service.dart';
 import 'nextcloud_settings_screen.dart';
 // Kamera-Check
 import 'package:camera/camera.dart';
@@ -31,12 +32,25 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   String _suchbegriff = '';
   String _filterOrt = '';
   bool _hasCamera = false;
+  final NextcloudConnectionService _connectionService = NextcloudConnectionService();
 
   @override
   void initState() {
     super.initState();
     _ladeArtikel();
     _checkCameraAvailability();
+    _initializeNextcloudMonitoring();
+  }
+
+  Future<void> _initializeNextcloudMonitoring() async {
+    // Start Nextcloud connection monitoring if credentials are available
+    await _connectionService.startPeriodicCheck();
+  }
+
+  @override
+  void dispose() {
+    _connectionService.dispose();
+    super.dispose();
   }
 
   Future<void> _checkCameraAvailability() async {
@@ -262,6 +276,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const NextcloudSettingsScreen()),
     );
+    // Restart monitoring after settings change
+    await _connectionService.restartMonitoring();
   }
 
   Future<void> _logoutNextcloud() async {
@@ -281,6 +297,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     if (!mounted) return;
     if (confirm == true) {
       await NextcloudCredentialsStore().clear();
+      // Stop monitoring when logged out
+      _connectionService.stopPeriodicCheck();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Nextcloud-Login gelöscht')),
@@ -288,12 +306,56 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
+  Widget _buildConnectionStatusIcon() {
+    return ValueListenableBuilder<NextcloudConnectionStatus>(
+      valueListenable: _connectionService.connectionStatus,
+      builder: (context, status, child) {
+        switch (status) {
+          case NextcloudConnectionStatus.online:
+            return Tooltip(
+              message: 'Nextcloud: Online',
+              child: Icon(
+                Icons.cloud_done,
+                color: Colors.green[600],
+                size: 20,
+              ),
+            );
+          case NextcloudConnectionStatus.offline:
+            return Tooltip(
+              message: 'Nextcloud: Offline',
+              child: Icon(
+                Icons.cloud_off,
+                color: Colors.red[600],
+                size: 20,
+              ),
+            );
+          case NextcloudConnectionStatus.unknown:
+          default:
+            return Tooltip(
+              message: 'Nextcloud: Status unbekannt',
+              child: Icon(
+                Icons.cloud_queue,
+                color: Colors.grey[600],
+                size: 20,
+              ),
+            );
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final gefiltert = _gefilterteArtikel();
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Artikelliste'),
+        title: Row(
+          children: [
+            const Text('Artikelliste'),
+            const SizedBox(width: 12),
+            _buildConnectionStatusIcon(),
+          ],
+        ),
         actions: [
           // ⋮ Popup-Menü rechts in der AppBar
           PopupMenuButton<_MenuAction>(

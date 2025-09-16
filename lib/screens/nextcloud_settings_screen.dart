@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import '../services/nextcloud_credentials.dart';
+import '../services/nextcloud_connection_service.dart';
 
 class NextcloudSettingsScreen extends StatefulWidget {
   const NextcloudSettingsScreen({super.key});
@@ -19,6 +20,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
   final _userCtrl = TextEditingController();
   final _appPwCtrl = TextEditingController();
   final _folderCtrl = TextEditingController(text: 'Apps/Artikel');
+  final _intervalCtrl = TextEditingController(text: '10');
 
   bool _isSaving = false;
   bool _isTesting = false;
@@ -37,6 +39,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
         _userCtrl.text = creds.user;
         _appPwCtrl.text = creds.appPw;
         _folderCtrl.text = creds.baseFolder;
+        _intervalCtrl.text = creds.checkIntervalMinutes.toString();
       });
     }
   }
@@ -45,12 +48,19 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     setState(() => _isSaving = true);
     try {
+      final intervalMinutes = int.tryParse(_intervalCtrl.text.trim()) ?? 10;
+      
       await NextcloudCredentialsStore().save(
         serverBaseUrl: _serverCtrl.text.trim(),
         username: _userCtrl.text.trim(),
         appPassword: _appPwCtrl.text.trim(),
         baseRemoteFolder: _folderCtrl.text.trim(),
+        checkIntervalMinutes: intervalMinutes,
       );
+      
+      // Restart monitoring with new settings
+      await NextcloudConnectionService().restartMonitoring();
+      
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Einstellungen gespeichert')),
@@ -148,6 +158,24 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
                   labelText: 'Basisordner (z. B. Apps/Artikel)',
                   border: OutlineInputBorder(),
                 ),
+              ),
+              const SizedBox(height: spacing),
+              TextFormField(
+                controller: _intervalCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Prüfintervall (Minuten)',
+                  border: OutlineInputBorder(),
+                  helperText: 'Wie oft soll die Verbindung geprüft werden? (Standard: 10 Min.)',
+                ),
+                keyboardType: TextInputType.number,
+                validator: (v) {
+                  if (v == null || v.trim().isEmpty) return 'Bitte Intervall eingeben';
+                  final interval = int.tryParse(v.trim());
+                  if (interval == null || interval < 1 || interval > 1440) {
+                    return 'Intervall muss zwischen 1 und 1440 Minuten liegen';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: spacing * 1.5),
               Row(
