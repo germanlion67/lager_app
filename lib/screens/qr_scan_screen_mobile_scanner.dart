@@ -151,106 +151,93 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('QR-Scan')),
-      body: Stack(
-        children: [
-          // Scanner
-          MobileScanner(
-            controller: _controller,
-            onDetect: _onDetect,
-          ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final double overlaySize = 250;
+          final double left = (constraints.maxWidth - overlaySize) / 2;
+          final double top = (constraints.maxHeight - overlaySize) / 2;
 
-          // Overlay mit Fokusfenster
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final double overlaySize = 250; // Größe des Fokusfensters
-              final double left = (constraints.maxWidth - overlaySize) / 2;
-              final double top = (constraints.maxHeight - overlaySize) / 2;
-
-              return Stack(
-                children: [
-                  // Abdunkeln mit "Loch"
-                  ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.black54,
-                      BlendMode.srcOut,
-                    ),
-                    child: Stack(
-                      children: [
-                        Container(
-                          decoration: const BoxDecoration(
-                            color: Colors.black,
-                            backgroundBlendMode: BlendMode.dstOut,
-                          ),
-                        ),
-                        Positioned(
-                          left: left,
-                          top: top,
-                          child: Container(
-                            width: overlaySize,
-                            height: overlaySize,
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Roter Rahmen ums Fokusfenster
-                  Positioned(
-                    left: left,
-                    top: top,
-                    child: Container(
-                      width: overlaySize,
-                      height: overlaySize,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.red, width: 3),
-                        borderRadius: BorderRadius.circular(16),
+          return Stack(
+            children: [
+              MobileScanner(
+                controller: _controller,
+                onDetect: _onDetect,
+                scanWindow: Rect.fromLTWH(left, top, overlaySize, overlaySize),
+              ),
+              // Overlay mit Fokusfenster & rotem Rahmen
+              ColorFiltered(
+                colorFilter: const ColorFilter.mode(
+                  Colors.black54,
+                  BlendMode.srcOut,
+                ),
+                child: Stack(
+                  children: [
+                    Container(
+                      decoration: const BoxDecoration(
+                        color: Colors.black,
+                        backgroundBlendMode: BlendMode.dstOut,
                       ),
                     ),
-                  ),
-                ],
-              );
-            },
-          ),
-
-          // Hinweistext unten
-          Positioned(
-            bottom: 40,
-            left: 0,
-            right: 0,
-            child: Text(
-              "Bitte QR-Code ins Fenster halten",
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                backgroundColor: Colors.black54,
-              ),
-            ),
-          ),
-
-          // Letzter Scan als Text (optional)
-          if (_scanResult != null)
-            Positioned(
-              bottom: 80,
-              left: 0,
-              right: 0,
-              child: Text(
-                'Letzter Scan: $_scanResult',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                    Positioned(
+                      left: left,
+                      top: top,
+                      child: Container(
+                        width: overlaySize,
+                        height: overlaySize,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-        ],
+              Positioned(
+                left: left,
+                top: top,
+                child: Container(
+                  width: overlaySize,
+                  height: overlaySize,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.red, width: 3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 40,
+                left: 0,
+                right: 0,
+                child: Text(
+                  "Bitte QR-Code ins Fenster halten",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    backgroundColor: Colors.black54,
+                  ),
+                ),
+              ),
+              if (_scanResult != null)
+                Positioned(
+                  bottom: 80,
+                  left: 0,
+                  right: 0,
+                  child: Text(
+                    'Letzter Scan: $_scanResult',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
-  }
-
+}
