@@ -1,16 +1,52 @@
-//lib/screen/artikel_detail_screen.dart
-
-//Anzeige aller relevanten Felder
-//Mengenverwaltung (erhöhen/verringern)
-//Bearbeitung der Beschreibung
-//Löschen des Artikels
-//Speichern der Änderungen in SQLite
-
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
+
+class InfoRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool highlight;
+
+  const InfoRow({
+    super.key,
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 2.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w500,
+              fontSize: highlight ? 22 : 16,
+            ),
+          ),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: highlight ? FontWeight.bold : FontWeight.normal,
+                fontSize: highlight ? 26 : 16,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class ArtikelDetailScreen extends StatefulWidget {
   final Artikel artikel;
@@ -18,11 +54,10 @@ class ArtikelDetailScreen extends StatefulWidget {
   const ArtikelDetailScreen({super.key, required this.artikel});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _ArtikelDetailScreenState createState() => _ArtikelDetailScreenState();
+  ArtikelDetailScreenState createState() => ArtikelDetailScreenState();
 }
 
-class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
+class ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   late TextEditingController _beschreibungController;
   late TextEditingController _ortController;
   late TextEditingController _fachController;
@@ -143,49 +178,60 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           ),
         ],
       ),
-
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Ort bearbeiten
-            TextField(
-              controller: _ortController,
-              enabled: _isEditing,
-              decoration: const InputDecoration(
-                labelText: 'Ort',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Fach bearbeiten
-            TextField(
-              controller: _fachController,
-              enabled: _isEditing,
-              decoration: const InputDecoration(
-                labelText: 'Fach',
-                border: OutlineInputBorder(),
-              ),
-            ),
+            !_isEditing
+                ? Column(
+                    children: [
+                      InfoRow(label: "Ort", value: _ortController.text),
+                      InfoRow(label: "Fach", value: _fachController.text),
+                      InfoRow(label: "Menge", value: "$_menge", highlight: true),
+                      InfoRow(label: "Art.-Nr.", value: "${artikel.id ?? '-'}"),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      TextField(
+                        controller: _ortController,
+                        enabled: _isEditing,
+                        decoration: const InputDecoration(
+                          labelText: 'Ort',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _fachController,
+                        enabled: _isEditing,
+                        decoration: const InputDecoration(
+                          labelText: 'Fach',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Text(
+                            'Menge:',
+                            style: TextStyle(fontSize: 20, color: Colors.black87),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            '$_menge',
+                            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
+                          ),
+                          IconButton(icon: const Icon(Icons.add), onPressed: _mengeErhoehen),
+                          IconButton(icon: const Icon(Icons.remove), onPressed: _mengeVerringern),
+                        ],
+                      ),
+                      InfoRow(label: "Art.-Nr.", value: "${artikel.id ?? '-'}"),
+                    ],
+                  ),
             const SizedBox(height: 20),
 
-            // Mengensteuerung
-            Row(
-              children: [
-                Text('Menge: $_menge'),
-                IconButton(icon: const Icon(Icons.add), onPressed: _mengeErhoehen),
-                IconButton(icon: const Icon(Icons.remove), onPressed: _mengeVerringern),
-                Text(
-                 'Art.-Nr.: ${artikel.id ?? "-"}',
-                 style: const TextStyle(fontSize: 12, color: Colors.grey),
-                )
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Beschreibung bearbeiten            
             TextField(
               controller: _beschreibungController,
               enabled: _isEditing,
@@ -194,7 +240,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             ),
             const SizedBox(height: 20),
 
-             // Artikelbild
             if (artikel.bildPfad.isNotEmpty && File(artikel.bildPfad).existsSync())
               GestureDetector(
                 onTap: () => _zeigeBildVollbild(artikel.bildPfad),
