@@ -17,6 +17,13 @@ class AppLogService {
     await file.writeAsString('[$now] $message\n', mode: FileMode.append, flush: true);
   }
 
+  Future<void> logError(String error, [StackTrace? stack]) async {
+    final file = await _getLogFile();
+    final now = DateTime.now().toIso8601String();
+    final stackStr = stack != null ? '\n$stack' : '';
+    await file.writeAsString('[$now] ERROR: $error$stackStr\n', mode: FileMode.append, flush: true);
+  }
+
   Future<String> readLog() async {
     final file = await _getLogFile();
     if (await file.exists()) {

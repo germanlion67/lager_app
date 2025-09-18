@@ -8,6 +8,7 @@ import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/nextcloud_sync_service.dart';
 import '../widgets/article_icons.dart';
+import '../services/app_log_service.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
 import 'qr_scan_screen_mobile_scanner.dart';
@@ -185,20 +186,26 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
     try {
       if (ext == 'json') {
+        await AppLogService().log('Import gestartet');
         artikelList = await ArtikelImportService().importFromJson(content);
         importMsg = "Importierte Artikel aus JSON: ${artikelList.length}";
+        await AppLogService().log('Import erfolgreich: $importMsg');
       } else if (ext == 'csv') {
+        await AppLogService().log('Import gestartet');
         artikelList = await ArtikelImportService().importFromCsv(content);
         importMsg = "Importierte Artikel aus CSV: ${artikelList.length}";
+        await AppLogService().log('Import erfolgreich: $importMsg');
       } else {
         importMsg = "Dateiformat nicht unterstützt.";
+        await AppLogService().log('Import fehlgeschlagen: $importMsg');
       }
       if (artikelList.isNotEmpty) {
         await ArtikelImportService().insertArtikelList(artikelList);
         await _ladeArtikel();
       }
-    } catch (e) {
+    } catch (e, stack) {
       importMsg = "Fehler beim Import: $e";
+      await AppLogService().logError(importMsg, stack);
     }
 
     if (!mounted) return;
@@ -209,58 +216,68 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   // Export-Logik (Dialog zum Speichern als Datei)
   Future<void> _exportArtikelDialog() async {
-    String? exportType = await showDialog<String>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('Exportformat wählen'),
-        children: [
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, 'json'),
-            child: const Text('Export als JSON'),
-          ),
-          SimpleDialogOption(
-            onPressed: () => Navigator.pop(ctx, 'csv'),
-            child: const Text('Export als CSV'),
-          ),
-        ],
-      ),
-    );
-    if (exportType == null) return;
+    try {
+      String? exportType = await showDialog<String>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Exportformat wählen'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'json'),
+              child: const Text('Export als JSON'),
+            ),
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, 'csv'),
+              child: const Text('Export als CSV'),
+            ),
+          ],
+        ),
+      );
+      if (exportType == null) return;
 
-    String? exportData;
-    String fileName = 'artikel_export_${DateTime.now().toIso8601String().replaceAll(':','-')}.$exportType';
-    if (exportType == 'json') {
-      exportData = await ArtikelExportService().exportAllArtikelAsJson();
-    } else if (exportType == 'csv') {
-      exportData = await ArtikelExportService().exportAllArtikelAsCsv();
-    }
-    if (exportData == null || exportData.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
+      String? exportData;
+      String fileName = 'artikel_export_${DateTime.now().toIso8601String().replaceAll(':','-')}.$exportType';
+      if (exportType == 'json') {
+        exportData = await ArtikelExportService().exportAllArtikelAsJson();
+      } else if (exportType == 'csv') {
+        exportData = await ArtikelExportService().exportAllArtikelAsCsv();
+      }
+      if (exportData == null || exportData.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
+        );
+        return;
+      }
+      // Speichern als Datei (nur Desktop/Mobile, nicht im Web)
+      if (!Platform.isAndroid && !Platform.isIOS && !Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dateiexport auf diesem System nicht unterstützt.')),
+        );
+        return;
+      }
+      final result = await FilePicker.platform.saveFile(
+        dialogTitle: 'Exportiere Artikeldaten',
+        fileName: fileName,
+        type: FileType.custom,
+        allowedExtensions: [exportType],
       );
-      return;
-    }
-    // Speichern als Datei (nur Desktop/Mobile, nicht im Web)
-    if (!Platform.isAndroid && !Platform.isIOS && !Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
+      await AppLogService().log('Export gestartet');
+      if (result != null) {
+        final file = File(result);
+        await file.writeAsString(exportData);
+        await AppLogService().log('Export erfolgreich: $fileName');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export erfolgreich: $fileName')),
+        );
+      }
+    } catch (e, stack) {
+      await AppLogService().logError('Fehler beim Export: $e', stack);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Dateiexport auf diesem System nicht unterstützt.')),
-      );
-      return;
-    }
-    final result = await FilePicker.platform.saveFile(
-      dialogTitle: 'Exportiere Artikeldaten',
-      fileName: fileName,
-      type: FileType.custom,
-      allowedExtensions: [exportType],
-    );
-    if (result != null) {
-      final file = File(result);
-      await file.writeAsString(exportData);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Export erfolgreich: $fileName')),
+        SnackBar(content: Text('Fehler beim Export: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -345,12 +362,48 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context); // Lade-Dialog schließen
-      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Synchronisation fehlgeschlagen: $e'),
           backgroundColor: Colors.red,
         ),
+      );
+    }
+  }
+
+  // --- Log-Dialog ---
+Future<void> _showLogDialog() async {
+    final logContent = await AppLogService().readLog();
+    if (!mounted) return; // Wichtig: nach async gap prüfen
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('App-Log'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Text(logContent.isEmpty ? 'Keine Logeinträge vorhanden.' : logContent),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await AppLogService().clearLog();
+              if (!ctx.mounted) return;
+              Navigator.of(ctx).pop(true); // gibt true zurück
+            },
+            child: const Text('Log löschen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Schließen'),
+          ),
+        ],
+      ),
+    );
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Logdatei gelöscht')),
       );
     }
   }
@@ -493,6 +546,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.logout:
                   await _logoutNextcloud();
                   break;
+                case _MenuAction.showLog:
+                  await _showLogDialog();
+                  break;
                 case _MenuAction.resetDb:
                   final messenger = ScaffoldMessenger.of(context);
                   final confirm = await showDialog<bool>(
@@ -574,6 +630,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.restart_alt),
                   title: Text('Datenbank zurücksetzen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: _MenuAction.showLog,
+                child: ListTile(
+                  leading: Icon(Icons.article),
+                  title: Text('App-Log anzeigen/löschen'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -745,4 +810,4 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-enum _MenuAction { erfassen, importExport, settings, logout, resetDb, exit }
+enum _MenuAction { erfassen, importExport, settings, logout, resetDb, showLog, exit }

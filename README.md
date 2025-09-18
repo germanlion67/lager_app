@@ -1,16 +1,20 @@
 # ev
 
-A new Flutter project.
+Lager App
+Die Lager App ist eine Flutter-Anwendung zur Verwaltung von Elektronik-Artikeln und Komponenten. Sie ermöglicht das Erfassen, Bearbeiten, Suchen und Verwalten von Artikeln in einem lokalen Lager. Zu jedem Artikel können Name, Beschreibung, Ort, Fach, Menge und ein Bild hinterlegt werden. Die App unterstützt Import und Export von Artikeldaten (CSV/JSON), Nextcloud-Synchronisation sowie das Erfassen von Bildern per Datei oder Kamera. Eine integrierte Logfunktion hilft bei der Fehleranalyse. Die Anwendung ist für Desktop und mobile Geräte geeignet.
 
-## Getting Started
+Features:
 
-This project is a starting point for a Flutter application.
+Artikelliste mit Suchfunktion
+Artikel erfassen, bearbeiten und löschen
+Mengenverwaltung
+Bilder per Datei oder Kamera hinzufügen
+Import/Export von Artikeldaten (CSV/JSON)
+Nextcloud-Synchronisation
+Fehler- und Ereignis-Logging
+QR-Code-Scan für Artikel
+Technologien:
+Flutter, SQLite, Nextcloud WebDAV, Kamera, FilePicker
 
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+Hinweis:
+Die App ist Open Source und kann beliebig erweitert werden.
