@@ -2,7 +2,7 @@
 
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-//import 'package:file_picker/file_picker.dart';
+//import 'package/file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
@@ -86,15 +86,15 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
   }
 
-  /// Erzeugt z. B.: Apps/Artikel/2025-09-01T12-34-56.789Z-artikelname/datei.jpg
+  // Bilddateiname = Artikelnr-Slug.jpg
   String _buildRemotePath({
     required String baseFolder,
-    required String dateiname,
+    required int artikelId,
     required String artikelName,
   }) {
-    final ts = DateTime.now().toUtc().toIso8601String().replaceAll(':', '-');
     final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
-    return p.posix.join(baseFolder, '$ts-$nameSlug', dateiname);
+    final fileName = '$artikelId-$nameSlug.jpg';
+    return p.posix.join(baseFolder, fileName);
   }
 
   // ---------- Abbrechen mit Bestätigung ----------
@@ -174,12 +174,10 @@ Future<void> _save() async {
           ),
         );
 
-        final baseName =
-            _bildDateiname ?? (_bildPfad != null ? p.basename(_bildPfad!) : 'bild.jpg');
-
+        // Bildname immer nach Schema: Artikelnr-Slug.jpg
         final remoteRelPath = _buildRemotePath(
           baseFolder: client.config.baseRemoteFolder,
-          dateiname: baseName,
+          artikelId: artikelId,
           artikelName: _nameCtrl.text.trim(),
         );
 
@@ -367,3 +365,14 @@ Future<void> _save() async {
     );
   }
 }
+
+// Der Bildname in Nextcloud wird jetzt wie folgt erzeugt:
+// Beispiel: 1234-artikelname-datei.jpg
+// Dabei:
+//   1234         = Artikelnummer (ID)
+//   artikelname  = Slug des Artikelnamens (nur Kleinbuchstaben und Bindestriche)
+//   datei.jpg    = Originaldateiname des Bildes
+        // Beispiel für einen Originaldateinamen:
+        // - "foto123.jpg"
+        // - "scan_2024.png"
+        // - "bild.jpg" (Fallback)

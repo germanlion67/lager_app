@@ -2,9 +2,10 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
+import '../screens/nextcloud_settings_screen.dart';
 import 'nextcloud_credentials.dart';
 
 enum NextcloudConnectionStatus { online, offline, unknown }
@@ -128,5 +129,12 @@ class NextcloudConnectionService {
   void dispose() {
     _timer?.cancel();
     _connectionStatus.dispose();
+  }
+
+  static Future<void> showSettingsScreen(BuildContext context, NextcloudConnectionService connectionService) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const NextcloudSettingsScreen()),
+    );
+    await connectionService.restartMonitoring();
   }
 }

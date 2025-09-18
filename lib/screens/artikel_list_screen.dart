@@ -7,23 +7,19 @@ import '../services/artikel_db_service.dart';
 import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/nextcloud_sync_service.dart';
+import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
 import '../services/app_log_service.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
-import 'qr_scan_screen_mobile_scanner.dart';
 import 'dart:io';
-
-// export/import
-import 'dart:convert';
 
 // Nextcloud Settings + Logout
 import '../services/nextcloud_credentials.dart';
 import '../services/nextcloud_connection_service.dart';
-import 'nextcloud_settings_screen.dart';
+
 // Kamera-Check
 import 'package:camera/camera.dart';
-import 'package:file_picker/file_picker.dart';
 
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
@@ -112,7 +108,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await _importArtikel();
+                // Ausgelagert:
+                await ArtikelImportService.importArtikel(context, _ladeArtikel);
               },
               child: Row(
                 children: const [
@@ -130,7 +127,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await _exportArtikelDialog();
+                await ArtikelExportService.showExportDialog(context);
               },
               child: Row(
                 children: const [
@@ -148,7 +145,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await _resyncPendingFiles();
+                await NextcloudSyncService.showResyncDialog(context);
               },
               child: Row(
                 children: const [
@@ -169,310 +166,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
-  // Import-Logik (JSON/CSV FilePicker)
-  Future<void> _importArtikel() async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      type: FileType.custom,
-      allowedExtensions: ['json', 'csv'],
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
-    final file = result.files.single;
-    final ext = file.extension?.toLowerCase();
-    final content = file.bytes != null
-        ? String.fromCharCodes(file.bytes!)
-        : await File(file.path!).readAsString();
-
-    List<Artikel> artikelList = [];
-    String importMsg = "";
-
-    try {
-      if (ext == 'json') {
-        await AppLogService().log('Import gestartet');
-        artikelList = await ArtikelImportService().importFromJson(content);
-        importMsg = "Importierte Artikel aus JSON: ${artikelList.length}";
-        await AppLogService().log('Import erfolgreich: $importMsg');
-      } else if (ext == 'csv') {
-        await AppLogService().log('Import gestartet');
-        artikelList = await ArtikelImportService().importFromCsv(content);
-        importMsg = "Importierte Artikel aus CSV: ${artikelList.length}";
-        await AppLogService().log('Import erfolgreich: $importMsg');
-      } else {
-        importMsg = "Dateiformat nicht unterstützt.";
-        await AppLogService().log('Import fehlgeschlagen: $importMsg');
-      }
-      if (artikelList.isNotEmpty) {
-        await ArtikelImportService().insertArtikelList(artikelList);
-        await _ladeArtikel();
-      }
-    } catch (e, stack) {
-      importMsg = "Fehler beim Import: $e";
-      await AppLogService().logError(importMsg, stack);
-    }
-
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(importMsg)),
-    );
-  }
-
-  // Export-Logik (Dialog zum Speichern als Datei)
-  Future<void> _exportArtikelDialog() async {
-    try {
-      String? exportType = await showDialog<String>(
-        context: context,
-        builder: (ctx) => SimpleDialog(
-          title: const Text('Exportformat wählen'),
-          children: [
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, 'json'),
-              child: const Text('Export als JSON'),
-            ),
-            SimpleDialogOption(
-              onPressed: () => Navigator.pop(ctx, 'csv'),
-              child: const Text('Export als CSV'),
-            ),
-          ],
-        ),
-      );
-      if (exportType == null) return;
-
-      // Daten erzeugen
-      String? exportData;
-      if (exportType == 'json') {
-        exportData = await ArtikelExportService().exportAllArtikelAsJson();
-      } else if (exportType == 'csv') {
-        exportData = await ArtikelExportService().exportAllArtikelAsCsv();
-      }
-
-      if (exportData == null || exportData.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
-        );
-        return;
-      }
-
-      final fileName =
-        'artikel_export_${DateTime.now().toIso8601String().replaceAll(':', '-')}.$exportType';
-      final bytes = Uint8List.fromList(utf8.encode(exportData)); // Wichtig für Android
-
-      await AppLogService().log('Export gestartet ($exportType)');
-
-      // Auf allen Plattformen saveFile mit Bytes verwenden
-      final savedPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Exportiere Artikeldaten',
-        fileName: fileName,
-        type: FileType.custom,
-        allowedExtensions: [exportType],
-        bytes: bytes, // <- Fix: Android erfordert Bytes
-      );
-
-      if (savedPath != null && mounted) {
-        await AppLogService().log('Export erfolgreich: $savedPath');
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export erfolgreich: $fileName')),
-        );
-      }
-    } catch (e, stack) {
-      await AppLogService().logError('Fehler beim Export: $e', stack);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler beim Export: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-
-      // Speichern als Datei (nur Desktop/Mobile, nicht im Web)
- 
-
-  // --- Nachsynchronisation von Nextcloud-Dateien ---
-  Future<void> _resyncPendingFiles() async {
-    if (!mounted) return;
-
-    // Lade-Dialog anzeigen
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => const AlertDialog(
-        content: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(width: 16),
-            Text('Synchronisiere Dateien...'),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      final syncService = NextcloudSyncService();
-      final result = await syncService.resyncPendingFiles();
-      
-      if (!mounted) return;
-      Navigator.pop(context); // Lade-Dialog schließen
-
-      // Ergebnis anzeigen
-      final message = result.failed == 0
-          ? 'Synchronisation erfolgreich!\n${result.successfullysynced} Datei(en) hochgeladen.'
-          : 'Synchronisation abgeschlossen mit Fehlern:\n'
-            '✓ ${result.successfullysynced} erfolgreich\n'
-            '✗ ${result.failed} fehlgeschlagen';
-
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('Nextcloud Synchronisation'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(message),
-              if (result.errors.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Text('Fehler-Details:', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                ...result.errors.take(3).map((error) => 
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Text('• $error', style: const TextStyle(fontSize: 12)),
-                  )
-                ),
-                if (result.errors.length > 3)
-                  Text('... und ${result.errors.length - 3} weitere Fehler'),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('OK'),
-            ),
-          ],
-        ),
-      );
-
-      // Zusätzlich SnackBar für schnelle Info
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(result.failed == 0 
-            ? '${result.successfullysynced} Datei(en) synchronisiert' 
-            : '${result.successfullysynced} erfolgreich, ${result.failed} Fehler'),
-          backgroundColor: result.failed == 0 ? Colors.green : Colors.orange,
-        ),
-      );
-
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context); // Lade-Dialog schließen
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Synchronisation fehlgeschlagen: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  // --- Log-Dialog ---
-  Future<void> _showLogDialog() async {
-    final logContent = await AppLogService().readLog();
-    if (!mounted) return; // Wichtig: nach async gap prüfen
-    final result = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('App-Log'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Text(logContent.isEmpty ? 'Keine Logeinträge vorhanden.' : logContent),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await AppLogService().clearLog();
-              if (!ctx.mounted) return;
-              Navigator.of(ctx).pop(true); // gibt true zurück
-            },
-            child: const Text('Log löschen'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Schließen'),
-          ),
-        ],
-      ),
-    );
-    if (result == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Logdatei gelöscht')),
-      );
-    }
-  }
-
-  // --- Scanfunktion ---
-  Future<void> _scanArtikel() async {
-    final result = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const QRScanScreen()),
-    );
-    if (!mounted) return;
-    if (result is Artikel) {
-      setState(() {
-        final index = _artikelListe.indexWhere((a) => a.id == result.id);
-        if (index != -1) {
-          _artikelListe[index] = result;
-        }
-      });
-    } else if (result == 'deleted') {
-      setState(() {
-        _artikelListe.removeWhere((a) => a.id == result.id);
-      });
-    } else {
-
-      // Falls kein Ergebnis: Liste einfach neu laden
-      await _ladeArtikel();
-    }
-  }
-
-
   // --- Menü/Actions ---
-  Future<void> _openSettings() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const NextcloudSettingsScreen()),
-    );
-    // Restart monitoring after settings change
-    await _connectionService.restartMonitoring();
-  }
 
-  Future<void> _logoutNextcloud() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout Nextcloud'),
-        content: const Text(
-          'Gespeicherte Nextcloud-Zugangsdaten werden gelöscht. Fortfahren?'
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Logout')),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (confirm == true) {
-      await NextcloudCredentialsStore().clear();
-      // Stop monitoring when logged out
-      _connectionService.stopPeriodicCheck();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nextcloud-Login gelöscht')),
-      );
-    }
-  }
 
   Widget _buildConnectionStatusIcon() {
     return ValueListenableBuilder<NextcloudConnectionStatus>(
@@ -536,26 +231,14 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ],
         ),
         actions: [
-          // ⋮ Popup-Menü rechts in der AppBar
           PopupMenuButton<_MenuAction>(
             onSelected: (act) async {
               switch (act) {
-                case _MenuAction.erfassen:
-                  await _neuenArtikelErfassen();
-                  break;
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
                 case _MenuAction.settings:
-                  await _openSettings();
-                  break;
-                case _MenuAction.logout:
-                  await _logoutNextcloud();
-                  break;
-                case _MenuAction.showLog:
-                  await _showLogDialog();
-                  break;
-                case _MenuAction.resetDb:
+                  // Einstellungen: Datenbank zurücksetzen
                   final messenger = ScaffoldMessenger.of(context);
                   final confirm = await showDialog<bool>(
                     context: context,
@@ -583,25 +266,22 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     );
                   }
                   break;
+                case _MenuAction.nextcloudSettings:
+                  await NextcloudConnectionService.showSettingsScreen(context, _connectionService);
+                  break;
+                case _MenuAction.logout:
+                  await NextcloudCredentialsStore.showLogoutDialog(context, _connectionService);
+                  break;
                 case _MenuAction.exit:
                   if (Platform.isAndroid || Platform.isIOS) {
-                    SystemNavigator.pop(); // Mobile
+                    SystemNavigator.pop();
                   } else {
-                    exit(0); // Desktop
+                    exit(0);
                   }
                   break;
-                }
+              }
             },
             itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: _MenuAction.erfassen,
-                child: ListTile(
-                  leading: AddArticleIcon(),
-                  title: Text('Artikel erfassen'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
               const PopupMenuItem(
                 value: _MenuAction.importExport,
                 child: ListTile(
@@ -611,40 +291,32 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   dense: true,
                 ),
               ),
+              const PopupMenuDivider(),
               const PopupMenuItem(
                 value: _MenuAction.settings,
                 child: ListTile(
                   leading: Icon(Icons.settings),
+                  title: Text('Einstellungen'),
+                  subtitle: Text('Datenbank zurücksetzen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: _MenuAction.nextcloudSettings,
+                child: ListTile(
+                  leading: Icon(Icons.cloud),
                   title: Text('Nextcloud-Einstellungen'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
               ),
-              const PopupMenuDivider(),
               const PopupMenuItem(
                 value: _MenuAction.logout,
                 child: ListTile(
                   leading: Icon(Icons.logout),
                   title: Text('Logout Nextcloud'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: _MenuAction.resetDb,
-                child: ListTile(
-                  leading: Icon(Icons.restart_alt),
-                  title: Text('Datenbank zurücksetzen'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              const PopupMenuItem(
-                value: _MenuAction.showLog,
-                child: ListTile(
-                  leading: Icon(Icons.article),
-                  title: Text('App-Log anzeigen/löschen'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -799,7 +471,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           if (_hasCamera) // 👈 nur anzeigen wenn Kamera verfügbar
             FloatingActionButton(
               heroTag: 'scan',
-              onPressed: _scanArtikel,
+              onPressed: () async {
+                await ScanService.scanArtikel(context, _artikelListe, _ladeArtikel, setState);
+              },
               tooltip: "Artikel scannen",
               child: const Icon(Icons.qr_code_scanner),
             ),
@@ -816,4 +490,36 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
+enum _MenuAction { importExport, settings, nextcloudSettings, logout, exit }
+
+// Der Bildname zum Speichern wird typischerweise beim Erfassen eines neuen Artikels festgelegt.
+// Das passiert meist in der Methode, die das Bild auswählt oder speichert, z.B. in ArtikelErfassenScreen oder beim Import/Export.
+// In dieser Datei gibt es keine direkte Festlegung des Bildnamens zum Speichern.
+// Falls ein Bildname generiert wird, wäre das z.B. so:
+
+// Beispiel (nicht im aktuellen Code vorhanden):
+// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+// File newImage = await pickedImage.copy('$saveDir/$bildName');
+// Beispiel (nicht im aktuellen Code vorhanden):
+// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+// File newImage = await pickedImage.copy('$saveDir/$bildName');
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 enum _MenuAction { erfassen, importExport, settings, logout, resetDb, showLog, exit }
+
+// Der Bildname zum Speichern wird typischerweise beim Erfassen eines neuen Artikels festgelegt.
+// Das passiert meist in der Methode, die das Bild auswählt oder speichert, z.B. in ArtikelErfassenScreen oder beim Import/Export.
+// In dieser Datei gibt es keine direkte Festlegung des Bildnamens zum Speichern.
+// Falls ein Bildname generiert wird, wäre das z.B. so:
+
+// Beispiel (nicht im aktuellen Code vorhanden):
+// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+// File newImage = await pickedImage.copy('$saveDir/$bildName');
+// Beispiel (nicht im aktuellen Code vorhanden):
+// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+// File newImage = await pickedImage.copy('$saveDir/$bildName');

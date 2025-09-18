@@ -1,6 +1,9 @@
 //lib/services/nextcloud_credentials.dart
 
+import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+import 'nextcloud_connection_service.dart';
 
 class NextcloudCredentials {
   final Uri server;
@@ -65,5 +68,30 @@ class NextcloudCredentialsStore {
     await _storage.delete(key: _kAppPw);
     await _storage.delete(key: _kBaseFolder);
     await _storage.delete(key: _kCheckInterval);
+  }
+
+  static Future<void> showLogoutDialog(BuildContext context, NextcloudConnectionService connectionService) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout Nextcloud'),
+        content: const Text(
+          'Gespeicherte Nextcloud-Zugangsdaten werden gelöscht. Fortfahren?'
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Logout')),
+        ],
+      ),
+    );
+    if (!context.mounted) return;
+    if (confirm == true) {
+      await NextcloudCredentialsStore().clear();
+      connectionService.stopPeriodicCheck();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nextcloud-Login gelöscht')),
+      );
+    }
   }
 }

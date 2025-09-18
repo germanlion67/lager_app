@@ -10,6 +10,10 @@ import 'dart:convert';
 import 'package:csv/csv.dart';
 import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
+import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
+import '../services/app_log_service.dart';
 
 class ArtikelImportService {
   /// Importiert Artikel aus einer JSON-Datei (String-Inhalt).
@@ -63,5 +67,52 @@ class ArtikelImportService {
         await db.insertArtikel(artikel);
       }
     }
+  }
+
+  static Future<void> importArtikel(BuildContext context, Future<void> Function() reloadArtikel) async {
+    final result = await FilePicker.platform.pickFiles(
+      allowMultiple: false,
+      type: FileType.custom,
+      allowedExtensions: ['json', 'csv'],
+      withData: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.single;
+    final ext = file.extension?.toLowerCase();
+    final content = file.bytes != null
+        ? String.fromCharCodes(file.bytes!)
+        : await File(file.path!).readAsString();
+
+    List<Artikel> artikelList = [];
+    String importMsg = "";
+
+    try {
+      if (ext == 'json') {
+        await AppLogService().log('Import gestartet');
+        artikelList = await ArtikelImportService().importFromJson(content);
+        importMsg = "Importierte Artikel aus JSON: ${artikelList.length}";
+        await AppLogService().log('Import erfolgreich: $importMsg');
+      } else if (ext == 'csv') {
+        await AppLogService().log('Import gestartet');
+        artikelList = await ArtikelImportService().importFromCsv(content);
+        importMsg = "Importierte Artikel aus CSV: ${artikelList.length}";
+        await AppLogService().log('Import erfolgreich: $importMsg');
+      } else {
+        importMsg = "Dateiformat nicht unterstützt.";
+        await AppLogService().log('Import fehlgeschlagen: $importMsg');
+      }
+      if (artikelList.isNotEmpty) {
+        await ArtikelImportService().insertArtikelList(artikelList);
+        await reloadArtikel();
+      }
+    } catch (e, stack) {
+      importMsg = "Fehler beim Import: $e";
+      await AppLogService().logError(importMsg, stack);
+    }
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(importMsg)),
+    );
   }
 }

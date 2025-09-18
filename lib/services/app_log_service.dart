@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/material.dart';
 
 class AppLogService {
   static final AppLogService _instance = AppLogService._internal();
@@ -36,6 +37,42 @@ class AppLogService {
     final file = await _getLogFile();
     if (await file.exists()) {
       await file.writeAsString('');
+    }
+  }
+
+  static Future<void> showLogDialog(BuildContext context) async {
+    final logContent = await AppLogService().readLog();
+    if (!context.mounted) return;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('App-Log'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Text(logContent.isEmpty ? 'Keine Logeinträge vorhanden.' : logContent),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await AppLogService().clearLog();
+              if (!ctx.mounted) return;
+              Navigator.of(ctx).pop(true);
+            },
+            child: const Text('Log löschen'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Schließen'),
+          ),
+        ],
+      ),
+    );
+    if (result == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Logdatei gelöscht')),
+      );
     }
   }
 }

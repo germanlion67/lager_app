@@ -9,6 +9,7 @@ import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
 import 'artikel_db_service.dart';
 import '../models/artikel_model.dart';
+import 'package:flutter/material.dart';
 
 /// Ergebnis einer Resync-Operation
 class ResyncResult {
@@ -275,5 +276,89 @@ class NextcloudSyncService {
     final s = input.toLowerCase();
     final replaced = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
     return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
+  }
+
+  static Future<void> showResyncDialog(BuildContext context) async {
+    if (!context.mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const AlertDialog(
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 16),
+            Text('Synchronisiere Dateien...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final syncService = NextcloudSyncService();
+      final result = await syncService.resyncPendingFiles();
+
+      if (!context.mounted) return;
+      Navigator.pop(context); // Lade-Dialog schließen
+
+      final message = result.failed == 0
+          ? 'Synchronisation erfolgreich!\n${result.successfullysynced} Datei(en) hochgeladen.'
+          : 'Synchronisation abgeschlossen mit Fehlern:\n'
+            '✓ ${result.successfullysynced} erfolgreich\n'
+            '✗ ${result.failed} fehlgeschlagen';
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Nextcloud Synchronisation'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(message),
+              if (result.errors.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Text('Fehler-Details:', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...result.errors.take(3).map((error) =>
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: Text('• $error', style: const TextStyle(fontSize: 12)),
+                  )
+                ),
+                if (result.errors.length > 3)
+                  Text('... und ${result.errors.length - 3} weitere Fehler'),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.failed == 0
+            ? '${result.successfullysynced} Datei(en) synchronisiert'
+            : '${result.successfullysynced} erfolgreich, ${result.failed} Fehler'),
+          backgroundColor: result.failed == 0 ? Colors.green : Colors.orange,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      Navigator.pop(context); // Lade-Dialog schließen
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Synchronisation fehlgeschlagen: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
