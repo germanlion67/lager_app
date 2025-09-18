@@ -9,10 +9,10 @@ import '../services/artikel_db_service.dart';
 import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/nextcloud_sync_service.dart';
+import '../services/app_log_service.dart';
 import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
-import 'artikel_detail_screen.dart';
 import 'dart:io';
 
 // Nextcloud Settings + Logout
@@ -238,63 +238,91 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
+ 
+                // ...existing code...
                 case _MenuAction.settings:
                   // Öffne Untermenü für Einstellungen
-                  await showMenu(
+                  await showDialog(
                     context: context,
-                    position: RelativeRect.fromLTRB(1000, 80, 0, 0), // Position ggf. anpassen
-                    items: [
-                      PopupMenuItem(
-                        value: 'resetDb',
-                        child: ListTile(
-                          leading: const Icon(Icons.restart_alt),
-                          title: const Text('Datenbank zurücksetzen'),
+                    builder: (ctx) => SimpleDialog(
+                      title: const Text('Einstellungen'),
+                      children: [
+                        SimpleDialogOption(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            final messenger = ScaffoldMessenger.of(context);
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (ctx2) => AlertDialog(
+                                title: const Text('Datenbank zurücksetzen'),
+                                content: const Text(
+                                    'Alle Artikel werden gelöscht und die IDs neu ab 1000 vergeben.\nFortfahren?'),
+                                actions: [
+                                  TextButton(
+                                      onPressed: () => Navigator.pop(ctx2, false),
+                                      child: const Text('Abbrechen')),
+                                  FilledButton(
+                                      onPressed: () => Navigator.pop(ctx2, true),
+                                      child: const Text('Zurücksetzen')),
+                                ],
+                              ),
+                            );
+                            if (confirm == true) {
+                              await ArtikelDbService().resetDatabase(startId: 1000);
+                              if (!mounted) return;
+                              await _ladeArtikel();
+                              if (!mounted) return;
+                              messenger.showSnackBar(
+                                const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
+                              );
+                            }
+                          },
+                          child: Row(
+                            children: const [
+                              Icon(Icons.restart_alt),
+                              SizedBox(width: 8),
+                              Expanded(child: Text('Datenbank zurücksetzen')),
+                            ],
+                          ),
                         ),
-                      ),
-                      PopupMenuItem(
-                        value: 'showLog',
-                        child: ListTile(
-                          leading: const Icon(Icons.article),
-                          title: const Text('App-Log anzeigen/löschen'),
+                        SimpleDialogOption(
+                          onPressed: () async {
+                            Navigator.pop(ctx);
+                            await AppLogService.showLogDialog(context);
+                          },
+                          child: Row(
+                            children: const [
+                              Icon(Icons.article),
+                              SizedBox(width: 8),
+                              Expanded(child: Text('App-Log anzeigen/löschen')),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ).then((selected) async {
-                    if (selected == 'resetDb') {
-                      final messenger = ScaffoldMessenger.of(context);
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Datenbank zurücksetzen'),
-                          content: const Text(
-                              'Alle Artikel werden gelöscht und die IDs neu ab 1000 vergeben.\nFortfahren?'),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Abbrechen')),
-                            FilledButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Zurücksetzen')),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        await ArtikelDbService().resetDatabase(startId: 1000);
-                        if (!mounted) return;
-                        await _ladeArtikel();
-                        if (!mounted) return;
-                        messenger.showSnackBar(
-                          const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
-                        );
-                      }
-                    } else if (selected == 'showLog') {
-                      await AppLogService.showLogDialog(context);
-                    }
-                  });
+                      ],
+                    ),
+                  );
                   break;
+                // ...existing code...
                 case _MenuAction.nextcloudSettings:
                   await NextcloudConnectionService.showSettingsScreen(context, _connectionService);
                   break;
+                case _MenuAction.nextcloudCredentials:
+                  // Beispiel-Dialog für Zugangsdaten
+                  await showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Nextcloud Zugangsdaten'),
+                      content: const Text('Hier können die Zugangsdaten angezeigt oder geändert werden.'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Schließen'),
+                        ),
+                      ],
+                    ),
+                  );
+                  break;
+
                 case _MenuAction.logout:
                   await NextcloudCredentialsStore.showLogoutDialog(context, _connectionService);
                   break;
@@ -333,6 +361,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.cloud),
                   title: Text('Nextcloud-Einstellungen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              // ...existing code...
+              const PopupMenuItem(
+                value: _MenuAction.nextcloudCredentials,
+                child: ListTile(
+                  leading: Icon(Icons.vpn_key),
+                  title: Text('Nextcloud Zugangsdaten'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -447,18 +485,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     children: [
                       Text(
                         artikel.beschreibung,
-                        final index = _artikelListe.indexWhere((a) => a.id == result.id);
-                        if (index != -1) {
-                          _artikelListe[index] = result;
-                        }
-                      });
-                    } else if (result == 'deleted') {
-                      // 👉 Artikel wurde gelöscht
-                      setState(() {
-                        _artikelListe.removeWhere((a) => a.id == artikel.id);
-                      });
-                    }
-                  }
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (artikel.ort.isNotEmpty)
+                        Text(
+                          'Ort: ${artikel.ort}',
+                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -491,4 +527,4 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-enum _MenuAction { importExport, settings, nextcloudSettings, logout, exit }
+enum _MenuAction { importExport, settings, nextcloudSettings, nextcloudCredentials, logout, exit }
