@@ -1,7 +1,9 @@
 //lib/screens/artikel_list_screen.dart
 
 import 'package:flutter/material.dart';
+// Füge hinzu:
 import 'package:flutter/services.dart';
+
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../services/artikel_import_service.dart';
@@ -9,7 +11,6 @@ import '../services/artikel_export_service.dart';
 import '../services/nextcloud_sync_service.dart';
 import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
-import '../services/app_log_service.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
 import 'dart:io';
@@ -238,33 +239,58 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   await _importExportDialog();
                   break;
                 case _MenuAction.settings:
-                  // Einstellungen: Datenbank zurücksetzen
-                  final messenger = ScaffoldMessenger.of(context);
-                  final confirm = await showDialog<bool>(
+                  // Öffne Untermenü für Einstellungen
+                  await showMenu(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Datenbank zurücksetzen'),
-                      content: const Text(
-                          'Alle Artikel werden gelöscht und die IDs neu ab 1000 vergeben.\nFortfahren?'),
-                      actions: [
-                        TextButton(
-                            onPressed: () => Navigator.pop(ctx, false),
-                            child: const Text('Abbrechen')),
-                        FilledButton(
-                            onPressed: () => Navigator.pop(ctx, true),
-                            child: const Text('Zurücksetzen')),
-                      ],
-                    ),
-                  );
-                  if (confirm == true) {
-                    await ArtikelDbService().resetDatabase(startId: 1000);
-                    if (!mounted) return;
-                    await _ladeArtikel();
-                    if (!mounted) return;
-                    messenger.showSnackBar(
-                      const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
-                    );
-                  }
+                    position: RelativeRect.fromLTRB(1000, 80, 0, 0), // Position ggf. anpassen
+                    items: [
+                      PopupMenuItem(
+                        value: 'resetDb',
+                        child: ListTile(
+                          leading: const Icon(Icons.restart_alt),
+                          title: const Text('Datenbank zurücksetzen'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'showLog',
+                        child: ListTile(
+                          leading: const Icon(Icons.article),
+                          title: const Text('App-Log anzeigen/löschen'),
+                        ),
+                      ),
+                    ],
+                  ).then((selected) async {
+                    if (selected == 'resetDb') {
+                      final messenger = ScaffoldMessenger.of(context);
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Datenbank zurücksetzen'),
+                          content: const Text(
+                              'Alle Artikel werden gelöscht und die IDs neu ab 1000 vergeben.\nFortfahren?'),
+                          actions: [
+                            TextButton(
+                                onPressed: () => Navigator.pop(ctx, false),
+                                child: const Text('Abbrechen')),
+                            FilledButton(
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Zurücksetzen')),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        await ArtikelDbService().resetDatabase(startId: 1000);
+                        if (!mounted) return;
+                        await _ladeArtikel();
+                        if (!mounted) return;
+                        messenger.showSnackBar(
+                          const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
+                        );
+                      }
+                    } else if (selected == 'showLog') {
+                      await AppLogService.showLogDialog(context);
+                    }
+                  });
                   break;
                 case _MenuAction.nextcloudSettings:
                   await NextcloudConnectionService.showSettingsScreen(context, _connectionService);
@@ -297,7 +323,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.settings),
                   title: Text('Einstellungen'),
-                  subtitle: Text('Datenbank zurücksetzen'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -422,30 +447,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     children: [
                       Text(
                         artikel.beschreibung,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        "${artikel.ort} • ${artikel.fach}",
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                          fontStyle: FontStyle.italic, // ⬅️ Kursiv!
-                        ),
-                      ),
-                    ],
-                  ),
-                  isThreeLine: true,
-                  onTap: () async {
-                    final result = await Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => ArtikelDetailScreen(artikel: artikel),
-                      ),
-                    );
-                    if (!mounted) return;
-                    if (result is Artikel) {
-                      // 👉 Artikel wurde gespeichert
-                      setState(() {
                         final index = _artikelListe.indexWhere((a) => a.id == result.id);
                         if (index != -1) {
                           _artikelListe[index] = result;
@@ -491,35 +492,3 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 }
 
 enum _MenuAction { importExport, settings, nextcloudSettings, logout, exit }
-
-// Der Bildname zum Speichern wird typischerweise beim Erfassen eines neuen Artikels festgelegt.
-// Das passiert meist in der Methode, die das Bild auswählt oder speichert, z.B. in ArtikelErfassenScreen oder beim Import/Export.
-// In dieser Datei gibt es keine direkte Festlegung des Bildnamens zum Speichern.
-// Falls ein Bildname generiert wird, wäre das z.B. so:
-
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-enum _MenuAction { erfassen, importExport, settings, logout, resetDb, showLog, exit }
-
-// Der Bildname zum Speichern wird typischerweise beim Erfassen eines neuen Artikels festgelegt.
-// Das passiert meist in der Methode, die das Bild auswählt oder speichert, z.B. in ArtikelErfassenScreen oder beim Import/Export.
-// In dieser Datei gibt es keine direkte Festlegung des Bildnamens zum Speichern.
-// Falls ein Bildname generiert wird, wäre das z.B. so:
-
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
