@@ -14,6 +14,9 @@ import 'artikel_detail_screen.dart';
 import 'qr_scan_screen_mobile_scanner.dart';
 import 'dart:io';
 
+// export/import
+import 'dart:convert';
+
 // Nextcloud Settings + Logout
 import '../services/nextcloud_credentials.dart';
 import '../services/nextcloud_connection_service.dart';
@@ -235,13 +238,14 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       );
       if (exportType == null) return;
 
+      // Daten erzeugen
       String? exportData;
-      String fileName = 'artikel_export_${DateTime.now().toIso8601String().replaceAll(':','-')}.$exportType';
       if (exportType == 'json') {
         exportData = await ArtikelExportService().exportAllArtikelAsJson();
       } else if (exportType == 'csv') {
         exportData = await ArtikelExportService().exportAllArtikelAsCsv();
       }
+
       if (exportData == null || exportData.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -249,25 +253,24 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         );
         return;
       }
-      // Speichern als Datei (nur Desktop/Mobile, nicht im Web)
-      if (!Platform.isAndroid && !Platform.isIOS && !Platform.isLinux && !Platform.isMacOS && !Platform.isWindows) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dateiexport auf diesem System nicht unterstützt.')),
-        );
-        return;
-      }
-      final result = await FilePicker.platform.saveFile(
+
+      final fileName =
+        'artikel_export_${DateTime.now().toIso8601String().replaceAll(':', '-')}.$exportType';
+      final bytes = Uint8List.fromList(utf8.encode(exportData)); // Wichtig für Android
+
+      await AppLogService().log('Export gestartet ($exportType)');
+
+      // Auf allen Plattformen saveFile mit Bytes verwenden
+      final savedPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Exportiere Artikeldaten',
         fileName: fileName,
         type: FileType.custom,
         allowedExtensions: [exportType],
+        bytes: bytes, // <- Fix: Android erfordert Bytes
       );
-      await AppLogService().log('Export gestartet');
-      if (result != null) {
-        final file = File(result);
-        await file.writeAsString(exportData);
-        await AppLogService().log('Export erfolgreich: $fileName');
+
+      if (savedPath != null && mounted) {
+        await AppLogService().log('Export erfolgreich: $savedPath');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Export erfolgreich: $fileName')),
@@ -281,6 +284,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       );
     }
   }
+
+      // Speichern als Datei (nur Desktop/Mobile, nicht im Web)
+ 
 
   // --- Nachsynchronisation von Nextcloud-Dateien ---
   Future<void> _resyncPendingFiles() async {
@@ -372,7 +378,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   // --- Log-Dialog ---
-Future<void> _showLogDialog() async {
+  Future<void> _showLogDialog() async {
     final logContent = await AppLogService().readLog();
     if (!mounted) return; // Wichtig: nach async gap prüfen
     final result = await showDialog<bool>(
@@ -540,7 +546,7 @@ Future<void> _showLogDialog() async {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
-               case _MenuAction.settings:
+                case _MenuAction.settings:
                   await _openSettings();
                   break;
                 case _MenuAction.logout:
