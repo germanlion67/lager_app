@@ -167,8 +167,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   // --- Menü/Actions ---
-
-
   Widget _buildConnectionStatusIcon() {
     return ValueListenableBuilder<NextcloudConnectionStatus>(
       valueListenable: _connectionService.connectionStatus,
@@ -218,6 +216,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
+  // --- Menü/Ansicht ---
   @override
   Widget build(BuildContext context) {
     final gefiltert = _gefilterteArtikel();
@@ -237,8 +236,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
-                case _MenuAction.settings:
-                  // Einstellungen: Datenbank zurücksetzen
+                case _MenuAction.resetDb:
                   final messenger = ScaffoldMessenger.of(context);
                   final confirm = await showDialog<bool>(
                     context: context,
@@ -265,6 +263,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                       const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
                     );
                   }
+                  break;
+                case _MenuAction.showLog:
+                  await AppLogService.showLogDialog(context);
                   break;
                 case _MenuAction.nextcloudSettings:
                   await NextcloudConnectionService.showSettingsScreen(context, _connectionService);
@@ -293,11 +294,19 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
-                value: _MenuAction.settings,
+                value: _MenuAction.resetDb,
                 child: ListTile(
-                  leading: Icon(Icons.settings),
-                  title: Text('Einstellungen'),
-                  subtitle: Text('Datenbank zurücksetzen'),
+                  leading: Icon(Icons.restart_alt),
+                  title: Text('Datenbank zurücksetzen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: _MenuAction.showLog,
+                child: ListTile(
+                  leading: Icon(Icons.article),
+                  title: Text('Log-Ansicht'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -490,4 +499,4 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-enum _MenuAction { importExport, settings, nextcloudSettings, logout, exit }
+enum _MenuAction { importExport, resetDb, showLog, nextcloudSettings, logout, exit }
