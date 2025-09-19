@@ -491,35 +491,3 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 }
 
 enum _MenuAction { importExport, settings, nextcloudSettings, logout, exit }
-
-// Der Bildname zum Speichern wird typischerweise beim Erfassen eines neuen Artikels festgelegt.
-// Das passiert meist in der Methode, die das Bild auswählt oder speichert, z.B. in ArtikelErfassenScreen oder beim Import/Export.
-// In dieser Datei gibt es keine direkte Festlegung des Bildnamens zum Speichern.
-// Falls ein Bildname generiert wird, wäre das z.B. so:
-
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-enum _MenuAction { erfassen, importExport, settings, logout, resetDb, showLog, exit }
-
-// Der Bildname zum Speichern wird typischerweise beim Erfassen eines neuen Artikels festgelegt.
-// Das passiert meist in der Methode, die das Bild auswählt oder speichert, z.B. in ArtikelErfassenScreen oder beim Import/Export.
-// In dieser Datei gibt es keine direkte Festlegung des Bildnamens zum Speichern.
-// Falls ein Bildname generiert wird, wäre das z.B. so:
-
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
-// Beispiel (nicht im aktuellen Code vorhanden):
-// String bildName = 'artikel_${artikel.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-// File newImage = await pickedImage.copy('$saveDir/$bildName');
