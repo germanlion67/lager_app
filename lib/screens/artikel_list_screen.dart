@@ -166,6 +166,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
+  
   // --- Menü/Actions ---
   Widget _buildConnectionStatusIcon() {
     return ValueListenableBuilder<NextcloudConnectionStatus>(
@@ -236,6 +237,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
+                case _MenuAction.backup:
+                  await ArtikelExportService.backupToFile(context);
+                  break;
+                case _MenuAction.restoreBackup:
+                  await ArtikelImportService.importBackup(context);
+                  break;
                 case _MenuAction.resetDb:
                   final messenger = ScaffoldMessenger.of(context);
                   final confirm = await showDialog<bool>(
@@ -302,6 +309,27 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   dense: true,
                 ),
               ),
+              // ...existing code...
+              const PopupMenuItem(
+                value: _MenuAction.backup,
+                child: ListTile(
+                  leading: Icon(Icons.backup),
+                  title: Text('Backup erstellen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+
+              const PopupMenuItem(
+                value: _MenuAction.restoreBackup,
+                child: ListTile(
+                  leading: Icon(Icons.backup),
+                  title: Text('Backup restore'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              // ...existing code...              
               const PopupMenuItem(
                 value: _MenuAction.showLog,
                 child: ListTile(
@@ -499,4 +527,4 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-enum _MenuAction { importExport, resetDb, showLog, nextcloudSettings, logout, exit }
+enum _MenuAction { importExport, backup, restoreBackup, resetDb, showLog, nextcloudSettings, logout, exit }

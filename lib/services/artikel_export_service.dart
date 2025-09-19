@@ -11,6 +11,7 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 import '../services/app_log_service.dart';
 import 'artikel_db_service.dart';
+//import 'dart:io';
 
 class ArtikelExportService {
   /// Exportiert alle Artikel der Datenbank als JSON-String (Backup).
@@ -46,6 +47,8 @@ class ArtikelExportService {
     }
     return const ListToCsvConverter().convert(rows);
   }
+
+
 
   static Future<void> showExportDialog(BuildContext context) async {
     try {
@@ -111,4 +114,32 @@ class ArtikelExportService {
       );
     }
   }
+  // --- Backup ---
+  static Future<void> backupToFile(BuildContext context) async {
+    await AppLogService().log('Backup gestartet');
+    final now = DateTime.now();
+    final filename =
+        'backup_${now.day.toString().padLeft(2, '0')}${now.month.toString().padLeft(2, '0')}${now.year}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.json';
+    final jsonString = await ArtikelExportService().exportAllArtikelAsJson();
+    final bytes = Uint8List.fromList(utf8.encode(jsonString)); // <--- Diese Zeile ergänzt die Variable!
+    final result = await FilePicker.platform.saveFile(
+      dialogTitle: 'Backup speichern',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+      bytes: bytes,
+    );
+    await AppLogService().log('FilePicker result: $result');
+    if (result != null) {
+      await AppLogService().log('Backup erfolgreich gespeichert: $filename');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Backup erfolgreich gespeichert')),
+      );
+    }
+    else {
+      await AppLogService().log('Backup abgebrochen oder kein Pfad gewählt');
+    }
+  }   
+
 }

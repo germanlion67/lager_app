@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import '../services/app_log_service.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // <-- für Desktop/FFI
 
 class ArtikelImportService {
   /// Importiert Artikel aus einer JSON-Datei (String-Inhalt).
@@ -68,6 +69,56 @@ class ArtikelImportService {
       }
     }
   }
+
+// --- Backup ---
+  static Future<void> importBackup(BuildContext context) async {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Backup-Datei auswählen',
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = File(result.files.single.path!);
+    final jsonString = await file.readAsString();
+    final artikelList = await ArtikelImportService().importFromJson(jsonString);
+    await AppLogService().log('Backup-Restore gestartet');
+
+    final db = await ArtikelDbService().database;
+    try {
+      await db.transaction((txn) async {
+        // 1) Clear table
+        await txn.delete('artikel');
+        // 2) Insert all articles preserving IDs (falls vorhanden)
+        for (final a in artikelList) {
+          final map = a.toMap();
+          // Insert with REPLACE to preserve provided id (falls Primary Key gesetzt)
+          await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        // 3) Optional: Update sqlite_sequence so AUTOINCREMENT folgt highest id
+        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
+        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
+            ? maxIdRow.first['maxId'] as int
+            : 0;
+        if (maxId > 0) {
+          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
+        }
+      });
+      await AppLogService().log('Backup-Restore erfolgreich: ${artikelList.length} Einträge wiederhergestellt');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup erfolgreich wiederhergestellt')),
+        );
+      }
+    } catch (e, st) {
+      await AppLogService().logError('Fehler beim Backup-Restore: $e', st);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Restore: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
 
   static Future<void> importArtikel(BuildContext context, Future<void> Function() reloadArtikel) async {
     final result = await FilePicker.platform.pickFiles(
