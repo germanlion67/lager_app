@@ -97,6 +97,94 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
+  // Backup-Dialog
+  Future<void> _showBackupDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return SimpleDialog(
+          title: const Text('Backup-Optionen'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelExportService.backupToFile(context);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.file_download, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Lokales Backup (nur Daten)')
+                  )
+                ]
+              )
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelExportService.backupWithImagesToNextcloud(context);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.cloud_upload, color: Colors.green),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Nextcloud Backup (mit Bildern)')
+                  )
+                ]
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Restore-Dialog
+  Future<void> _showRestoreDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return SimpleDialog(
+          title: const Text('Backup wiederherstellen'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelImportService.importBackup(context, _ladeArtikel);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.file_upload, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Lokales Backup (nur Daten)')
+                  )
+                ]
+              )
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelImportService.importBackupWithImagesFromNextcloud(context, _ladeArtikel);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.cloud_download, color: Colors.green),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Nextcloud Backup (mit Bildern)')
+                  )
+                ]
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
     // Import/Export-Funktion als Dialog
   Future<void> _importExportDialog() async {
     await showDialog(
@@ -238,10 +326,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   await _importExportDialog();
                   break;
                 case _MenuAction.backup:
-                  await ArtikelExportService.backupToFile(context);
+                  await _showBackupDialog();
                   break;
                 case _MenuAction.restoreBackup:
-                  await ArtikelImportService.importBackup(context);
+                  await _showRestoreDialog();
                   break;
                 case _MenuAction.resetDb:
                   final messenger = ScaffoldMessenger.of(context);

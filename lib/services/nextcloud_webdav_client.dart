@@ -122,6 +122,46 @@ class NextcloudWebDavClient {
     final bytes = await file.readAsBytes();
     await uploadBytes(bytes: bytes, remoteRelativePath: remoteRelativePath);
   }
+
+  /// Download einer Datei von Nextcloud
+  /// [remoteRelativePath] relativ zu webDavRoot, z.B. "Apps/Artikel/backup_123/images/artikel_1_image.jpg"
+  Future<Uint8List> downloadBytes({
+    required String remoteRelativePath,
+  }) async {
+    final targetUri = config.webDavRoot.replace(
+      path: p.posix.join(config.webDavRoot.path, remoteRelativePath),
+    );
+
+    final res = await http.get(
+      targetUri,
+      headers: _authHeader,
+    );
+
+    if (res.statusCode == 200) {
+      return res.bodyBytes;
+    } else if (res.statusCode == 401) {
+      throw WebDavException('Unauthorized (401): Bitte App-Passwort prüfen.');
+    } else if (res.statusCode == 404) {
+      throw WebDavException('Not Found (404): Datei nicht gefunden: $remoteRelativePath');
+    }
+
+    throw WebDavException(
+        'Download fehlgeschlagen (${res.statusCode}): ${res.body.isNotEmpty ? res.body : "<kein Body>"}');
+  }
+
+  /// Download einer Datei zu einem lokalen Pfad
+  Future<void> downloadFile({
+    required String remoteRelativePath,
+    required String localPath,
+  }) async {
+    final bytes = await downloadBytes(remoteRelativePath: remoteRelativePath);
+    
+    // Lokales Verzeichnis erstellen falls nötig
+    final localFile = File(localPath);
+    await localFile.parent.create(recursive: true);
+    
+    await localFile.writeAsBytes(bytes);
+  }
 }
 
 class WebDavException implements Exception {
