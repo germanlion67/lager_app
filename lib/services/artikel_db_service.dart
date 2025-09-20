@@ -168,7 +168,7 @@ class ArtikelDbService {
     );
   }
 
-  /// Findet alle Artikel mit lokalen Bildern, die noch nicht zu Nextcloud synchronisiert wurden
+  // Findet alle Artikel mit lokalen Bildern, die noch nicht zu Nextcloud synchronisiert wurden
   Future<List<Artikel>> getUnsyncedArtikel() async {
     final db = await database;
     final maps = await db.query(
@@ -177,5 +177,27 @@ class ArtikelDbService {
       orderBy: 'id DESC',
     );
     return maps.map((map) => Artikel.fromMap(map)).toList();
+  }
+
+  Future<void> deleteAlleArtikel() async {
+    final db = await database;
+    await db.delete('artikel');
+    final count = (await db.rawQuery('SELECT COUNT(*) FROM artikel')).first.values.first as int;
+    logger.i("Artikel gelöscht, verbleibende Einträge: $count");
+  }
+
+  Future<void> insertArtikelList(List<Artikel> artikelList) async {
+    final db = await database;
+    int count = 0;
+    for (final artikel in artikelList) {
+      await db.insert(
+        'artikel',
+        artikel.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace, // Überschreibt ggf. vorhandene IDs
+      );
+      count++;
+      logger.d("Artikel eingefügt/überschrieben: ID=${artikel.id}, Name=${artikel.name}");
+    }
+    logger.i("$count Artikel aus Backup wiederhergestellt.");
   }
 }

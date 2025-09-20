@@ -8,12 +8,17 @@
 
 import 'dart:convert';
 import 'package:csv/csv.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
+import 'nextcloud_credentials.dart';
+import 'nextcloud_webdav_client.dart';
 import 'package:flutter/material.dart';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import '../services/app_log_service.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // <-- für Desktop/FFI
 
 class ArtikelImportService {
   /// Importiert Artikel aus einer JSON-Datei (String-Inhalt).
@@ -69,6 +74,62 @@ class ArtikelImportService {
     }
   }
 
+// --- Backup ---
+  static Future<void> importBackup(BuildContext context, [Future<void> Function()? reloadArtikel]) async {
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Backup-Datei auswählen',
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (result == null || result.files.isEmpty) return;
+    final file = File(result.files.single.path!);
+    final jsonString = await file.readAsString();
+    final artikelList = await ArtikelImportService().importFromJson(jsonString);
+    await AppLogService().log('Backup-Restore gestartet');
+
+    final db = await ArtikelDbService().database;
+    try {
+      await db.transaction((txn) async {
+        // 1) Clear table
+        await txn.delete('artikel');
+        // 2) Insert all articles preserving IDs (falls vorhanden)
+        for (final a in artikelList) {
+          final map = a.toMap();
+          // Insert with REPLACE to preserve provided id (falls Primary Key gesetzt)
+          await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        // 3) Optional: Update sqlite_sequence so AUTOINCREMENT folgt highest id
+        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
+        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
+            ? maxIdRow.first['maxId'] as int
+            : 0;
+        if (maxId > 0) {
+          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
+        }
+      });
+      
+      // Artikelliste neu laden falls Callback vorhanden
+      if (reloadArtikel != null) {
+        await reloadArtikel();
+      }
+      
+      await AppLogService().log('Backup-Restore erfolgreich: ${artikelList.length} Einträge wiederhergestellt');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Backup erfolgreich wiederhergestellt')),
+        );
+      }
+    } catch (e, st) {
+      await AppLogService().logError('Fehler beim Backup-Restore: $e', st);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Restore: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+
   static Future<void> importArtikel(BuildContext context, Future<void> Function() reloadArtikel) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
@@ -113,6 +174,235 @@ class ArtikelImportService {
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(importMsg)),
+    );
+  }
+
+  // --- Backup mit Bildern von Nextcloud importieren ---
+  static Future<void> importBackupWithImagesFromNextcloud(
+    BuildContext context, 
+    [Future<void> Function()? reloadArtikel]
+  ) async {
+    try {
+      await AppLogService().log('Backup-Import mit Bildern von Nextcloud gestartet');
+
+      // 1. Nextcloud-Zugangsdaten prüfen
+      final creds = await NextcloudCredentialsStore().read();
+      if (creds == null) {
+        throw Exception('Nextcloud-Zugangsdaten nicht gefunden. Bitte erst einrichten.');
+      }
+
+      final webdavClient = NextcloudWebDavClient(
+        NextcloudConfig(
+          serverBase: creds.server,
+          username: creds.user,
+          appPassword: creds.appPw,
+          baseRemoteFolder: creds.baseFolder,
+        ),
+      );
+
+      // 2. Verfügbare Backup-Ordner anzeigen (vereinfacht: Benutzer gibt Backup-Ordner-Namen ein)
+      if (!context.mounted) return;
+      final backupFolder = await _showBackupFolderDialog(context);
+      if (backupFolder == null || backupFolder.isEmpty) return;
+
+      // 3. JSON-Backup herunterladen und parsen
+      final jsonFiles = ['backup.json', 'artikel_backup.json']; // Mögliche Namen
+      String? jsonContent;
+      
+      for (final jsonFileName in jsonFiles) {
+        try {
+          final jsonBytes = await webdavClient.downloadBytes(
+            remoteRelativePath: '$backupFolder/$jsonFileName',
+          );
+          jsonContent = String.fromCharCodes(jsonBytes);
+          break;
+        } catch (e) {
+          // Versuche nächsten Dateinamen
+          continue;
+        }
+      }
+
+      if (jsonContent == null) {
+        throw Exception('Keine gültige JSON-Backup-Datei im Ordner $backupFolder gefunden.');
+      }
+
+      final artikelList = await ArtikelImportService().importFromJson(jsonContent);
+      if (artikelList.isEmpty) {
+        throw Exception('Keine Artikel im Backup gefunden.');
+      }
+
+      // 4. Lokales Verzeichnis für Bilder vorbereiten
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(p.join(appDir.path, 'images'));
+      await imagesDir.create(recursive: true);
+
+      int successfulImages = 0;
+      int failedImages = 0;
+      final errors = <String>[];
+
+      // 5. Bilder herunterladen und lokale Pfade aktualisieren
+      for (int i = 0; i < artikelList.length; i++) {
+        final artikel = artikelList[i];
+        
+        if (artikel.remoteBildPfad?.isNotEmpty == true) {
+          try {
+            // Lokalen Dateinamen generieren
+            final fileName = p.basename(artikel.remoteBildPfad!);
+            final localPath = p.join(imagesDir.path, 'artikel_${artikel.id}_$fileName');
+            
+            // Bild von Nextcloud herunterladen
+            await webdavClient.downloadFile(
+              remoteRelativePath: artikel.remoteBildPfad!,
+              localPath: localPath,
+            );
+
+            // Artikel-Objekt mit lokalem Pfad aktualisieren
+            artikelList[i] = Artikel(
+              id: artikel.id,
+              name: artikel.name,
+              menge: artikel.menge,
+              ort: artikel.ort,
+              fach: artikel.fach,
+              beschreibung: artikel.beschreibung,
+              bildPfad: localPath, // Lokaler Pfad
+              erstelltAm: artikel.erstelltAm,
+              aktualisiertAm: artikel.aktualisiertAm,
+              remoteBildPfad: artikel.remoteBildPfad, // Behalten für Referenz
+            );
+
+            successfulImages++;
+          } catch (e, stackTrace) {
+            failedImages++;
+            errors.add('Fehler bei Bild für Artikel ${artikel.name}: $e');
+            await AppLogService().logError('Fehler beim Download von Bild für Artikel ${artikel.name}', stackTrace);
+            
+            // Artikel ohne Bild behalten (bildPfad leer lassen)
+            artikelList[i] = Artikel(
+              id: artikel.id,
+              name: artikel.name,
+              menge: artikel.menge,
+              ort: artikel.ort,
+              fach: artikel.fach,
+              beschreibung: artikel.beschreibung,
+              bildPfad: '', // Kein Bild verfügbar
+              erstelltAm: artikel.erstelltAm,
+              aktualisiertAm: artikel.aktualisiertAm,
+              remoteBildPfad: artikel.remoteBildPfad,
+            );
+          }
+        }
+      }
+
+      // 6. Artikel in Datenbank importieren
+      final db = await ArtikelDbService().database;
+      await db.transaction((txn) async {
+        // Datenbank löschen
+        await txn.delete('artikel');
+        
+        // Artikel importieren
+        for (final a in artikelList) {
+          final map = a.toMap();
+          await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+        }
+        
+        // SQLite-Sequenz aktualisieren
+        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
+        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
+            ? maxIdRow.first['maxId'] as int
+            : 0;
+        if (maxId > 0) {
+          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
+        }
+      });
+
+      // 7. Artikelliste neu laden
+      if (reloadArtikel != null) {
+        await reloadArtikel();
+      }
+
+      await AppLogService().log('Backup-Import mit Bildern erfolgreich: ${artikelList.length} Artikel, $successfulImages Bilder');
+      
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Backup erfolgreich wiederhergestellt!\n'
+            'Artikel: ${artikelList.length}\n'
+            'Bilder: $successfulImages erfolgreich, $failedImages Fehler'
+          ),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+
+      // Fehler anzeigen falls vorhanden
+      if (errors.isNotEmpty && context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Download-Fehler'),
+            content: SingleChildScrollView(
+              child: Text(errors.join('\n\n')),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+
+    } catch (e, st) {
+      await AppLogService().logError('Fehler beim Backup-Import mit Bildern: $e', st);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fehler beim Import: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  /// Dialog zur Eingabe des Backup-Ordner-Namens
+  static Future<String?> _showBackupFolderDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Backup-Ordner auswählen'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Geben Sie den Namen des Backup-Ordners in Nextcloud ein:\n'
+              '(z.B. backup_1695735600000)',
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                labelText: 'Backup-Ordner-Name',
+                hintText: 'backup_1695735600000',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
     );
   }
 }

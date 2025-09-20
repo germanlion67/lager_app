@@ -98,6 +98,94 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
+  // Backup-Dialog
+  Future<void> _showBackupDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return SimpleDialog(
+          title: const Text('Backup-Optionen'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelExportService.backupToFile(context);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.file_download, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Lokales Backup (nur Daten)')
+                  )
+                ]
+              )
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelExportService.backupWithImagesToNextcloud(context);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.cloud_upload, color: Colors.green),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Nextcloud Backup (mit Bildern)')
+                  )
+                ]
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Restore-Dialog
+  Future<void> _showRestoreDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return SimpleDialog(
+          title: const Text('Backup wiederherstellen'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelImportService.importBackup(context, _ladeArtikel);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.file_upload, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Lokales Backup (nur Daten)')
+                  )
+                ]
+              )
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await ArtikelImportService.importBackupWithImagesFromNextcloud(context, _ladeArtikel);
+              },
+              child: const Row(
+                children: [
+                  Icon(Icons.cloud_download, color: Colors.green),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text('Nextcloud Backup (mit Bildern)')
+                  )
+                ]
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
     // Import/Export-Funktion als Dialog
   Future<void> _importExportDialog() async {
     await showDialog(
@@ -167,9 +255,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
+  
   // --- Menü/Actions ---
-
-
   Widget _buildConnectionStatusIcon() {
     return ValueListenableBuilder<NextcloudConnectionStatus>(
       valueListenable: _connectionService.connectionStatus,
@@ -219,6 +306,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
+  // --- Menü/Ansicht ---
   @override
   Widget build(BuildContext context) {
     final gefiltert = _gefilterteArtikel();
@@ -238,11 +326,23 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
+<<<<<<< HEAD
  
                 // ...existing code...
                 case _MenuAction.settings:
                   // Öffne Untermenü für Einstellungen
                   await showDialog(
+=======
+                case _MenuAction.backup:
+                  await _showBackupDialog();
+                  break;
+                case _MenuAction.restoreBackup:
+                  await _showRestoreDialog();
+                  break;
+                case _MenuAction.resetDb:
+                  final messenger = ScaffoldMessenger.of(context);
+                  final confirm = await showDialog<bool>(
+>>>>>>> backup-with-images
                     context: context,
                     builder: (ctx) => SimpleDialog(
                       title: const Text('Einstellungen'),
@@ -302,7 +402,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     ),
                   );
                   break;
+<<<<<<< HEAD
                 // ...existing code...
+=======
+                case _MenuAction.showLog:
+                  await AppLogService.showLogDialog(context);
+                  break;
+>>>>>>> backup-with-images
                 case _MenuAction.nextcloudSettings:
                   await NextcloudConnectionService.showSettingsScreen(context, _connectionService);
                   break;
@@ -347,10 +453,45 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
-                value: _MenuAction.settings,
+                value: _MenuAction.resetDb,
                 child: ListTile(
+<<<<<<< HEAD
                   leading: Icon(Icons.settings),
                   title: Text('Einstellungen'),
+=======
+                  leading: Icon(Icons.restart_alt),
+                  title: Text('Datenbank zurücksetzen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              // ...existing code...
+              const PopupMenuItem(
+                value: _MenuAction.backup,
+                child: ListTile(
+                  leading: Icon(Icons.backup),
+                  title: Text('Backup erstellen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+
+              const PopupMenuItem(
+                value: _MenuAction.restoreBackup,
+                child: ListTile(
+                  leading: Icon(Icons.backup),
+                  title: Text('Backup restore'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              // ...existing code...              
+              const PopupMenuItem(
+                value: _MenuAction.showLog,
+                child: ListTile(
+                  leading: Icon(Icons.article),
+                  title: Text('Log-Ansicht'),
+>>>>>>> backup-with-images
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -527,4 +668,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
+<<<<<<< HEAD
 enum _MenuAction { importExport, settings, nextcloudSettings, nextcloudCredentials, logout, exit }
+=======
+enum _MenuAction { importExport, backup, restoreBackup, resetDb, showLog, nextcloudSettings, logout, exit }
+>>>>>>> backup-with-images
