@@ -117,87 +117,141 @@ class ArtikelDbService {
 
   // Datenbank zurücksetzen nach testphase
   Future<void> resetDatabase({int startId = 1000}) async {
-    final db = await database;
+    try {
+      final db = await database;
 
-    // Tabelle löschen
-    await db.execute("DROP TABLE IF EXISTS artikel");
+      // Tabelle löschen
+      await db.execute("DROP TABLE IF EXISTS artikel");
 
-    // Neu erstellen
-    await db.execute(_createTableSql);
+      // Neu erstellen
+      await db.execute(_createTableSql);
 
-    // Startwert für ID setzen
-    await db.insert('sqlite_sequence', {'name': 'artikel', 'seq': startId - 1});
+      // Startwert für ID setzen
+      await db.insert('sqlite_sequence', {'name': 'artikel', 'seq': startId - 1});
 
-    logger.w("🗑️ Datenbank zurückgesetzt. Nächste ID startet bei $startId");
+      logger.w("🗑️ Datenbank zurückgesetzt. Nächste ID startet bei $startId");
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Zurücksetzen der Datenbank', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Datenbank konnte nicht zurückgesetzt werden: $e');
+    }
   }
 
 
   Future<int> insertArtikel(Artikel artikel) async {
-    final db = await database;
-    return await db.insert('artikel', artikel.toMap());
+    try {
+      final db = await database;
+      return await db.insert('artikel', artikel.toMap());
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Einfügen eines Artikels', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Artikel konnte nicht gespeichert werden: $e');
+    }
   }
 
   Future<List<Artikel>> getAlleArtikel() async {
-    final db = await database;
-    final maps = await db.query('artikel', orderBy: 'id DESC');
-    return maps.map((map) => Artikel.fromMap(map)).toList();
+    try {
+      final db = await database;
+      final maps = await db.query('artikel', orderBy: 'id DESC');
+      return maps.map((map) => Artikel.fromMap(map)).toList();
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Laden aller Artikel', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Artikel konnten nicht geladen werden: $e');
+    }
   }
 
   Future<int> updateArtikel(Artikel artikel) async {
-    final db = await database;
-    return await db.update(
-      'artikel',
-      artikel.toMap(),
-      where: 'id = ?',
-      whereArgs: [artikel.id],
-    );
+    try {
+      final db = await database;
+      return await db.update(
+        'artikel',
+        artikel.toMap(),
+        where: 'id = ?',
+        whereArgs: [artikel.id],
+      );
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Aktualisieren eines Artikels', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Artikel konnte nicht aktualisiert werden: $e');
+    }
   }
 
   Future<int> deleteArtikel(int id) async {
-    final db = await database;
-    return await db.delete('artikel', where: 'id = ?', whereArgs: [id]);
+    try {
+      final db = await database;
+      return await db.delete('artikel', where: 'id = ?', whereArgs: [id]);
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Löschen eines Artikels', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Artikel konnte nicht gelöscht werden: $e');
+    }
   }
 
   Future<int> updateRemoteBildPfad(int artikelId, String remotePfad) async {
-    final db = await database;
-    return await db.update(
-      'artikel',
-      {'remoteBildPfad': remotePfad},
-      where: 'id = ?',
-      whereArgs: [artikelId],
-    );
+    try {
+      final db = await database;
+      return await db.update(
+        'artikel',
+        {'remoteBildPfad': remotePfad},
+        where: 'id = ?',
+        whereArgs: [artikelId],
+      );
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Aktualisieren des Remote-Bildpfads', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Remote-Bildpfad konnte nicht aktualisiert werden: $e');
+    }
   }
 
   // Findet alle Artikel mit lokalen Bildern, die noch nicht zu Nextcloud synchronisiert wurden
   Future<List<Artikel>> getUnsyncedArtikel() async {
-    final db = await database;
-    final maps = await db.query(
-      'artikel',
-      where: 'bildPfad IS NOT NULL AND bildPfad != "" AND (remoteBildPfad IS NULL OR remoteBildPfad = "")',
-      orderBy: 'id DESC',
-    );
-    return maps.map((map) => Artikel.fromMap(map)).toList();
+    try {
+      final db = await database;
+      final maps = await db.query(
+        'artikel',
+        where: 'bildPfad IS NOT NULL AND bildPfad != "" AND (remoteBildPfad IS NULL OR remoteBildPfad = "")',
+        orderBy: 'id DESC',
+      );
+      return maps.map((map) => Artikel.fromMap(map)).toList();
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Laden unsynchronisierter Artikel', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Unsynchronisierte Artikel konnten nicht geladen werden: $e');
+    }
   }
 
   Future<void> deleteAlleArtikel() async {
-    final db = await database;
-    await db.delete('artikel');
-    final count = (await db.rawQuery('SELECT COUNT(*) FROM artikel')).first.values.first as int;
-    logger.i("Artikel gelöscht, verbleibende Einträge: $count");
+    try {
+      final db = await database;
+      await db.delete('artikel');
+      final count = (await db.rawQuery('SELECT COUNT(*) FROM artikel')).first.values.first as int;
+      logger.i("Artikel gelöscht, verbleibende Einträge: $count");
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Löschen aller Artikel', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Alle Artikel konnten nicht gelöscht werden: $e');
+    }
   }
 
   Future<void> insertArtikelList(List<Artikel> artikelList) async {
-    final db = await database;
-    int count = 0;
-    for (final artikel in artikelList) {
-      await db.insert(
-        'artikel',
-        artikel.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace, // Überschreibt ggf. vorhandene IDs
-      );
-      count++;
-      logger.d("Artikel eingefügt/überschrieben: ID=${artikel.id}, Name=${artikel.name}");
+    try {
+      final db = await database;
+      int count = 0;
+      for (final artikel in artikelList) {
+        await db.insert(
+          'artikel',
+          artikel.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace, // Überschreibt ggf. vorhandene IDs
+        );
+        count++;
+        logger.d("Artikel eingefügt/überschrieben: ID=${artikel.id}, Name=${artikel.name}");
+      }
+      logger.i("$count Artikel aus Backup wiederhergestellt.");
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Einfügen der Artikelliste', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Artikelliste konnte nicht eingefügt werden: $e');
     }
-    logger.i("$count Artikel aus Backup wiederhergestellt.");
   }
+}
+
+/// Custom Exception für Datenbank-Fehler
+class DatabaseException implements Exception {
+  final String message;
+  const DatabaseException(this.message);
+  
+  @override
+  String toString() => 'DatabaseException: $message';
 }
