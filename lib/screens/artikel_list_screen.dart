@@ -88,7 +88,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     final result = await Navigator.of(context).push<Artikel>(
       MaterialPageRoute(builder: (_) => const ArtikelErfassenScreen()),
     );
-    if (!mounted) return; // 👈 neu
+    if (!mounted) return;
     if (result is Artikel) {
       setState(() => _artikelListe.add(result));
       if (!mounted) return;
@@ -186,7 +186,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
-    // Import/Export-Funktion als Dialog
+  // Import/Export-Funktion als Dialog
   Future<void> _importExportDialog() async {
     await showDialog(
       context: context,
@@ -197,11 +197,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                // Ausgelagert:
                 await ArtikelImportService.importArtikel(context, _ladeArtikel);
               },
-              child: Row(
-                children: const [
+              child: const Row(
+                children: [
                   Icon(Icons.file_upload, color: Colors.blue),
                   SizedBox(width: 8),
                   Expanded(
@@ -218,8 +217,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Navigator.pop(ctx);
                 await ArtikelExportService.showExportDialog(context);
               },
-              child: Row(
-                children: const [
+              child: const Row(
+                children: [
                   Icon(Icons.file_download, color: Colors.green),
                   SizedBox(width: 8),
                   Expanded(
@@ -236,8 +235,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Navigator.pop(ctx);
                 await NextcloudSyncService.showResyncDialog(context);
               },
-              child: Row(
-                children: const [
+              child: const Row(
+                children: [
                   Icon(Icons.sync, color: Colors.orange),
                   SizedBox(width: 8),
                   Expanded(
@@ -254,7 +253,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       },
     );
   }
-
   
   // --- Menü/Actions ---
   Widget _buildConnectionStatusIcon() {
@@ -294,7 +292,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         
         return GestureDetector(
           onTap: () {
-            // Optional: Manual refresh on tap (for debugging)
             _connectionService.checkConnectionNow();
           },
           child: Tooltip(
@@ -326,13 +323,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
-<<<<<<< HEAD
- 
-                // ...existing code...
-                case _MenuAction.settings:
-                  // Öffne Untermenü für Einstellungen
-                  await showDialog(
-=======
                 case _MenuAction.backup:
                   await _showBackupDialog();
                   break;
@@ -342,78 +332,38 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.resetDb:
                   final messenger = ScaffoldMessenger.of(context);
                   final confirm = await showDialog<bool>(
->>>>>>> backup-with-images
                     context: context,
-                    builder: (ctx) => SimpleDialog(
-                      title: const Text('Einstellungen'),
-                      children: [
-                        SimpleDialogOption(
-                          onPressed: () async {
-                            Navigator.pop(ctx);
-                            final messenger = ScaffoldMessenger.of(context);
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx2) => AlertDialog(
-                                title: const Text('Datenbank zurücksetzen'),
-                                content: const Text(
-                                    'Alle Artikel werden gelöscht und die IDs neu ab 1000 vergeben.\nFortfahren?'),
-                                actions: [
-                                  TextButton(
-                                      onPressed: () => Navigator.pop(ctx2, false),
-                                      child: const Text('Abbrechen')),
-                                  FilledButton(
-                                      onPressed: () => Navigator.pop(ctx2, true),
-                                      child: const Text('Zurücksetzen')),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) {
-                              await ArtikelDbService().resetDatabase(startId: 1000);
-                              if (!mounted) return;
-                              await _ladeArtikel();
-                              if (!mounted) return;
-                              messenger.showSnackBar(
-                                const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
-                              );
-                            }
-                          },
-                          child: Row(
-                            children: const [
-                              Icon(Icons.restart_alt),
-                              SizedBox(width: 8),
-                              Expanded(child: Text('Datenbank zurücksetzen')),
-                            ],
-                          ),
-                        ),
-                        SimpleDialogOption(
-                          onPressed: () async {
-                            Navigator.pop(ctx);
-                            await AppLogService.showLogDialog(context);
-                          },
-                          child: Row(
-                            children: const [
-                              Icon(Icons.article),
-                              SizedBox(width: 8),
-                              Expanded(child: Text('App-Log anzeigen/löschen')),
-                            ],
-                          ),
-                        ),
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Datenbank zurücksetzen'),
+                      content: const Text(
+                          'Alle Artikel werden gelöscht und die IDs neu ab 1000 vergeben.\nFortfahren?'),
+                      actions: [
+                        TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Abbrechen')),
+                        FilledButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Zurücksetzen')),
                       ],
                     ),
                   );
+                  if (confirm == true) {
+                    await ArtikelDbService().resetDatabase(startId: 1000);
+                    if (!mounted) return;
+                    await _ladeArtikel();
+                    if (!mounted) return;
+                    messenger.showSnackBar(
+                      const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
+                    );
+                  }
                   break;
-<<<<<<< HEAD
-                // ...existing code...
-=======
                 case _MenuAction.showLog:
                   await AppLogService.showLogDialog(context);
                   break;
->>>>>>> backup-with-images
                 case _MenuAction.nextcloudSettings:
                   await NextcloudConnectionService.showSettingsScreen(context, _connectionService);
                   break;
                 case _MenuAction.nextcloudCredentials:
-                  // Beispiel-Dialog für Zugangsdaten
                   await showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
@@ -428,7 +378,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     ),
                   );
                   break;
-
                 case _MenuAction.logout:
                   await NextcloudCredentialsStore.showLogoutDialog(context, _connectionService);
                   break;
@@ -453,20 +402,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               ),
               const PopupMenuDivider(),
               const PopupMenuItem(
-                value: _MenuAction.resetDb,
-                child: ListTile(
-<<<<<<< HEAD
-                  leading: Icon(Icons.settings),
-                  title: Text('Einstellungen'),
-=======
-                  leading: Icon(Icons.restart_alt),
-                  title: Text('Datenbank zurücksetzen'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              // ...existing code...
-              const PopupMenuItem(
                 value: _MenuAction.backup,
                 child: ListTile(
                   leading: Icon(Icons.backup),
@@ -475,7 +410,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   dense: true,
                 ),
               ),
-
               const PopupMenuItem(
                 value: _MenuAction.restoreBackup,
                 child: ListTile(
@@ -485,13 +419,20 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   dense: true,
                 ),
               ),
-              // ...existing code...              
+              const PopupMenuItem(
+                value: _MenuAction.resetDb,
+                child: ListTile(
+                  leading: Icon(Icons.restart_alt),
+                  title: Text('Datenbank zurücksetzen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
               const PopupMenuItem(
                 value: _MenuAction.showLog,
                 child: ListTile(
                   leading: Icon(Icons.article),
                   title: Text('Log-Ansicht'),
->>>>>>> backup-with-images
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -506,7 +447,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   dense: true,
                 ),
               ),
-              // ...existing code...
               const PopupMenuItem(
                 value: _MenuAction.nextcloudCredentials,
                 child: ListTile(
@@ -601,7 +541,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                           ),
                           child: const Icon(Icons.image_not_supported, color: Colors.grey),
                         ),
-                  // NEU:
                   title: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -629,13 +568,20 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      if (artikel.ort.isNotEmpty)
-                        Text(
-                          'Ort: ${artikel.ort}',
-                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      Text(
+                        "${artikel.ort} • ${artikel.fach}",
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
                         ),
+                      ),
                     ],
                   ),
+                  isThreeLine: true,
+                  onTap: () async {
+                    // Navigation zu Detail-Screen würde hier stehen
+                  }
                 );
               },
             ),
@@ -646,7 +592,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (_hasCamera) // 👈 nur anzeigen wenn Kamera verfügbar
+          if (_hasCamera)
             FloatingActionButton(
               heroTag: 'scan',
               onPressed: () async {
@@ -668,8 +614,14 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-<<<<<<< HEAD
-enum _MenuAction { importExport, settings, nextcloudSettings, nextcloudCredentials, logout, exit }
-=======
-enum _MenuAction { importExport, backup, restoreBackup, resetDb, showLog, nextcloudSettings, logout, exit }
->>>>>>> backup-with-images
+enum _MenuAction { 
+  importExport, 
+  backup, 
+  restoreBackup, 
+  resetDb, 
+  showLog, 
+  nextcloudSettings, 
+  nextcloudCredentials, 
+  logout, 
+  exit 
+}

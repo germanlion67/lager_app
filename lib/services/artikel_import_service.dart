@@ -242,53 +242,23 @@ class ArtikelImportService {
 
       // 5. Bilder herunterladen und lokale Pfade aktualisieren
       for (int i = 0; i < artikelList.length; i++) {
-        final artikel = artikelList[i];
+        var artikel = artikelList[i];
         
         if (artikel.remoteBildPfad?.isNotEmpty == true) {
           try {
-            // Lokalen Dateinamen generieren
-            final fileName = p.basename(artikel.remoteBildPfad!);
-            final localPath = p.join(imagesDir.path, 'artikel_${artikel.id}_$fileName');
+            final localImagePath = '${imagesDir.path}/artikel_${artikel.id}_image.jpg';
             
-            // Bild von Nextcloud herunterladen
-            await webdavClient.downloadFile(
+            await webdavClient.downloadFileNew(
               remoteRelativePath: artikel.remoteBildPfad!,
-              localPath: localPath,
+              localPath: localImagePath,
             );
-
-            // Artikel-Objekt mit lokalem Pfad aktualisieren
-            artikelList[i] = Artikel(
-              id: artikel.id,
-              name: artikel.name,
-              menge: artikel.menge,
-              ort: artikel.ort,
-              fach: artikel.fach,
-              beschreibung: artikel.beschreibung,
-              bildPfad: localPath, // Lokaler Pfad
-              erstelltAm: artikel.erstelltAm,
-              aktualisiertAm: artikel.aktualisiertAm,
-              remoteBildPfad: artikel.remoteBildPfad, // Behalten für Referenz
-            );
-
-            successfulImages++;
-          } catch (e, stackTrace) {
-            failedImages++;
-            errors.add('Fehler bei Bild für Artikel ${artikel.name}: $e');
-            await AppLogService().logError('Fehler beim Download von Bild für Artikel ${artikel.name}', stackTrace);
             
-            // Artikel ohne Bild behalten (bildPfad leer lassen)
-            artikelList[i] = Artikel(
-              id: artikel.id,
-              name: artikel.name,
-              menge: artikel.menge,
-              ort: artikel.ort,
-              fach: artikel.fach,
-              beschreibung: artikel.beschreibung,
-              bildPfad: '', // Kein Bild verfügbar
-              erstelltAm: artikel.erstelltAm,
-              aktualisiertAm: artikel.aktualisiertAm,
-              remoteBildPfad: artikel.remoteBildPfad,
-            );
+            // Update article with local image path
+            artikel = artikel.copyWith(bildPfad: localImagePath);
+            artikelList[i] = artikel; // Update in list
+          } catch (e) {
+            await AppLogService().logError('Failed to download image for article ${artikel.name}: $e');
+            // Continue without image
           }
         }
       }

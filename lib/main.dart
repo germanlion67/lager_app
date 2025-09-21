@@ -6,14 +6,8 @@
 
 import 'package:flutter/material.dart';
 import 'screens/artikel_list_screen.dart';
-import 'services/artikel_db_service.dart';in.dart
+import 'services/artikel_db_service.dart';
 
-//Startpunkt der App
-//Lädt die Artikelliste als Hauptansicht
-//Kann später mit Routing zu weiteren Seiten erweitert werden (z. B. Detailansicht, QR-Scan, Einstellungen)
-
-import 'package:flutter/material.dart';
-import 'screens/artikel_list_screen.dart';
 
 // ffi imports (nur für Desktop notwendig)
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -70,7 +64,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       await dbService.closeDatabase();
     } catch (e) {
       // Fehler beim Cleanup ignorieren, da App bereits beendet wird
-      print('Cleanup error: $e');
+      debugPrint('Cleanup error: $e');
     }
   }
 

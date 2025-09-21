@@ -5,7 +5,6 @@
 // hoch. Das ist der von Nextcloud unterstützte Standardweg über
 // remote.php/dav. 1
 
-
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -13,6 +12,16 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
+
+/// Custom Exception für WebDAV-Fehler
+class WebDavException implements Exception {
+  final String message;
+  
+  const WebDavException(this.message);
+  
+  @override
+  String toString() => 'WebDavException: $message';
+}
 
 /// Konfiguration für Nextcloud
 class NextcloudConfig {
@@ -31,7 +40,7 @@ class NextcloudConfig {
   // Baut die vollständige WebDAV-Basis:
   // https://host/remote.php/dav/files/<username>/
   Uri get webDavRoot => serverBase.replace(
-        path: p.join(serverBase.path, 'remote.php/dav/files/${Uri.encodeComponent(username)}/'),
+        path: '/remote.php/dav/files/$username/',
       );
 }
 
@@ -44,40 +53,161 @@ class NextcloudWebDavClient {
   NextcloudWebDavClient(this.config);
 
   Map<String, String> get _authHeader {
-    final basic = base64Encode(utf8.encode('${config.username}:${config.appPassword}'));
-    return {'Authorization': 'Basic $basic'};
+    final auth = base64Encode(utf8.encode('${config.username}:${config.appPassword}'));
+    return {
+      'Authorization': 'Basic $auth',
+      'Content-Type': 'application/octet-stream',
+    };
   }
 
   /// Prüft/legt einen Zielordner rekursiv an (MKCOL).
-  /// MKCOL auf bereits existierendem Pfad liefert 405 – das ist ok.
-  Future<void> ensureRemoteFolder(String remoteFolder) async {
-    final segments = p.split(remoteFolder).where((s) => s.isNotEmpty).toList();
-    var current = '';
-    for (final seg in segments) {
-      current = p.posix.join(current, seg);
-      final uri = config.webDavRoot.replace(path: p.posix.join(config.webDavRoot.path, current));
-      final res = http.Request('MKCOL', uri)
-        ..headers.addAll(_authHeader);
-      final streamed = await res.send().timeout(
-        const Duration(seconds: 30), // MKCOL sollte schnell sein
-        onTimeout: () => throw WebDavException('MKCOL-Timeout (30s): $current'),
-      );
-      // 201 = created, 405 = already exists -> beides okay
-      if (streamed.statusCode == 201 || streamed.statusCode == 405) continue;
-      if (streamed.statusCode == 401) {
-        throw WebDavException('Unauthorized (401): Bitte Credentials prüfen.');
+  Future<void> ensureFolder(String folderPath) async {
+    try {
+      final targetUri = config.webDavRoot.resolve(folderPath);
+      final client = http.Client();
+      
+      final request = http.Request('MKCOL', targetUri);
+      request.headers.addAll(_authHeader);
+      
+      final response = await client.send(request).timeout(const Duration(seconds: 30));
+      final statusCode = response.statusCode;
+      
+      // 201 = Created, 405 = Method Not Allowed (bereits vorhanden)
+      if (statusCode != 201 && statusCode != 405) {
+        throw WebDavException('Failed to create folder $folderPath: $statusCode');
       }
-      if (streamed.statusCode == 409) {
-        // übergeordneter Ordner fehlt – sollte durch Rekursion vermieden werden
-        throw WebDavException('Conflict (409): Übergeordneter Ordner fehlt: $current');
-      }
-      final body = await streamed.stream.bytesToString();
-      throw WebDavException('MKCOL fehlgeschlagen (${streamed.statusCode}): $body');
+      
+      client.close();
+    } catch (e) {
+      if (e is WebDavException) rethrow;
+      throw WebDavException('Network error creating folder: $e');
     }
   }
 
-  /// Upload einer Datei (Bytes).
-  /// [remoteRelativePath] relativ zu webDavRoot, z.B. "Apps/Artikel/1234/image.jpg"
+  /// Lädt eine Datei zu Nextcloud hoch.
+  /// Wirft [WebDavException] bei Fehlern.
+  Future<void> uploadFile(String localPath, String remoteFolder, [String? customFilename]) async {
+    try {
+      // File validation
+      final file = File(localPath);
+      if (!await file.exists()) {
+        throw WebDavException('File not found: $localPath');
+      }
+      
+      // Check file permissions by attempting to read
+      try {
+        await file.readAsBytes();
+      } catch (e) {
+        throw WebDavException('Cannot read file (permission denied): $localPath');
+      }
+
+      final filename = customFilename ?? p.basename(localPath);
+      final remotePath = p.posix.join(remoteFolder, filename);
+
+      // Stelle sicher, dass der Zielordner existiert
+      await ensureFolder(remoteFolder);
+
+      final bytes = await file.readAsBytes();
+      final targetUri = config.webDavRoot.resolve(remotePath);
+
+      final response = await http.put(
+        targetUri,
+        headers: _authHeader,
+        body: bytes,
+      ).timeout(const Duration(seconds: 60));
+
+      if (response.statusCode != 201 && response.statusCode != 204) {
+        throw WebDavException('Upload failed with status ${response.statusCode}: $remotePath');
+      }
+    } catch (e) {
+      if (e is WebDavException) rethrow;
+      throw WebDavException('Network error during upload: $e');
+    }
+  }
+
+  /// Downloads a file from Nextcloud to local path.
+  /// Throws [WebDavException] on errors.
+  Future<void> downloadFile(String remotePath, String localPath) async {
+    try {
+      final targetUri = config.webDavRoot.resolve(remotePath);
+      
+      final response = await http.get(
+        targetUri,
+        headers: _authHeader,
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        // Ensure local directory exists
+        final localFile = File(localPath);
+        await localFile.parent.create(recursive: true);
+        
+        // Write file content
+        await localFile.writeAsBytes(response.bodyBytes);
+      } else if (response.statusCode == 404) {
+        throw WebDavException('Remote file not found: $remotePath');
+      } else {
+        throw WebDavException('Download failed with status ${response.statusCode}: $remotePath');
+      }
+    } catch (e) {
+      if (e is WebDavException) rethrow;
+      throw WebDavException('Network error during download: $e');
+    }
+  }
+
+  /// Listet Dateien/Ordner in einem Remote-Verzeichnis auf.
+  Future<List<String>> listFiles(String remoteFolderPath) async {
+    try {
+      final targetUri = config.webDavRoot.resolve(remoteFolderPath);
+      final client = http.Client();
+      
+      final request = http.Request('PROPFIND', targetUri);
+      request.headers.addAll({
+        ..._authHeader,
+        'Depth': '1',
+        'Content-Type': 'application/xml',
+      });
+      request.body = '''<?xml version="1.0"?>
+<d:propfind xmlns:d="DAV:">
+  <d:prop>
+    <d:displayname/>
+  </d:prop>
+</d:propfind>''';
+      
+      final streamedResponse = await client.send(request).timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      client.close();
+
+      if (response.statusCode == 207) {
+        // Parse XML response to extract file names
+        // Simplified parsing - in production, use proper XML parser
+        final files = <String>[];
+        final lines = response.body.split('\n');
+        for (final line in lines) {
+          if (line.contains('<d:displayname>') && line.contains('</d:displayname>')) {
+            final start = line.indexOf('<d:displayname>') + 15;
+            final end = line.indexOf('</d:displayname>');
+            if (start < end) {
+              final filename = line.substring(start, end).trim();
+              if (filename.isNotEmpty && filename != remoteFolderPath) {
+                files.add(filename);
+              }
+            }
+          }
+        }
+        return files;
+      } else if (response.statusCode == 404) {
+        return []; // Folder doesn't exist
+      } else {
+        throw WebDavException('List files failed with status ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is WebDavException) rethrow;
+      throw WebDavException('Network error listing files: $e');
+    }
+  }
+
+  /// Lädt Bytes zu Nextcloud hoch mit relativem Pfad
   Future<void> uploadBytes({
     required Uint8List bytes,
     required String remoteRelativePath,
@@ -90,9 +220,9 @@ class NextcloudWebDavClient {
     );
 
     // Ordnerstruktur anlegen
-    await ensureRemoteFolder(p.posix.dirname(remoteRelativePath));
+    await ensureFolder(p.posix.dirname(remoteRelativePath));
 
-    final res = await http.put(
+    final response = await http.put(
       targetUri,
       headers: {
         ..._authHeader,
@@ -104,54 +234,19 @@ class NextcloudWebDavClient {
       onTimeout: () => throw WebDavException('Upload-Timeout (5 Min): $remoteRelativePath'),
     );
 
-    if (res.statusCode == 201 || res.statusCode == 204) {
+    if (response.statusCode == 201 || response.statusCode == 204) {
       // 201 Created (neue Datei) oder 204 No Content (überschrieben)
       return;
-    } else if (res.statusCode == 401) {
+    } else if (response.statusCode == 401) {
       throw WebDavException('Unauthorized (401): Bitte App-Passwort prüfen.');
-    } else if (res.statusCode == 507) {
+    } else if (response.statusCode == 507) {
       throw WebDavException('Insufficient Storage (507): Kein Speicherplatz auf Nextcloud.');
-    } else if (res.statusCode == 423) {
+    } else if (response.statusCode == 423) {
       throw WebDavException('Locked (423): Zieldatei gesperrt.');
     }
 
     throw WebDavException(
-        'Upload fehlgeschlagen (${res.statusCode}): ${res.body.isNotEmpty ? res.body : "<kein Body>"}');
-  }
-
-  /// Upload von einem lokalen Pfad (z. B. wenn file_picker .path liefert)
-  Future<void> uploadFile({
-    required String localPath,
-    required String remoteRelativePath,
-  }) async {
-    final file = File(localPath);
-    
-    // Validierung: Datei existiert
-    if (!await file.exists()) {
-      throw WebDavException('Lokale Datei nicht gefunden: $localPath');
-    }
-    
-    // Validierung: Datei ist lesbar
-    try {
-      await file.access(FileSystemEntityType.file);
-    } catch (e) {
-      throw WebDavException('Keine Berechtigung zum Lesen der Datei: $localPath ($e)');
-    }
-    
-    // Validierung: Dateigröße prüfen (max 50MB)
-    final fileSize = await file.length();
-    const maxSize = 50 * 1024 * 1024; // 50MB
-    if (fileSize > maxSize) {
-      throw WebDavException('Datei zu groß (${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB > 50MB): $localPath');
-    }
-    
-    try {
-      final bytes = await file.readAsBytes();
-      await uploadBytes(bytes: bytes, remoteRelativePath: remoteRelativePath);
-    } catch (e) {
-      if (e is WebDavException) rethrow;
-      throw WebDavException('Fehler beim Lesen der lokalen Datei: $localPath ($e)');
-    }
+        'Upload fehlgeschlagen (${response.statusCode}): ${response.body.isNotEmpty ? response.body : "<kein Body>"}');
   }
 
   /// Download einer Datei von Nextcloud
@@ -163,7 +258,7 @@ class NextcloudWebDavClient {
       path: p.posix.join(config.webDavRoot.path, remoteRelativePath),
     );
 
-    final res = await http.get(
+    final response = await http.get(
       targetUri,
       headers: _authHeader,
     ).timeout(
@@ -171,48 +266,45 @@ class NextcloudWebDavClient {
       onTimeout: () => throw WebDavException('Download-Timeout (3 Min): $remoteRelativePath'),
     );
 
-    if (res.statusCode == 200) {
-      return res.bodyBytes;
-    } else if (res.statusCode == 401) {
+    if (response.statusCode == 200) {
+      return response.bodyBytes;
+    } else if (response.statusCode == 401) {
       throw WebDavException('Unauthorized (401): Bitte App-Passwort prüfen.');
-    } else if (res.statusCode == 404) {
+    } else if (response.statusCode == 404) {
       throw WebDavException('Not Found (404): Datei nicht gefunden: $remoteRelativePath');
     }
 
     throw WebDavException(
-        'Download fehlgeschlagen (${res.statusCode}): ${res.body.isNotEmpty ? res.body : "<kein Body>"}');
+        'Download fehlgeschlagen (${response.statusCode}): ${response.body.isNotEmpty ? response.body : "<kein Body>"}');
   }
 
-  /// Download einer Datei zu einem lokalen Pfad
-  Future<void> downloadFile({
+  /// Lädt eine Datei mit neuer Signatur hoch
+  Future<void> uploadFileNew({
+    required String localPath,
+    required String remoteRelativePath,
+  }) async {
+    final file = File(localPath);
+    if (!await file.exists()) {
+      throw WebDavException('File not found: $localPath');
+    }
+
+    final bytes = await file.readAsBytes();
+    await uploadBytes(
+      bytes: bytes,
+      remoteRelativePath: remoteRelativePath,
+      contentType: lookupMimeType(localPath),
+    );
+  }
+
+  /// Download einer Datei mit neuer Signatur
+  Future<void> downloadFileNew({
     required String remoteRelativePath,
     required String localPath,
   }) async {
     final bytes = await downloadBytes(remoteRelativePath: remoteRelativePath);
     
     final localFile = File(localPath);
-    
-    try {
-      // Lokales Verzeichnis erstellen falls nötig
-      await localFile.parent.create(recursive: true);
-      
-      // Prüfe Schreibberechtigung im Zielverzeichnis
-      final tempFile = File('${localPath}.tmp');
-      await tempFile.writeAsBytes([]);
-      await tempFile.delete();
-      
-      // Schreibe Datei
-      await localFile.writeAsBytes(bytes);
-      
-    } catch (e) {
-      throw WebDavException('Fehler beim Schreiben der lokalen Datei: $localPath ($e)');
-    }
+    await localFile.parent.create(recursive: true);
+    await localFile.writeAsBytes(bytes);
   }
-}
-
-class WebDavException implements Exception {
-  final String message;
-  WebDavException(this.message);
-  @override
-  String toString() => message;
 }

@@ -211,7 +211,7 @@ class NextcloudSyncService {
     );
 
     // Bild hochladen
-    await webdavClient.uploadFile(
+    await webdavClient.uploadFileNew(
       localPath: artikel.bildPfad,
       remoteRelativePath: remotePath,
     );
@@ -243,7 +243,7 @@ class NextcloudSyncService {
           final fileName = p.basename(file.path);
           final remotePath = 'exports/$fileName';
           
-          await webdavClient.uploadFile(
+          await webdavClient.uploadFileNew(
             localPath: file.path,
             remoteRelativePath: remotePath,
           );

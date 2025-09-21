@@ -188,7 +188,7 @@ Future<void> _save() async {
               remoteRelativePath: remoteRelPath,
             );
           } else if (_bildPfad != null) {
-            await client.uploadFile(
+            await client.uploadFileNew(
               localPath: _bildPfad!,
               remoteRelativePath: remoteRelPath,
             );

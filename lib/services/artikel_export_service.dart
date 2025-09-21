@@ -187,7 +187,7 @@ class ArtikelExportService {
               final remotePath = '$backupFolder/images/artikel_${artikel.id}_$fileName';
               
               // Upload zu Nextcloud
-              await webdavClient.uploadFile(
+              await webdavClient.uploadFileNew(
                 localPath: artikel.bildPfad,
                 remoteRelativePath: remotePath,
               );
