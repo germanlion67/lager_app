@@ -119,8 +119,33 @@ class NextcloudWebDavClient {
     required String remoteRelativePath,
   }) async {
     final file = File(localPath);
-    final bytes = await file.readAsBytes();
-    await uploadBytes(bytes: bytes, remoteRelativePath: remoteRelativePath);
+    
+    // Validierung: Datei existiert
+    if (!await file.exists()) {
+      throw WebDavException('Lokale Datei nicht gefunden: $localPath');
+    }
+    
+    // Validierung: Datei ist lesbar
+    try {
+      await file.access(FileSystemEntityType.file);
+    } catch (e) {
+      throw WebDavException('Keine Berechtigung zum Lesen der Datei: $localPath ($e)');
+    }
+    
+    // Validierung: Dateigröße prüfen (max 50MB)
+    final fileSize = await file.length();
+    const maxSize = 50 * 1024 * 1024; // 50MB
+    if (fileSize > maxSize) {
+      throw WebDavException('Datei zu groß (${(fileSize / 1024 / 1024).toStringAsFixed(1)}MB > 50MB): $localPath');
+    }
+    
+    try {
+      final bytes = await file.readAsBytes();
+      await uploadBytes(bytes: bytes, remoteRelativePath: remoteRelativePath);
+    } catch (e) {
+      if (e is WebDavException) rethrow;
+      throw WebDavException('Fehler beim Lesen der lokalen Datei: $localPath ($e)');
+    }
   }
 
   /// Download einer Datei von Nextcloud
@@ -156,11 +181,23 @@ class NextcloudWebDavClient {
   }) async {
     final bytes = await downloadBytes(remoteRelativePath: remoteRelativePath);
     
-    // Lokales Verzeichnis erstellen falls nötig
     final localFile = File(localPath);
-    await localFile.parent.create(recursive: true);
     
-    await localFile.writeAsBytes(bytes);
+    try {
+      // Lokales Verzeichnis erstellen falls nötig
+      await localFile.parent.create(recursive: true);
+      
+      // Prüfe Schreibberechtigung im Zielverzeichnis
+      final tempFile = File('${localPath}.tmp');
+      await tempFile.writeAsBytes([]);
+      await tempFile.delete();
+      
+      // Schreibe Datei
+      await localFile.writeAsBytes(bytes);
+      
+    } catch (e) {
+      throw WebDavException('Fehler beim Schreiben der lokalen Datei: $localPath ($e)');
+    }
   }
 }
 

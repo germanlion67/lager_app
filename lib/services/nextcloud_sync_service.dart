@@ -192,6 +192,16 @@ class NextcloudSyncService {
     if (!await imageFile.exists()) {
       throw Exception('Bilddatei nicht gefunden: ${artikel.bildPfad}');
     }
+    
+    // Zusätzliche Validierung: Datei lesbar und nicht korrupt
+    try {
+      final fileSize = await imageFile.length();
+      if (fileSize == 0) {
+        throw Exception('Bilddatei ist leer: ${artikel.bildPfad}');
+      }
+    } catch (e) {
+      throw Exception('Bilddatei nicht lesbar: ${artikel.bildPfad} ($e)');
+    }
 
     // Remote-Pfad generieren (ähnlich wie in artikel_erfassen_screen.dart)
     final baseName = p.basename(artikel.bildPfad);
