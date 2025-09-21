@@ -245,6 +245,21 @@ class ArtikelDbService {
       throw DatabaseException('Artikelliste konnte nicht eingefügt werden: $e');
     }
   }
+
+  /// Schließt die Datenbankverbindung explizit
+  /// Sollte beim Beenden der App aufgerufen werden
+  Future<void> closeDatabase() async {
+    try {
+      if (_db != null) {
+        await _db!.close();
+        _db = null;
+        logger.d('Datenbankverbindung geschlossen');
+      }
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Schließen der Datenbankverbindung', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Datenbank konnte nicht geschlossen werden: $e');
+    }
+  }
 }
 
 /// Custom Exception für Datenbank-Fehler

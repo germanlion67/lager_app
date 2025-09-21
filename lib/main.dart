@@ -2,6 +2,14 @@
 
 //Startpunkt der App
 //Lädt die Artikelliste als Hauptansicht
+//Kann später mit Routing zu weiteren Seiten erweitert werden (z. B. Detailansicht, QR-Scan, Einstellungen)
+
+import 'package:flutter/material.dart';
+import 'screens/artikel_list_screen.dart';
+import 'services/artikel_db_service.dart';in.dart
+
+//Startpunkt der App
+//Lädt die Artikelliste als Hauptansicht
 //Kann später mit Routing zu weiteren Seiten erweitert werden (z. B. Detailansicht, QR-Scan, Einstellungen)
 
 import 'package:flutter/material.dart';
@@ -28,8 +36,43 @@ void main() {
 }
 
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      // App wird beendet - Datenbank sauber schließen
+      _cleanupResources();
+    }
+  }
+
+  Future<void> _cleanupResources() async {
+    try {
+      final dbService = ArtikelDbService();
+      await dbService.closeDatabase();
+    } catch (e) {
+      // Fehler beim Cleanup ignorieren, da App bereits beendet wird
+      print('Cleanup error: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

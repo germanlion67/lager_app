@@ -31,6 +31,17 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
     _ladeGespeicherteDaten();
   }
 
+  @override
+  void dispose() {
+    // Dispose all TextEditingControllers to prevent memory leaks
+    _serverCtrl.dispose();
+    _userCtrl.dispose();
+    _appPwCtrl.dispose();
+    _folderCtrl.dispose();
+    _intervalCtrl.dispose();
+    super.dispose();
+  }
+
   Future<void> _ladeGespeicherteDaten() async {
     final creds = await NextcloudCredentialsStore().read();
     if (creds != null) {
