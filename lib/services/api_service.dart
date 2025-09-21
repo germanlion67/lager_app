@@ -16,13 +16,17 @@ class ApiService {
   final String baseUrl = 'https://dein-api-server.de/api/artikel';
 
   Future<List<Artikel>> fetchArtikelListe() async {
-    final response = await http.get(Uri.parse(baseUrl));
+    final response = await http.get(Uri.parse(baseUrl))
+        .timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => throw Exception('Timeout beim Laden der Artikelliste (30s)'),
+        );
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
       return data.map((json) => Artikel.fromMap(json)).toList();
     } else {
-      throw Exception('Fehler beim Laden der Artikelliste');
+      throw Exception('Fehler beim Laden der Artikelliste (Status: ${response.statusCode})');
     }
   }
 
@@ -31,18 +35,25 @@ class ApiService {
       Uri.parse(baseUrl),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(artikel.toMap()),
+    ).timeout(
+      const Duration(seconds: 30),
+      onTimeout: () => throw Exception('Timeout beim Senden des Artikels (30s)'),
     );
 
     if (response.statusCode != 200) {
-      throw Exception('Fehler beim Senden des Artikels');
+      throw Exception('Fehler beim Senden des Artikels (Status: ${response.statusCode})');
     }
   }
 
   Future<void> deleteArtikel(int id) async {
-    final response = await http.delete(Uri.parse('$baseUrl/$id'));
+    final response = await http.delete(Uri.parse('$baseUrl/$id'))
+        .timeout(
+          const Duration(seconds: 15),
+          onTimeout: () => throw Exception('Timeout beim Löschen des Artikels (15s)'),
+        );
 
     if (response.statusCode != 200) {
-      throw Exception('Fehler beim Löschen des Artikels');
+      throw Exception('Fehler beim Löschen des Artikels (Status: ${response.statusCode})');
     }
   }
 }

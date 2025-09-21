@@ -58,7 +58,10 @@ class NextcloudWebDavClient {
       final uri = config.webDavRoot.replace(path: p.posix.join(config.webDavRoot.path, current));
       final res = http.Request('MKCOL', uri)
         ..headers.addAll(_authHeader);
-      final streamed = await res.send();
+      final streamed = await res.send().timeout(
+        const Duration(seconds: 30), // MKCOL sollte schnell sein
+        onTimeout: () => throw WebDavException('MKCOL-Timeout (30s): $current'),
+      );
       // 201 = created, 405 = already exists -> beides okay
       if (streamed.statusCode == 201 || streamed.statusCode == 405) continue;
       if (streamed.statusCode == 401) {
@@ -96,6 +99,9 @@ class NextcloudWebDavClient {
         'Content-Type': mime,
       },
       body: bytes,
+    ).timeout(
+      const Duration(minutes: 5), // Upload kann bei großen Dateien länger dauern
+      onTimeout: () => throw WebDavException('Upload-Timeout (5 Min): $remoteRelativePath'),
     );
 
     if (res.statusCode == 201 || res.statusCode == 204) {
@@ -160,6 +166,9 @@ class NextcloudWebDavClient {
     final res = await http.get(
       targetUri,
       headers: _authHeader,
+    ).timeout(
+      const Duration(minutes: 3), // Download-Timeout
+      onTimeout: () => throw WebDavException('Download-Timeout (3 Min): $remoteRelativePath'),
     );
 
     if (res.statusCode == 200) {

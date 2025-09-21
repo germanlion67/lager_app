@@ -82,7 +82,11 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
       final uri = Uri.parse(_serverCtrl.text.trim())
           .replace(path: 'remote.php/dav/files/${Uri.encodeComponent(_userCtrl.text.trim())}/');
       final basicAuth = base64Encode(utf8.encode('${_userCtrl.text.trim()}:${_appPwCtrl.text.trim()}'));
-      final res = await http.head(uri, headers: {'Authorization': 'Basic $basicAuth'});
+      final res = await http.head(uri, headers: {'Authorization': 'Basic $basicAuth'})
+          .timeout(
+            const Duration(seconds: 15), // Verbindungstest sollte schnell sein
+            onTimeout: () => throw Exception('Verbindungstest-Timeout (15s)'),
+          );
 
       if (!mounted) return;
       if (res.statusCode == 200 || res.statusCode == 207) {
