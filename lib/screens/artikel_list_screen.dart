@@ -13,6 +13,7 @@ import '../services/app_log_service.dart';
 import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
+import 'artikel_detail_screen.dart';
 import 'dart:io';
 
 // Nextcloud Settings + Logout
@@ -580,7 +581,17 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   ),
                   isThreeLine: true,
                   onTap: () async {
-                    // Navigation zu Detail-Screen würde hier stehen
+                    // Navigation zur Artikel-Detail-Seite
+                    final result = await Navigator.of(context).push<bool>(
+                      MaterialPageRoute(
+                        builder: (_) => ArtikelDetailScreen(artikel: artikel),
+                      ),
+                    );
+                    
+                    // Falls der Artikel geändert wurde, Liste neu laden
+                    if (result == true && mounted) {
+                      await _ladeArtikel();
+                    }
                   }
                 );
               },
