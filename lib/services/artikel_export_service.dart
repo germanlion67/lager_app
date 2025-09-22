@@ -168,7 +168,8 @@ class ArtikelExportService {
 
       // 2. Alle Artikel laden
       final artikelList = await ArtikelDbService().getAlleArtikel();
-      final backupFolder = 'backup_${DateTime.now().millisecondsSinceEpoch}';
+      final now = DateTime.now();
+      final backupFolder = 'backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
       
       int successfulImages = 0;
       int failedImages = 0;
@@ -184,7 +185,7 @@ class ArtikelExportService {
             if (await imageFile.exists()) {
               // Remote-Pfad für Backup
               final fileName = p.basename(artikel.bildPfad);
-              final remotePath = '$backupFolder/images/artikel_${artikel.id}_$fileName';
+              final remotePath = '${creds.baseFolder}/$backupFolder/images/artikel_${artikel.id}_$fileName';
               
               // Upload zu Nextcloud
               await webdavClient.uploadFileNew(
@@ -222,12 +223,11 @@ class ArtikelExportService {
       final jsonBytes = Uint8List.fromList(utf8.encode(jsonString));
       
       // 5. JSON-Backup zu Nextcloud hochladen
-      final now = DateTime.now();
-      final backupFileName = 'backup_${now.day.toString().padLeft(2, '0')}${now.month.toString().padLeft(2, '0')}${now.year}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.json';
+      final backupFileName = 'backup.json';
       
       await webdavClient.uploadBytes(
         bytes: jsonBytes,
-        remoteRelativePath: '$backupFolder/$backupFileName',
+        remoteRelativePath: '${creds.baseFolder}/$backupFolder/$backupFileName',
         contentType: 'application/json',
       );
 
