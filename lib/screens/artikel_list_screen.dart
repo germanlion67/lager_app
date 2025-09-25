@@ -581,18 +581,27 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   ),
                   isThreeLine: true,
                   onTap: () async {
-                    // Navigation zur Artikel-Detail-Seite
-                    final result = await Navigator.of(context).push<bool>(
-                      MaterialPageRoute(
-                        builder: (_) => ArtikelDetailScreen(artikel: artikel),
-                      ),
-                    );
-                    
-                    // Falls der Artikel geändert wurde, Liste neu laden
-                    if (result == true && mounted) {
-                      await _ladeArtikel();
-                    }
+                  // Navigation zur Artikel-Detail-Seite
+                  final result = await Navigator.of(context).push<Artikel>(
+                    MaterialPageRoute(
+                      builder: (_) => ArtikelDetailScreen(artikel: artikel),
+                    ),
+                  );
+
+                  // Falls der Artikel geändert wurde, Liste aktualisieren
+                  if (result == null && mounted) {
+                    await _ladeArtikel(); // Liste neu laden
                   }
+                  // Falls der Artikel geändert wurde, Liste aktualisieren
+                  else if (result is Artikel && mounted) {
+                    setState(() {
+                      final index = _artikelListe.indexWhere((a) => a.id == result.id);
+                      if (index != -1) {
+                        _artikelListe[index] = result; // Aktualisierten Artikel in der Liste ersetzen
+                      }
+                    });
+                  }
+                },
                 );
               },
             ),

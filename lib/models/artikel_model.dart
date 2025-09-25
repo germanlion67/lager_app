@@ -49,9 +49,12 @@ class Artikel {
   // Konstruktor aus Map
   factory Artikel.fromMap(Map<String, dynamic> map) {
     return Artikel(
-      id: map['id'],
+      id: map['id'] ?? 0,
       name: map['name'] ?? '',
-      menge: map['menge'] ?? 0,
+      //menge: map['menge'] ?? 0,
+      menge: map['menge'] is int
+          ? map['menge'] as int
+          : int.tryParse(map['menge'].toString()) ?? 0,
       ort: map['ort'] ?? '',
       fach: map['fach'] ?? '',
       beschreibung: map['beschreibung'] ?? '',

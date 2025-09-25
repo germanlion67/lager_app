@@ -115,7 +115,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     if (widget.artikel.id != null) {
       await ArtikelDbService().deleteArtikel(widget.artikel.id!);
       if (!mounted) return;
-      Navigator.pop(context, 'deleted'); // 👉 spezielles Signal für Löschen
+      Navigator.pop(context, null); // 👉 null zurückgeben, um Löschung anzuzeigen
     }
   }
 

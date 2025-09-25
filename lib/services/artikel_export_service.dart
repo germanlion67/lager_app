@@ -12,20 +12,20 @@ import 'dart:typed_data';
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../services/app_log_service.dart';
-import '../models/artikel_model.dart';
+//import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
 
 class ArtikelExportService {
-  /// Exportiert alle Artikel der Datenbank als JSON-String (Backup).
+  // Exportiert alle Artikel der Datenbank als JSON-String (Backup).
   Future<String> exportAllArtikelAsJson() async {
     final artikelList = await ArtikelDbService().getAlleArtikel();
     final jsonList = artikelList.map((a) => a.toMap()).toList();
     return json.encode(jsonList);
   }
 
-  /// Exportiert alle Artikel der Datenbank als CSV-String (Backup).
+  // Exportiert alle Artikel der Datenbank als CSV-String (Backup).
   Future<String> exportAllArtikelAsCsv() async {
     final artikelList = await ArtikelDbService().getAlleArtikel();
     if (artikelList.isEmpty) return "";
@@ -170,7 +170,12 @@ class ArtikelExportService {
       final artikelList = await ArtikelDbService().getAlleArtikel();
       final now = DateTime.now();
       final backupFolder = 'backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-      
+      await AppLogService().log('Anzahl Artikel für Backup: ${artikelList.length}');
+
+      // Sicherstellen, dass das Backup-Verzeichnis existiert
+      final backupFolderPath = '${creds.baseFolder}/$backupFolder/images';
+      await webdavClient.ensureFolder(backupFolderPath);
+
       int successfulImages = 0;
       int failedImages = 0;
       final errors = <String>[];
@@ -178,42 +183,39 @@ class ArtikelExportService {
       // 3. Bilder zu Nextcloud hochladen und remoteBildPfad aktualisieren
       for (int i = 0; i < artikelList.length; i++) {
         final artikel = artikelList[i];
-        
-        if (artikel.bildPfad.isNotEmpty) {
-          try {
-            final imageFile = File(artikel.bildPfad);
-            if (await imageFile.exists()) {
-              // Remote-Pfad für Backup
-              final fileName = p.basename(artikel.bildPfad);
-              final remotePath = '${creds.baseFolder}/$backupFolder/images/artikel_${artikel.id}_$fileName';
-              
-              // Upload zu Nextcloud
-              await webdavClient.uploadFileNew(
-                localPath: artikel.bildPfad,
-                remoteRelativePath: remotePath,
-              );
+        if (artikel.bildPfad.isEmpty) continue;
 
-              // Artikel-Objekt mit remoteBildPfad aktualisieren
-              artikelList[i] = Artikel(
-                id: artikel.id,
-                name: artikel.name,
-                menge: artikel.menge,
-                ort: artikel.ort,
-                fach: artikel.fach,
-                beschreibung: artikel.beschreibung,
-                bildPfad: artikel.bildPfad,
-                erstelltAm: artikel.erstelltAm,
-                aktualisiertAm: artikel.aktualisiertAm,
-                remoteBildPfad: remotePath,
-              );
-              
-              successfulImages++;
-            }
-          } catch (e, stackTrace) {
-            failedImages++;
-            errors.add('Fehler bei Artikel ${artikel.name}: $e');
-            await AppLogService().logError('Fehler beim Upload von Bild für Artikel ${artikel.name}', stackTrace);
+        try {
+          final imageFile = File(artikel.bildPfad);
+          if (!await imageFile.exists()) {
+            await AppLogService().log('Bilddatei nicht gefunden: ${artikel.bildPfad}');
+            continue;
           }
+
+          final artikelNameSlug = artikel.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
+          final fileName = '${artikel.id}_$artikelNameSlug.jpg';
+          final remotePath = '${creds.baseFolder}/$backupFolder/images/$fileName';
+          try {
+            await _uploadImage(webdavClient, artikel.bildPfad, remotePath);
+            artikelList[i] = artikel.copyWith(
+              remoteBildPfad: remotePath,
+              bildPfad: remotePath,
+              );
+            successfulImages++;
+            await AppLogService().log('Bild erfolgreich hochgeladen: $remotePath');
+          } catch (uploadError) {
+            if (_isConflictError(uploadError)) {
+              await _retryUpload(webdavClient, artikel.bildPfad, remotePath, artikel.name);
+              artikelList[i] = artikel.copyWith(remoteBildPfad: remotePath);
+              successfulImages++;
+            } else {
+              rethrow; // Updated to use rethrow
+            }
+          }
+        } catch (e, stackTrace) {
+          failedImages++;
+          errors.add('Fehler bei Artikel ${artikel.name}: $e');
+          await AppLogService().logError('Fehler beim Upload von Bild für Artikel ${artikel.name}', stackTrace);
         }
       }
 
@@ -221,10 +223,11 @@ class ArtikelExportService {
       final jsonList = artikelList.map((a) => a.toMap()).toList();
       final jsonString = json.encode(jsonList);
       final jsonBytes = Uint8List.fromList(utf8.encode(jsonString));
-      
+
+      await AppLogService().log('JSON erstellt, Größe: ${jsonBytes.length} bytes');
+
       // 5. JSON-Backup zu Nextcloud hochladen
       final backupFileName = 'backup.json';
-      
       await webdavClient.uploadBytes(
         bytes: jsonBytes,
         remoteRelativePath: '${creds.baseFolder}/$backupFolder/$backupFileName',
@@ -233,14 +236,13 @@ class ArtikelExportService {
 
       // 6. Erfolgsmeldung
       await AppLogService().log('Backup mit Bildern erfolgreich: $successfulImages Bilder, $failedImages Fehler');
-      
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             'Backup erfolgreich zu Nextcloud!\n'
             'Bilder: $successfulImages erfolgreich, $failedImages Fehler\n'
-            'Backup-Ordner: $backupFolder'
+            'Backup-Ordner: $backupFolder',
           ),
           duration: const Duration(seconds: 5),
         ),
@@ -264,7 +266,6 @@ class ArtikelExportService {
           ),
         );
       }
-
     } catch (e, stack) {
       await AppLogService().logError('Fehler beim Backup mit Bildern: $e', stack);
       if (!context.mounted) return;
@@ -276,6 +277,40 @@ class ArtikelExportService {
         ),
       );
     }
-  }   
+  }
 
+  static Future<void> _uploadImage(
+    NextcloudWebDavClient webdavClient,
+    String localPath,
+    String remotePath,
+  ) async {
+    // Verzeichnis sicherstellen
+    final folderPath = p.dirname(remotePath); // Extrahiere den Verzeichnispfad
+    await webdavClient.ensureFolder(folderPath); // Stelle sicher, dass das Verzeichnis existiert
+    // Datei hochladen
+    await webdavClient.uploadFileNew(
+      localPath: localPath,
+      remoteRelativePath: remotePath,
+    );
+  }
+
+  static bool _isConflictError(Object error) {
+    final errorString = error.toString().toLowerCase();
+    return errorString.contains('409') || errorString.contains('folder');
+  }
+
+  static Future<void> _retryUpload(
+    NextcloudWebDavClient webdavClient,
+    String localPath,
+    String remotePath,
+    String artikelName,
+  ) async {
+    await AppLogService().log('409 Fehler beim Upload - versuche erneut: $artikelName');
+    await Future.delayed(const Duration(milliseconds: 500));
+    await webdavClient.uploadFileNew(
+      localPath: localPath,
+      remoteRelativePath: remotePath,
+    );
+    await AppLogService().log('Bild erfolgreich hochgeladen (2. Versuch): $remotePath');
+  }
 }

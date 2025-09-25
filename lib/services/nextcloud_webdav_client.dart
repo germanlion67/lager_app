@@ -63,21 +63,29 @@ class NextcloudWebDavClient {
   /// Prüft/legt einen Zielordner rekursiv an (MKCOL).
   Future<void> ensureFolder(String folderPath) async {
     try {
-      final targetUri = config.webDavRoot.resolve(folderPath);
-      final client = http.Client();
-      
-      final request = http.Request('MKCOL', targetUri);
-      request.headers.addAll(_authHeader);
-      
-      final response = await client.send(request).timeout(const Duration(seconds: 30));
-      final statusCode = response.statusCode;
-      
-      // 201 = Created, 405 = Method Not Allowed (bereits vorhanden)
-      if (statusCode != 201 && statusCode != 405) {
-        throw WebDavException('Failed to create folder $folderPath: $statusCode');
+      final segments = folderPath.split('/');
+      String currentPath = '';
+
+      for (final segment in segments) {
+        if (segment.isEmpty) continue; // Überspringe leere Segmente
+        currentPath = currentPath.isEmpty ? segment : '$currentPath/$segment';
+
+        final targetUri = config.webDavRoot.resolve(currentPath);
+        final client = http.Client();
+
+        final request = http.Request('MKCOL', targetUri);
+        request.headers.addAll(_authHeader);
+
+        final response = await client.send(request).timeout(const Duration(seconds: 30));
+        final statusCode = response.statusCode;
+
+        // 201 = Created, 405 = Already exists
+        if (statusCode != 201 && statusCode != 405) {
+          throw WebDavException('Failed to create folder $currentPath: $statusCode');
+        }
+
+        client.close();
       }
-      
-      client.close();
     } catch (e) {
       if (e is WebDavException) rethrow;
       throw WebDavException('Network error creating folder: $e');
@@ -306,5 +314,68 @@ class NextcloudWebDavClient {
     final localFile = File(localPath);
     await localFile.parent.create(recursive: true);
     await localFile.writeAsBytes(bytes);
+  }
+
+  // ...existing code...
+  /// Listet nur Ordner in einem Remote-Verzeichnis auf.
+  Future<List<String>> listFolders(String remoteFolderPath) async {
+    try {
+      final targetUri = config.webDavRoot.resolve(remoteFolderPath);
+      final client = http.Client();
+      
+      final request = http.Request('PROPFIND', targetUri);
+      request.headers.addAll({
+        ..._authHeader,
+        'Depth': '1',
+        'Content-Type': 'application/xml',
+      });
+      request.body = '''<?xml version="1.0"?>
+<d:propfind xmlns:d="DAV:">
+  <d:prop>
+    <d:displayname/>
+    <d:resourcetype/>
+  </d:prop>
+</d:propfind>''';
+      
+      final streamedResponse = await client.send(request).timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      client.close();
+
+      if (response.statusCode == 207) {
+        // Parse XML response to extract folder names
+        final folders = <String>[];
+        final responseBody = response.body;
+        
+        // Split by <d:response> to get individual entries
+        final responseEntries = responseBody.split('<d:response>');
+        
+        for (final entry in responseEntries) {
+          if (entry.contains('<d:collection/>')) { // This indicates a folder
+            // Extract folder name
+            if (entry.contains('<d:displayname>') && entry.contains('</d:displayname>')) {
+              final start = entry.indexOf('<d:displayname>') + 15;
+              final end = entry.indexOf('</d:displayname>');
+              if (start < end) {
+                final folderName = entry.substring(start, end).trim();
+                if (folderName.isNotEmpty && 
+                    folderName != remoteFolderPath && 
+                    !folderName.endsWith('/')) {
+                  folders.add(folderName);
+                }
+              }
+            }
+          }
+        }
+        return folders;
+      } else if (response.statusCode == 404) {
+        return []; // Folder doesn't exist
+      } else {
+        throw WebDavException('List folders failed with status ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is WebDavException) rethrow;
+      throw WebDavException('Network error listing folders: $e');
+    }
   }
 }
