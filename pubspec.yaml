@@ -32,10 +32,15 @@ dependencies:
   sqflite_common_ffi: ^2.3.6
   csv: ^6.0.0
   test_api: ^0.7.6
+  archive: ^4.0.7
+
+  connectivity_plus: ^5.0.2 # Für WLAN-Check (nur Android/iOS)
 
   
 
 dev_dependencies:
+  mockito: ^5.4.2
+  build_runner: ^2.4.6
   flutter_lints: ^6.0.0
   flutter_test:
     sdk: flutter

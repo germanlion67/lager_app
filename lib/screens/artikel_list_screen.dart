@@ -35,7 +35,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   String _suchbegriff = '';
   String _filterOrt = '';
   bool _hasCamera = false;
-  final NextcloudConnectionService _connectionService = NextcloudConnectionService();
+  final NextcloudConnectionService _connectionService =
+      NextcloudConnectionService();
 
   @override
   void initState() {
@@ -78,13 +79,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   List<Artikel> _gefilterteArtikel() {
     return _artikelListe.where((artikel) {
-      final passtName = artikel.name.toLowerCase().contains(_suchbegriff.toLowerCase());
-      final passtBeschreibung = artikel.beschreibung.toLowerCase().contains(_suchbegriff.toLowerCase());
+      final passtName =
+          artikel.name.toLowerCase().contains(_suchbegriff.toLowerCase());
+      final passtBeschreibung = artikel.beschreibung
+          .toLowerCase()
+          .contains(_suchbegriff.toLowerCase());
       final passtOrt = _filterOrt.isEmpty || artikel.ort == _filterOrt;
       return (passtName || passtBeschreibung) && passtOrt;
     }).toList();
   }
-  
+
   Future<void> _neuenArtikelErfassen() async {
     final result = await Navigator.of(context).push<Artikel>(
       MaterialPageRoute(builder: (_) => const ArtikelErfassenScreen()),
@@ -108,34 +112,41 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           title: const Text('Backup-Optionen'),
           children: [
             SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await ArtikelExportService.backupToFile(context);
-              },
-              child: const Row(
-                children: [
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await ArtikelExportService().backupToFile(context);
+                },
+                child: const Row(children: [
                   Icon(Icons.file_download, color: Colors.blue),
                   SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Lokales Backup (nur Daten)')
-                  )
-                ]
-              )
+                  Expanded(child: Text('Lokales Backup (nur Daten)'))
+                ])),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final zipPath =
+                    await ArtikelExportService().backupToZipFile(context);
+                if (zipPath != null) {
+                  await ArtikelExportService().backupZipToNextcloud(zipPath);
+                }
+              },
+              child: const Row(children: [
+                Icon(Icons.archive, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(child: Text('Backup als ZIP (mit Bildern)'))
+              ]),
             ),
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await ArtikelExportService.backupWithImagesToNextcloud(context);
+                await ArtikelExportService()
+                    .backupWithImagesToNextcloud(context);
               },
-              child: const Row(
-                children: [
-                  Icon(Icons.cloud_upload, color: Colors.green),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Nextcloud Backup (mit Bildern)')
-                  )
-                ]
-              ),
+              child: const Row(children: [
+                Icon(Icons.cloud_upload, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(child: Text('Nextcloud Backup (mit Bildern)'))
+              ]),
             ),
           ],
         );
@@ -152,34 +163,27 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           title: const Text('Backup wiederherstellen'),
           children: [
             SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await ArtikelImportService.importBackup(context, _ladeArtikel);
-              },
-              child: const Row(
-                children: [
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await ArtikelImportService.importBackup(
+                      context, _ladeArtikel);
+                },
+                child: const Row(children: [
                   Icon(Icons.file_upload, color: Colors.blue),
                   SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Lokales Backup (nur Daten)')
-                  )
-                ]
-              )
-            ),
+                  Expanded(child: Text('Lokales Backup (nur Daten)'))
+                ])),
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await ArtikelImportService.importBackupWithImagesFromNextcloud(context, _ladeArtikel);
+                await ArtikelImportService.importBackupWithImagesFromNextcloud(
+                    context, _ladeArtikel);
               },
-              child: const Row(
-                children: [
-                  Icon(Icons.cloud_download, color: Colors.green),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text('Nextcloud Backup (mit Bildern)')
-                  )
-                ]
-              ),
+              child: const Row(children: [
+                Icon(Icons.cloud_download, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(child: Text('Nextcloud Backup (mit Bildern)'))
+              ]),
             ),
           ],
         );
@@ -196,65 +200,56 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           title: const Text('Artikel Import/Export'),
           children: [
             SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await ArtikelImportService.importArtikel(context, _ladeArtikel);
-              },
-              child: const Row(
-                children: [
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await ArtikelImportService.importArtikel(
+                      context, _ladeArtikel);
+                },
+                child: const Row(children: [
                   Icon(Icons.file_upload, color: Colors.blue),
                   SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      'Artikel importieren (JSON/CSV)',
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  )
-                ]
-              )
-            ),
+                      child: Text(
+                    'Artikel importieren (JSON/CSV)',
+                    overflow: TextOverflow.ellipsis,
+                  ))
+                ])),
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await ArtikelExportService.showExportDialog(context);
+                await ArtikelExportService().showExportDialog(context);
               },
-              child: const Row(
-                children: [
-                  Icon(Icons.file_download, color: Colors.green),
-                  SizedBox(width: 8),
-                  Expanded(
+              child: const Row(children: [
+                Icon(Icons.file_download, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(
                     child: Text(
-                      'Artikel exportieren (JSON/CSV)',
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  )
-                ]
-              ),
+                  'Artikel exportieren (JSON/CSV)',
+                  overflow: TextOverflow.ellipsis,
+                ))
+              ]),
             ),
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
                 await NextcloudSyncService.showResyncDialog(context);
               },
-              child: const Row(
-                children: [
-                  Icon(Icons.sync, color: Colors.orange),
-                  SizedBox(width: 8),
-                  Expanded(
+              child: const Row(children: [
+                Icon(Icons.sync, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(
                     child: Text(
-                      'Nextcloud Nachsynchronisation',
-                      overflow: TextOverflow.ellipsis,
-                    )
-                  )
-                ]
-              ),
+                  'Nextcloud Nachsynchronisation',
+                  overflow: TextOverflow.ellipsis,
+                ))
+              ]),
             ),
           ],
         );
       },
     );
   }
-  
+
   // --- Menü/Actions ---
   Widget _buildConnectionStatusIcon() {
     return ValueListenableBuilder<NextcloudConnectionStatus>(
@@ -262,7 +257,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       builder: (context, status, child) {
         Widget icon;
         String tooltipMessage;
-        
+
         switch (status) {
           case NextcloudConnectionStatus.online:
             icon = Icon(
@@ -290,7 +285,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             tooltipMessage = 'Nextcloud: Status unbekannt';
             break;
         }
-        
+
         return GestureDetector(
           onTap: () {
             _connectionService.checkConnectionNow();
@@ -354,7 +349,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     await _ladeArtikel();
                     if (!mounted) return;
                     messenger.showSnackBar(
-                      const SnackBar(content: Text('Datenbank wurde zurückgesetzt')),
+                      const SnackBar(
+                          content: Text('Datenbank wurde zurückgesetzt')),
                     );
                   }
                   break;
@@ -362,14 +358,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   await AppLogService.showLogDialog(context);
                   break;
                 case _MenuAction.nextcloudSettings:
-                  await NextcloudConnectionService.showSettingsScreen(context, _connectionService);
+                  await NextcloudConnectionService.showSettingsScreen(
+                      context, _connectionService);
                   break;
                 case _MenuAction.nextcloudCredentials:
                   await showDialog(
                     context: context,
                     builder: (ctx) => AlertDialog(
                       title: const Text('Nextcloud Zugangsdaten'),
-                      content: const Text('Hier können die Zugangsdaten angezeigt oder geändert werden.'),
+                      content: const Text(
+                          'Hier können die Zugangsdaten angezeigt oder geändert werden.'),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(ctx),
@@ -380,7 +378,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   );
                   break;
                 case _MenuAction.logout:
-                  await NextcloudCredentialsStore.showLogoutDialog(context, _connectionService);
+                  await NextcloudCredentialsStore.showLogoutDialog(
+                      context, _connectionService);
                   break;
                 case _MenuAction.exit:
                   if (Platform.isAndroid || Platform.isIOS) {
@@ -407,6 +406,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.backup),
                   title: Text('Backup erstellen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: _MenuAction.backup,
+                child: ListTile(
+                  leading: Icon(Icons.archive),
+                  title: Text('Backup als ZIP (mit Bildern)'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -495,27 +503,26 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: 
-              DropdownButton<String>(
-                value: _filterOrt.isEmpty ? null : _filterOrt,
-                hint: const Text('Ort filtern'),
-                isExpanded: true,
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: '',
-                    child: Text('Alle Orte anzeigen'),
-                  ),
-                  ..._artikelListe
-                      .map((a) => a.ort)
-                      .where((ort) => ort.isNotEmpty)
-                      .toSet()
-                      .map((ort) => DropdownMenuItem<String>(
-                            value: ort,
-                            child: Text(ort),
-                          ))
-                ],
-                onChanged: (value) => setState(() => _filterOrt = value ?? ''),
-              ),              
+            child: DropdownButton<String>(
+              value: _filterOrt.isEmpty ? null : _filterOrt,
+              hint: const Text('Ort filtern'),
+              isExpanded: true,
+              items: [
+                const DropdownMenuItem<String>(
+                  value: '',
+                  child: Text('Alle Orte anzeigen'),
+                ),
+                ..._artikelListe
+                    .map((a) => a.ort)
+                    .where((ort) => ort.isNotEmpty)
+                    .toSet()
+                    .map((ort) => DropdownMenuItem<String>(
+                          value: ort,
+                          child: Text(ort),
+                        ))
+              ],
+              onChanged: (value) => setState(() => _filterOrt = value ?? ''),
+            ),
           ),
           Expanded(
             child: ListView.builder(
@@ -523,7 +530,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               itemBuilder: (context, index) {
                 final artikel = gefiltert[index];
                 return ListTile(
-                  leading: (artikel.bildPfad.isNotEmpty && File(artikel.bildPfad).existsSync())
+                  leading: (artikel.bildPfad.isNotEmpty &&
+                          File(artikel.bildPfad).existsSync())
                       ? ClipRRect(
                           borderRadius: BorderRadius.circular(6),
                           child: Image.file(
@@ -540,7 +548,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                             color: Colors.grey[300],
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Icon(Icons.image_not_supported, color: Colors.grey),
+                          child: const Icon(Icons.image_not_supported,
+                              color: Colors.grey),
                         ),
                   title: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -581,34 +590,35 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   ),
                   isThreeLine: true,
                   onTap: () async {
-                  // Navigation zur Artikel-Detail-Seite
-                  final result = await Navigator.of(context).push<Artikel>(
-                    MaterialPageRoute(
-                      builder: (_) => ArtikelDetailScreen(artikel: artikel),
-                    ),
-                  );
+                    // Navigation zur Artikel-Detail-Seite
+                    final result = await Navigator.of(context).push<Artikel>(
+                      MaterialPageRoute(
+                        builder: (_) => ArtikelDetailScreen(artikel: artikel),
+                      ),
+                    );
 
-                  // Falls der Artikel geändert wurde, Liste aktualisieren
-                  if (result == null && mounted) {
-                    await _ladeArtikel(); // Liste neu laden
-                  }
-                  // Falls der Artikel geändert wurde, Liste aktualisieren
-                  else if (result is Artikel && mounted) {
-                    setState(() {
-                      final index = _artikelListe.indexWhere((a) => a.id == result.id);
-                      if (index != -1) {
-                        _artikelListe[index] = result; // Aktualisierten Artikel in der Liste ersetzen
-                      }
-                    });
-                  }
-                },
+                    // Falls der Artikel geändert wurde, Liste aktualisieren
+                    if (result == null && mounted) {
+                      await _ladeArtikel(); // Liste neu laden
+                    }
+                    // Falls der Artikel geändert wurde, Liste aktualisieren
+                    else if (result is Artikel && mounted) {
+                      setState(() {
+                        final index =
+                            _artikelListe.indexWhere((a) => a.id == result.id);
+                        if (index != -1) {
+                          _artikelListe[index] =
+                              result; // Aktualisierten Artikel in der Liste ersetzen
+                        }
+                      });
+                    }
+                  },
                 );
               },
             ),
           ),
         ],
       ),
-
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -616,7 +626,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             FloatingActionButton(
               heroTag: 'scan',
               onPressed: () async {
-                await ScanService.scanArtikel(context, _artikelListe, _ladeArtikel, setState);
+                await ScanService.scanArtikel(
+                    context, _artikelListe, _ladeArtikel, setState);
               },
               tooltip: "Artikel scannen",
               child: const Icon(Icons.qr_code_scanner),
@@ -634,14 +645,14 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 }
 
-enum _MenuAction { 
-  importExport, 
-  backup, 
-  restoreBackup, 
-  resetDb, 
-  showLog, 
-  nextcloudSettings, 
-  nextcloudCredentials, 
-  logout, 
-  exit 
+enum _MenuAction {
+  importExport,
+  backup,
+  restoreBackup,
+  resetDb,
+  showLog,
+  nextcloudSettings,
+  nextcloudCredentials,
+  logout,
+  exit
 }
