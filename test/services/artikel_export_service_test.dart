@@ -1,23 +1,29 @@
-//test/services/artikel_export_service_test.dart
-
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mockito/annotations.dart';
-import 'artikel_export_service_test.mocks.dart';
 import 'package:flutter/material.dart';
 import 'package:elektronik_verwaltung/services/artikel_export_service.dart';
-import 'package:elektronik_verwaltung/services/app_log_service.dart';
-import 'package:elektronik_verwaltung/services/nextcloud_webdav_client.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 
-@GenerateMocks([AppLogService, NextcloudWebDavClient])
+// Test-Implementierung für FileSelectorPlatform
+class TestFileSelectorPlatform extends FileSelectorPlatform {
+  @override
+  Future<FileSaveLocation?> getSaveLocation({
+    List<XTypeGroup>? acceptedTypeGroups,
+    SaveDialogOptions options = const SaveDialogOptions(),
+  }) async {
+    return FileSaveLocation('test.zip');
+  }
+}
+
 void main() {
+  // ---------- 1️⃣ Mocks ----------
+  // Keine Mocks für file_selector nötig
+
+  // ---------- 2️⃣ Service ----------
   late ArtikelExportService exportService;
-  late MockAppLogService mockLogService;
-  late MockNextcloudWebDavClient mockWebDavClient;
 
   setUp(() {
     exportService = ArtikelExportService();
-    mockLogService = MockAppLogService();
-    mockWebDavClient = MockNextcloudWebDavClient();
+    FileSelectorPlatform.instance = TestFileSelectorPlatform();
   });
 
   testWidgets('backupToZipFile gibt null zurück, wenn keine Artikel vorhanden',

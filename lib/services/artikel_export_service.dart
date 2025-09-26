@@ -10,7 +10,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'artikel_db_service.dart';
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
-import 'package:archive/archive.dart';
+import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipEncoder;
 
 class ArtikelExportService {
   Future<void> _uploadImage(
@@ -27,7 +27,7 @@ class ArtikelExportService {
   }
 
   bool _isConflictError(Object error) {
-    final errorString = error.toString().toLowerCase();
+    final String errorString = error.toString().toLowerCase();
     return errorString.contains('409') || errorString.contains('folder');
   }
 
@@ -234,7 +234,7 @@ class ArtikelExportService {
       }
 
       final fileName =
-          'artikel_export_${DateTime.now().toIso8601String().replaceAll(':', '-')}.${exportType}';
+          'artikel_export_${DateTime.now().toIso8601String().replaceAll(':', '-')}.$exportType';
       final bytes = Uint8List.fromList(utf8.encode(exportData));
 
       await AppLogService().log('Export gestartet ($exportType)');
