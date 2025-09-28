@@ -216,7 +216,6 @@ class ArtikelExportService {
           ],
         ),
       );
-      if (exportType == null) return;
 
       String? exportData;
       if (exportType == 'json') {
@@ -243,7 +242,7 @@ class ArtikelExportService {
         dialogTitle: 'Exportiere Artikeldaten',
         fileName: fileName,
         type: FileType.custom,
-        allowedExtensions: [exportType],
+        allowedExtensions: exportType != null ? [exportType] : [],
         bytes: bytes,
       );
 

@@ -2,13 +2,12 @@
 
 import 'package:flutter/material.dart';
 // Füge hinzu:
-import 'package:flutter/services.dart';
+//import 'package:flutter/services.dart';
 
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
-import '../services/nextcloud_sync_service.dart';
 import '../services/app_log_service.dart';
 import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
@@ -31,6 +30,33 @@ class ArtikelListScreen extends StatefulWidget {
 }
 
 class _ArtikelListScreenState extends State<ArtikelListScreen> {
+  // Hilfsdialog für Nextcloud ZIP-Pfad (Demo)
+  Future<String?> _showNextcloudZipPathDialog(BuildContext context) async {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ZIP-Dateipfad in Nextcloud'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Pfad zur ZIP-Datei',
+            hintText: 'z.B. backup_20250923_1520/artikel_backup.zip',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
   List<Artikel> _artikelListe = [];
   String _suchbegriff = '';
   String _filterOrt = '';
@@ -103,117 +129,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
-  // Backup-Dialog
-  Future<void> _showBackupDialog() async {
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return SimpleDialog(
-          title: const Text('Backup-Optionen'),
-          children: [
-            SimpleDialogOption(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await ArtikelExportService().backupToFile(context);
-                },
-                child: const Row(children: [
-                  Icon(Icons.file_download, color: Colors.blue),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Lokales Backup (nur Daten)'))
-                ])),
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final zipPath =
-                    await ArtikelExportService().backupToZipFile(context);
-                if (zipPath != null) {
-                  await ArtikelExportService().backupZipToNextcloud(zipPath);
-                }
-              },
-              child: const Row(children: [
-                Icon(Icons.archive, color: Colors.orange),
-                SizedBox(width: 8),
-                Expanded(child: Text('Backup als ZIP (mit Bildern)'))
-              ]),
-            ),
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await ArtikelExportService()
-                    .backupWithImagesToNextcloud(context);
-              },
-              child: const Row(children: [
-                Icon(Icons.cloud_upload, color: Colors.green),
-                SizedBox(width: 8),
-                Expanded(child: Text('Nextcloud Backup (mit Bildern)'))
-              ]),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Restore-Dialog
-  Future<void> _showRestoreDialog() async {
-    bool setzePlatzhalter = false;
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setState) => SimpleDialog(
-            title: const Text('Backup wiederherstellen'),
-            children: [
-              Row(
-                children: [
-                  Checkbox(
-                    value: setzePlatzhalter,
-                    onChanged: (val) => setState(() => setzePlatzhalter = val ?? false),
-                  ),
-                  const Text('Fehlende Bilder durch Platzhalter ersetzen'),
-                ],
-              ),
-              SimpleDialogOption(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    await ArtikelImportService.importBackup(
-                        context, _ladeArtikel, setzePlatzhalter);
-                  },
-                  child: const Row(children: [
-                    Icon(Icons.file_upload, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Expanded(child: Text('Lokales Backup (nur Daten)'))
-                  ])),
-              SimpleDialogOption(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await ArtikelImportService.importBackupWithImagesFromNextcloud(
-                      context, _ladeArtikel, setzePlatzhalter);
-                },
-                child: const Row(children: [
-                  Icon(Icons.cloud_download, color: Colors.green),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Nextcloud Backup (mit Bildern)'))
-                ]),
-              ),
-              SimpleDialogOption(
-                onPressed: () async {
-                  Navigator.pop(ctx);
-                  await ArtikelImportService.importBackupFromZip(
-                      context, _ladeArtikel, setzePlatzhalter);
-                },
-                child: const Row(children: [
-                  Icon(Icons.archive, color: Colors.orange),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('ZIP-Backup wiederherstellen (mit Bildern)'))
-                ]),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   // Import/Export-Funktion als Dialog
   Future<void> _importExportDialog() async {
@@ -253,21 +168,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 ))
               ]),
             ),
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await NextcloudSyncService.showResyncDialog(context);
-              },
-              child: const Row(children: [
-                Icon(Icons.sync, color: Colors.orange),
-                SizedBox(width: 8),
-                Expanded(
-                    child: Text(
-                  'Nextcloud Nachsynchronisation',
-                  overflow: TextOverflow.ellipsis,
-                ))
-              ]),
-            ),
           ],
         );
       },
@@ -300,7 +200,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             tooltipMessage = 'Nextcloud: Offline';
             break;
           case NextcloudConnectionStatus.unknown:
-          default:
+//          default:
             icon = Icon(
               Icons.cloud_queue,
               color: Colors.grey[600],
@@ -343,11 +243,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
-                case _MenuAction.backup:
-                  await _showBackupDialog();
-                  break;
-                case _MenuAction.restoreBackup:
-                  await _showRestoreDialog();
+                case _MenuAction.zipBackup:
+                  await _showZipBackupDialog();
                   break;
                 case _MenuAction.resetDb:
                   final messenger = ScaffoldMessenger.of(context);
@@ -405,13 +302,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   await NextcloudCredentialsStore.showLogoutDialog(
                       context, _connectionService);
                   break;
-                case _MenuAction.exit:
-                  if (Platform.isAndroid || Platform.isIOS) {
-                    SystemNavigator.pop();
-                  } else {
-                    exit(0);
-                  }
-                  break;
               }
             },
             itemBuilder: (context) => [
@@ -424,34 +314,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   dense: true,
                 ),
               ),
+              const PopupMenuItem(
+                value: _MenuAction.zipBackup,
+                child: ListTile(
+                  leading: Icon(Icons.archive_outlined),
+                  title: Text('ZIP-Backup Export/Import'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
               const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: _MenuAction.backup,
-                child: ListTile(
-                  leading: Icon(Icons.backup),
-                  title: Text('Backup erstellen'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              const PopupMenuItem(
-                value: _MenuAction.backup,
-                child: ListTile(
-                  leading: Icon(Icons.archive),
-                  title: Text('Backup als ZIP (mit Bildern)'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              const PopupMenuItem(
-                value: _MenuAction.restoreBackup,
-                child: ListTile(
-                  leading: Icon(Icons.backup),
-                  title: Text('Backup restore'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
               const PopupMenuItem(
                 value: _MenuAction.resetDb,
                 child: ListTile(
@@ -494,16 +366,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.logout),
                   title: Text('Logout Nextcloud'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: _MenuAction.exit,
-                child: ListTile(
-                  leading: Icon(Icons.close),
-                  title: Text('App beenden'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -667,16 +529,131 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       ),
     );
   }
+
+  Future<void> _showZipBackupDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return SimpleDialog(
+          title: const Text('ZIP-Backup Export/Import'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final zipPath = await ArtikelExportService().backupToZipFile(context);
+                if (zipPath != null) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ZIP-Backup lokal gespeichert')),
+                  );
+                }
+              },
+              child: const Row(children: [
+                Icon(Icons.archive, color: Colors.blue),
+                SizedBox(width: 8),
+                Expanded(child: Text('ZIP-Backup lokal exportieren'))
+              ]),
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final zipPath = await ArtikelExportService().backupToZipFile(context);
+                if (zipPath != null) {
+                  await ArtikelExportService().backupZipToNextcloud(zipPath);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ZIP-Backup zu Nextcloud exportiert')),
+                  );
+                }
+              },
+              child: const Row(children: [
+                Icon(Icons.cloud_upload, color: Colors.green),
+                SizedBox(width: 8),
+                Expanded(child: Text('ZIP-Backup zu Nextcloud exportieren'))
+              ]),
+            ),
+            const Divider(),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                final (success, errors) = await ArtikelImportService.importBackupFromZipService(reloadArtikel: _ladeArtikel);
+                if (!mounted) return;
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ZIP-Backup erfolgreich importiert!')),
+                  );
+                } else {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Fehler beim ZIP-Import'),
+                      content: SingleChildScrollView(child: Text(errors.join('\n'))),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              },
+              child: const Row(children: [
+                Icon(Icons.archive, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(child: Text('ZIP-Backup lokal importieren'))
+              ]),
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                // Beispiel: Remote ZIP-Pfad abfragen (hier statisch, in echt per Dialog)
+                final remoteZipPath = await _showNextcloudZipPathDialog(context);
+                if (remoteZipPath == null || remoteZipPath.isEmpty) return;
+                final (success, errors) = await ArtikelImportService.importBackupFromZipNextcloudService(remoteZipPath, reloadArtikel: _ladeArtikel);
+                if (!mounted) return;
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('ZIP-Backup von Nextcloud erfolgreich importiert!')),
+                  );
+                } else {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Fehler beim Nextcloud ZIP-Import'),
+                      content: SingleChildScrollView(child: Text(errors.join('\n'))),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('OK'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+              },
+              child: const Row(children: [
+                Icon(Icons.cloud_download, color: Colors.purple),
+                SizedBox(width: 8),
+                Expanded(child: Text('ZIP-Backup von Nextcloud importieren'))
+              ]),
+            ),
+// ...existing code...
+// Die Hilfsfunktion muss außerhalb der Widget-Liste und außerhalb der build-Methode stehen:
+
+          ],
+        );
+      },
+    );
+  }
 }
 
 enum _MenuAction {
   importExport,
-  backup,
-  restoreBackup,
+  zipBackup,
   resetDb,
   showLog,
   nextcloudSettings,
   nextcloudCredentials,
-  logout,
-  exit
+  logout
 }

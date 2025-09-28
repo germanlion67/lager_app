@@ -443,23 +443,54 @@ class ArtikelImportService {
     }
   }
 
-  /// Importiert ein ZIP-Backup inklusive Bilder
-  static Future<void> importBackupFromZip(BuildContext context, [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]) async {
-    List<String> errors = [];
-    List<Artikel> artikelList = [];
+  /// Importiert ein ZIP-Backup inklusive Bilder (Service-only, UI handled by caller)
+  static Future<(bool success, List<String> errors)> importBackupFromZipService({Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false}) async {
     final result = await FilePicker.platform.pickFiles(
       dialogTitle: 'ZIP-Backup auswählen',
       type: FileType.custom,
       allowedExtensions: ['zip'],
     );
-    if (result == null || result.files.isEmpty) return;
+    if (result == null || result.files.isEmpty) {
+      return (false, ['Keine ZIP-Datei ausgewählt.']);
+    }
     final zipFile = File(result.files.single.path!);
     if (!await zipFile.exists()) {
       await AppLogService().logError('ZIP-Datei nicht gefunden: ${zipFile.path}');
-      return;
+      return (false, ['ZIP-Datei nicht gefunden: ${zipFile.path}']);
     }
     final bytes = await zipFile.readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
+    return await importZipBytesService(bytes, reloadArtikel, setzePlatzhalter);
+  }
+
+  /// Importiert ein ZIP-Backup von Nextcloud (Service-only, UI handled by caller)
+  static Future<(bool success, List<String> errors)> importBackupFromZipNextcloudService(String remoteZipPath, {Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false}) async {
+    final creds = await NextcloudCredentialsStore().read();
+    if (creds == null) {
+      await AppLogService().logError('Nextcloud-Zugangsdaten nicht gefunden.');
+      return (false, ['Nextcloud-Zugangsdaten nicht gefunden.']);
+    }
+    final webdavClient = NextcloudWebDavClient(
+      NextcloudConfig(
+        serverBase: creds.server,
+        username: creds.user,
+        appPassword: creds.appPw,
+        baseRemoteFolder: creds.baseFolder,
+      ),
+    );
+    try {
+      final zipBytes = await webdavClient.downloadBytes(remoteRelativePath: remoteZipPath);
+      return await importZipBytesService(zipBytes, reloadArtikel, setzePlatzhalter);
+    } catch (e) {
+      await AppLogService().logError('Fehler beim Herunterladen der ZIP-Datei von Nextcloud: $e');
+      return (false, ['Fehler beim Herunterladen der ZIP-Datei von Nextcloud: $e']);
+    }
+  }
+
+  /// Gemeinsame ZIP-Import-Logik für Service-only (no UI)
+  static Future<(bool success, List<String> errors)> importZipBytesService(List<int> zipBytes, [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]) async {
+    List<String> errors = [];
+    List<Artikel> artikelList = [];
+    final archive = ZipDecoder().decodeBytes(zipBytes);
     String? jsonContent;
     final imageFiles = <ArchiveFile>[];
     for (final file in archive) {
@@ -474,26 +505,30 @@ class ArtikelImportService {
     if (jsonContent == null) {
       errors.add('Keine artikel_backup.json im ZIP gefunden.');
       await AppLogService().logError('Keine artikel_backup.json im ZIP gefunden.');
-      _showImportErrors(context, errors);
-      return;
+      return (false, errors);
     }
     try {
       artikelList = await ArtikelImportService().importFromJson(jsonContent);
-      if (artikelList.isEmpty) {
-        errors.add('Keine Artikel im Backup gefunden.');
-        await AppLogService().logError('Keine Artikel im Backup gefunden.');
+      final konsistenzWarnungen = konsistenzPruefung(artikelList);
+      if (konsistenzWarnungen.isNotEmpty) {
+        errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
+        await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
+      }
+      if (setzePlatzhalter) {
+        artikelList = setzePlatzhalterBilder(artikelList);
       }
     } catch (e) {
       errors.add('Fehler beim Verarbeiten der JSON: $e');
       await AppLogService().logError('Fehler beim Verarbeiten der JSON: $e');
+      return (false, errors);
     }
-    // Bilder ins lokale Verzeichnis kopieren und bildPfad aktualisieren
     final appDir = await getApplicationDocumentsDirectory();
     final imagesDir = Directory(p.join(appDir.path, 'images'));
     await imagesDir.create(recursive: true);
-    int successfulImages = 0;
-    int failedImages = 0;
-    for (final artikel in artikelList) {
+  // int successfulImages = 0;
+  // int failedImages = 0;
+    for (int i = 0; i < artikelList.length; i++) {
+      final artikel = artikelList[i];
       final imageFile = imageFiles.firstWhere(
         (img) => img.name.contains('images/${artikel.id}_'),
         orElse: () => ArchiveFile('', 0, []),
@@ -503,20 +538,19 @@ class ArtikelImportService {
         try {
           final outFile = File(localImagePath);
           await outFile.writeAsBytes(imageFile.content as List<int>);
-          artikelList = artikelList.map((a) => a.id == artikel.id ? a.copyWith(bildPfad: localImagePath) : a).toList();
-          successfulImages++;
+          artikelList[i] = artikel.copyWith(bildPfad: localImagePath);
+        // successfulImages++;
         } catch (e) {
-          failedImages++;
+        // failedImages++;
           errors.add('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
           await AppLogService().logError('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
         }
       } else {
-        failedImages++;
+      // failedImages++;
         errors.add('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
         await AppLogService().logError('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
       }
     }
-    // Artikel in DB importieren
     final db = await ArtikelDbService().database;
     try {
       await db.transaction((txn) async {
@@ -540,62 +574,123 @@ class ArtikelImportService {
       });
       if (reloadArtikel != null) {
         await reloadArtikel();
-        if (!context.mounted) return;
+      }
+    } catch (e) {
+      errors.add('Fehler beim DB-Import: $e');
+      await AppLogService().logError('Fehler beim DB-Import: $e');
+      return (false, errors);
+    }
+    // Success message can be handled in UI
+    return (true, errors);
+  }
+
+  /// Gemeinsame ZIP-Import-Logik für lokale und Nextcloud-Backups
+  static Future<void> importZipBytes(BuildContext context, List<int> zipBytes, [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]) async {
+    List<String> errors = [];
+    List<Artikel> artikelList = [];
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+    String? jsonContent;
+    final imageFiles = <ArchiveFile>[];
+    for (final file in archive) {
+      if (file.isFile) {
+        if (file.name == 'artikel_backup.json') {
+          jsonContent = utf8.decode(file.content as List<int>);
+        } else if (file.name.startsWith('images/') && file.name.endsWith('.jpg')) {
+          imageFiles.add(file);
+        }
+      }
+    }
+    if (jsonContent == null) {
+      errors.add('Keine artikel_backup.json im ZIP gefunden.');
+      await AppLogService().logError('Keine artikel_backup.json im ZIP gefunden.');
+      _showImportErrors(context, errors);
+      return;
+    }
+    try {
+      artikelList = await ArtikelImportService().importFromJson(jsonContent);
+      final konsistenzWarnungen = konsistenzPruefung(artikelList);
+      if (konsistenzWarnungen.isNotEmpty) {
+        errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
+        await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
+      }
+      if (setzePlatzhalter) {
+        artikelList = setzePlatzhalterBilder(artikelList);
+      }
+    } catch (e) {
+      errors.add('Fehler beim Verarbeiten der JSON: $e');
+      await AppLogService().logError('Fehler beim Verarbeiten der JSON: $e');
+    }
+    final appDir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory(p.join(appDir.path, 'images'));
+    await imagesDir.create(recursive: true);
+    int successfulImages = 0;
+    int failedImages = 0;
+    for (int i = 0; i < artikelList.length; i++) {
+      final artikel = artikelList[i];
+      final imageFile = imageFiles.firstWhere(
+        (img) => img.name.contains('images/${artikel.id}_'),
+        orElse: () => ArchiveFile('', 0, []),
+      );
+      if (imageFile.name.isNotEmpty) {
+        final localImagePath = p.join(imagesDir.path, p.basename(imageFile.name));
+        try {
+          final outFile = File(localImagePath);
+          await outFile.writeAsBytes(imageFile.content as List<int>);
+          artikelList[i] = artikel.copyWith(bildPfad: localImagePath);
+          successfulImages++;
+        } catch (e) {
+          failedImages++;
+          errors.add('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
+          await AppLogService().logError('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
+        }
+      } else {
+        failedImages++;
+        errors.add('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
+        await AppLogService().logError('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
+      }
+    }
+    final db = await ArtikelDbService().database;
+    try {
+      await db.transaction((txn) async {
+        await txn.delete('artikel');
+        for (final a in artikelList) {
+          final map = a.toMap();
+          try {
+            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+          } catch (e) {
+            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
+            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
+          }
+        }
+        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
+        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
+            ? maxIdRow.first['maxId'] as int
+            : 0;
+        if (maxId > 0) {
+          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
+        }
+      });
+      if (reloadArtikel != null) {
+        await reloadArtikel();
       }
     } catch (e) {
       errors.add('Fehler beim DB-Import: $e');
       await AppLogService().logError('Fehler beim DB-Import: $e');
     }
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'ZIP-Backup erfolgreich wiederhergestellt!\n'
-          'Artikel: ${artikelList.length}\n'
-          'Bilder: $successfulImages erfolgreich, $failedImages Fehler'
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'ZIP-Backup erfolgreich wiederhergestellt!\n'
+            'Artikel: ${artikelList.length}\n'
+            'Bilder: $successfulImages erfolgreich, $failedImages Fehler'
+          ),
+          duration: const Duration(seconds: 5),
         ),
-        duration: const Duration(seconds: 5),
-      ),
-    );
-    // Platzhalterbilder setzen falls gewünscht
-    if (setzePlatzhalter) {
-      artikelList = setzePlatzhalterBilder(artikelList);
-    }
-    if (errors.isNotEmpty && context.mounted) {
-      _showImportErrors(context, errors);
-    }
-
-    // Konsistenzprüfung nach dem Restore
-    final konsistenzWarnungen = <String>[];
-    // 1. Prüfe, ob alle Artikel ein Bild haben
-    final artikelOhneBild = artikelList.where((a) => a.bildPfad.isEmpty).toList();
-    if (artikelOhneBild.isNotEmpty) {
-      konsistenzWarnungen.add('Artikel ohne Bild: ${artikelOhneBild.map((a) => a.name).join(', ')}');
-    }
-    // 2. Prüfe, ob alle IDs eindeutig sind
-    final idSet = <int>{};
-    final doppelteIds = <int>[];
-    for (final a in artikelList) {
-      if (a.id != null) {
-        if (!idSet.add(a.id!)) doppelteIds.add(a.id!);
+      );
+      if (errors.isNotEmpty) {
+        _showImportErrors(context, errors);
       }
-    }
-    if (doppelteIds.isNotEmpty) {
-      konsistenzWarnungen.add('Doppelte IDs gefunden: ${doppelteIds.join(', ')}');
-    }
-    // 3. Prüfe, ob Namen eindeutig sind
-    final nameSet = <String>{};
-    final doppelteNamen = <String>[];
-    for (final a in artikelList) {
-      if (!nameSet.add(a.name)) doppelteNamen.add(a.name);
-    }
-    if (doppelteNamen.isNotEmpty) {
-      konsistenzWarnungen.add('Doppelte Namen gefunden: ${doppelteNamen.join(', ')}');
-    }
-    // Konsistenzwarnungen zu Fehlern hinzufügen
-    if (konsistenzWarnungen.isNotEmpty) {
-      errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
-      await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
     }
   }
 
