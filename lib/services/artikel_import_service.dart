@@ -19,6 +19,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import '../services/app_log_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // <-- für Desktop/FFI
+import 'package:archive/archive_io.dart';
 
 class ArtikelImportService {
   /// Importiert Artikel aus einer JSON-Datei (String-Inhalt).
@@ -105,7 +106,9 @@ class ArtikelImportService {
   }
 
 // --- Backup ---
-  static Future<void> importBackup(BuildContext context, [Future<void> Function()? reloadArtikel]) async {
+  static Future<void> importBackup(BuildContext context, [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]) async {
+    List<String> errors = [];
+    List<Artikel> artikelList = [];
     final result = await FilePicker.platform.pickFiles(
       dialogTitle: 'Backup-Datei auswählen',
       type: FileType.custom,
@@ -114,28 +117,37 @@ class ArtikelImportService {
     if (result == null || result.files.isEmpty) return;
     final file = File(result.files.single.path!);
     final jsonString = await file.readAsString();
-//    String? jsonContent;
     if (jsonString.isEmpty) {
       await AppLogService().logError('Die JSON-Datei ist leer oder ungültig.');
       final String backupFolder = 'backup_20250923_1520'; // Beispielwert
       throw Exception('Keine gültige JSON-Backup-Datei im Ordner $backupFolder gefunden.');
     }
 
-    final artikelList = await ArtikelImportService().importFromJson(jsonString);
-    await AppLogService().log('Backup-Restore gestartet');
+    artikelList = await ArtikelImportService().importFromJson(jsonString);
+    // Konsistenzprüfung
+    final konsistenzWarnungen = konsistenzPruefung(artikelList);
+    if (konsistenzWarnungen.isNotEmpty) {
+      errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
+      await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
+    }
+    // Platzhalterbilder setzen falls gewünscht
+    if (setzePlatzhalter) {
+      artikelList = setzePlatzhalterBilder(artikelList);
+    }
 
     final db = await ArtikelDbService().database;
     try {
       await db.transaction((txn) async {
-        // 1) Clear table
         await txn.delete('artikel');
-        // 2) Insert all articles preserving IDs (falls vorhanden)
         for (final a in artikelList) {
           final map = a.toMap();
-          // Insert with REPLACE to preserve provided id (falls Primary Key gesetzt)
-          await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+          try {
+            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+          } catch (e) {
+            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
+            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
+          }
         }
-        // 3) Optional: Update sqlite_sequence so AUTOINCREMENT folgt highest id
         final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
         final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
             ? maxIdRow.first['maxId'] as int
@@ -144,16 +156,36 @@ class ArtikelImportService {
           await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
         }
       });
-      
-      // Artikelliste neu laden falls Callback vorhanden
       if (reloadArtikel != null) {
         await reloadArtikel();
       }
-      
       await AppLogService().log('Backup-Restore erfolgreich: ${artikelList.length} Einträge wiederhergestellt');
+      // Konsistenzprüfung
+      final konsistenzWarnungen = konsistenzPruefung(artikelList);
+      if (konsistenzWarnungen.isNotEmpty) {
+        errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
+        await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
+      }
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Backup erfolgreich wiederhergestellt')),
+        );
+      }
+      if (errors.isNotEmpty && context.mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Fehler und Warnungen beim Import'),
+            content: SingleChildScrollView(
+              child: Text(errors.join('\n\n')),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
         );
       }
     } catch (e, st) {
@@ -217,9 +249,12 @@ class ArtikelImportService {
   // --- Backup mit Bildern von Nextcloud importieren ---
   static Future<void> importBackupWithImagesFromNextcloud(
     BuildContext context, 
-    [Future<void> Function()? reloadArtikel]
+    [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]
   ) async {
+    List<String> errors = [];
     List<Artikel> artikelList = [];
+    int successfulImages = 0;
+    int failedImages = 0;
     try {
       await AppLogService().log('Backup-Import mit Bildern von Nextcloud gestartet');
 
@@ -273,12 +308,20 @@ class ArtikelImportService {
       }
 
       try {
-        final artikelList = await ArtikelImportService().importFromJson(jsonContent);
-        if (artikelList.isEmpty) {
-          throw Exception('Keine Artikel im Backup gefunden.');
+        artikelList = await ArtikelImportService().importFromJson(jsonContent);
+        // Konsistenzprüfung
+        final konsistenzWarnungen = konsistenzPruefung(artikelList);
+        if (konsistenzWarnungen.isNotEmpty) {
+          errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
+          await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
+        }
+        // Platzhalterbilder setzen falls gewünscht
+        if (setzePlatzhalter) {
+          artikelList = setzePlatzhalterBilder(artikelList);
         }
         await AppLogService().log('Anzahl der importierten Artikel: ${artikelList.length}');
       } catch (e) {
+        errors.add('Fehler beim Verarbeiten der JSON-Datei: $e');
         await AppLogService().logError('Fehler beim Verarbeiten der JSON-Datei: $e');
         throw Exception('Fehler beim Verarbeiten der JSON-Datei: $e');
       }
@@ -287,11 +330,6 @@ class ArtikelImportService {
       final appDir = await getApplicationDocumentsDirectory();
       final imagesDir = Directory(p.join(appDir.path, 'images'));
       await imagesDir.create(recursive: true);
-
-      int successfulImages = 0;
-      int failedImages = 0;
-
-      final errors = <String>[];
 
       // 5. Bilder herunterladen und lokale Pfade aktualisieren
       for (int i = 0; i < artikelList.length; i++) {
@@ -303,22 +341,21 @@ class ArtikelImportService {
               remoteRelativePath: artikel.remoteBildPfad!,
               localPath: localImagePath,
             );
-            // Prüfe, ob die Datei existiert
             final fileExists = await File(localImagePath).exists();
             if (fileExists) {
               await AppLogService().log('Bild heruntergeladen: $localImagePath');
-            artikel = artikel.copyWith(bildPfad: localImagePath);
-            artikelList[i] = artikel; // Update in list
-            successfulImages++;
-          } else {
-            await AppLogService().logError('Bild-Datei nicht gefunden nach Download: $localImagePath');
-            failedImages++;
-          }
+              artikel = artikel.copyWith(bildPfad: localImagePath);
+              artikelList[i] = artikel;
+              successfulImages++;
+            } else {
+              errors.add('Bild-Datei nicht gefunden nach Download: $localImagePath');
+              await AppLogService().logError('Bild-Datei nicht gefunden nach Download: $localImagePath');
+              failedImages++;
+            }
           } catch (e) {
             failedImages++;
             errors.add('Fehler bei Artikel ${artikel.name}: $e');
             await AppLogService().logError('Failed to download image for article ${artikel.name}: $e');
-            // Continue without image
           }
         }
       }
@@ -326,13 +363,15 @@ class ArtikelImportService {
       // 6. Artikel in Datenbank importieren
       final db = await ArtikelDbService().database;
       await db.transaction((txn) async {
-        // Datenbank löschen
         await txn.delete('artikel');
-        
-        // Artikel importieren
         for (final a in artikelList) {
           final map = a.toMap();
-          await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+          try {
+            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+          } catch (e) {
+            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
+            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
+          }
         }
         
         // SQLite-Sequenz aktualisieren
@@ -355,9 +394,9 @@ class ArtikelImportService {
         await reloadArtikel();
         await AppLogService().log('reloadArtikel aufgerufen');
       } else {
+        errors.add('reloadArtikel ist null - Liste wird nicht neu geladen');
         await AppLogService().logError('reloadArtikel ist null - Liste wird nicht neu geladen');
       }
-
       await AppLogService().log('Backup-Import mit Bildern erfolgreich: ${artikelList.length} Artikel, $successfulImages Bilder');
       
       if (!context.mounted) return;
@@ -377,7 +416,7 @@ class ArtikelImportService {
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Download-Fehler'),
+            title: const Text('Fehler und Warnungen beim Import'),
             content: SingleChildScrollView(
               child: Text(errors.join('\n\n')),
             ),
@@ -402,6 +441,182 @@ class ArtikelImportService {
         ),
       );
     }
+  }
+
+  /// Importiert ein ZIP-Backup inklusive Bilder
+  static Future<void> importBackupFromZip(BuildContext context, [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]) async {
+    List<String> errors = [];
+    List<Artikel> artikelList = [];
+    final result = await FilePicker.platform.pickFiles(
+      dialogTitle: 'ZIP-Backup auswählen',
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+    );
+    if (result == null || result.files.isEmpty) return;
+    final zipFile = File(result.files.single.path!);
+    if (!await zipFile.exists()) {
+      await AppLogService().logError('ZIP-Datei nicht gefunden: ${zipFile.path}');
+      return;
+    }
+    final bytes = await zipFile.readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    String? jsonContent;
+    final imageFiles = <ArchiveFile>[];
+    for (final file in archive) {
+      if (file.isFile) {
+        if (file.name == 'artikel_backup.json') {
+          jsonContent = utf8.decode(file.content as List<int>);
+        } else if (file.name.startsWith('images/') && file.name.endsWith('.jpg')) {
+          imageFiles.add(file);
+        }
+      }
+    }
+    if (jsonContent == null) {
+      errors.add('Keine artikel_backup.json im ZIP gefunden.');
+      await AppLogService().logError('Keine artikel_backup.json im ZIP gefunden.');
+      _showImportErrors(context, errors);
+      return;
+    }
+    try {
+      artikelList = await ArtikelImportService().importFromJson(jsonContent);
+      if (artikelList.isEmpty) {
+        errors.add('Keine Artikel im Backup gefunden.');
+        await AppLogService().logError('Keine Artikel im Backup gefunden.');
+      }
+    } catch (e) {
+      errors.add('Fehler beim Verarbeiten der JSON: $e');
+      await AppLogService().logError('Fehler beim Verarbeiten der JSON: $e');
+    }
+    // Bilder ins lokale Verzeichnis kopieren und bildPfad aktualisieren
+    final appDir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory(p.join(appDir.path, 'images'));
+    await imagesDir.create(recursive: true);
+    int successfulImages = 0;
+    int failedImages = 0;
+    for (final artikel in artikelList) {
+      final imageFile = imageFiles.firstWhere(
+        (img) => img.name.contains('images/${artikel.id}_'),
+        orElse: () => ArchiveFile('', 0, []),
+      );
+      if (imageFile.name.isNotEmpty) {
+        final localImagePath = p.join(imagesDir.path, p.basename(imageFile.name));
+        try {
+          final outFile = File(localImagePath);
+          await outFile.writeAsBytes(imageFile.content as List<int>);
+          artikelList = artikelList.map((a) => a.id == artikel.id ? a.copyWith(bildPfad: localImagePath) : a).toList();
+          successfulImages++;
+        } catch (e) {
+          failedImages++;
+          errors.add('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
+          await AppLogService().logError('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
+        }
+      } else {
+        failedImages++;
+        errors.add('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
+        await AppLogService().logError('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
+      }
+    }
+    // Artikel in DB importieren
+    final db = await ArtikelDbService().database;
+    try {
+      await db.transaction((txn) async {
+        await txn.delete('artikel');
+        for (final a in artikelList) {
+          final map = a.toMap();
+          try {
+            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+          } catch (e) {
+            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
+            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
+          }
+        }
+        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
+        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
+            ? maxIdRow.first['maxId'] as int
+            : 0;
+        if (maxId > 0) {
+          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
+        }
+      });
+      if (reloadArtikel != null) {
+        await reloadArtikel();
+        if (!context.mounted) return;
+      }
+    } catch (e) {
+      errors.add('Fehler beim DB-Import: $e');
+      await AppLogService().logError('Fehler beim DB-Import: $e');
+    }
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'ZIP-Backup erfolgreich wiederhergestellt!\n'
+          'Artikel: ${artikelList.length}\n'
+          'Bilder: $successfulImages erfolgreich, $failedImages Fehler'
+        ),
+        duration: const Duration(seconds: 5),
+      ),
+    );
+    // Platzhalterbilder setzen falls gewünscht
+    if (setzePlatzhalter) {
+      artikelList = setzePlatzhalterBilder(artikelList);
+    }
+    if (errors.isNotEmpty && context.mounted) {
+      _showImportErrors(context, errors);
+    }
+
+    // Konsistenzprüfung nach dem Restore
+    final konsistenzWarnungen = <String>[];
+    // 1. Prüfe, ob alle Artikel ein Bild haben
+    final artikelOhneBild = artikelList.where((a) => a.bildPfad.isEmpty).toList();
+    if (artikelOhneBild.isNotEmpty) {
+      konsistenzWarnungen.add('Artikel ohne Bild: ${artikelOhneBild.map((a) => a.name).join(', ')}');
+    }
+    // 2. Prüfe, ob alle IDs eindeutig sind
+    final idSet = <int>{};
+    final doppelteIds = <int>[];
+    for (final a in artikelList) {
+      if (a.id != null) {
+        if (!idSet.add(a.id!)) doppelteIds.add(a.id!);
+      }
+    }
+    if (doppelteIds.isNotEmpty) {
+      konsistenzWarnungen.add('Doppelte IDs gefunden: ${doppelteIds.join(', ')}');
+    }
+    // 3. Prüfe, ob Namen eindeutig sind
+    final nameSet = <String>{};
+    final doppelteNamen = <String>[];
+    for (final a in artikelList) {
+      if (!nameSet.add(a.name)) doppelteNamen.add(a.name);
+    }
+    if (doppelteNamen.isNotEmpty) {
+      konsistenzWarnungen.add('Doppelte Namen gefunden: ${doppelteNamen.join(', ')}');
+    }
+    // Konsistenzwarnungen zu Fehlern hinzufügen
+    if (konsistenzWarnungen.isNotEmpty) {
+      errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
+      await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
+    }
+  }
+
+  /// Zeigt Fehler und Warnungen nach dem Import als Dialog an
+  static void _showImportErrors(BuildContext context, List<String> errors) {
+    if (!context.mounted || errors.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Fehler und Warnungen beim Import'),
+        content: SingleChildScrollView(
+          child: Text(errors.join('\n\n')),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Dialog zur Auswahl des Backup-Ordners aus verfügbaren Ordnern
@@ -529,5 +744,46 @@ class ArtikelImportService {
         ],
       ),
     );
+  }
+
+  /// Konsistenzprüfung für Artikelliste
+  static List<String> konsistenzPruefung(List<Artikel> artikelList) {
+    final warnungen = <String>[];
+    final artikelOhneBild = artikelList.where((a) => a.bildPfad.isEmpty).toList();
+    if (artikelOhneBild.isNotEmpty) {
+      warnungen.add('Artikel ohne Bild: ${artikelOhneBild.map((a) => a.name).join(', ')}');
+    }
+    final idSet = <int>{};
+    final doppelteIds = <int>[];
+    for (final a in artikelList) {
+      if (a.id != null) {
+        if (!idSet.add(a.id!)) doppelteIds.add(a.id!);
+      }
+    }
+    if (doppelteIds.isNotEmpty) {
+      warnungen.add('Doppelte IDs gefunden: ${doppelteIds.join(', ')}');
+    }
+    final nameSet = <String>{};
+    final doppelteNamen = <String>[];
+    for (final a in artikelList) {
+      if (!nameSet.add(a.name)) doppelteNamen.add(a.name);
+    }
+    if (doppelteNamen.isNotEmpty) {
+      warnungen.add('Doppelte Namen gefunden: ${doppelteNamen.join(', ')}');
+    }
+    return warnungen;
+  }
+
+  /// Pfad zum Platzhalterbild
+  static const String placeholderImagePath = 'assets/images/placeholder.jpg';
+
+  /// Ersetzt fehlende Bilder durch Platzhalterbild
+  static List<Artikel> setzePlatzhalterBilder(List<Artikel> artikelList) {
+    return artikelList.map((a) {
+      if (a.bildPfad.isEmpty) {
+        return a.copyWith(bildPfad: placeholderImagePath);
+      }
+      return a;
+    }).toList();
   }
 }

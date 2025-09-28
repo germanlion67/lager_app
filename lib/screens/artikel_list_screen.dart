@@ -156,36 +156,60 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   // Restore-Dialog
   Future<void> _showRestoreDialog() async {
+    bool setzePlatzhalter = false;
     await showDialog(
       context: context,
       builder: (ctx) {
-        return SimpleDialog(
-          title: const Text('Backup wiederherstellen'),
-          children: [
-            SimpleDialogOption(
+        return StatefulBuilder(
+          builder: (ctx, setState) => SimpleDialog(
+            title: const Text('Backup wiederherstellen'),
+            children: [
+              Row(
+                children: [
+                  Checkbox(
+                    value: setzePlatzhalter,
+                    onChanged: (val) => setState(() => setzePlatzhalter = val ?? false),
+                  ),
+                  const Text('Fehlende Bilder durch Platzhalter ersetzen'),
+                ],
+              ),
+              SimpleDialogOption(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await ArtikelImportService.importBackup(
+                        context, _ladeArtikel, setzePlatzhalter);
+                  },
+                  child: const Row(children: [
+                    Icon(Icons.file_upload, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Lokales Backup (nur Daten)'))
+                  ])),
+              SimpleDialogOption(
                 onPressed: () async {
                   Navigator.pop(ctx);
-                  await ArtikelImportService.importBackup(
-                      context, _ladeArtikel);
+                  await ArtikelImportService.importBackupWithImagesFromNextcloud(
+                      context, _ladeArtikel, setzePlatzhalter);
                 },
                 child: const Row(children: [
-                  Icon(Icons.file_upload, color: Colors.blue),
+                  Icon(Icons.cloud_download, color: Colors.green),
                   SizedBox(width: 8),
-                  Expanded(child: Text('Lokales Backup (nur Daten)'))
-                ])),
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await ArtikelImportService.importBackupWithImagesFromNextcloud(
-                    context, _ladeArtikel);
-              },
-              child: const Row(children: [
-                Icon(Icons.cloud_download, color: Colors.green),
-                SizedBox(width: 8),
-                Expanded(child: Text('Nextcloud Backup (mit Bildern)'))
-              ]),
-            ),
-          ],
+                  Expanded(child: Text('Nextcloud Backup (mit Bildern)'))
+                ]),
+              ),
+              SimpleDialogOption(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await ArtikelImportService.importBackupFromZip(
+                      context, _ladeArtikel, setzePlatzhalter);
+                },
+                child: const Row(children: [
+                  Icon(Icons.archive, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('ZIP-Backup wiederherstellen (mit Bildern)'))
+                ]),
+              ),
+            ],
+          ),
         );
       },
     );
