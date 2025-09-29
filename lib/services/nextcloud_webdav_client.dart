@@ -316,7 +316,6 @@ class NextcloudWebDavClient {
     await localFile.writeAsBytes(bytes);
   }
 
-  // ...existing code...
   /// Listet nur Ordner in einem Remote-Verzeichnis auf.
   Future<List<String>> listFolders(String remoteFolderPath) async {
     try {
@@ -378,4 +377,17 @@ class NextcloudWebDavClient {
       throw WebDavException('Network error listing folders: $e');
     }
   }
+}
+
+// Automatischer ZIP-Upload in den Basisordner aus der Konfiguration
+Future<void> uploadBackupZipAuto({
+  required String localZipPath,
+  required NextcloudWebDavClient webdavClient,
+}) async {
+  final filename = p.basename(localZipPath);
+  final remoteRelativePath = p.posix.join(webdavClient.config.baseRemoteFolder, filename);
+  await webdavClient.uploadFileNew(
+    localPath: localZipPath,
+    remoteRelativePath: remoteRelativePath,
+  );
 }

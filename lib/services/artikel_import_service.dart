@@ -274,11 +274,14 @@ class ArtikelImportService {
 
       // 2. Verfügbare Backup-Ordner zur Auswahl anzeigen
       if (!context.mounted) return;
-      final backupFolder = await _showBackupFolderSelectionDialog(context, webdavClient, creds.baseFolder);
+      final backupFolder = await _showBackupFolderSelectionDialog(
+        context,
+        webdavClient,
+        creds.baseFolder,
+      );
       if (backupFolder == null || backupFolder.isEmpty) return;
-      final folderContents = await webdavClient.listFolders(backupFolder);
       if (!context.mounted) return;
-      await AppLogService().log('Dateien im Ordner $backupFolder: $folderContents');
+      await AppLogService().log('Gewählter Backup-Ordner (relativ): $backupFolder');
 
       // 3. JSON-Backup herunterladen und parsen
       final jsonFiles = ['backup.json']; // Mögliche Namen
@@ -286,17 +289,18 @@ class ArtikelImportService {
       
       for (final jsonFileName in jsonFiles) {
         try {
-          final fullPath = '${creds.baseFolder}/$backupFolder/$jsonFileName'; // Explizit baseFolder hinzufügen
-          await AppLogService().log('Vollständiger Pfad: $fullPath');
+          // backupFolder ist bereits relativ zum baseRemoteFolder (z.B. "backup_20250929_1234")
+          final fullRelPath = '$backupFolder/$jsonFileName';
+          await AppLogService().log('Lade JSON: rel="$fullRelPath" (backupFolder=$backupFolder, base=${creds.baseFolder})');
           final jsonBytes = await webdavClient.downloadBytes(
-            remoteRelativePath: fullPath,
+            remoteRelativePath: fullRelPath,
           );
           await AppLogService().log('Größe der heruntergeladenen Datei: ${jsonBytes.length} Bytes');
           jsonContent = String.fromCharCodes(jsonBytes);
           await AppLogService().log('Heruntergeladene JSON-Datei: $jsonContent');
           break;
         } catch (e) {
-          await AppLogService().logError('Fehler beim Herunterladen von $backupFolder/$jsonFileName: $e');
+          await AppLogService().logError('Fehler beim Herunterladen von "$backupFolder/$jsonFileName": $e');
           // Versuche nächsten Dateinamen
           continue;
         }
@@ -334,31 +338,34 @@ class ArtikelImportService {
       // 5. Bilder herunterladen und lokale Pfade aktualisieren
       for (int i = 0; i < artikelList.length; i++) {
         var artikel = artikelList[i];
-        if (artikel.remoteBildPfad != null && artikel.remoteBildPfad!.isNotEmpty) {
+        final remote = artikel.remoteBildPfad;
+        if (remote != null && remote.isNotEmpty) {
           try {
-            final localImagePath = '${imagesDir.path}/artikel_${artikel.id}_image.jpg';
+            // remoteBildPfad ist bereits relativ zum baseRemoteFolder vom Export-Service
+            final relRemote = remote;
+            final localImagePath = p.join(imagesDir.path, 'artikel_${artikel.id}_image.jpg');
+            await AppLogService().log('Lade Bild: remote="$relRemote" -> local="$localImagePath"');
             await webdavClient.downloadFileNew(
-              remoteRelativePath: artikel.remoteBildPfad!,
+              remoteRelativePath: relRemote,
               localPath: localImagePath,
             );
-            final fileExists = await File(localImagePath).exists();
-            if (fileExists) {
-              await AppLogService().log('Bild heruntergeladen: $localImagePath');
+            if (await File(localImagePath).exists()) {
               artikel = artikel.copyWith(bildPfad: localImagePath);
               artikelList[i] = artikel;
               successfulImages++;
             } else {
-              errors.add('Bild-Datei nicht gefunden nach Download: $localImagePath');
-              await AppLogService().logError('Bild-Datei nicht gefunden nach Download: $localImagePath');
               failedImages++;
+              errors.add('Bild nicht gefunden nach Download: $relRemote');
+              await AppLogService().logError('Bild nicht gefunden (Post-Download): $relRemote');
             }
           } catch (e) {
             failedImages++;
-            errors.add('Fehler bei Artikel ${artikel.name}: $e');
-            await AppLogService().logError('Failed to download image for article ${artikel.name}: $e');
+            errors.add('Bild-Download Fehler ${artikel.name}: $e');
+            await AppLogService().logError('Bild-Download Fehler ${artikel.name}: $e');
           }
         }
       }
+
 
       // 6. Artikel in Datenbank importieren
       final db = await ArtikelDbService().database;
@@ -463,7 +470,11 @@ class ArtikelImportService {
   }
 
   /// Importiert ein ZIP-Backup von Nextcloud (Service-only, UI handled by caller)
-  static Future<(bool success, List<String> errors)> importBackupFromZipNextcloudService(String remoteZipPath, {Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false}) async {
+  static Future<(bool success, List<String> errors)> importBackupFromZipNextcloudService(
+    String remoteZipPath, {
+    Future<void> Function()? reloadArtikel,
+    bool setzePlatzhalter = false,
+  }) async {
     final creds = await NextcloudCredentialsStore().read();
     if (creds == null) {
       await AppLogService().logError('Nextcloud-Zugangsdaten nicht gefunden.');
@@ -717,13 +728,12 @@ class ArtikelImportService {
 
   /// Dialog zur Auswahl des Backup-Ordners aus verfügbaren Ordnern
   static Future<String?> _showBackupFolderSelectionDialog(
-    BuildContext context, 
+    BuildContext context,
     NextcloudWebDavClient webdavClient,
-    String baseFolder,
+    String baseFolder,   // Konsistent mit Export-Service
   ) async {
     try {
-      // Verfügbare Ordner in baseFolder abrufen
-      await AppLogService().log('Lade verfügbare Backup-Ordner...');
+      await AppLogService().log('Lade Backup-Ordner ab "$baseFolder"');
       final folders = await webdavClient.listFolders(baseFolder);
       
       // Nur Backup-Ordner filtern (beginnen mit "backup_")
@@ -882,22 +892,8 @@ class ArtikelImportService {
       return a;
     }).toList();
   }
-
-  // Entferne oder implementiere die Platzhalter-Methoden korrekt.
-  // Beispiel: Entfernen, wenn nicht benötigt
-  // Future<ImportResult> importArtikelServiceMethod(/* benötigte Parameter ohne BuildContext */) async {
-  //   // ...bestehende Logik, die keinen BuildContext benötigt...
-  //   // Rückgabe des Ergebnisses
-  // }
-
-  // Future<void> importArtikelWithContext(BuildContext context, /* weitere Parameter */) async {
-  //   final result = await importArtikelServiceMethod(/* Parameter ohne BuildContext */);
-  //   // Nach dem await: BuildContext synchron verwenden
-  //   if (!context.mounted) return;
-  //   // ...UI-Logik, z.B. SnackBar, Dialog, Navigation...
-  // }
-
-  /// UI-Wrapper für ZIP-Import (trennt Service und UI, BuildContext nur synchron)
+  
+  // UI-Wrapper für ZIP-Import (trennt Service und UI, BuildContext nur synchron)
   static Future<void> importZipBytesWithContext(
     BuildContext context,
     List<int> zipBytes,
@@ -915,6 +911,139 @@ class ArtikelImportService {
     }
     if (errors.isNotEmpty) {
       _showImportErrors(context, errors);
+    }
+  }
+
+  // Einfacher ZIP-Import: Zeigt ZIP-Dateien aus dem Nextcloud-Basisordner zur Auswahl an
+  static Future<void> importZipBackupAuto(
+    BuildContext context,
+    [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]
+  ) async {
+    final creds = await NextcloudCredentialsStore().read();
+    if (creds == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nextcloud-Zugangsdaten nicht gefunden!'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+    final baseFolder = creds.baseFolder;
+    await AppLogService().log('ZIP-Auto-Import gestartet. baseFolder="$baseFolder"');
+
+    final webdavClient = NextcloudWebDavClient(
+      NextcloudConfig(
+        serverBase: creds.server,
+        username: creds.user,
+        appPassword: creds.appPw,
+        baseRemoteFolder: baseFolder,
+      ),
+    );
+
+    final Map<String, String> zipMap = {};
+
+    try {
+      // Dateien direkt im baseFolder (von backupZipToNextcloud)
+      final rootFiles = await webdavClient.listFiles(baseFolder);
+      await AppLogService().log('Dateien in baseFolder "$baseFolder": $rootFiles');
+      for (final f in rootFiles) {
+        if (f.toLowerCase().endsWith('.zip')) {
+          zipMap['$baseFolder/$f'] = '$baseFolder/$f';
+        }
+      }
+
+      // Backup-Ordner im baseFolder (von backupWithImagesToNextcloud)
+      final folders = await webdavClient.listFolders(baseFolder);
+      await AppLogService().log('Backup-Ordner in "$baseFolder": $folders');
+
+      // Nur backup_* Ordner berücksichtigen (von backupWithImagesToNextcloud)
+      final backupFolders = folders.where((f) => f.startsWith('backup_')).toList();
+      
+      for (final folder in backupFolders) {
+        try {
+          final fullFolderPath = '$baseFolder/$folder';
+          final subFiles = await webdavClient.listFiles(fullFolderPath);
+          await AppLogService().log('Dateien in "$fullFolderPath": $subFiles');
+
+          // ZIPs direkt im Backup-Unterordner
+          for (final sf in subFiles) {
+            if (sf.toLowerCase().endsWith('.zip')) {
+              final relativePath = '$fullFolderPath/$sf';
+              zipMap['$folder/$sf'] = relativePath;
+            }
+          }
+
+          // Standard backup.json im Ordner (nicht ZIP, aber der Ordner kann ZIP enthalten)
+          // Suche nach beliebigen ZIP-Dateien im Backup-Ordner
+          final zipFiles = subFiles.where((f) => f.toLowerCase().endsWith('.zip')).toList();
+          for (final zipFile in zipFiles) {
+            final relativePath = '$fullFolderPath/$zipFile';
+            zipMap['$folder/$zipFile'] = relativePath;
+          }
+        } catch (e) {
+          await AppLogService().logError('Fehler beim Lesen von Backup-Ordner "$folder": $e');
+        }
+      }
+    } catch (e) {
+      await AppLogService().logError('Fehler beim Auflisten von Dateien/Ordnern: $e');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Laden: $e'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (zipMap.isEmpty) {
+      await AppLogService().log('Keine ZIP-Dateien gefunden (Root + Unterordner)');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Keine ZIP-Backups gefunden'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final entries = zipMap.entries.toList()
+      ..sort((a, b) => b.key.compareTo(a.key));
+
+    final selected = await showDialog<String>(
+      // ignore: use_build_context_synchronously
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('ZIP-Backup auswählen'),
+        content: SizedBox(
+          width: double.maxFinite,
+            child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: entries.length,
+            itemBuilder: (c, i) {
+              final e = entries[i];
+              return ListTile(
+                leading: const Icon(Icons.archive),
+                title: Text(e.key),
+                subtitle: Text(e.value),
+                onTap: () => Navigator.pop(ctx, e.value),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+        ],
+      ),
+    );
+    if (!context.mounted || selected == null) return;
+
+    await AppLogService().log('Ausgewähltes ZIP (relativ): $selected');
+    try {
+      final zipBytes = await webdavClient.downloadBytes(remoteRelativePath: selected);
+      await AppLogService().log('ZIP heruntergeladen: Größe=${zipBytes.length}');
+      if (!context.mounted) return;
+      await importZipBytesWithContext(context, zipBytes, reloadArtikel, setzePlatzhalter);
+    } catch (e) {
+      await AppLogService().logError('Download Fehler $selected: $e');
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download-Fehler: $e'), backgroundColor: Colors.red),
+      );
     }
   }
 }

@@ -123,6 +123,31 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
     }
   }
 
+  Future<void> _showLogoutDialog() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Logout Nextcloud'),
+        content: const Text(
+          'Gespeicherte Nextcloud-Zugangsdaten werden gelöscht. Fortfahren?'
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Logout')),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    if (confirm == true) {
+      await NextcloudCredentialsStore().clear();
+      NextcloudConnectionService().stopPeriodicCheck();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Nextcloud-Login gelöscht')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     const spacing = 16.0;
@@ -218,6 +243,14 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.wifi),
                       label: const Text('Testen'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _showLogoutDialog,  // Verwendet die Methode
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Logout'),
                     ),
                   ),
                 ],

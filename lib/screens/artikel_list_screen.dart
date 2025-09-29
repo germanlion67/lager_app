@@ -1,9 +1,6 @@
 //lib/screens/artikel_list_screen.dart
 
 import 'package:flutter/material.dart';
-// Füge hinzu:
-//import 'package:flutter/services.dart';
-
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../services/artikel_import_service.dart';
@@ -16,7 +13,6 @@ import 'artikel_detail_screen.dart';
 import 'dart:io';
 
 // Nextcloud Settings + Logout
-import '../services/nextcloud_credentials.dart';
 import '../services/nextcloud_connection_service.dart';
 
 // Kamera-Check
@@ -30,33 +26,7 @@ class ArtikelListScreen extends StatefulWidget {
 }
 
 class _ArtikelListScreenState extends State<ArtikelListScreen> {
-  // Hilfsdialog für Nextcloud ZIP-Pfad (Demo)
-  Future<String?> _showNextcloudZipPathDialog(BuildContext context) async {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('ZIP-Dateipfad in Nextcloud'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Pfad zur ZIP-Datei',
-            hintText: 'z.B. backup_20250923_1520/artikel_backup.zip',
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
-  }
+
   List<Artikel> _artikelListe = [];
   String _suchbegriff = '';
   String _filterOrt = '';
@@ -282,26 +252,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   await NextcloudConnectionService.showSettingsScreen(
                       context, _connectionService);
                   break;
-                case _MenuAction.nextcloudCredentials:
-                  await showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Nextcloud Zugangsdaten'),
-                      content: const Text(
-                          'Hier können die Zugangsdaten angezeigt oder geändert werden.'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Schließen'),
-                        ),
-                      ],
-                    ),
-                  );
-                  break;
-                case _MenuAction.logout:
-                  await NextcloudCredentialsStore.showLogoutDialog(
-                      context, _connectionService);
-                  break;
               }
             },
             itemBuilder: (context) => [
@@ -348,24 +298,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.cloud),
                   title: Text('Nextcloud-Einstellungen'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              const PopupMenuItem(
-                value: _MenuAction.nextcloudCredentials,
-                child: ListTile(
-                  leading: Icon(Icons.vpn_key),
-                  title: Text('Nextcloud Zugangsdaten'),
-                  contentPadding: EdgeInsets.zero,
-                  dense: true,
-                ),
-              ),
-              const PopupMenuItem(
-                value: _MenuAction.logout,
-                child: ListTile(
-                  leading: Icon(Icons.logout),
-                  title: Text('Logout Nextcloud'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -608,29 +540,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               onPressed: () async {
                 Navigator.pop(ctx);
                 // Beispiel: Remote ZIP-Pfad abfragen (hier statisch, in echt per Dialog)
-                final remoteZipPath = await _showNextcloudZipPathDialog(context);
-                if (remoteZipPath == null || remoteZipPath.isEmpty) return;
-                final (success, errors) = await ArtikelImportService.importBackupFromZipNextcloudService(remoteZipPath, reloadArtikel: _ladeArtikel);
-                if (!mounted) return;
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ZIP-Backup von Nextcloud erfolgreich importiert!')),
-                  );
-                } else {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Fehler beim Nextcloud ZIP-Import'),
-                      content: SingleChildScrollView(child: Text(errors.join('\n'))),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+                await ArtikelImportService.importZipBackupAuto(context, _ladeArtikel);
               },
               child: const Row(children: [
                 Icon(Icons.cloud_download, color: Colors.purple),
@@ -638,9 +548,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Expanded(child: Text('ZIP-Backup von Nextcloud importieren'))
               ]),
             ),
-// ...existing code...
-// Die Hilfsfunktion muss außerhalb der Widget-Liste und außerhalb der build-Methode stehen:
-
           ],
         );
       },
@@ -654,6 +561,5 @@ enum _MenuAction {
   resetDb,
   showLog,
   nextcloudSettings,
-  nextcloudCredentials,
-  logout
 }
+ 

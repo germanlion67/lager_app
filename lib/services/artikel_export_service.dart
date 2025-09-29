@@ -80,7 +80,7 @@ class ArtikelExportService {
     // Dateidialog anzeigen
     final now = DateTime.now();
     final filename =
-        'lager_backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.zip';
+        'backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}.zip';
     final result = await FilePicker.platform.saveFile(
       dialogTitle: 'Backup als ZIP speichern',
       fileName: filename,
@@ -105,7 +105,7 @@ class ArtikelExportService {
   }
 
   /// Führt ein Nextcloud-Backup der ZIP-Datei durch, aber nur wenn WLAN verfügbar ist und das lokale Backup erfolgreich war
-  Future<void> backupZipToNextcloud(String zipFilePath) async {
+  Future<void> backupZipToNextcloud(String zipFilePath, {BuildContext? context}) async {
     // Nur für Android/iOS: Prüfe WLAN
     if (!Platform.isAndroid && !Platform.isIOS) {
       await AppLogService()
@@ -163,6 +163,16 @@ class ArtikelExportService {
       );
       await AppLogService()
           .log('Nextcloud-Backup: Upload erfolgreich: $remotePath');
+
+      // 👉 Pfad direkt anzeigen
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('ZIP-Backup erfolgreich hochgeladen:\n$remotePath'),
+            duration: const Duration(seconds: 6),
+          ),
+        );
+      }
     } catch (e) {
       await AppLogService().log('Nextcloud-Backup: Fehler beim Upload: $e');
     }
@@ -314,13 +324,15 @@ class ArtikelExportService {
       final artikelList = await ArtikelDbService().getAlleArtikel();
       final now = DateTime.now();
       final backupFolder =
-          'backup_${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
-      await AppLogService()
-          .log('Anzahl Artikel für Backup: ${artikelList.length}');
+          'backup_${now.year}${now.month.toString().padLeft(2,'0')}${now.day.toString().padLeft(2,'0')}${now.hour.toString().padLeft(2,'0')}${now.minute.toString().padLeft(2,'0')}';
 
-      // Sicherstellen, dass das Backup-Verzeichnis existiert
-      final backupFolderPath = '${creds.baseFolder}/$backupFolder/images';
-      await webdavClient.ensureFolder(backupFolderPath);
+      // Ordner sicherstellen (relativ zum baseRemoteFolder)
+      await webdavClient.ensureFolder(backupFolder);
+      await AppLogService().log('Ordner angelegt/geprüft: $backupFolder');
+
+      final imagesSubFolder = '$backupFolder/images';
+      await webdavClient.ensureFolder(imagesSubFolder);
+      await AppLogService().log('Images-Unterordner angelegt/geprüft: $imagesSubFolder');
 
       int successfulImages = 0;
       int failedImages = 0;
@@ -343,13 +355,12 @@ class ArtikelExportService {
               .replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_')
               .toLowerCase();
           final fileName = '${artikel.id}_$artikelNameSlug.jpg';
-          final remotePath =
-              '${creds.baseFolder}/$backupFolder/images/$fileName';
+          final remotePath = '$imagesSubFolder/$fileName';
           try {
             await _uploadImage(webdavClient, artikel.bildPfad, remotePath);
             artikelList[i] = artikel.copyWith(
-              remoteBildPfad: remotePath,
-              bildPfad: remotePath,
+              remoteBildPfad: remotePath,  // relativ speichern
+              bildPfad: remotePath,        // temporär (wird beim Import ersetzt)
             );
             successfulImages++;
             await AppLogService()
@@ -385,8 +396,13 @@ class ArtikelExportService {
       final backupFileName = 'backup.json';
       await webdavClient.uploadBytes(
         bytes: jsonBytes,
-        remoteRelativePath: '${creds.baseFolder}/$backupFolder/$backupFileName',
+        remoteRelativePath: '$backupFolder/$backupFileName', // statt '${creds.baseFolder}/...'
         contentType: 'application/json',
+      );
+
+      // Logging: Zeige finalen Ordner (relativ + Basis)
+      await AppLogService().log(
+        'Backup-Fertig. Ordner relativ: $backupFolder (Basis: ${creds.baseFolder})'
       );
 
       // 6. Erfolgsmeldung
