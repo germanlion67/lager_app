@@ -603,6 +603,7 @@ class ArtikelImportService {
     if (jsonContent == null) {
       errors.add('Keine artikel_backup.json im ZIP gefunden.');
       await AppLogService().logError('Keine artikel_backup.json im ZIP gefunden.');
+      if (!context.mounted) return;
       _showImportErrors(context, errors);
       return;
     }
@@ -880,5 +881,40 @@ class ArtikelImportService {
       }
       return a;
     }).toList();
+  }
+
+  // Entferne oder implementiere die Platzhalter-Methoden korrekt.
+  // Beispiel: Entfernen, wenn nicht benötigt
+  // Future<ImportResult> importArtikelServiceMethod(/* benötigte Parameter ohne BuildContext */) async {
+  //   // ...bestehende Logik, die keinen BuildContext benötigt...
+  //   // Rückgabe des Ergebnisses
+  // }
+
+  // Future<void> importArtikelWithContext(BuildContext context, /* weitere Parameter */) async {
+  //   final result = await importArtikelServiceMethod(/* Parameter ohne BuildContext */);
+  //   // Nach dem await: BuildContext synchron verwenden
+  //   if (!context.mounted) return;
+  //   // ...UI-Logik, z.B. SnackBar, Dialog, Navigation...
+  // }
+
+  /// UI-Wrapper für ZIP-Import (trennt Service und UI, BuildContext nur synchron)
+  static Future<void> importZipBytesWithContext(
+    BuildContext context,
+    List<int> zipBytes,
+    [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]
+  ) async {
+    final (success, errors) = await importZipBytesService(zipBytes, reloadArtikel, setzePlatzhalter);
+    if (!context.mounted) return;
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('ZIP-Backup erfolgreich wiederhergestellt!'),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+    if (errors.isNotEmpty) {
+      _showImportErrors(context, errors);
+    }
   }
 }
