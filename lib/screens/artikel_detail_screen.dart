@@ -12,6 +12,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
+import '../services/pdf_service.dart';
+import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
 
 class ArtikelDetailScreen extends StatefulWidget {
@@ -119,6 +121,59 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
   }
 
+  Future<void> _generateArtikelDetailPdf() async {
+    try {
+      await AppLogService().log('PDF-Export gestartet für Artikel: ${widget.artikel.name}');
+      final pdfService = PdfService();
+      
+      // Erstelle ein aktuelles Artikel-Objekt mit den möglichen Änderungen
+      final aktuellerArtikel = Artikel(
+        id: widget.artikel.id,
+        name: widget.artikel.name,
+        menge: _menge,
+        ort: _ortController.text,
+        fach: _fachController.text,
+        beschreibung: _beschreibungController.text,
+        bildPfad: _bildPfad ?? widget.artikel.bildPfad,
+        erstelltAm: widget.artikel.erstelltAm,
+        aktualisiertAm: DateTime.now(),
+        remoteBildPfad: widget.artikel.remoteBildPfad,
+      );
+
+      final pdfFile = await pdfService.generateArtikelDetailPdf(aktuellerArtikel);
+      
+      if (pdfFile != null) {
+        await AppLogService().log('Artikel-PDF erfolgreich erstellt: ${pdfFile.path}');
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF erfolgreich erstellt!\nPfad: ${pdfFile.path}'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Öffnen',
+              onPressed: () async {
+                // Hier könnte eine Funktion zum Öffnen der PDF implementiert werden
+              },
+            ),
+          ),
+        );
+      } else {
+        await AppLogService().log('Artikel-PDF-Export abgebrochen: Benutzer hat Dialog geschlossen');
+      }
+    } catch (e, stack) {
+      await AppLogService().logError('Fehler beim Artikel-PDF-Export: $e', stack);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fehler beim PDF-Export: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
   void _mengeErhoehen() {
     if (_isEditing) {
       setState(() {
@@ -169,6 +224,11 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       appBar: AppBar(
         title: Text(widget.artikel.name),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: _generateArtikelDetailPdf,
+            tooltip: 'Artikel als PDF exportieren',
+          ),
           IconButton(
             icon: const Icon(Icons.delete),
             onPressed: _loeschen,

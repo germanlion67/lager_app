@@ -6,18 +6,21 @@
 //• generateArtikelListePdf() - Erstellt eine formatierte PDF-Liste aller Artikel
 //• generateArtikelDetailPdf() - Erstellt eine detaillierte PDF für einen einzelnen Artikel
 //
-//Die PDFs werden im lokalen Dokumentenverzeichnis gespeichert und können
-//für Berichte, Inventarlisten oder Archivierung verwendet werden.
+//Die PDFs werden über einen Save-Dialog gespeichert (standardmäßig im Download-Ordner).
+//Bei Abbruch des Dialogs erfolgt automatisches Speichern im App-Dokumentenverzeichnis.
+//Geeignet für Berichte, Inventarlisten oder Archivierung.
 
 
 import 'dart:io';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
+import 'package:file_picker/file_picker.dart';
+import 'dart:typed_data';
 import '../models/artikel_model.dart';
 
 class PdfService {
   /// Erstellt eine PDF-Liste mit allen Artikeln
-  Future<File> generateArtikelListePdf(List<Artikel> artikelListe) async {
+  /// Gibt null zurück wenn der Save-Dialog abgebrochen wurde
+  Future<File?> generateArtikelListePdf(List<Artikel> artikelListe) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -42,14 +45,28 @@ class PdfService {
       ),
     );
 
-    final outputDir = await getApplicationDocumentsDirectory();
-    final file = File('${outputDir.path}/artikel_liste.pdf');
-    await file.writeAsBytes(await pdf.save());
-    return file;
+    final pdfBytes = await pdf.save();
+    final fileName = 'artikel_liste_${DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19)}.pdf';
+    
+    final savedPath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Artikelliste als PDF speichern',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      bytes: Uint8List.fromList(pdfBytes),
+    );
+    
+    if (savedPath != null) {
+      return File(savedPath);
+    } else {
+      // Benutzer hat Dialog abgebrochen
+      return null;
+    }
   }
 
   /// Erstellt eine detaillierte PDF für einen einzelnen Artikel
-  Future<File> generateArtikelDetailPdf(Artikel artikel) async {
+  /// Gibt null zurück wenn der Save-Dialog abgebrochen wurde
+  Future<File?> generateArtikelDetailPdf(Artikel artikel) async {
     final pdf = pw.Document();
 
     pdf.addPage(
@@ -101,10 +118,23 @@ class PdfService {
       ),
     );
 
-    final outputDir = await getApplicationDocumentsDirectory();
-    final fileName = 'artikel_detail_${artikel.name.replaceAll(RegExp(r'[^\w\s-]'), '_')}.pdf';
-    final file = File('${outputDir.path}/$fileName');
-    await file.writeAsBytes(await pdf.save());
-    return file;
+    final pdfBytes = await pdf.save();
+    final cleanName = artikel.name.replaceAll(RegExp(r'[^\w\s-]'), '_');
+    final fileName = 'artikel_detail_${cleanName}_${DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19)}.pdf';
+    
+    final savedPath = await FilePicker.platform.saveFile(
+      dialogTitle: 'Artikel-Details als PDF speichern',
+      fileName: fileName,
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      bytes: Uint8List.fromList(pdfBytes),
+    );
+    
+    if (savedPath != null) {
+      return File(savedPath);
+    } else {
+      // Benutzer hat Dialog abgebrochen
+      return null;
+    }
   }
 }

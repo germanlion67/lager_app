@@ -5,6 +5,7 @@ import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
+import '../services/pdf_service.dart';
 import '../services/app_log_service.dart';
 import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
@@ -216,6 +217,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 case _MenuAction.importExport:
                   await _importExportDialog();
                   break;
+                case _MenuAction.pdfReports:
+                  await _showPdfReportsDialog();
+                  break;
                 case _MenuAction.zipBackup:
                   await _showZipBackupDialog();
                   break;
@@ -266,6 +270,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.import_export),
                   title: Text('Artikel import/export'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuItem(
+                value: _MenuAction.pdfReports,
+                child: ListTile(
+                  leading: Icon(Icons.picture_as_pdf, color: Colors.red),
+                  title: Text('PDF-Berichte'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -570,10 +583,155 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       },
     );
   }
+
+  Future<void> _showPdfReportsDialog() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return SimpleDialog(
+          title: const Text('PDF-Berichte'),
+          children: [
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _generateArtikelListePdf();
+              },
+              child: const Row(children: [
+                Icon(Icons.list_alt, color: Colors.red),
+                SizedBox(width: 8),
+                Expanded(child: Text('Komplette Artikelliste als PDF'))
+              ]),
+            ),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                await _generateFilteredArtikelListePdf();
+              },
+              child: const Row(children: [
+                Icon(Icons.filter_list, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(child: Text('Gefilterte Artikelliste als PDF'))
+              ]),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _generateArtikelListePdf() async {
+    try {
+      await AppLogService().log('PDF-Export gestartet: Komplette Artikelliste');
+      final pdfService = PdfService();
+      final alleArtikel = await ArtikelDbService().getAlleArtikel();
+      
+      if (alleArtikel.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Keine Artikel für PDF-Export vorhanden.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final pdfFile = await pdfService.generateArtikelListePdf(alleArtikel);
+      
+      if (pdfFile != null) {
+        await AppLogService().log('PDF erfolgreich erstellt: ${pdfFile.path}');
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF erfolgreich erstellt!\nPfad: ${pdfFile.path}'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Öffnen',
+              onPressed: () async {
+                // Hier könnte eine Funktion zum Öffnen der PDF implementiert werden
+              },
+            ),
+          ),
+        );
+      } else {
+        await AppLogService().log('PDF-Export abgebrochen: Benutzer hat Dialog geschlossen');
+      }
+    } catch (e, stack) {
+      await AppLogService().logError('Fehler beim PDF-Export: $e', stack);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fehler beim PDF-Export: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  Future<void> _generateFilteredArtikelListePdf() async {
+    try {
+      await AppLogService().log('PDF-Export gestartet: Gefilterte Artikelliste');
+      final pdfService = PdfService();
+      
+      // Verwende die bereits gefilterte Liste aus der UI
+      final gefiltert = _artikelListe.where((artikel) {
+        final nameMatch = artikel.name.toLowerCase().contains(_suchbegriff.toLowerCase());
+        final descMatch = artikel.beschreibung.toLowerCase().contains(_suchbegriff.toLowerCase());
+        final ortMatch = _filterOrt.isEmpty || artikel.ort == _filterOrt;
+        return (nameMatch || descMatch) && ortMatch;
+      }).toList();
+      
+      if (gefiltert.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Keine gefilterten Artikel für PDF-Export vorhanden.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final pdfFile = await pdfService.generateArtikelListePdf(gefiltert);
+      
+      if (pdfFile != null) {
+        await AppLogService().log('Gefilterte PDF erfolgreich erstellt: ${pdfFile.path} (${gefiltert.length} Artikel)');
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('PDF erfolgreich erstellt!\n${gefiltert.length} Artikel exportiert\nPfad: ${pdfFile.path}'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Öffnen',
+              onPressed: () async {
+                // Hier könnte eine Funktion zum Öffnen der PDF implementiert werden
+              },
+            ),
+          ),
+        );
+      } else {
+        await AppLogService().log('Gefilterter PDF-Export abgebrochen: Benutzer hat Dialog geschlossen');
+      }
+    } catch (e, stack) {
+      await AppLogService().logError('Fehler beim gefilterten PDF-Export: $e', stack);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fehler beim PDF-Export: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
 }
 
 enum _MenuAction {
   importExport,
+  pdfReports,
   zipBackup,
   resetDb,
   showLog,
