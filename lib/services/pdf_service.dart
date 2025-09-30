@@ -11,18 +11,105 @@
 //
 //Die PDFs werden über einen Save-Dialog gespeichert (standardmäßig im Download-Ordner).
 //Bei Abbruch des Dialogs wird null zurückgegeben (kein automatisches Speichern).
+//
+//Plattformspezifische Lösung:
+//• Desktop: FilePicker Save Dialog + url_launcher zum Öffnen
+//• Mobile: Öffentlicher Download-Ordner + share_plus zum Teilen (Fallback: App Documents)
+//
 //Geeignet für Berichte, Inventarlisten, Archivierung oder Dokumentation.
 
 
 import 'dart:io';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:file_picker/file_picker.dart';
-import 'dart:typed_data';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/artikel_model.dart';
 
 class PdfService {
+  /// Speichert PDF-Bytes plattformspezifisch
+  static Future<File?> _savePdfBytes(Uint8List pdfBytes, String fileName, String dialogTitle) async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      // Mobile: Speichere im öffentlichen Download-Ordner
+      try {
+        Directory? directory;
+        
+        if (Platform.isAndroid) {
+          // Android: Direkter Zugriff auf öffentlichen Download-Ordner
+          directory = Directory('/storage/emulated/0/Download');
+          if (!await directory.exists()) {
+            // Fallback für ältere Android-Versionen oder andere Pfade
+            directory = Directory('/sdcard/Download');
+          }
+        } else if (Platform.isIOS) {
+          // iOS: Verwende getDownloadsDirectory (funktioniert anders als Android)
+          directory = await getDownloadsDirectory();
+        }
+        
+        if (directory != null && await directory.exists()) {
+          final file = File('${directory.path}/$fileName');
+          await file.writeAsBytes(pdfBytes);
+          
+          // Kurz warten um sicherzustellen dass die Datei vollständig ist
+          await Future.delayed(const Duration(milliseconds: 100));
+          
+          if (await file.exists() && await file.length() > 0) {
+            return file;
+          }
+        } else {
+          // Fallback zu Documents falls öffentlicher Download-Ordner nicht verfügbar
+          debugPrint('Öffentlicher Download-Ordner nicht verfügbar, verwende Documents');
+          final fallbackDirectory = await getApplicationDocumentsDirectory();
+          final file = File('${fallbackDirectory.path}/$fileName');
+          await file.writeAsBytes(pdfBytes);
+          
+          await Future.delayed(const Duration(milliseconds: 100));
+          
+          if (await file.exists() && await file.length() > 0) {
+            return file;
+          }
+        }
+        return null;
+      } catch (e) {
+        debugPrint('Mobile Speicher Fehler: $e');
+        return null;
+      }
+    } else {
+      // Desktop/Web: Verwende FilePicker Save Dialog - Benutzer wählt Verzeichnis
+      try {
+        final savedPath = await FilePicker.platform.saveFile(
+          dialogTitle: dialogTitle,
+          fileName: fileName,
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
+          bytes: pdfBytes,
+        );
+        
+        if (savedPath != null) {
+          final file = File(savedPath);
+          // Warte kurz und stelle sicher dass die Datei vollständig geschrieben wurde
+          await Future.delayed(const Duration(milliseconds: 200));
+          
+          // Zusätzliche Sicherheit: Prüfe ob Datei existiert und Größe > 0
+          if (await file.exists() && await file.length() > 0) {
+            return file;
+          } else {
+            // Fallback: Datei manuell schreiben falls FilePicker versagt hat
+            await file.writeAsBytes(pdfBytes);
+            return file;
+          }
+        }
+        return null;
+      } catch (e) {
+        debugPrint('Desktop FilePicker Fehler: $e');
+        return null;
+      }
+    }
+  }
+
   /// Erstellt eine PDF-Liste mit allen Artikeln
   /// Gibt null zurück wenn der Save-Dialog abgebrochen wurde
   Future<File?> generateArtikelListePdf(List<Artikel> artikelListe) async {
@@ -53,19 +140,19 @@ class PdfService {
     final pdfBytes = await pdf.save();
     final fileName = 'artikel_liste_${DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19)}.pdf';
     
-    final savedPath = await FilePicker.platform.saveFile(
-      dialogTitle: 'Artikelliste als PDF speichern',
-      fileName: fileName,
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      bytes: Uint8List.fromList(pdfBytes),
-    );
-    
-    if (savedPath != null) {
-      return File(savedPath);
-    } else {
-      // Benutzer hat Dialog abgebrochen
-      return null;
+    try {
+      final file = await _savePdfBytes(Uint8List.fromList(pdfBytes), fileName, 'Artikelliste als PDF speichern');
+      
+      if (file != null) {
+        debugPrint('Artikelliste PDF erfolgreich gespeichert: ${file.path} (${await file.length()} bytes)');
+        return file;
+      } else {
+        debugPrint('Artikelliste PDF Export abgebrochen vom Benutzer');
+        return null; // User hat den Dialog abgebrochen
+      }
+    } catch (e) {
+      debugPrint('Fehler beim Artikelliste PDF Export: $e');
+      throw Exception('Fehler beim PDF Export: $e');
     }
   }
 
@@ -233,19 +320,19 @@ class PdfService {
     final cleanName = artikel.name.replaceAll(RegExp(r'[^\w\s-]'), '_');
     final fileName = 'artikel_detail_${cleanName}_${DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19)}.pdf';
     
-    final savedPath = await FilePicker.platform.saveFile(
-      dialogTitle: 'Artikel-Details als PDF speichern',
-      fileName: fileName,
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-      bytes: Uint8List.fromList(pdfBytes),
-    );
-    
-    if (savedPath != null) {
-      return File(savedPath);
-    } else {
-      // Benutzer hat Dialog abgebrochen
-      return null;
+    try {
+      final file = await _savePdfBytes(Uint8List.fromList(pdfBytes), fileName, 'Artikel-Details als PDF speichern');
+      
+      if (file != null) {
+        debugPrint('Artikel-Detail PDF erfolgreich gespeichert: ${file.path} (${await file.length()} bytes)');
+        return file;
+      } else {
+        debugPrint('Artikel-Detail PDF Export abgebrochen vom Benutzer');
+        return null; // User hat den Dialog abgebrochen
+      }
+    } catch (e) {
+      debugPrint('Fehler beim Artikel-Detail PDF Export: $e');
+      throw Exception('Fehler beim PDF Export: $e');
     }
   }
 
@@ -332,16 +419,57 @@ class PdfService {
     );
   }
 
-  /// Öffnet eine PDF-Datei mit dem Standard-PDF-Viewer des Systems
+  /// Öffnet eine PDF-Datei mit dem Standard-PDF-Viewer oder teilt sie auf mobilen Geräten
   static Future<bool> openPdf(String filePath) async {
     try {
       final file = File(filePath);
-      if (await file.exists()) {
-        final uri = Uri.file(filePath);
-        return await launchUrl(uri);
+      
+      // Warte bis zu 3 Sekunden auf die Datei-Erstellung
+      for (int i = 0; i < 30; i++) {
+        if (await file.exists()) {
+          try {
+            // Zusätzliche Prüfung: Versuche die Datei zu lesen um sicherzustellen dass sie vollständig ist
+            final fileSize = await file.length();
+            if (fileSize > 0) {
+              if (Platform.isAndroid || Platform.isIOS) {
+                // Mobile (Android/iOS): Teilen mit Share-Dialog
+                final shareResult = await Share.shareXFiles(
+                  [XFile(filePath)],
+                  text: 'PDF-Export aus Lager-App',
+                  subject: 'Artikel-PDF',
+                );
+                
+                final success = shareResult.status == ShareResultStatus.success;
+                if (success) {
+                  debugPrint('PDF erfolgreich geteilt: $filePath ($fileSize bytes)');
+                } else {
+                  debugPrint('Share failed with status: ${shareResult.status}');
+                }
+                return success;
+              } else {
+                // Desktop/Web: Direkt öffnen mit url_launcher
+                final uri = Uri.file(filePath);
+                final success = await launchUrl(uri);
+                if (success) {
+                  debugPrint('PDF erfolgreich geöffnet: $filePath ($fileSize bytes)');
+                }
+                return success;
+              }
+            }
+          } catch (e) {
+            // Datei noch nicht vollständig geschrieben, warte weiter
+            debugPrint('PDF noch nicht bereit (Versuch ${i+1}/30): $e');
+          }
+        } else {
+          debugPrint('PDF-Datei existiert noch nicht (Versuch ${i+1}/30): $filePath');
+        }
+        // Warte 100ms bevor nächster Versuch
+        await Future.delayed(const Duration(milliseconds: 100));
       }
+      debugPrint('PDF konnte nach 3 Sekunden nicht geöffnet/geteilt werden: $filePath');
       return false;
     } catch (e) {
+      debugPrint('Fehler beim Öffnen/Teilen der PDF: $e');
       return false;
     }
   }
