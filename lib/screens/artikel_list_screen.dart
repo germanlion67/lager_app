@@ -18,6 +18,9 @@ import '../services/nextcloud_connection_service.dart';
 // Kamera-Check
 import 'package:camera/camera.dart';
 
+// Debug Utils
+import '../utils/nextcloud_test_utils.dart';
+
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
 
@@ -252,6 +255,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   await NextcloudConnectionService.showSettingsScreen(
                       context, _connectionService);
                   break;
+                case _MenuAction.debugListFiles:
+                  await NextcloudTestUtils.testListFiles(context);
+                  break;
               }
             },
             itemBuilder: (context) => [
@@ -298,6 +304,17 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 child: ListTile(
                   leading: Icon(Icons.cloud),
                   title: Text('Nextcloud-Einstellungen'),
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: _MenuAction.debugListFiles,
+                child: ListTile(
+                  leading: Icon(Icons.bug_report, color: Colors.orange),
+                  title: Text('Debug: Listfile-Prüfung'),
+                  subtitle: Text('Nextcloud Verbindung testen'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
@@ -561,5 +578,6 @@ enum _MenuAction {
   resetDb,
   showLog,
   nextcloudSettings,
+  debugListFiles,
 }
  

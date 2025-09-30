@@ -939,48 +939,43 @@ class ArtikelImportService {
       ),
     );
 
-    final Map<String, String> zipMap = {};
+    final Map<String, String> zipMap = {}; // Key: Display-Name, Value: Relativer Pfad
 
     try {
-      // Dateien direkt im baseFolder (von backupZipToNextcloud)
-      final rootFiles = await webdavClient.listFiles(baseFolder);
-      await AppLogService().log('Dateien in baseFolder "$baseFolder": $rootFiles');
-      for (final f in rootFiles) {
-        if (f.toLowerCase().endsWith('.zip')) {
-          zipMap['$baseFolder/$f'] = '$baseFolder/$f';
+      // 1. Dateien direkt im baseFolder (von backupZipToNextcloud)
+      // WICHTIG: WebDAV-Client ist bereits mit baseRemoteFolder konfiguriert!
+      final rootFiles = await webdavClient.listFiles(''); // Leerer String = Root des konfigurierten Ordners
+      await AppLogService().log('Dateien in Root (baseFolder "$baseFolder"): $rootFiles');
+      
+      for (final fileName in rootFiles) {
+        if (fileName.toLowerCase().endsWith('.zip')) {
+          final displayName = fileName; // Kein ROOT: Prefix
+          final relativePath = fileName; // Dateiname ist bereits relativ zum baseFolder
+          zipMap[displayName] = relativePath;
+          await AppLogService().log('ZIP gefunden in Root: $fileName -> $relativePath');
         }
       }
 
-      // Backup-Ordner im baseFolder (von backupWithImagesToNextcloud)
-      final folders = await webdavClient.listFolders(baseFolder);
-      await AppLogService().log('Backup-Ordner in "$baseFolder": $folders');
+      // 2. Backup-Ordner im baseFolder durchsuchen  
+      final folders = await webdavClient.listFolders(''); // Leerer String = Root des konfigurierten Ordners
+      await AppLogService().log('Ordner in Root (baseFolder "$baseFolder"): $folders');
 
-      // Nur backup_* Ordner berücksichtigen (von backupWithImagesToNextcloud)
-      final backupFolders = folders.where((f) => f.startsWith('backup_')).toList();
-      
-      for (final folder in backupFolders) {
+      for (final folderName in folders) {
         try {
-          final fullFolderPath = '$baseFolder/$folder';
-          final subFiles = await webdavClient.listFiles(fullFolderPath);
-          await AppLogService().log('Dateien in "$fullFolderPath": $subFiles');
+          // Relativer Pfad für listFiles (WebDAV-Client ist bereits auf baseFolder konfiguriert)
+          final subFiles = await webdavClient.listFiles(folderName);
+          await AppLogService().log('Dateien in Ordner "$folderName": $subFiles');
 
-          // ZIPs direkt im Backup-Unterordner
-          for (final sf in subFiles) {
-            if (sf.toLowerCase().endsWith('.zip')) {
-              final relativePath = '$fullFolderPath/$sf';
-              zipMap['$folder/$sf'] = relativePath;
+          for (final subFileName in subFiles) {
+            if (subFileName.toLowerCase().endsWith('.zip')) {
+              final displayName = '$folderName/$subFileName';
+              final relativePath = '$folderName/$subFileName'; // Relativ zum baseFolder
+              zipMap[displayName] = relativePath;
+              await AppLogService().log('ZIP gefunden in Ordner: $displayName -> $relativePath');
             }
           }
-
-          // Standard backup.json im Ordner (nicht ZIP, aber der Ordner kann ZIP enthalten)
-          // Suche nach beliebigen ZIP-Dateien im Backup-Ordner
-          final zipFiles = subFiles.where((f) => f.toLowerCase().endsWith('.zip')).toList();
-          for (final zipFile in zipFiles) {
-            final relativePath = '$fullFolderPath/$zipFile';
-            zipMap['$folder/$zipFile'] = relativePath;
-          }
         } catch (e) {
-          await AppLogService().logError('Fehler beim Lesen von Backup-Ordner "$folder": $e');
+          await AppLogService().logError('Fehler beim Lesen von Ordner "$folderName": $e');
         }
       }
     } catch (e) {
@@ -992,8 +987,10 @@ class ArtikelImportService {
       return;
     }
 
+    await AppLogService().log('Gefundene ZIP-Dateien: ${zipMap.keys.join(', ')}');
+
     if (zipMap.isEmpty) {
-      await AppLogService().log('Keine ZIP-Dateien gefunden (Root + Unterordner)');
+      await AppLogService().log('Keine ZIP-Dateien gefunden');
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Keine ZIP-Backups gefunden'), backgroundColor: Colors.red),
@@ -1001,35 +998,40 @@ class ArtikelImportService {
       return;
     }
 
-    final entries = zipMap.entries.toList()
+    // Nach Datum sortieren (neueste zuerst)
+    final sortedEntries = zipMap.entries.toList()
       ..sort((a, b) => b.key.compareTo(a.key));
 
+    if (!context.mounted) return;
     final selected = await showDialog<String>(
-      // ignore: use_build_context_synchronously
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('ZIP-Backup auswählen'),
         content: SizedBox(
           width: double.maxFinite,
-            child: ListView.builder(
+          child: ListView.builder(
             shrinkWrap: true,
-            itemCount: entries.length,
-            itemBuilder: (c, i) {
-              final e = entries[i];
+            itemCount: sortedEntries.length,
+            itemBuilder: (dialogContext, index) {
+              final entry = sortedEntries[index];
               return ListTile(
                 leading: const Icon(Icons.archive),
-                title: Text(e.key),
-                subtitle: Text(e.value),
-                onTap: () => Navigator.pop(ctx, e.value),
+                title: Text(entry.key),
+                subtitle: Text('Pfad: ${entry.value}'),
+                onTap: () => Navigator.pop(ctx, entry.value),
               );
             },
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
         ],
       ),
     );
+
     if (!context.mounted || selected == null) return;
 
     await AppLogService().log('Ausgewähltes ZIP (relativ): $selected');
@@ -1046,4 +1048,6 @@ class ArtikelImportService {
       );
     }
   }
+
+
 }

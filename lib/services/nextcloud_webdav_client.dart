@@ -165,7 +165,11 @@ class NextcloudWebDavClient {
   /// Listet Dateien/Ordner in einem Remote-Verzeichnis auf.
   Future<List<String>> listFiles(String remoteFolderPath) async {
     try {
-      final targetUri = config.webDavRoot.resolve(remoteFolderPath);
+      // Kombiniere baseRemoteFolder mit dem angegebenen Pfad
+      final fullPath = remoteFolderPath.isEmpty 
+          ? config.baseRemoteFolder
+          : '${config.baseRemoteFolder}/$remoteFolderPath';
+      final targetUri = config.webDavRoot.resolve(fullPath);
       final client = http.Client();
       
       final request = http.Request('PROPFIND', targetUri);
@@ -188,19 +192,20 @@ class NextcloudWebDavClient {
 
       if (response.statusCode == 207) {
         // Parse XML response to extract file names
-        // Simplified parsing - in production, use proper XML parser
+        // Robusteres Parsing - funktioniert auch mit mehrzeiligem XML
         final files = <String>[];
-        final lines = response.body.split('\n');
-        for (final line in lines) {
-          if (line.contains('<d:displayname>') && line.contains('</d:displayname>')) {
-            final start = line.indexOf('<d:displayname>') + 15;
-            final end = line.indexOf('</d:displayname>');
-            if (start < end) {
-              final filename = line.substring(start, end).trim();
-              if (filename.isNotEmpty && filename != remoteFolderPath) {
-                files.add(filename);
-              }
-            }
+        final xmlBody = response.body;
+        
+        // Alle <d:displayname>-Tags mit RegExp finden
+        final displayNameRegex = RegExp(r'<d:displayname>(.*?)</d:displayname>', dotAll: true);
+        final matches = displayNameRegex.allMatches(xmlBody);
+        
+        for (final match in matches) {
+          final filename = match.group(1)?.trim() ?? '';
+          if (filename.isNotEmpty && 
+              filename != remoteFolderPath &&
+              !filename.endsWith('/')) { // Ordner ausschließen
+            files.add(filename);
           }
         }
         return files;
@@ -262,8 +267,10 @@ class NextcloudWebDavClient {
   Future<Uint8List> downloadBytes({
     required String remoteRelativePath,
   }) async {
+    // Kombiniere baseRemoteFolder mit dem relativen Pfad
+    final fullPath = p.posix.join(config.baseRemoteFolder, remoteRelativePath);
     final targetUri = config.webDavRoot.replace(
-      path: p.posix.join(config.webDavRoot.path, remoteRelativePath),
+      path: p.posix.join(config.webDavRoot.path, fullPath),
     );
 
     final response = await http.get(
@@ -319,7 +326,11 @@ class NextcloudWebDavClient {
   /// Listet nur Ordner in einem Remote-Verzeichnis auf.
   Future<List<String>> listFolders(String remoteFolderPath) async {
     try {
-      final targetUri = config.webDavRoot.resolve(remoteFolderPath);
+      // Kombiniere baseRemoteFolder mit dem angegebenen Pfad
+      final fullPath = remoteFolderPath.isEmpty 
+          ? config.baseRemoteFolder
+          : '${config.baseRemoteFolder}/$remoteFolderPath';
+      final targetUri = config.webDavRoot.resolve(fullPath);
       final client = http.Client();
       
       final request = http.Request('PROPFIND', targetUri);
