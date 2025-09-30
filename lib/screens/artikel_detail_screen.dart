@@ -153,7 +153,16 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             action: SnackBarAction(
               label: 'Öffnen',
               onPressed: () async {
-                // Hier könnte eine Funktion zum Öffnen der PDF implementiert werden
+                final success = await PdfService.openPdf(pdfFile.path);
+                if (!success) {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('PDF konnte nicht geöffnet werden'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
               },
             ),
           ),
