@@ -35,6 +35,7 @@ dependencies:
   csv: ^6.0.0
   test_api: ^0.7.6
   archive: ^4.0.7
+  
 
   connectivity_plus: ^5.0.2 # Für WLAN-Check (nur Android/iOS)
 
@@ -50,9 +51,25 @@ dev_dependencies:
   path_provider_platform_interface: ^2.1.2
   file_selector: ^1.0.4
   file_selector_platform_interface: any
+  flutter_native_splash: ^2.3.10
+  flutter_launcher_icons: ^0.13.1
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
-    
+
+flutter_native_splash:
+  color: "#1976d2"
+  image: assets/images/app_logo.png
+  android: true
+  ios: true
+  web: false
+
+flutter_launcher_icons:
+  image_path: assets/images/app_logo.png
+  android: true
+  ios: true
+  windows:
+    generate: true
+    icon_size: 256  
