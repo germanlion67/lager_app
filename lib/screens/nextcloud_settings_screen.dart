@@ -232,7 +232,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
                       icon: _isSaving
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.save),
-                      label: const Text('Speichern'),
+                      label: const Text('Save'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -242,7 +242,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
                       icon: _isTesting
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                           : const Icon(Icons.wifi),
-                      label: const Text('Testen'),
+                      label: const Text('Test'),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -250,7 +250,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
                     child: OutlinedButton.icon(
                       onPressed: _showLogoutDialog,  // Verwendet die Methode
                       icon: const Icon(Icons.logout),
-                      label: const Text('Logout'),
+                      label: const Text('Lgout'),
                     ),
                   ),
                 ],
