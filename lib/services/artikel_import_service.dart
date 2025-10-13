@@ -38,12 +38,9 @@ class ArtikelImportService {
           continue;
         }
 
-
-        // Prüfe ob bildPfad vorhanden und nicht leer ist
-        final bildPfad = map['bildPfad'];
-        if (bildPfad == null || bildPfad.toString().isEmpty) {
-          await AppLogService().logError('Artikel übersprungen - bildPfad fehlt oder ist leer: ${map['name']}');
-          continue; // Ungültigen Eintrag überspringen
+        // Sicherstellen, dass bildPfad immer ein String ist (auch wenn leer)
+        if (map['bildPfad'] == null) {
+          map['bildPfad'] = '';
         }
         
         artikelList.add(Artikel.fromMap(map));
@@ -79,10 +76,10 @@ class ArtikelImportService {
         map['menge'] = '0';
       }
 
-
-      // Prüfen, ob bildPfad vorhanden und nicht leer ist
-      final bildPfad = map['bildPfad'];
-      if (bildPfad == null || bildPfad.isEmpty) continue;
+      // Sicherstellen, dass bildPfad immer ein String ist (auch wenn leer)
+      if (map['bildPfad'] == null || map['bildPfad']!.isEmpty) {
+        map['bildPfad'] = '';
+      }
 
       artikelList.add(Artikel.fromMap(map));
     }
@@ -557,9 +554,9 @@ class ArtikelImportService {
           await AppLogService().logError('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
         }
       } else {
-      // failedImages++;
-        errors.add('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
-        await AppLogService().logError('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
+        // Kein Bild vorhanden - das ist normal und kein Fehler
+        await AppLogService().log('Artikel ${artikel.name} hat kein Bild im ZIP - wird ohne Bild importiert.');
+        artikelList[i] = artikel.copyWith(bildPfad: ''); // Explizit leeren String setzen
       }
     }
     final db = await ArtikelDbService().database;
@@ -656,9 +653,10 @@ class ArtikelImportService {
           await AppLogService().logError('Fehler beim Schreiben von Bild für Artikel ${artikel.name}: $e');
         }
       } else {
-        failedImages++;
-        errors.add('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
-        await AppLogService().logError('Kein Bild im ZIP für Artikel ${artikel.name} gefunden.');
+        // Kein Bild vorhanden - das ist normal und kein Fehler
+        await AppLogService().log('Artikel ${artikel.name} hat kein Bild im ZIP - wird ohne Bild importiert.');
+        artikelList[i] = artikel.copyWith(bildPfad: ''); // Explizit leeren String setzen
+        // failedImages wird NICHT erhöht, da das kein Fehler ist
       }
     }
     final db = await ArtikelDbService().database;
@@ -939,20 +937,46 @@ class ArtikelImportService {
       ),
     );
 
-    final Map<String, String> zipMap = {}; // Key: Display-Name, Value: Relativer Pfad
+    final Map<String, Map<String, dynamic>> zipMap = {}; // Key: Display-Name, Value: {path, size}
+
+    // Hilfsfunktion zum Bereinigen der Display-Namen
+    String cleanDisplayName(String fileName) {
+      String cleaned = fileName;
+      // Entferne "backup_" am Anfang
+      if (cleaned.startsWith('backup_')) {
+        cleaned = cleaned.substring(7); // "backup_".length = 7
+      }
+      // Entferne ".zip" am Ende
+      if (cleaned.toLowerCase().endsWith('.zip')) {
+        cleaned = cleaned.substring(0, cleaned.length - 4);
+      }
+      return cleaned;
+    }
+
+    // Hilfsfunktion zum Formatieren der Dateigröße
+    String formatFileSize(int bytes) {
+      if (bytes < 1024) return '$bytes B';
+      if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+      if (bytes < 1024 * 1024 * 1024) return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
+    }
 
     try {
       // 1. Dateien direkt im baseFolder (von backupZipToNextcloud)
       // WICHTIG: WebDAV-Client ist bereits mit baseRemoteFolder konfiguriert!
-      final rootFiles = await webdavClient.listFiles(''); // Leerer String = Root des konfigurierten Ordners
-      await AppLogService().log('Dateien in Root (baseFolder "$baseFolder"): $rootFiles');
+      final rootFilesWithSize = await webdavClient.listFilesWithSize(''); // Leerer String = Root des konfigurierten Ordners
+      await AppLogService().log('Dateien in Root (baseFolder "$baseFolder"): ${rootFilesWithSize.keys.join(', ')}');
       
-      for (final fileName in rootFiles) {
+      for (final entry in rootFilesWithSize.entries) {
+        final fileName = entry.key;
+        final fileSize = entry.value;
+        
         if (fileName.toLowerCase().endsWith('.zip')) {
-          final displayName = fileName; // Kein ROOT: Prefix
+          final displayName = cleanDisplayName(fileName);
           final relativePath = fileName; // Dateiname ist bereits relativ zum baseFolder
-          zipMap[displayName] = relativePath;
-          await AppLogService().log('ZIP gefunden in Root: $fileName -> $relativePath');
+          
+          zipMap[displayName] = {'path': relativePath, 'size': fileSize};
+          await AppLogService().log('ZIP gefunden in Root: $fileName -> $relativePath (Display: $displayName, Size: ${formatFileSize(fileSize)})');
         }
       }
 
@@ -962,16 +986,20 @@ class ArtikelImportService {
 
       for (final folderName in folders) {
         try {
-          // Relativer Pfad für listFiles (WebDAV-Client ist bereits auf baseFolder konfiguriert)
-          final subFiles = await webdavClient.listFiles(folderName);
-          await AppLogService().log('Dateien in Ordner "$folderName": $subFiles');
-
-          for (final subFileName in subFiles) {
+          final subFilesWithSize = await webdavClient.listFilesWithSize(folderName);
+          await AppLogService().log('ZIP-Dateien in Ordner "$folderName": ${subFilesWithSize.keys.where((f) => f.toLowerCase().endsWith('.zip')).join(', ')}');
+          
+          for (final entry in subFilesWithSize.entries) {
+            final subFileName = entry.key;
+            final fileSize = entry.value;
+            
             if (subFileName.toLowerCase().endsWith('.zip')) {
-              final displayName = '$folderName/$subFileName';
+              final cleanedSubFileName = cleanDisplayName(subFileName);
+              final displayName = '$folderName/$cleanedSubFileName';
               final relativePath = '$folderName/$subFileName'; // Relativ zum baseFolder
-              zipMap[displayName] = relativePath;
-              await AppLogService().log('ZIP gefunden in Ordner: $displayName -> $relativePath');
+              
+              zipMap[displayName] = {'path': relativePath, 'size': fileSize};
+              await AppLogService().log('ZIP gefunden in Ordner: $subFileName -> $relativePath (Display: $displayName, Size: ${formatFileSize(fileSize)})');
             }
           }
         } catch (e) {
@@ -1014,11 +1042,15 @@ class ArtikelImportService {
             itemCount: sortedEntries.length,
             itemBuilder: (dialogContext, index) {
               final entry = sortedEntries[index];
+              final fileInfo = entry.value;
+              final filePath = fileInfo['path'] as String;
+              final fileSize = fileInfo['size'] as int;
+              
               return ListTile(
                 leading: const Icon(Icons.archive),
                 title: Text(entry.key),
-                subtitle: Text('Pfad: ${entry.value}'),
-                onTap: () => Navigator.pop(ctx, entry.value),
+                subtitle: Text('Größe: ${formatFileSize(fileSize)}'),
+                onTap: () => Navigator.pop(ctx, filePath),
               );
             },
           ),

@@ -388,6 +388,77 @@ class NextcloudWebDavClient {
       throw WebDavException('Network error listing folders: $e');
     }
   }
+
+  /// Listet Dateien mit ihren Größen auf
+  Future<Map<String, int>> listFilesWithSize(String remoteFolderPath) async {
+    try {
+      // Kombiniere baseRemoteFolder mit dem angegebenen Pfad
+      final fullPath = remoteFolderPath.isEmpty 
+          ? config.baseRemoteFolder
+          : '${config.baseRemoteFolder}/$remoteFolderPath';
+      final targetUri = config.webDavRoot.resolve(fullPath);
+      final client = http.Client();
+      
+      final request = http.Request('PROPFIND', targetUri);
+      request.headers.addAll({
+        ..._authHeader,
+        'Depth': '1',
+        'Content-Type': 'application/xml',
+      });
+      request.body = '''<?xml version="1.0"?>
+<d:propfind xmlns:d="DAV:">
+  <d:prop>
+    <d:displayname/>
+    <d:getcontentlength/>
+    <d:resourcetype/>
+  </d:prop>
+</d:propfind>''';
+      
+      final streamedResponse = await client.send(request).timeout(const Duration(seconds: 30));
+      final response = await http.Response.fromStream(streamedResponse);
+      
+      client.close();
+
+      if (response.statusCode == 207) {
+        // Parse XML response to extract file names and sizes
+        final files = <String, int>{};
+        final xmlBody = response.body;
+        
+        // Alle <d:response>-Blöcke finden
+        final responseRegex = RegExp(r'<d:response>(.*?)</d:response>', dotAll: true);
+        final responseMatches = responseRegex.allMatches(xmlBody);
+        
+        for (final responseMatch in responseMatches) {
+          final responseBlock = responseMatch.group(1) ?? '';
+          
+          // Prüfe ob es eine Datei ist (kein Ordner)
+          final isCollection = responseBlock.contains('<d:collection/>');
+          if (isCollection) continue; // Skip folders
+          
+          // Extrahiere displayname
+          final nameMatch = RegExp(r'<d:displayname>(.*?)</d:displayname>', dotAll: true).firstMatch(responseBlock);
+          final fileName = nameMatch?.group(1)?.trim() ?? '';
+          
+          if (fileName.isNotEmpty && fileName != remoteFolderPath) {
+            // Extrahiere Dateigröße
+            final sizeMatch = RegExp(r'<d:getcontentlength>(\d+)</d:getcontentlength>').firstMatch(responseBlock);
+            final fileSize = int.tryParse(sizeMatch?.group(1) ?? '0') ?? 0;
+            
+            files[fileName] = fileSize;
+          }
+        }
+        
+        return files;
+      } else if (response.statusCode == 404) {
+        return {}; // Folder doesn't exist
+      } else {
+        throw WebDavException('List files with size failed with status ${response.statusCode}');
+      }
+    } catch (e) {
+      if (e is WebDavException) rethrow;
+      throw WebDavException('Network error listing files with size: $e');
+    }
+  }
 }
 
 // Automatischer ZIP-Upload in den Basisordner aus der Konfiguration

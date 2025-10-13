@@ -1,9 +1,11 @@
 //lib/screens/artikel_erfassen_screen.dart
 
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 //import 'package/file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../widgets/article_icons.dart';
@@ -97,6 +99,44 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     return p.posix.join(baseFolder, fileName);
   }
 
+  // Kopiert das Bild in das lokale app_flutter/images Verzeichnis
+  Future<String?> _copyImageToLocalDirectory({
+    required int artikelId,
+    required String artikelName,
+  }) async {
+    if (_bildBytes == null && _bildPfad == null) return null;
+
+    try {
+      // Lokales Verzeichnis für Bilder erstellen
+      final appDir = await getApplicationDocumentsDirectory();
+      final imagesDir = Directory(p.join(appDir.path, 'images'));
+      await imagesDir.create(recursive: true);
+
+      // Dateiname nach Schema: ID_slug.jpg
+      final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
+      final fileName = '${artikelId}_$nameSlug.jpg';
+      final localImagePath = p.join(imagesDir.path, fileName);
+
+      if (_bildBytes != null) {
+        // Bild aus Bytes speichern
+        final file = File(localImagePath);
+        await file.writeAsBytes(_bildBytes!);
+      } else if (_bildPfad != null) {
+        // Bild aus temporärem Pfad kopieren
+        final sourceFile = File(_bildPfad!);
+        if (await sourceFile.exists()) {
+          await sourceFile.copy(localImagePath);
+        } else {
+          return null;
+        }
+      }
+      
+      return localImagePath;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // ---------- Abbrechen mit Bestätigung ----------
   Future<void> _handleCancel() async {
     if (!_hasUnsavedChanges) {
@@ -135,30 +175,44 @@ Future<void> _save() async {
 
   final menge = int.tryParse(_mengeCtrl.text.trim()) ?? 0;
 
-  final artikel = Artikel(
-    name: _nameCtrl.text.trim(),
-    beschreibung: _beschreibungCtrl.text.trim(),
-    ort: _ortCtrl.text.trim(),
-    fach: _fachCtrl.text.trim(),
-    menge: menge,
-    bildPfad: _bildPfad ?? '',
-    remoteBildPfad: '', // Initialwert
-    erstelltAm: DateTime.now(),
-    aktualisiertAm: DateTime.now(),
-  );
-
   setState(() => _isSaving = true);
 
   try {
-    // --- 1) Artikel in DB speichern ---
+    // --- 1) Artikel zuerst ohne Bildpfad in DB speichern ---
+    final artikel = Artikel(
+      name: _nameCtrl.text.trim(),
+      beschreibung: _beschreibungCtrl.text.trim(),
+      ort: _ortCtrl.text.trim(),
+      fach: _fachCtrl.text.trim(),
+      menge: menge,
+      bildPfad: '', // Wird später aktualisiert
+      remoteBildPfad: '', // Initialwert
+      erstelltAm: DateTime.now(),
+      aktualisiertAm: DateTime.now(),
+    );
+    
     final artikelId = await ArtikelDbService().insertArtikel(artikel);
 
-    // --- 2) Bild hochladen, falls vorhanden ---
+    // --- 2) Bild in lokales Verzeichnis kopieren, falls vorhanden ---
+    String? localImagePath;
     if (_bildBytes != null || _bildPfad != null) {
+      localImagePath = await _copyImageToLocalDirectory(
+        artikelId: artikelId,
+        artikelName: _nameCtrl.text.trim(),
+      );
+      
+      if (localImagePath != null) {
+        // Bildpfad in der Datenbank aktualisieren
+        await ArtikelDbService().updateBildPfad(artikelId, localImagePath);
+      }
+    }
+
+    // --- 3) Bild zu Nextcloud hochladen, falls vorhanden ---
+    if (localImagePath != null) {
       final creds = await NextcloudCredentialsStore().read();
 
       if (creds == null) {
-        if (!mounted) return; // 👈
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content:
@@ -182,17 +236,10 @@ Future<void> _save() async {
         );
 
         try {
-          if (_bildBytes != null) {
-            await client.uploadBytes(
-              bytes: _bildBytes!,
-              remoteRelativePath: remoteRelPath,
-            );
-          } else if (_bildPfad != null) {
-            await client.uploadFileNew(
-              localPath: _bildPfad!,
-              remoteRelativePath: remoteRelPath,
-            );
-          }
+          await client.uploadFileNew(
+            localPath: localImagePath,
+            remoteRelativePath: remoteRelPath,
+          );
 
           // DB mit Remote-Pfad aktualisieren
           if (!mounted) return; 
@@ -216,10 +263,13 @@ Future<void> _save() async {
       }
     }
 
-    // ---Screen schließen ---
+    // --- 4) Screen schließen ---
     if (mounted) {
       setState(() => _hasUnsavedChanges = false); 
-      Navigator.of(context).pop(artikel.copyWith(id: artikelId));
+      Navigator.of(context).pop(artikel.copyWith(
+        id: artikelId,
+        bildPfad: localImagePath ?? '',
+      ));
     }
   } catch (e) {
     if (mounted) {

@@ -183,6 +183,21 @@ class ArtikelDbService {
     }
   }
 
+  Future<int> updateBildPfad(int artikelId, String bildPfad) async {
+    try {
+      final db = await database;
+      return await db.update(
+        'artikel',
+        {'bildPfad': bildPfad},
+        where: 'id = ?',
+        whereArgs: [artikelId],
+      );
+    } catch (e, stackTrace) {
+      logger.e('Fehler beim Aktualisieren des Bildpfads', error: e, stackTrace: stackTrace);
+      throw DatabaseException('Bildpfad konnte nicht aktualisiert werden: $e');
+    }
+  }
+
   Future<int> updateRemoteBildPfad(int artikelId, String remotePfad) async {
     try {
       final db = await database;
