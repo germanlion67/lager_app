@@ -1,0 +1,39 @@
+//../tool/Erklärung.txt
+
+Dateien erstellt
+tool/generate_import_dataset.dart — Generator-Skript
+Erzeugt 500 Artikel-Bilder in 4032x2268 (JPEG, standard Qualität 95) und eine import.json
+Format: Kompatibel mit echten App-Exports (id, bildPfad, erstelltAm, etc.)
+Ausgabe: test/performance/import_500/
+import.json (App-kompatibles Format)
+images/artikel_1000.jpg … artikel_1499.jpg
+import_500.zip (für Nextcloud-Import)
+test/performance/import_500_smoke_test.dart — Test
+Prüft, dass import.json existiert, 500 Einträge enthält und alle referenzierten Bilder vorhanden sind
+Gibt zusätzlich die Gesamtgröße der Bilder als Info aus
+So verwendest du es
+Abhängigkeiten aktualisieren
+Stelle sicher, dass image in dev_dependencies der pubspec.yaml steht (so wie du geschrieben hast)
+Daten generieren
+Im Projekt-Root ausführen:
+dart run tool\generate_import_dataset.dart
+Optional Parameter:
+Anzahl: --count 500
+JPEG-Qualität: --quality 85
+Test ausführen
+flutter test test\performance\import_500_smoke_test.dart
+Hinweise
+500 Bilder in 4032x2268 können je nach Qualität mehrere hundert MB belegen.
+Der Generator erzeugt ein Basisbild und kopiert es 500-mal für Performance. Wenn du unterschiedliche Bilder brauchst, kann ich das Rendering pro Bild aktivieren (langsamer, aber variantenreicher).
+Wenn dein Import-Format Base64 statt Dateipfade erwartet, kann ich den Generator entsprechend anpassen.
+
+// Erstellt die 500 Bilder im App-kompatiblen Format + ZIP
+dart run tool\generate_import_dataset.dart --count 500 --quality 95
+
+// Führt Test durch ob wirklich 500 importiert wurden 
+flutter test test\performance\import_500_smoke_test.dart
+
+// Das erzeugte Format ist jetzt kompatibel mit echten App-Exports:
+// - Feldnamen: id, bildPfad, erstelltAm, aktualisiertAm, remoteBildPfad
+// - Kompaktes JSON (ohne Einrückung)
+// - Artikelnummern 1000-1499
