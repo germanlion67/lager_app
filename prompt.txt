@@ -1,0 +1,158 @@
+System/Role
+- Du bist ein erfahrener Flutter/Dart-Entwickler. Baue eine funktionsfähige App mit sauberer Architektur, robustem Fehlerhandling, guter Performance und Tests.
+
+Ziel
+- Implementiere die Kernfunktionen der EV-App: Artikelverwaltung, Bilderfassung (Kamera/Galerie) mit Zuschnitt, Import/Export als ZIP (Nextcloud-kompatibel), Nextcloud-WebDAV-Anbindung, großer Import mit Pagination und Fortschritt, performante Listenansicht mit Lazy Loading.
+
+Projektkontext
+- Dev-Umgebung: Windows + VS Code
+- Projektroot: ev/
+- Relevante bestehende Dateien/Ordner: 
+  - lib/models/artikel_model.dart
+  - lib/services/artikel_db_service.dart
+  - lib/services/nextcloud_webdav_client.dart
+  - lib/services/nextcloud_credentials.dart
+  - lib/services/image_picker.dart
+  - lib/screens/artikel_erfassen_screen.dart
+  - lib/screens/nextcloud_settings_screen.dart
+  - tool/generate_import_dataset.dart
+  - test/performance/import_500_smoke_test.dart
+- ZIP-Export der App: JSON-Format mit Feldern:
+  [{"id":1000,"name":"...","menge":5,"ort":"...","fach":"...","beschreibung":"...","bildPfad":"images/1000_name.jpg","erstelltAm":"ISO8601","aktualisiertAm":"ISO8601","remoteBildPfad":""}]
+- ZIP-Struktur: 
+  import.zip
+  ├─ import.json
+  └─ images/
+     └─ <id>_<slug>.jpg
+
+Tech-Stack/Libs
+- Flutter, Dart, Material 3
+- Lokale DB: sqflite (oder drift, falls sinnvoll) + DAOs
+- Bildaufnahme: image_picker
+- Zuschneiden: image_cropper
+- Bildkompression optional: flutter_image_compress
+- ZIP: archive
+- HTTP/WebDAV: http (oder dio) + WebDAV-Client
+- Tests: flutter_test
+
+Ausgabe-Regeln (sehr wichtig)
+- Liefere zunächst eine geplante Ordner-/Dateistruktur (File tree).
+- Erstelle danach inkrementell Dateien/Änderungen in Codeblöcken mit 4 Backticks und Sprache.
+- Jeder Codeblock enthält als erste Zeile einen Kommentar mit 'filepath:' und absolutem oder projekt-relativem Pfad.
+- In geänderten Dateien markiere unveränderte Stellen mit // ...existing code...
+- Schreibe lauffähigen Code, der kompiliert (Stub-Implementierungen erlaubt).
+- Erzeuge auch einfache Widget-/Service-Tests.
+- Halte dich an Null-Safety.
+
+Datenmodell
+- Artikel:
+  - id (int, PK)
+  - name (String, required)
+  - beschreibung (String?)
+  - ort (String?)
+  - fach (String?)
+  - menge (int, default 0)
+  - bildPfad (String?)        // lokaler Pfad relativ zu App-Storage oder ZIP
+  - remoteBildPfad (String?)  // Nextcloud-Pfad
+  - erstelltAm (DateTime)
+  - aktualisiertAm (DateTime)
+- Mapping zu/from JSON (Export/Import) exakt wie App-Export.
+
+Kernfunktionen
+1) Artikel-Liste
+   - ListView.builder mit Lazy Loading/Pagination (z. B. pageSize 50)
+   - Suchfeld optional
+   - Tippen öffnet Detail/Erfassen-Screen
+2) Artikel erfassen/bearbeiten
+   - Felder: name, beschreibung, ort, fach, menge
+   - Bild: aufnehmen (Kamera) oder auswählen (Galerie), direkt optional zuschneiden (image_cropper)
+   - Bild lokal speichern als images/<id>_<slug>.jpg
+   - Speichern in DB, aktualisiertAm setzen
+3) Nextcloud-Einstellungen
+   - Felder: Server-URL, Benutzer, Passwort/Token
+   - Buttons: Speichern (größer), Testen, Logout
+4) Import (ZIP)
+   - Einlesen ZIP aus Datei oder Bytes
+   - Streaming-/Datei-basierte Verarbeitung (archive) ohne alles in Memory zu laden
+   - import.json parsen (Streaming oder sequenziell)
+   - Bilder nach images/ kopieren
+   - Import in Batches (z. B. 10–25 Artikel), mit DB-Transaktionen
+   - UI-Fortschrittsdialog: Gesamtfortschritt (0–100%), Status pro Batch, Abbrechen möglich
+5) Export (ZIP)
+   - DB→JSON im App-Format (kompakt, ohne Einrückung)
+   - Bilder einsammeln, ZIP schreiben (Datei-streaming)
+6) Nextcloud-Upload/Download (WebDAV)
+   - Upload einzelner Bilder/ZIP (mit Fortschritt)
+   - Optionen: parallele Uploads begrenzen (z. B. 2–3), Retry mit Backoff
+7) Performance/Memory
+   - Import/Export: keine decodeBytes großer ZIPs in RAM; statt dessen file streaming
+   - Bild-Handling: optional Kompression, nie große Bytearrays unnötig halten
+   - Liste: Pagination, kein komplettes preload
+8) Tests
+   - Smoke-Test für import_500 (existiert)
+   - Unit-Test: Artikel-JSON Mapping
+   - Widget-Test: Fortschrittsdialog rendert Fortschritt
+
+UI-Flows (kurz)
+- ArtikelListeScreen -> ArtikelErfassenScreen
+- SettingsScreen (Nextcloud) mit Buttons: Save (breiter), Test, Logout
+- Import/Export Screen mit Buttons:
+  - ZIP importieren (öffnet Dateiwähler), zeigt Fortschritt
+  - ZIP exportieren
+
+Architektur
+- lib/models: DTO/Entity + Mapper
+- lib/services: DB, Import/Export, Nextcloud/WebDAV, Image IO
+- lib/screens: UI
+- lib/widgets: ProgressDialog, ListItems, etc.
+
+Import-Spezifikation (Detail)
+- Erwartet ZIP mit:
+  - import.json (Array kompaktes JSON ohne Einrückung, Felder exakt wie oben)
+  - images/ Ordner mit referenzierten Dateien
+- Import-Strategie:
+  - ZIP auf Disk schreiben (temp)
+  - ArchiveFile über archive (InputFileStream) iterieren
+  - import.json streamen/parsen (falls groß, sonst normal)
+  - Images nacheinander extrahieren, sofort auf Disk speichern
+  - Artikel in Batches einfügen/aktualisieren (Upsert: id als PK)
+  - Fortschritt = processed/total
+  - Abbruch unterstützt
+
+Fehler- und Randfälle
+- Fehlende Bilder: Artikel dennoch importieren, bildPfad leer lassen, warnen
+- Doppelte IDs: Upsert (replace/update)
+- Korruptes JSON/ZIP: sauberer Abbruch, UI-Fehlermeldung
+- Out-of-Memory vermeiden: keine großen Byte-Arrays für komplette ZIPs
+
+Akzeptanzkriterien
+- 500 Artikel (4032x2268-Bilder ~1.5–2MB) können ohne OOM importiert werden; Dauer < 3 Minuten auf durchschnittlichem Gerät
+- Fortschrittsdialog zeigt nachvollziehbar an (Prozent, Batches)
+- Export erzeugt ZIP mit exakt kompatibler Struktur/JSON
+- Liste scrollt flüssig, lädt seitenweise
+- Settings: Test-Verbindung liefert sinnvolle Fehlermeldungen
+- Unit- und Widget-Tests laufen grün
+
+Output bitte in dieser Reihenfolge liefern
+1) Dateibaum (nur relevante neue/aktualisierte Dateien)
+2) Modelle + Mapper
+3) DB-Service (Schema, Migrations, DAO/Repository)
+4) Image-Service (Pick, Crop, Save, Compress)
+5) Import/Export-Service (Streaming ZIP, Batches, Progress-API)
+6) Nextcloud-WebDAV-Service (Stub falls nötig, mit Upload/Download und Limitierung)
+7) UI: Screens (Liste, Erfassen, Settings, Import/Export) + ProgressDialog-Widget
+8) Tests: JSON-Mapping, ProgressDialog, Smoke-Test-Verweis
+9) Kurze Anleitung (Befehle unter Windows)
+
+Besondere Implementierungsdetails/Tipps
+- Verwende für den Fortschritt ein ChangeNotifier/Stream oder ValueNotifier<double>
+- Batch-Größe als Konstante konfigurierbar (z. B. const importBatchSize = 10)
+- Für ZIP: archive + InputFileStream/OutputFileStream (keine decodeBytes großer Dateien)
+- Für Bilder: bei Kamera/Galerie optional image_cropper; beim Speichern Dateiname <id>_<slug>.jpg
+- Slug aus name: lowercase, whitespace→-, nur [a-z0-9-]
+- Zeiten als ISO8601 mit toIso8601String()
+
+Offene Punkte (falls unklar, Annahmen treffen und dokumentieren)
+- DB: sqflite vs. drift (wenn unklar, nimm sqflite)
+- Nextcloud Auth: Basic Auth mit App-Token (falls unklar)
+- Bildkompression: optional; Default Qualität 90
