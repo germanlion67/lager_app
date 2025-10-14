@@ -11,6 +11,7 @@ import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
+import 'settings_screen.dart';
 import 'dart:io';
 
 // Nextcloud Settings + Logout
@@ -18,9 +19,6 @@ import '../services/nextcloud_connection_service.dart';
 
 // Kamera-Check
 import 'package:camera/camera.dart';
-
-// Debug Utils
-import '../utils/nextcloud_test_utils.dart';
 
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
@@ -197,6 +195,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
+
+
   // --- Menü/Ansicht ---
   @override
   Widget build(BuildContext context) {
@@ -259,9 +259,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   await NextcloudConnectionService.showSettingsScreen(
                       context, _connectionService);
                   break;
-                case _MenuAction.debugListFiles:
-                  await NextcloudTestUtils.testListFiles(context);
+                case _MenuAction.settings:
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SettingsScreen(),
+                    ),
+                  );
                   break;
+
               }
             },
             itemBuilder: (context) => [
@@ -321,17 +327,17 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   dense: true,
                 ),
               ),
-              const PopupMenuDivider(),
               const PopupMenuItem(
-                value: _MenuAction.debugListFiles,
+                value: _MenuAction.settings,
                 child: ListTile(
-                  leading: Icon(Icons.bug_report, color: Colors.orange),
-                  title: Text('Debug: Listfile-Prüfung'),
-                  subtitle: Text('Nextcloud Verbindung testen'),
+                  leading: Icon(Icons.settings),
+                  title: Text('Einstellungen'),
                   contentPadding: EdgeInsets.zero,
                   dense: true,
                 ),
               ),
+              const PopupMenuDivider(),
+
             ],
           ),
         ],
@@ -754,6 +760,5 @@ enum _MenuAction {
   resetDb,
   showLog,
   nextcloudSettings,
-  debugListFiles,
+  settings,
 }
- 

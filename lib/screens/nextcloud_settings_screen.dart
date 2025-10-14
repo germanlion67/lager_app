@@ -123,138 +123,147 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
     }
   }
 
-  Future<void> _showLogoutDialog() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Logout Nextcloud'),
-        content: const Text(
-          'Gespeicherte Nextcloud-Zugangsdaten werden gelöscht. Fortfahren?'
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Logout')),
-        ],
-      ),
-    );
-    if (!mounted) return;
-    if (confirm == true) {
-      await NextcloudCredentialsStore().clear();
-      NextcloudConnectionService().stopPeriodicCheck();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Nextcloud-Login gelöscht')),
-      );
-    }
-  }
+  // ...existing code...
 
   @override
   Widget build(BuildContext context) {
-    const spacing = 16.0;
+  // ...existing code...
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Nextcloud-Einstellungen')),
+      appBar: AppBar(
+        title: const Text('Nextcloud-Einstellungen'),
+        actions: [
+          IconButton(
+            onPressed: _isSaving ? null : _speichern,
+            icon: _isSaving
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.save),
+            tooltip: 'Einstellungen speichern',
+          ),
+        ],
+      ),
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              TextFormField(
-                controller: _serverCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Server-URL (z. B. https://cloud.example.com)',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Bitte Server-URL eingeben';
-                  if (!Uri.tryParse(v.trim())!.isAbsolute) return 'Ungültige URL';
-                  return null;
-                },
-              ),
-              const SizedBox(height: spacing),
-              TextFormField(
-                controller: _userCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Benutzername',
-                  border: OutlineInputBorder(),
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Bitte Benutzername eingeben' : null,
-              ),
-              const SizedBox(height: spacing),
-              TextFormField(
-                controller: _appPwCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'App-Passwort',
-                  border: OutlineInputBorder(),
-                ),
-                obscureText: true,
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Bitte App-Passwort eingeben' : null,
-              ),
-              const SizedBox(height: spacing),
-              TextFormField(
-                controller: _folderCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Basisordner (z. B. Apps/Artikel)',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: spacing),
-              TextFormField(
-                controller: _intervalCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Prüfintervall (Minuten)',
-                  border: OutlineInputBorder(),
-                  helperText: 'Wie oft soll die Verbindung geprüft werden? (Standard: 10 Min.)',
-                ),
-                keyboardType: TextInputType.number,
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Bitte Intervall eingeben';
-                  final interval = int.tryParse(v.trim());
-                  if (interval == null) {
-                    return 'Bitte eine gültige Zahl eingeben';
-                  }
-                  if (interval < 1) {
-                    return 'Intervall muss mindestens 1 Minute betragen';
-                  }
-                  if (interval > 1440) {
-                    return 'Intervall darf maximal 1440 Minuten (24h) betragen';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: spacing * 1.5),
-              Row(
-                children: [
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: _isSaving ? null : _speichern,
-                      icon: _isSaving
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.save),
-                      label: const Text('Save'),
-                    ),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                        controller: _serverCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Server-URL (z. B. https://cloud.example.com)',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.cloud),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Bitte Server-URL eingeben';
+                          if (!Uri.tryParse(v.trim())!.isAbsolute) return 'Ungültige URL';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _userCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Benutzername',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.person),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Bitte Benutzername eingeben' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _appPwCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'App-Passwort',
+                          hintText: 'Nicht Ihr normales Passwort!',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.key),
+                        ),
+                        obscureText: true,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Bitte App-Passwort eingeben' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _folderCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Basisordner (z. B. Apps/Artikel)',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.folder),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _intervalCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Prüfintervall (Minuten)',
+                          border: OutlineInputBorder(),
+                          helperText: 'Wie oft soll die Verbindung geprüft werden? (Standard: 10 Min.)',
+                          prefixIcon: Icon(Icons.timer),
+                        ),
+                        keyboardType: TextInputType.number,
+                        validator: (v) {
+                          if (v == null || v.trim().isEmpty) return 'Bitte Intervall eingeben';
+                          final interval = int.tryParse(v.trim());
+                          if (interval == null) {
+                            return 'Bitte eine gültige Zahl eingeben';
+                          }
+                          if (interval < 1) {
+                            return 'Intervall muss mindestens 1 Minute betragen';
+                          }
+                          if (interval > 1440) {
+                            return 'Intervall darf maximal 1440 Minuten (24h) betragen';
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isTesting ? null : _testVerbindung,
-                      icon: _isTesting
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.wifi),
-                      label: const Text('Test'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _showLogoutDialog,  // Verwendet die Methode
-                      icon: const Icon(Icons.logout),
-                      label: const Text('Lgout'),
-                    ),
-                  ),
-                ],
+                ),
               ),
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'App-Passwort erstellen',
+                        style: Theme.of(context).textTheme.headlineSmall,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '1. Gehen Sie in Ihre Nextcloud-Einstellungen\n'
+                        '2. Wählen Sie "Sicherheit"\n'
+                        '3. Erstellen Sie ein neues App-Passwort\n'
+                        '4. Kopieren Sie das generierte Passwort hier hinein',
+                        style: TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _isTesting ? null : _testVerbindung,
+                icon: _isTesting
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.wifi),
+                label: Text(_isTesting ? 'Teste...' : 'Verbindung testen'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.all(16),
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+              ),
+              // ...existing code...
             ],
           ),
         ),

@@ -143,7 +143,7 @@ Future<void> main(List<String> args) async {
 
     // ZIP erstellen und schreiben
     final zipData = ZipEncoder().encode(archive);
-    await zipFile.writeAsBytes(zipData!, flush: true);
+    await zipFile.writeAsBytes(zipData, flush: true);
 
     final zipSize = await zipFile.length();
     stdout.writeln('ZIP-Export für Nextcloud: $zipFilePath');

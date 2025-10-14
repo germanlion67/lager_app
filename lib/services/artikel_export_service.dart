@@ -52,6 +52,14 @@ class ArtikelExportService {
   Future<String?> backupToZipFile(BuildContext context) async {
     await AppLogService().log('ZIP-Backup gestartet');
     final artikelList = await ArtikelDbService().getAlleArtikel();
+    if (artikelList.isEmpty) {
+      await AppLogService().log('ZIP-Backup abgebrochen: keine Artikel vorhanden');
+      if (!context.mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kein Backup möglich: keine Artikel vorhanden')),
+      );
+      return null;
+    }
     final jsonList = artikelList.map((a) => a.toMap()).toList();
     final jsonString = json.encode(jsonList);
 

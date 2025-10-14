@@ -20,7 +20,7 @@ void main() {
     var missing = 0;
     var totalBytes = 0;
     for (final item in list) {
-      final path = 'test/performance/import_500/${item['bild']}';
+      final path = 'test/performance/import_500/${item['bildPfad']}';
       final f = File(path);
       final exists = await f.exists();
       if (!exists) missing++;

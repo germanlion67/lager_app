@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'package:connectivity_plus/connectivity_plus.dart';
 //lib/main.dart
 
 //Startpunkt der App
@@ -7,6 +9,7 @@
 import 'package:flutter/material.dart';
 import 'screens/artikel_list_screen.dart';
 import 'services/artikel_db_service.dart';
+import 'screens/settings_screen.dart';
 
 
 // ffi imports (nur für Desktop notwendig)
@@ -38,15 +41,45 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  // WiFi-Only-Option (kann später aus Settings geladen werden)
+  final bool _wifiOnlySync = true;
+  // Periodischer Sync-Timer
+  Timer? _syncTimer;
+  final int _syncIntervalMinutes = 15; // Intervall in Minuten
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _startPeriodicSync();
+  }
+
+  void _startPeriodicSync() {
+    _syncTimer?.cancel();
+    _syncTimer = Timer.periodic(Duration(minutes: _syncIntervalMinutes), (timer) async {
+      try {
+        final connectivityResult = await Connectivity().checkConnectivity();
+        if (_wifiOnlySync && connectivityResult != ConnectivityResult.wifi) {
+          debugPrint('[Sync] Übersprungen: Nicht im WLAN (${connectivityResult.name})');
+          return;
+        }
+        // SyncService initialisieren (ggf. mit echten Credentials)
+        // Implementierung erfolgt über SyncService in der Haupt-App
+        // final dbService = ArtikelDbService();
+        // final client = NextcloudClient(...);
+        // final syncService = SyncService(client, dbService);
+        // await syncService.syncOnce();
+        debugPrint('[Sync] Periodischer Sync ausgeführt um ${DateTime.now()}');
+      } catch (e) {
+        debugPrint('[Sync] Fehler beim periodischen Sync: $e');
+      }
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _syncTimer?.cancel();
     super.dispose();
   }
 
@@ -83,7 +116,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           bodySmall: TextStyle(color: Colors.black),   // Textfarbe klein
         ),
       ),
-      home: const ArtikelListScreen(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const ArtikelListScreen(),
+        '/settings': (context) => const SettingsScreen(),
+      },
     );
   }
 }

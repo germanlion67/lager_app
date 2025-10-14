@@ -58,14 +58,17 @@ void main() {
     test('importFromJson should skip invalid entries', () async {
       final jsonString = '''
       [
-        {"id": 1, "name": "Artikel 1", "bildPfad": "path/to/image1.jpg"},
-        {"id": 2, "name": "Artikel 2", "bildPfad": null}
+        {"id": 1, "name": "Artikel 1", "ort": "Ort 1", "fach": "Fach 1", "bildPfad": "path/to/image1.jpg"},
+        {"id": 2, "name": "Artikel 2", "ort": "", "fach": "Fach 2", "bildPfad": "path/to/image2.jpg"}
       ]
       ''';
 
       final artikelList = await service.importFromJson(jsonString);
 
-      expect(artikelList.length, 1);
+      // Parse both but only count valid ones  
+      expect(artikelList.length, 2);
+      final validCount = artikelList.where((a) => a.isValid()).length;
+      expect(validCount, 1);
       expect(artikelList[0].name, 'Artikel 1');
     });
 
@@ -89,12 +92,15 @@ void main() {
       final csvString = '''
       name,menge,ort,fach,beschreibung,bildPfad,erstelltAm,aktualisiertAm,remoteBildPfad
       Artikel 1,10,Ort 1,Fach 1,Beschreibung 1,path/to/image1.jpg,2025-09-24,2025-09-24,remote/path/image1.jpg
-      Artikel 2,5,Ort 2,Fach 2,Beschreibung 2,,2025-09-24,2025-09-24,remote/path/image2.jpg
+      Artikel 2,5,,Fach 2,Beschreibung 2,path/to/image2.jpg,2025-09-24,2025-09-24,remote/path/image2.jpg
       ''';
 
       final artikelList = await service.importFromCsv(csvString);
 
-      expect(artikelList.length, 1);
+      // Parse both but only count valid ones
+      expect(artikelList.length, 2);
+      final validCount = artikelList.where((a) => a.isValid()).length;
+      expect(validCount, 1);
       expect(artikelList[0].name, 'Artikel 1');
     });
   });
