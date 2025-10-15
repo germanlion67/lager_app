@@ -15,6 +15,7 @@ import '../services/artikel_db_service.dart';
 import '../services/pdf_service.dart';
 import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
+import '_dokumente_button.dart';
 
 class ArtikelDetailScreen extends StatefulWidget {
   final Artikel artikel;
@@ -36,7 +37,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   String? _bildPfad;
   Uint8List? _bildBytes;
-  String? _bildDateiname;
 
   @override
   void initState() {
@@ -49,7 +49,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       ..addListener(_onChanged);
     _menge = widget.artikel.menge;
     _bildPfad = widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
-    _bildDateiname = widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad.split('/').last : null;
   }
 
   void _onChanged() {
@@ -72,7 +71,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     setState(() {
       _bildPfad = picked.pfad;
       _bildBytes = picked.bytes;
-      _bildDateiname = picked.dateiname;
       _hasChanged = true;
     });
   }
@@ -83,7 +81,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     setState(() {
       _bildPfad = picked.pfad;
       _bildBytes = picked.bytes;
-      _bildDateiname = picked.dateiname;
       _hasChanged = true;
     });
   }
@@ -315,7 +312,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                 FilledButton.tonalIcon(
                   onPressed: _isEditing ? _pickImageFile : null,
                   icon: const Icon(Icons.image),
-                  label: const Text('Bilddatei wählen'),
+                  label: const Text('Bild wählen'),
                 ),
                 const SizedBox(width: 12),
                 FilledButton.tonalIcon(
@@ -323,17 +320,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   icon: const Icon(Icons.camera_alt),
                   label: const Text('Kamera'),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    _bildDateiname ?? 'Keine Datei ausgewählt',
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
               ],
             ),
+            const SizedBox(height: 20),
+            // Zusätzliche Dokumente Button
+            DokumenteButton(artikelId: artikel.id),
+            const SizedBox(height: 20),
             if (_bildBytes != null) ...[
-              const SizedBox(height: 12),
               AspectRatio(
                 aspectRatio: 16 / 9,
                 child: ClipRRect(
@@ -342,7 +335,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                 ),
               ),
             ] else if (_bildPfad != null && File(_bildPfad!).existsSync()) ...[
-              const SizedBox(height: 12),
               GestureDetector(
                 onTap: () => _zeigeBildVollbild(_bildPfad!),
                 child: ClipRRect(

@@ -7,9 +7,10 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+// import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 
@@ -137,7 +138,25 @@ class NextcloudWebDavClient {
   /// Throws [WebDavException] on errors.
   Future<void> downloadFile(String remotePath, String localPath) async {
     try {
-      final targetUri = config.webDavRoot.resolve(remotePath);
+      final normalizedRemotePath = remotePath
+          .replaceAll('\\', '/')
+          .replaceFirst(RegExp(r'^/+'), '');
+
+      final fullRemotePath = () {
+        if (normalizedRemotePath.isEmpty) {
+          return config.baseRemoteFolder;
+        }
+        if (config.baseRemoteFolder.isEmpty) {
+          return normalizedRemotePath;
+        }
+        final basePrefix = '${config.baseRemoteFolder}/';
+        if (normalizedRemotePath == config.baseRemoteFolder || normalizedRemotePath.startsWith(basePrefix)) {
+          return normalizedRemotePath;
+        }
+        return p.posix.join(config.baseRemoteFolder, normalizedRemotePath);
+      }();
+
+      final targetUri = config.webDavRoot.resolve(fullRemotePath);
       
       final response = await http.get(
         targetUri,
@@ -164,59 +183,73 @@ class NextcloudWebDavClient {
 
   /// Listet Dateien/Ordner in einem Remote-Verzeichnis auf.
   Future<List<String>> listFiles(String remoteFolderPath) async {
-    try {
-      // Kombiniere baseRemoteFolder mit dem angegebenen Pfad
-      final fullPath = remoteFolderPath.isEmpty 
-          ? config.baseRemoteFolder
-          : '${config.baseRemoteFolder}/$remoteFolderPath';
-      final targetUri = config.webDavRoot.resolve(fullPath);
+    // Kombiniere baseRemoteFolder mit dem angegebenen Pfad
+    final fullPath = remoteFolderPath.isEmpty ? config.baseRemoteFolder : '${config.baseRemoteFolder}/$remoteFolderPath';
+    final targetUri = config.webDavRoot.resolve(fullPath);
+
+    // Max retries bei 5xx-Errors (503 etc.) mit exponentiellem Backoff
+    const maxAttempts = 3;
+    var attempt = 0;
+    while (true) {
+      attempt++;
       final client = http.Client();
-      
-      final request = http.Request('PROPFIND', targetUri);
-      request.headers.addAll({
-        ..._authHeader,
-        'Depth': '1',
-        'Content-Type': 'application/xml',
-      });
-      request.body = '''<?xml version="1.0"?>
+      try {
+        // Kurzes Log der URL
+        debugPrint('NextcloudWebDavClient.listFiles target=$targetUri (attempt $attempt)');
+        // request
+        final request = http.Request('PROPFIND', targetUri);
+        request.headers.addAll({
+          ..._authHeader,
+          'Depth': '1',
+          'Content-Type': 'application/xml',
+        });
+        request.body = '''<?xml version="1.0"?>
 <d:propfind xmlns:d="DAV:">
   <d:prop>
     <d:displayname/>
   </d:prop>
 </d:propfind>''';
-      
-      final streamedResponse = await client.send(request).timeout(const Duration(seconds: 30));
-      final response = await http.Response.fromStream(streamedResponse);
-      
-      client.close();
 
-      if (response.statusCode == 207) {
-        // Parse XML response to extract file names
-        // Robusteres Parsing - funktioniert auch mit mehrzeiligem XML
-        final files = <String>[];
-        final xmlBody = response.body;
-        
-        // Alle <d:displayname>-Tags mit RegExp finden
-        final displayNameRegex = RegExp(r'<d:displayname>(.*?)</d:displayname>', dotAll: true);
-        final matches = displayNameRegex.allMatches(xmlBody);
-        
-        for (final match in matches) {
-          final filename = match.group(1)?.trim() ?? '';
-          if (filename.isNotEmpty && 
-              filename != remoteFolderPath &&
-              !filename.endsWith('/')) { // Ordner ausschließen
-            files.add(filename);
+        final streamedResponse = await client.send(request).timeout(const Duration(seconds: 30));
+        final response = await http.Response.fromStream(streamedResponse);
+        client.close();
+
+        debugPrint('NextcloudWebDavClient.listFiles status=${response.statusCode}');
+
+        if (response.statusCode == 207) {
+          final files = <String>[];
+          final xmlBody = response.body;
+          final displayNameRegex = RegExp(r'<d:displayname>(.*?)</d:displayname>', dotAll: true);
+          final matches = displayNameRegex.allMatches(xmlBody);
+          for (final match in matches) {
+            final filename = match.group(1)?.trim() ?? '';
+            if (filename.isNotEmpty && filename != remoteFolderPath && !filename.endsWith('/')) {
+              files.add(filename);
+            }
           }
+          return files;
+        } else if (response.statusCode == 404) {
+          return [];
+        } else if (response.statusCode >= 500 && attempt < maxAttempts) {
+          // Server error - retry with backoff
+          final backoffMs = 500 * (1 << (attempt - 1)); // 500, 1000, 2000
+          debugPrint('NextcloudWebDavClient.listFiles server error ${response.statusCode} - retrying in ${backoffMs}ms');
+          await Future.delayed(Duration(milliseconds: backoffMs));
+          continue;
+        } else {
+          throw WebDavException('List files failed with status ${response.statusCode}');
         }
-        return files;
-      } else if (response.statusCode == 404) {
-        return []; // Folder doesn't exist
-      } else {
-        throw WebDavException('List files failed with status ${response.statusCode}');
+      } catch (e) {
+        client.close();
+        if (e is WebDavException) rethrow;
+        if (attempt < maxAttempts) {
+          final backoffMs = 500 * (1 << (attempt - 1));
+          debugPrint('NextcloudWebDavClient.listFiles error: $e - retrying in ${backoffMs}ms');
+          await Future.delayed(Duration(milliseconds: backoffMs));
+          continue;
+        }
+        throw WebDavException('Network error listing files: $e');
       }
-    } catch (e) {
-      if (e is WebDavException) rethrow;
-      throw WebDavException('Network error listing files: $e');
     }
   }
 

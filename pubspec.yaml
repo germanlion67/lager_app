@@ -41,8 +41,8 @@ dependencies:
   connectivity_plus: ^5.0.2 # Für WLAN-Check (nur Android/iOS)
   xml: ^6.6.1
   image: ^4.2.0
-
-  
+  open_file: ^3.2.1
+  cached_network_image: ^3.2.3
 
 dev_dependencies:
   mockito: ^5.4.2
@@ -75,4 +75,4 @@ flutter_launcher_icons:
   ios: true
   windows:
     generate: true
-    icon_size: 256  
+    icon_size: 256

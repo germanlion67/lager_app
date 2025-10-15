@@ -32,14 +32,26 @@ void main() {
         const MethodChannel('plugins.flutter.io/path_provider'),
         null,
       );
-      try {
-        if (await testDir.exists()) {
-          await testDir.delete(recursive: true);
+      // Versuche, das Verzeichnis mehrfach zu löschen, falls Windows Dateisperren auftreten
+      if (await testDir.exists()) {
+        var attempts = 0;
+        const maxAttempts = 5;
+        while (attempts < maxAttempts) {
+          try {
+            await testDir.delete(recursive: true);
+            break;
+          } catch (e) {
+            attempts++;
+            if (attempts >= maxAttempts) {
+              // Ignoriere Cleanup-Fehler nach mehreren Versuchen, aber gebe Hinweis aus
+              // ignore: avoid_print
+              print('Test cleanup warning (after $attempts attempts): $e');
+              break;
+            }
+            // kurze Pause vor erneutem Versuch
+            await Future.delayed(const Duration(milliseconds: 200));
+          }
         }
-      } catch (e) {
-        // Ignoriere Cleanup-Fehler in Tests
-        // ignore: avoid_print
-        print('Test cleanup warning: $e');
       }
     });
 
