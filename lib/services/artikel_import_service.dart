@@ -132,30 +132,8 @@ class ArtikelImportService {
       artikelList = setzePlatzhalterBilder(artikelList);
     }
 
-    final db = await ArtikelDbService().database;
     try {
-      await db.transaction((txn) async {
-        await txn.delete('artikel');
-        for (final a in artikelList) {
-          final map = a.toMap();
-          try {
-            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
-          } catch (e) {
-            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
-            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
-          }
-        }
-        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
-        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
-            ? maxIdRow.first['maxId'] as int
-            : 0;
-        if (maxId > 0) {
-          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
-        }
-      });
-      if (reloadArtikel != null) {
-        await reloadArtikel();
-      }
+      await _replaceArtikelInDatabase(artikelList, reloadArtikel: reloadArtikel, errors: errors);
       await AppLogService().log('Backup-Restore erfolgreich: ${artikelList.length} Einträge wiederhergestellt');
       // Konsistenzprüfung
       final konsistenzWarnungen = konsistenzPruefung(artikelList);
@@ -365,37 +343,16 @@ class ArtikelImportService {
 
 
       // 6. Artikel in Datenbank importieren
-      final db = await ArtikelDbService().database;
-      await db.transaction((txn) async {
-        await txn.delete('artikel');
-        for (final a in artikelList) {
-          final map = a.toMap();
-          try {
-            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
-          } catch (e) {
-            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
-            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
-          }
-        }
-        
-        // SQLite-Sequenz aktualisieren
-        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
-        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
-            ? maxIdRow.first['maxId'] as int
-            : 0;
-        if (maxId > 0) {
-          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
-        }
-      });
+      await _replaceArtikelInDatabase(artikelList, reloadArtikel: reloadArtikel, errors: errors);
 
       // 👉 HIER: Logging nach dem Import hinzufügen (Lösung 2)
+      final db = await ArtikelDbService().database;
       final countResult = await db.rawQuery('SELECT COUNT(*) as count FROM artikel');
       final artikelCount = countResult.first['count'] as int;
       await AppLogService().log('Artikel in DB nach Import: $artikelCount');
 
       // 7. Artikelliste neu laden
       if (reloadArtikel != null) {
-        await reloadArtikel();
         await AppLogService().log('reloadArtikel aufgerufen');
       } else {
         errors.add('reloadArtikel ist null - Liste wird nicht neu geladen');
@@ -445,6 +402,83 @@ class ArtikelImportService {
         ),
       );
     }
+  }
+
+
+  static Future<void> _replaceArtikelInDatabase(
+    List<Artikel> artikelList, {
+    Future<void> Function()? reloadArtikel,
+    List<String>? errors,
+  }) async {
+    final db = await ArtikelDbService().database;
+    await db.transaction((txn) async {
+      await txn.delete('artikel');
+      for (final artikel in artikelList) {
+        final map = artikel.toMap();
+        try {
+          await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
+        } catch (e) {
+          errors?.add('Fehler beim Einfügen von Artikel ${artikel.name}: $e');
+          await AppLogService().logError('Fehler beim Einfügen von Artikel ${artikel.name}: $e');
+        }
+      }
+      final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
+      final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
+          ? maxIdRow.first['maxId'] as int
+          : 0;
+      if (maxId > 0) {
+        await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
+      }
+    });
+    if (reloadArtikel != null) {
+      await reloadArtikel();
+    }
+  }
+
+  static Future<(List<Artikel> artikelList, List<ArchiveFile> imageFiles)> _parseZipBackup(
+    List<int> zipBytes, {
+    List<String>? errors,
+    bool setzePlatzhalter = false,
+  }) async {
+    final archive = ZipDecoder().decodeBytes(zipBytes);
+    String? jsonContent;
+    final imageFiles = <ArchiveFile>[];
+
+    for (final file in archive) {
+      if (!file.isFile) continue;
+      if (file.name == 'artikel_backup.json') {
+        jsonContent = utf8.decode(file.content as List<int>);
+      } else if (file.name.startsWith('images/') && file.name.endsWith('.jpg')) {
+        imageFiles.add(file);
+      }
+    }
+
+    if (jsonContent == null) {
+      errors?.add('Keine artikel_backup.json im ZIP gefunden.');
+      await AppLogService().logError('Keine artikel_backup.json im ZIP gefunden.');
+      throw StateError('artikel_backup.json fehlt im ZIP-Backup');
+    }
+
+    List<Artikel> artikelList;
+    try {
+      artikelList = await ArtikelImportService().importFromJson(jsonContent);
+    } catch (e) {
+      errors?.add('Fehler beim Verarbeiten der JSON: $e');
+      await AppLogService().logError('Fehler beim Verarbeiten der JSON: $e');
+      throw StateError('JSON im ZIP-Backup konnte nicht verarbeitet werden');
+    }
+
+    final konsistenzWarnungen = konsistenzPruefung(artikelList);
+    if (konsistenzWarnungen.isNotEmpty) {
+      errors?.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
+      await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
+    }
+
+    if (setzePlatzhalter) {
+      artikelList = setzePlatzhalterBilder(artikelList);
+    }
+
+    return (artikelList, imageFiles);
   }
 
   /// Importiert ein ZIP-Backup inklusive Bilder (Service-only, UI handled by caller)
@@ -497,37 +531,18 @@ class ArtikelImportService {
   /// Gemeinsame ZIP-Import-Logik für Service-only (no UI)
   static Future<(bool success, List<String> errors)> importZipBytesService(List<int> zipBytes, [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]) async {
     List<String> errors = [];
-    List<Artikel> artikelList = [];
-    final archive = ZipDecoder().decodeBytes(zipBytes);
-    String? jsonContent;
-    final imageFiles = <ArchiveFile>[];
-    for (final file in archive) {
-      if (file.isFile) {
-        if (file.name == 'artikel_backup.json') {
-          jsonContent = utf8.decode(file.content as List<int>);
-        } else if (file.name.startsWith('images/') && file.name.endsWith('.jpg')) {
-          imageFiles.add(file);
-        }
-      }
-    }
-    if (jsonContent == null) {
-      errors.add('Keine artikel_backup.json im ZIP gefunden.');
-      await AppLogService().logError('Keine artikel_backup.json im ZIP gefunden.');
-      return (false, errors);
-    }
+    late List<Artikel> artikelList;
+    late List<ArchiveFile> imageFiles;
+
     try {
-      artikelList = await ArtikelImportService().importFromJson(jsonContent);
-      final konsistenzWarnungen = konsistenzPruefung(artikelList);
-      if (konsistenzWarnungen.isNotEmpty) {
-        errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
-        await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
-      }
-      if (setzePlatzhalter) {
-        artikelList = setzePlatzhalterBilder(artikelList);
-      }
-    } catch (e) {
-      errors.add('Fehler beim Verarbeiten der JSON: $e');
-      await AppLogService().logError('Fehler beim Verarbeiten der JSON: $e');
+      final parsed = await _parseZipBackup(
+        zipBytes,
+        errors: errors,
+        setzePlatzhalter: setzePlatzhalter,
+      );
+      artikelList = parsed.$1;
+      imageFiles = parsed.$2;
+    } catch (_) {
       return (false, errors);
     }
     final appDir = await getApplicationDocumentsDirectory();
@@ -559,30 +574,8 @@ class ArtikelImportService {
         artikelList[i] = artikel.copyWith(bildPfad: ''); // Explizit leeren String setzen
       }
     }
-    final db = await ArtikelDbService().database;
     try {
-      await db.transaction((txn) async {
-        await txn.delete('artikel');
-        for (final a in artikelList) {
-          final map = a.toMap();
-          try {
-            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
-          } catch (e) {
-            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
-            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
-          }
-        }
-        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
-        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
-            ? maxIdRow.first['maxId'] as int
-            : 0;
-        if (maxId > 0) {
-          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
-        }
-      });
-      if (reloadArtikel != null) {
-        await reloadArtikel();
-      }
+      await _replaceArtikelInDatabase(artikelList, reloadArtikel: reloadArtikel, errors: errors);
     } catch (e) {
       errors.add('Fehler beim DB-Import: $e');
       await AppLogService().logError('Fehler beim DB-Import: $e');
@@ -595,39 +588,20 @@ class ArtikelImportService {
   /// Gemeinsame ZIP-Import-Logik für lokale und Nextcloud-Backups
   static Future<void> importZipBytes(BuildContext context, List<int> zipBytes, [Future<void> Function()? reloadArtikel, bool setzePlatzhalter = false]) async {
     List<String> errors = [];
-    List<Artikel> artikelList = [];
-    final archive = ZipDecoder().decodeBytes(zipBytes);
-    String? jsonContent;
-    final imageFiles = <ArchiveFile>[];
-    for (final file in archive) {
-      if (file.isFile) {
-        if (file.name == 'artikel_backup.json') {
-          jsonContent = utf8.decode(file.content as List<int>);
-        } else if (file.name.startsWith('images/') && file.name.endsWith('.jpg')) {
-          imageFiles.add(file);
-        }
-      }
-    }
-    if (jsonContent == null) {
-      errors.add('Keine artikel_backup.json im ZIP gefunden.');
-      await AppLogService().logError('Keine artikel_backup.json im ZIP gefunden.');
+    late List<Artikel> artikelList;
+    late List<ArchiveFile> imageFiles;
+    try {
+      final parsed = await _parseZipBackup(
+        zipBytes,
+        errors: errors,
+        setzePlatzhalter: setzePlatzhalter,
+      );
+      artikelList = parsed.$1;
+      imageFiles = parsed.$2;
+    } catch (_) {
       if (!context.mounted) return;
       _showImportErrors(context, errors);
       return;
-    }
-    try {
-      artikelList = await ArtikelImportService().importFromJson(jsonContent);
-      final konsistenzWarnungen = konsistenzPruefung(artikelList);
-      if (konsistenzWarnungen.isNotEmpty) {
-        errors.add('Konsistenzwarnungen:\n${konsistenzWarnungen.join('\n')}');
-        await AppLogService().logError('Konsistenzwarnungen: ${konsistenzWarnungen.join('; ')}');
-      }
-      if (setzePlatzhalter) {
-        artikelList = setzePlatzhalterBilder(artikelList);
-      }
-    } catch (e) {
-      errors.add('Fehler beim Verarbeiten der JSON: $e');
-      await AppLogService().logError('Fehler beim Verarbeiten der JSON: $e');
     }
     final appDir = await getApplicationDocumentsDirectory();
     final imagesDir = Directory(p.join(appDir.path, 'images'));
@@ -659,30 +633,8 @@ class ArtikelImportService {
         // failedImages wird NICHT erhöht, da das kein Fehler ist
       }
     }
-    final db = await ArtikelDbService().database;
     try {
-      await db.transaction((txn) async {
-        await txn.delete('artikel');
-        for (final a in artikelList) {
-          final map = a.toMap();
-          try {
-            await txn.insert('artikel', map, conflictAlgorithm: ConflictAlgorithm.replace);
-          } catch (e) {
-            errors.add('Fehler beim Einfügen von Artikel ${a.name}: $e');
-            await AppLogService().logError('Fehler beim Einfügen von Artikel ${a.name}: $e');
-          }
-        }
-        final maxIdRow = await txn.rawQuery('SELECT MAX(id) as maxId FROM artikel');
-        final maxId = (maxIdRow.isNotEmpty && maxIdRow.first['maxId'] != null)
-            ? maxIdRow.first['maxId'] as int
-            : 0;
-        if (maxId > 0) {
-          await txn.rawUpdate('UPDATE sqlite_sequence SET seq = ? WHERE name = ?', [maxId, 'artikel']);
-        }
-      });
-      if (reloadArtikel != null) {
-        await reloadArtikel();
-      }
+      await _replaceArtikelInDatabase(artikelList, reloadArtikel: reloadArtikel, errors: errors);
     } catch (e) {
       errors.add('Fehler beim DB-Import: $e');
       await AppLogService().logError('Fehler beim DB-Import: $e');

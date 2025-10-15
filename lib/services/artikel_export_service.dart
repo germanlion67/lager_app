@@ -12,6 +12,8 @@ import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
 import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipEncoder;
 
+final JsonEncoder _prettyJsonEncoder = JsonEncoder.withIndent('  ');
+
 class ArtikelExportService {
   Future<void> _uploadImage(
     NextcloudWebDavClient webdavClient,
@@ -61,7 +63,7 @@ class ArtikelExportService {
       return null;
     }
     final jsonList = artikelList.map((a) => a.toMap()).toList();
-    final jsonString = json.encode(jsonList);
+  final jsonString = _prettyJsonEncoder.convert(jsonList);
 
     // ZIP-Archiv vorbereiten
     final archive = Archive();
@@ -188,8 +190,8 @@ class ArtikelExportService {
 
   Future<String> exportAllArtikelAsJson() async {
     final artikelList = await ArtikelDbService().getAlleArtikel();
-    final jsonList = artikelList.map((a) => a.toMap()).toList();
-    return json.encode(jsonList);
+  final jsonList = artikelList.map((a) => a.toMap()).toList();
+  return _prettyJsonEncoder.convert(jsonList);
   }
 
   Future<String> exportAllArtikelAsCsv() async {
@@ -394,7 +396,7 @@ class ArtikelExportService {
 
       // 4. JSON-Backup mit aktualisierten remoteBildPfad erstellen
       final jsonList = artikelList.map((a) => a.toMap()).toList();
-      final jsonString = json.encode(jsonList);
+  final jsonString = _prettyJsonEncoder.convert(jsonList);
       final jsonBytes = Uint8List.fromList(utf8.encode(jsonString));
 
       await AppLogService()
