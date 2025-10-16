@@ -31,7 +31,8 @@ jobs:
           TAG_NAME="v${{ github.event.inputs.version }}"
           echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
           git tag -a "$TAG_NAME" -m "Release version ${{ github.event.inputs.version }}"
-          git push origin "$TAG_NAME"
+          git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/germanlion67/lager_app.git "$TAG_NAME"
+
 
   test:
     name: Run Tests
