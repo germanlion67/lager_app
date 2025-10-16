@@ -8,13 +8,16 @@ class ImageProcessingUtils {
 
   static double get targetAspectRatio => _targetAspectRatio;
 
-  static Future<Uint8List?> ensureTargetFormat(Uint8List? sourceBytes) async {
+  static Future<Uint8List?> ensureTargetFormat(
+    Uint8List? sourceBytes, {
+    bool crop = true,
+  }) async {
     if (sourceBytes == null || sourceBytes.isEmpty) return sourceBytes;
     try {
       final decoded = img.decodeImage(sourceBytes);
       if (decoded == null) return sourceBytes;
 
-      final adjustedAspect = _cropToAspectRatio(decoded);
+      final adjustedAspect = crop ? _cropToAspectRatio(decoded) : decoded;
       final resized = _resizeIfNeeded(adjustedAspect);
 
       final hasAlpha = resized.numChannels > 3;
@@ -24,6 +27,24 @@ class ImageProcessingUtils {
       return Uint8List.fromList(img.encodeJpg(resized, quality: _jpegQuality));
     } catch (e, stack) {
       debugPrint('ImageProcessingUtils: Fehler bei der Bildverarbeitung: $e');
+      debugPrint(stack.toString());
+      return sourceBytes;
+    }
+  }
+
+  static Future<Uint8List> rotateClockwise(Uint8List sourceBytes) async {
+    try {
+      final decoded = img.decodeImage(sourceBytes);
+      if (decoded == null) return sourceBytes;
+
+      final rotated = img.copyRotate(decoded, angle: 90);
+      final hasAlpha = rotated.numChannels > 3;
+      if (hasAlpha) {
+        return Uint8List.fromList(img.encodePng(rotated, level: 6));
+      }
+      return Uint8List.fromList(img.encodeJpg(rotated, quality: _jpegQuality));
+    } catch (e, stack) {
+      debugPrint('ImageProcessingUtils: Fehler beim Drehen: $e');
       debugPrint(stack.toString());
       return sourceBytes;
     }
