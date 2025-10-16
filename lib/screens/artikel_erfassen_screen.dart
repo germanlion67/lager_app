@@ -60,7 +60,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   }
 
   Future<void> _pickImageFile() async {
-    final picked = await ImagePickerService.pickImageFile();
+    final picked = await ImagePickerService.pickImageFile(context);
     if (picked.pfad == null && picked.bytes == null) return;
     setState(() {
       _bildPfad = picked.pfad;
@@ -71,7 +71,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   }
 
   Future<void> _pickImageCamera() async {
-    final picked = await ImagePickerService.pickImageCamera();
+    final picked = await ImagePickerService.pickImageCamera(context);
     if (picked.pfad == null && picked.bytes == null) return;
     setState(() {
       _bildPfad = picked.pfad;

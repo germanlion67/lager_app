@@ -10,11 +10,15 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../services/pdf_service.dart';
 import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
+import '../services/nextcloud_credentials.dart';
+import '../services/nextcloud_webdav_client.dart';
 import '_dokumente_button.dart';
 
 class ArtikelDetailScreen extends StatefulWidget {
@@ -66,7 +70,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   }
 
   Future<void> _pickImageFile() async {
-    final picked = await ImagePickerService.pickImageFile();
+    final picked = await ImagePickerService.pickImageFile(context);
     if (picked.pfad == null && picked.bytes == null) return;
     setState(() {
       _bildPfad = picked.pfad;
@@ -76,7 +80,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   }
 
   Future<void> _pickImageCamera() async {
-    final picked = await ImagePickerService.pickImageCamera();
+    final picked = await ImagePickerService.pickImageCamera(context);
     if (picked.pfad == null && picked.bytes == null) return;
     setState(() {
       _bildPfad = picked.pfad;
@@ -85,29 +89,187 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     });
   }
 
+  Future<String?> _persistSelectedImage({
+    required int artikelId,
+    required String artikelName,
+  }) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    final imagesDir = Directory(p.join(appDir.path, 'images'));
+    await imagesDir.create(recursive: true);
+
+    final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
+    final fileName = '${artikelId}_$nameSlug.jpg';
+    final targetPath = p.join(imagesDir.path, fileName);
+
+    if (_bildBytes != null) {
+      final file = File(targetPath);
+      await file.writeAsBytes(_bildBytes!);
+      return targetPath;
+    }
+
+    if (_bildPfad != null) {
+      final sourceFile = File(_bildPfad!);
+      if (await sourceFile.exists()) {
+        await sourceFile.copy(targetPath);
+        return targetPath;
+      }
+    }
+
+    return null;
+  }
+
+  Future<String?> _uploadImageToNextcloud({
+    required String localPath,
+    required int artikelId,
+    required String artikelName,
+  }) async {
+    final creds = await NextcloudCredentialsStore().read();
+    final dbService = ArtikelDbService();
+
+    if (creds == null) {
+      await dbService.updateRemoteBildPfad(artikelId, '');
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Hinweis: Nextcloud nicht konfiguriert – Bild nicht hochgeladen'),
+        ),
+      );
+      return null;
+    }
+
+    final client = NextcloudWebDavClient(
+      NextcloudConfig(
+        serverBase: creds.server,
+        username: creds.user,
+        appPassword: creds.appPw,
+        baseRemoteFolder: creds.baseFolder,
+      ),
+    );
+
+    final remotePath = (widget.artikel.remoteBildPfad?.isNotEmpty ?? false)
+        ? widget.artikel.remoteBildPfad!
+        : _buildRemotePath(
+            baseFolder: client.config.baseRemoteFolder,
+            artikelId: artikelId,
+            artikelName: artikelName,
+          );
+
+    try {
+      await client.uploadFileNew(
+        localPath: localPath,
+        remoteRelativePath: remotePath,
+      );
+
+      await dbService.updateRemoteBildPfad(artikelId, remotePath);
+
+      if (!mounted) return remotePath;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bild erfolgreich zu Nextcloud hochgeladen')),
+      );
+      return remotePath;
+    } on WebDavException catch (e) {
+      await dbService.updateRemoteBildPfad(artikelId, '');
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload fehlgeschlagen: ${e.message}')),
+      );
+      return null;
+    } catch (e) {
+      await dbService.updateRemoteBildPfad(artikelId, '');
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload-Fehler: $e')),
+      );
+      return null;
+    }
+  }
+
+  String _buildRemotePath({
+    required String baseFolder,
+    required int artikelId,
+    required String artikelName,
+  }) {
+    final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
+    final fileName = '$artikelId-$nameSlug.jpg';
+    return p.posix.join(baseFolder, fileName);
+  }
+
+  String _slug(String input) {
+    final lower = input.toLowerCase();
+    final replaced = lower.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+    return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
+  }
+
   Future<void> _speichern() async {
-    final aktualisierterArtikel = Artikel(
-      id: widget.artikel.id,
-      name: widget.artikel.name,
+    final artikelId = widget.artikel.id;
+    if (artikelId == null) return;
+
+    final hasNewImage =
+        _bildBytes != null || (_bildPfad != null && _bildPfad != widget.artikel.bildPfad);
+
+    String? localImagePath =
+        widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
+
+    if (hasNewImage) {
+      localImagePath = await _persistSelectedImage(
+        artikelId: artikelId,
+        artikelName: widget.artikel.name,
+      );
+
+      if (localImagePath == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Bild konnte nicht gespeichert werden')),
+        );
+        return;
+      }
+    }
+
+    final artikelMitAenderungen = widget.artikel.copyWith(
       menge: _menge,
       ort: _ortController.text,
       fach: _fachController.text,
       beschreibung: _beschreibungController.text,
-      bildPfad: _bildPfad ?? '',
-      remoteBildPfad: widget.artikel.remoteBildPfad,
-      erstelltAm: widget.artikel.erstelltAm,
+      bildPfad: localImagePath ?? '',
       aktualisiertAm: DateTime.now(),
     );
 
-    await ArtikelDbService().updateArtikel(aktualisierterArtikel);
-    if (!mounted) return;
-    setState(() {
-      _isEditing = false;
-      _hasChanged = false;
-      // Nach dem Speichern: BildBytes zurücksetzen, damit das neue Bild aus Pfad geladen wird
-      _bildBytes = null;
-    });
-    Navigator.pop(context, aktualisierterArtikel); // 👉 Artikel zurückgeben
+    try {
+      await ArtikelDbService().updateArtikel(artikelMitAenderungen);
+
+      String? remotePfad = widget.artikel.remoteBildPfad;
+      if (hasNewImage) {
+        if (localImagePath != null) {
+          remotePfad = await _uploadImageToNextcloud(
+                localPath: localImagePath,
+                artikelId: artikelId,
+                artikelName: artikelMitAenderungen.name,
+              ) ?? '';
+        } else {
+          remotePfad = '';
+          await ArtikelDbService().updateRemoteBildPfad(artikelId, remotePfad);
+        }
+      }
+
+      final gespeicherterArtikel = artikelMitAenderungen.copyWith(remoteBildPfad: remotePfad);
+
+      if (!mounted) return;
+      setState(() {
+        _isEditing = false;
+        _hasChanged = false;
+        _bildBytes = null;
+        _bildPfad = gespeicherterArtikel.bildPfad.isNotEmpty
+            ? gespeicherterArtikel.bildPfad
+            : null;
+      });
+
+      Navigator.pop(context, gespeicherterArtikel);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
+      );
+    }
   }
 
   Future<void> _loeschen() async {

@@ -1,9 +1,13 @@
 //.../services/image_picker.dart
 
+import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
-import 'package:image/image.dart' as img;
+import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../utils/image_processing_utils.dart';
+import '../widgets/image_crop_dialog.dart';
 
 
 class PickedImage {
@@ -15,11 +19,8 @@ class PickedImage {
 }
 
 class ImagePickerService {
-  static const int _maxDimension = 1600;
-  static const int _jpegQuality = 85;
-
   /// Wählt ein Bild aus einer Datei
-  static Future<PickedImage> pickImageFile() async {
+  static Future<PickedImage> pickImageFile(BuildContext context) async {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
       type: FileType.image,
@@ -27,60 +28,52 @@ class ImagePickerService {
     );
     if (result == null || result.files.isEmpty) return PickedImage();
     final file = result.files.single;
-    final processedBytes = await _processImageBytes(file.bytes);
+    if (!context.mounted) return PickedImage();
+    final croppedBytes = await _openCropDialog(context, file.bytes);
+    if (croppedBytes == null) return PickedImage();
+    final processedBytes = await ImageProcessingUtils.ensureTargetFormat(
+      croppedBytes,
+    );
     return PickedImage(
       pfad: file.path,
-      bytes: processedBytes ?? file.bytes,
+      bytes: processedBytes ?? croppedBytes,
       dateiname: file.name,
     );
   }
 
   /// Nimmt ein Bild mit der Kamera auf
-  static Future<PickedImage> pickImageCamera() async {
+  static Future<PickedImage> pickImageCamera(BuildContext context) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(
       source: ImageSource.camera,
-      maxWidth: _maxDimension.toDouble(),
-      maxHeight: _maxDimension.toDouble(),
-      imageQuality: _jpegQuality,
+      imageQuality: 90,
     );
     if (pickedFile == null) return PickedImage();
     final bytes = await pickedFile.readAsBytes();
-    final processedBytes = await _processImageBytes(bytes);
+  if (!context.mounted) return PickedImage();
+    final croppedBytes = await _openCropDialog(context, bytes);
+    if (croppedBytes == null) return PickedImage();
+    final processedBytes = await ImageProcessingUtils.ensureTargetFormat(croppedBytes);
     return PickedImage(
       pfad: pickedFile.path,
-      bytes: processedBytes ?? bytes,
+      bytes: processedBytes ?? croppedBytes,
       dateiname: pickedFile.name,
     );
   }
 
-  static Future<Uint8List?> _processImageBytes(Uint8List? sourceBytes) async {
-    if (sourceBytes == null || sourceBytes.isEmpty) return sourceBytes;
-    try {
-      final decoded = img.decodeImage(sourceBytes);
-      if (decoded == null) return sourceBytes;
-
-      img.Image workingImage = decoded;
-      final maxSide = decoded.width >= decoded.height ? decoded.width : decoded.height;
-      if (maxSide > _maxDimension) {
-        workingImage = img.copyResize(
-          decoded,
-          width: decoded.width >= decoded.height ? _maxDimension : null,
-          height: decoded.height > decoded.width ? _maxDimension : null,
-          interpolation: img.Interpolation.cubic,
-        );
-      }
-
-  final hasAlpha = workingImage.numChannels > 3;
-
-      if (hasAlpha) {
-        return Uint8List.fromList(img.encodePng(workingImage, level: 6));
-      }
-      return Uint8List.fromList(img.encodeJpg(workingImage, quality: _jpegQuality));
-    } catch (e, stack) {
-      debugPrint('ImagePickerService: Fehler beim Verkleinern des Bildes: $e');
-      debugPrint(stack.toString());
-      return sourceBytes;
-    }
+  static Future<Uint8List?> _openCropDialog(
+    BuildContext context,
+    Uint8List? originalBytes,
+  ) async {
+    if (originalBytes == null || originalBytes.isEmpty) return null;
+    if (!context.mounted) return null;
+    return showDialog<Uint8List>(
+      context: context,
+      builder: (ctx) => ImageCropDialog(
+        originalBytes: originalBytes,
+        aspectRatio: ImageProcessingUtils.targetAspectRatio,
+      ),
+    );
   }
+
 }
