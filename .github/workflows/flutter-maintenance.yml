@@ -1,0 +1,84 @@
+name: Flutter Maintenance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * 1'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Fetch dependencies
+        run: flutter pub get
+
+      - name: Capture outdated reports
+        run: |
+          mkdir -p build/reports
+          flutter pub outdated --no-dev-dependencies --no-transitive > build/reports/outdated-direct.txt
+          flutter pub outdated > build/reports/outdated-full.txt
+
+      - name: Analyze project
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --no-pub
+
+      - name: Build debug APK
+        run: flutter build apk --debug
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-maintenance-reports
+          path: build/reports
+
+  windows-build:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    needs: verify
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Pre-cache Windows artifacts
+        run: flutter precache --windows
+
+      - name: Fetch dependencies
+        run: flutter pub get
+
+      - name: Build Windows app
+        run: flutter build windows
+
+      - name: Upload Windows build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-windows-build
+          path: build/windows/runner/Release
