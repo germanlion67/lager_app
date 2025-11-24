@@ -19,6 +19,12 @@ Flutter, SQLite, Nextcloud WebDAV, Kamera, FilePicker
 Hinweis:
 Die App ist Open Source und kann beliebig erweitert werden.
 
+## Dokumentation
+
+- [Immich & Nextcloud Integration](docs/immich-nextcloud-integration/README.md) - Anleitung zur Integration von Immich und Nextcloud für Bildablage
+- [Schnellstart: Immich-Backup](docs/immich-nextcloud-integration/QUICKSTART.md) - Kurzanleitung für automatisches Backup
+- [FAQ](docs/immich-nextcloud-integration/FAQ.md) - Häufig gestellte Fragen
+
 
 Struktur
 +--- lib
