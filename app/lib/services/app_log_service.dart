@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // Neu hinzufügen
 
 class AppLogService {
   static final AppLogService _instance = AppLogService._internal();
