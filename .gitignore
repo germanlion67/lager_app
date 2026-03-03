@@ -18,31 +18,31 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
+# Flutter/Dart/Pub related (angepasst für /app Unterordner)
+app/.dart_tool/
+app/.flutter-plugins-dependencies
+app/.pub-cache/
+app/.pub/
+app/build/
+app/coverage/
 **/doc/api/
 **/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-/coverage/
 
-# Symbolication related
+# Symbolication / Obfuscation
 app.*.symbols
-
-# Obfuscation related
 app.*.map.json
 
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release
+# Android Studio build artifacts
+app/android/app/debug
+app/android/app/profile
+app/android/app/release
+
+# --- NEU: PocketBase / Docker Backend ---
+# Ignoriere die lokale Datenbank und Konfigurationen
+server/pb_data/
+# Falls du Hooks oder Migrationen nutzt, die nicht ins Repo sollen:
+# server/pb_migrations/
 
 # Eigene
 infos._js
+prompt.txt
