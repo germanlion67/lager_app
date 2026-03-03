@@ -2,10 +2,13 @@ services:
   # PocketBase Backend (DB, Auth, File-Storage)
   server:
     image: ghcr.io/muchobien/pocketbase:latest
+    command:
+      - serve
+      - --http=0.0.0.0:8080   # Intern auf 8080 setzen für den Image-Healthcheck
     container_name: lager_backend
     restart: unless-stopped
     ports:
-      - "8090:8090"
+      - "8090:8080"    # Außen 8090 (dein Wunsch), Innen 8080 (Image-Standard)
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
