@@ -5,7 +5,7 @@ services:
     container_name: lager_backend
     restart: unless-stopped
     ports:
-      - "8090:8080"
+      - "8090:8090"
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
