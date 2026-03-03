@@ -36,6 +36,7 @@ dependencies:
   csv: ^6.0.0
   # test_api: ^0.7.6
   archive: ^4.0.7
+  pocketbase: ^0.18.0  # Aktuelle Version prüfen
   
 
   connectivity_plus: ^5.0.2 # Für WLAN-Check (nur Android/iOS)
