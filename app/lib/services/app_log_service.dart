@@ -14,16 +14,32 @@ class AppLogService {
   }
 
   Future<void> log(String message) async {
-    final file = await _getLogFile();
     final now = DateTime.now().toIso8601String();
-    await file.writeAsString('[$now] $message\n', mode: FileMode.append, flush: true);
+    final logLine = '[$now] $message';
+
+    if (kIsWeb) {
+      _webLogs.add(logLine);
+      debugPrint(logLine); // Optional: Auch in die Browser-Konsole schreiben
+      return;
+    }
+
+    final file = await _getLogFile();
+    await file.writeAsString('$logLine\n', mode: FileMode.append, flush: true);
   }
 
   Future<void> logError(String error, [StackTrace? stack]) async {
-    final file = await _getLogFile();
     final now = DateTime.now().toIso8601String();
     final stackStr = stack != null ? '\n$stack' : '';
-    await file.writeAsString('[$now] ERROR: $error$stackStr\n', mode: FileMode.append, flush: true);
+    final logLine = '[$now] ERROR: $error$stackStr';
+
+    if (kIsWeb) {
+      _webLogs.add(logLine);
+      debugPrint(logLine);
+      return;
+    }
+
+    final file = await _getLogFile();
+    await file.writeAsString('$logLine\n', mode: FileMode.append, flush: true);
   }
 
   Future<String> readLog() async {
