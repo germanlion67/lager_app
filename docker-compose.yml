@@ -1,7 +1,7 @@
 services:
   # PocketBase Backend (DB, Auth, File-Storage)
   server:
-    image: pocketbase/pocketbase:latest
+    image: ghcr.io/muchobien/pocketbase:latest
     container_name: lager_backend
     restart: unless-stopped
     ports:
