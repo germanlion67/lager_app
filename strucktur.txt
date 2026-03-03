@@ -1,0 +1,23 @@
+PocketBase Berechtigungskonzept (Konfiguration)
+
+PocketBase ist perfekt für deine Anforderung (3 Personen, Scans/Bilder). Nach dem ersten Start (docker-compose up -d) kannst du unter http://localhost:8090/_/ folgendes einstellen:
+1. Collection "artikel" erstellen:
+  - Felder: name (Text), beschreibung (Text), menge (Number), bild (File), qr_code (Text).
+2. API-Rules (Berechtigungen):
+  - List/View: @request.auth.id != "" (Jeder eingeloggte Nutzer darf lesen).
+  - Create/Update: @request.auth.id != "" (Oder schränke es auf spezifische IDs für deine 3 Personen ein).
+
+
+
+
+
+lager_app/
+├── app/                <-- Dein ganzer aktueller Code
+│   ├── lib/
+│   ├── web/
+│   ├── pubspec.yaml
+│   └── Dockerfile      <-- (Neu erstellt)
+├── server/
+│   ├── pb_data/        <-- (Wird von PocketBase erstellt, in .gitignore!)
+│   └── pb_public/
+└── docker-compose.yml  <-- (Neu erstellt)
