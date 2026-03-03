@@ -13,7 +13,7 @@ WORKDIR /app
 COPY . .
 RUN flutter config --enable-web
 RUN flutter pub get
-RUN flutter build web --release
+RUN flutter build web --release --no-wasm-dry-run
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
