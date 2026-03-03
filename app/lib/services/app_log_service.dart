@@ -7,6 +7,17 @@ class AppLogService {
   static final AppLogService _instance = AppLogService._internal();
   factory AppLogService() => _instance;
   AppLogService._internal();
+  final List<String> _webLogs = []; 
+
+  // Getter, um die Logs im Web-UI anzeigen zu können
+  List<String> get webLogs => _webLogs;
+  
+  Future<dynamic> _getLogFile() async {
+    // path_provider wirft im Web Fehler, wenn man getApplicationDocumentsDirectory() ruft
+    if (kIsWeb) return null; 
+    final dir = await getApplicationDocumentsDirectory();
+    return File('${dir.path}/app_debug.log');
+  }
 
   Future<File> _getLogFile() async {
     final dir = await getApplicationDocumentsDirectory();
