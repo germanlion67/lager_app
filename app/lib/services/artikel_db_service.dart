@@ -8,6 +8,7 @@ import 'dart:io' show Platform;
 import 'dart:convert';
 import 'dart:math';
 import '../models/artikel_model.dart';
+import 'pocketbase_service.dart'
 
 class ArtikelDbService {
   static final ArtikelDbService _instance = ArtikelDbService._internal();
