@@ -279,13 +279,26 @@ class ArtikelDbService {
   }
 
   Future<List<Artikel>> getAlleArtikel() async {
-    try {
+    if (kIsWeb) {
+      try {
+        // 🌐 WEB-PFAD: Direkt über PocketBase
+        final records = await PocketBaseService.client.collection('artikel').getFullList(
+          sort: '-created',
+        );
+        // Mappt PocketBase Record-Daten auf dein Artikel-Objekt
+        return records.map((record) => Artikel.fromMap({
+          ...record.data,
+          'id': record.id, // PocketBase ID nutzen
+        })).toList();
+      } catch (e) {
+        logger.e("❌ PocketBase Fetch Fehler: $e");
+        return [];
+      }
+    } else {
+      // 💻 DESKTOP/MOBILE-PFAD: Über SQLite
       final db = await database;
-      final maps = await db.query('artikel', orderBy: 'id DESC');
-      return maps.map((map) => Artikel.fromMap(map)).toList();
-    } catch (e, stackTrace) {
-      logger.e('Fehler beim Laden aller Artikel', error: e, stackTrace: stackTrace);
-      throw DatabaseException('Artikel konnten nicht geladen werden: $e');
+      final List<Map<String, dynamic>> maps = await db.query('artikel', orderBy: 'id DESC');
+      return List.generate(maps.length, (i) => Artikel.fromMap(maps[i]));
     }
   }
 

@@ -1,6 +1,6 @@
+//lib/main.dart
 import 'dart:async';
 import 'package:connectivity_plus/connectivity_plus.dart';
-//lib/main.dart
 
 //Startpunkt der App
 //Lädt die Artikelliste als Hauptansicht
