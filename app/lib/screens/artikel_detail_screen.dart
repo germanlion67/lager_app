@@ -274,7 +274,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   Future<void> _loeschen() async {
     if (widget.artikel.id != null) {
-      await ArtikelDbService().deleteArtikel(widget.artikel.id!);
+      await ArtikelDbService().deleteArtikel(widget.artikel);
       if (!mounted) return;
       Navigator.pop(context, null); // 👉 null zurückgeben, um Löschung anzuzeigen
     }

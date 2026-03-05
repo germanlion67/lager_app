@@ -12,6 +12,7 @@ import '../widgets/article_icons.dart';
 import '../services/nextcloud_webdav_client.dart';
 import '../services/nextcloud_credentials.dart';
 import '../services/image_picker.dart';
+import 'package:flutter/foundation.dart';
 
 class ArtikelErfassenScreen extends StatefulWidget {
   const ArtikelErfassenScreen({super.key});

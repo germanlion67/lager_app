@@ -12,10 +12,16 @@ ENV PATH="/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:${PAT
 
 # Erlaube Flutter als Root auszuführen (für Docker notwendig)
 ENV CHROME_EXECUTABLE=/usr/bin/chromium
-RUN git config --global --add safe.directory /usr/local/flutter
-
+RUN git config --global --add safe.directory /usr/local/flutter \
+    && flutter config --no-analytics --enable-web \
+    && flutter precache --web
 
 WORKDIR /app
+
+# PERFORMANCE: Erst pub get, dann restlicher Code (Caching von Layern)
+COPY pubspec.* .
+RUN flutter pub get
+
 # Alle Flutter-Dateien kopieren (aus dem /app Verzeichnis)
 COPY . .
 
@@ -27,8 +33,8 @@ ARG PB_URL=http://127.0.0.1:8090
 RUN flutter doctor
 
 # Flutter konfigurieren und bauen
-RUN flutter config --enable-web
-RUN flutter pub get
+#RUN flutter config --enable-web
+#RUN flutter pub get
 
 RUN flutter build web --release --dart-define=PB_URL=${PB_URL}
 

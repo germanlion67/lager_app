@@ -1,36 +1,42 @@
 services:
-  # PocketBase Backend (DB, Auth, File-Storage)
   server:
     image: ghcr.io/muchobien/pocketbase:latest
     command:
       - serve
-      - --http=0.0.0.0:8080   # Intern auf 8080 setzen für den Image-Healthcheck
+      - --http=0.0.0.0:8090   # Intern auf 8090, passend zum Standard
     container_name: lager_backend
     restart: unless-stopped
     ports:
-      - "8090:8080"    # Außen 8090 (dein Wunsch), Innen 8080 (Image-Standard)
+      - "8090:8090"           # Außen 8090 : Innen 8090
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      # Healthcheck auf den neuen internen Port 8090 angepasst
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8090/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3
     networks:
       - lager_network
     
-  # Flutter Web Frontend
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
+      args:
+        # HIER DIE VARIABLE: Dein Browser muss diese URL erreichen können!
+        - PB_URL=http://localhost:8090 
     container_name: lager_frontend
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8081:80"             # Geändert auf 8081, damit Port 8080 nicht kollidiert
     depends_on:
       server:
         condition: service_healthy
     networks:
       - lager_network
+
+networks:
+  lager_network:
+    driver: bridge
