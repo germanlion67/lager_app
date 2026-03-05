@@ -269,14 +269,15 @@ class ArtikelDbService {
   }
 
 
-  Future<void> insertArtikel(Artikel artikel) async {
+  Future<dynamic> insertArtikel(Artikel artikel) async {
     if (kIsWeb) {
       try {
         // 🌐 WEB-PFAD: In PocketBase speichern
-        await PocketBaseService.client.collection('artikel').create(
-          body: artikel.toMap(), // Achte darauf, dass toMap() keine ID mitschickt, wenn PB sie generieren soll
+        final record = await PocketBaseService.client.collection('artikel').create(
+          body: artikel.toMap(),
         );
         logger.i("✅ Artikel erfolgreich in PocketBase gespeichert");
+        return record.id; // Rückgabe der PocketBase String-ID
       } catch (e) {
         logger.e("❌ Fehler beim Speichern in PocketBase: $e");
         rethrow;
@@ -284,7 +285,8 @@ class ArtikelDbService {
     } else {
       // 💻 DESKTOP/MOBILE-PFAD: In SQLite speichern
       final db = await database;
-      await db.insert('artikel', artikel.toMap());
+      final id = await db.insert('artikel', artikel.toMap());
+      return id; // Rückgabe der SQLite Integer-ID
     }
   }
 

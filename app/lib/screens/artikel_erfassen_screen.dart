@@ -191,15 +191,15 @@ Future<void> _save() async {
       aktualisiertAm: DateTime.now(),
     );
     
-    final artikelId = await ArtikelDbService().insertArtikel(artikel);
+  final dynamic artikelId = await ArtikelDbService().insertArtikel(artikel);
 
-    // --- 2) Bild in lokales Verzeichnis kopieren, falls vorhanden ---
-    String? localImagePath;
-    if (_bildBytes != null || _bildPfad != null) {
-      localImagePath = await _copyImageToLocalDirectory(
-        artikelId: artikelId,
-        artikelName: _nameCtrl.text.trim(),
-      );
+  // Zeile 198 (Nur auf Mobile/Desktop versuchen, lokal zu speichern)
+  String? localImagePath;
+  if (!kIsWeb && (_bildBytes != null || _bildPfad != null)) {
+    localImagePath = await _copyImageToLocalDirectory(
+      artikelId: artikelId is int ? artikelId : 0, 
+      artikelName: _nameCtrl.text.trim(),
+    );
       
       if (localImagePath != null) {
         // Bildpfad in der Datenbank aktualisieren

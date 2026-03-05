@@ -30,7 +30,7 @@ RUN flutter doctor
 RUN flutter config --enable-web
 RUN flutter pub get
 
-RUN flutter build web --release --no-wasm-dry-run --dart-define=PB_URL=${PB_URL}
+RUN flutter build web --release --dart-define=PB_URL=${PB_URL}
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
