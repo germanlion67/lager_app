@@ -18,7 +18,7 @@ class Artikel {
   final DateTime aktualisiertAm;
   final String? remoteBildPfad;
   
-  // Neue Felder für Sync
+  // Neue Felder für Sync & PocketBase Kompatibilität
   final String uuid; // UUID für eindeutige Identifikation
   final int updatedAt; // Milliseconds seit Epoch (UTC)
   final bool deleted; // Soft Delete Flag
@@ -90,9 +90,11 @@ class Artikel {
   // Konstruktor aus Map
   factory Artikel.fromMap(Map<String, dynamic> map) {
     return Artikel(
-      id: map['id'] ?? 0,
-      name: map['name'] ?? '',
+      // SQLite liefert int, PocketBase oft String oder null für 'id'
+      id: map['id'] is int ? map['id'] as int : null,
+      name: map['name']?.toString() ?? '',
       menge: map['menge'] is int
+      // PocketBase liefert Zahlen oft als num/double -> sicher zu int konvertieren
           ? map['menge'] as int
           : int.tryParse(map['menge'].toString()) ?? 0,
       ort: map['ort'] ?? '',
@@ -111,7 +113,8 @@ class Artikel {
       // Neue Sync-Felder
       uuid: map['uuid'] ?? _generateUUID(),
       updatedAt: map['updated_at'] ?? DateTime.now().millisecondsSinceEpoch,
-      deleted: (map['deleted'] ?? 0) == 1,
+      // Beachtet sowohl bool (PB) als auch int (SQLite)
+      deleted: map['deleted'] == 1 || map['deleted'] == true,
       etag: map['etag'],
       remotePath: map['remote_path'],
       deviceId: map['device_id'],

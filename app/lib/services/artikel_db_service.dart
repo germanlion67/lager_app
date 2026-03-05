@@ -8,7 +8,7 @@ import 'dart:io' show Platform;
 import 'dart:convert';
 import 'dart:math';
 import '../models/artikel_model.dart';
-import 'pocketbase_service.dart'
+import 'pocketbase_service.dart';
 
 class ArtikelDbService {
   static final ArtikelDbService _instance = ArtikelDbService._internal();
@@ -269,13 +269,22 @@ class ArtikelDbService {
   }
 
 
-  Future<int> insertArtikel(Artikel artikel) async {
-    try {
+  Future<void> insertArtikel(Artikel artikel) async {
+    if (kIsWeb) {
+      try {
+        // 🌐 WEB-PFAD: In PocketBase speichern
+        await PocketBaseService.client.collection('artikel').create(
+          body: artikel.toMap(), // Achte darauf, dass toMap() keine ID mitschickt, wenn PB sie generieren soll
+        );
+        logger.i("✅ Artikel erfolgreich in PocketBase gespeichert");
+      } catch (e) {
+        logger.e("❌ Fehler beim Speichern in PocketBase: $e");
+        rethrow;
+      }
+    } else {
+      // 💻 DESKTOP/MOBILE-PFAD: In SQLite speichern
       final db = await database;
-      return await db.insert('artikel', artikel.toMap());
-    } catch (e, stackTrace) {
-      logger.e('Fehler beim Einfügen eines Artikels', error: e, stackTrace: stackTrace);
-      throw DatabaseException('Artikel konnte nicht gespeichert werden: $e');
+      await db.insert('artikel', artikel.toMap());
     }
   }
 
@@ -303,27 +312,70 @@ class ArtikelDbService {
     }
   }
 
-  Future<int> updateArtikel(Artikel artikel) async {
+  Future<void> updateArtikel(Artikel artikel) async {
     try {
-      final db = await database;
-      return await db.update(
-        'artikel',
-        artikel.toMap(),
-        where: 'id = ?',
-        whereArgs: [artikel.id],
-      );
+      if (kIsWeb) {
+        // 🌐 WEB-PFAD: Update in PocketBase via UUID
+        // Wir suchen zuerst den Record mit der passenden UUID
+        final records = await PocketBaseService.client
+            .collection('artikel')
+            .getList(filter: 'uuid = "${artikel.uuid}"');
+
+        if (records.items.isNotEmpty) {
+          final recordId = records.items.first.id;
+          await PocketBaseService.client.collection('artikel').update(
+                recordId,
+                body: artikel.toMap(),
+              );
+          logger.i('✅ Artikel in PocketBase aktualisiert (UUID: ${artikel.uuid})');
+        } else {
+          logger.w('⚠️ Artikel mit UUID ${artikel.uuid} nicht in PocketBase gefunden.');
+        }
+      } else {
+        // 💻 DESKTOP/MOBILE-PFAD: SQLite via lokaler ID
+        final db = await database;
+        await db.update(
+          'artikel',
+          artikel.toMap(),
+          where: 'id = ?',
+          whereArgs: [artikel.id],
+        );
+        logger.i('✅ Artikel lokal in SQLite aktualisiert (ID: ${artikel.id})');
+      }
     } catch (e, stackTrace) {
-      logger.e('Fehler beim Aktualisieren eines Artikels', error: e, stackTrace: stackTrace);
+      logger.e('❌ Fehler beim Aktualisieren eines Artikels', error: e, stackTrace: stackTrace);
       throw DatabaseException('Artikel konnte nicht aktualisiert werden: $e');
     }
   }
 
-  Future<int> deleteArtikel(int id) async {
+  Future<void> deleteArtikel(Artikel artikel) async {
     try {
-      final db = await database;
-      return await db.delete('artikel', where: 'id = ?', whereArgs: [id]);
+      if (kIsWeb) {
+        // 🌐 WEB-PFAD: Löschen in PocketBase via UUID
+        // Wir suchen den Record, der diese UUID hat
+        final result = await PocketBaseService.client
+            .collection('artikel')
+            .getList(filter: 'uuid = "${artikel.uuid}"');
+
+        if (result.items.isNotEmpty) {
+          final recordId = result.items.first.id;
+          await PocketBaseService.client.collection('artikel').delete(recordId);
+          logger.i('✅ Artikel in PocketBase gelöscht (UUID: ${artikel.uuid})');
+        } else {
+          logger.w('⚠️ Artikel zum Löschen in PocketBase nicht gefunden.');
+        }
+      } else {
+        // 💻 DESKTOP/MOBILE-PFAD: Löschen in SQLite via lokaler ID
+        final db = await database;
+        await db.delete(
+          'artikel', 
+          where: 'id = ?', 
+          whereArgs: [artikel.id]
+        );
+        logger.i('✅ Artikel lokal in SQLite gelöscht (ID: ${artikel.id})');
+      }
     } catch (e, stackTrace) {
-      logger.e('Fehler beim Löschen eines Artikels', error: e, stackTrace: stackTrace);
+      logger.e('❌ Fehler beim Löschen eines Artikels', error: e, stackTrace: stackTrace);
       throw DatabaseException('Artikel konnte nicht gelöscht werden: $e');
     }
   }

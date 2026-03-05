@@ -34,6 +34,6 @@ RUN flutter build web --release --no-wasm-dry-run --dart-define=PB_URL=${PB_URL}
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
-COPY --from=build-env /app/build/web /usr/share/nginx/html --dart-define=PB_URL=${PB_URL}
+COPY --from=build-env /app/build/web /usr/share/nginx/html
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
