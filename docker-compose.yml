@@ -1,36 +1,40 @@
 services:
+  # PocketBase Backend
   server:
     image: ghcr.io/muchobien/pocketbase:latest
     command:
       - serve
-      - --http=0.0.0.0:8090   # Intern auf 8090, passend zum Standard
+      - --http=0.0.0.0:8080   # gesetzt in .env
+      - --dir=/pb_data
     container_name: lager_backend
     restart: unless-stopped
     ports:
-      - "8090:8090"           # Außen 8090 : Innen 8090
+      - "${PB_PORT}:8080"           # gesetzt in .env
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
     healthcheck:
-      # Healthcheck auf den neuen internen Port 8090 angepasst
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8090/api/health"]
+      # Nutzt den internen Port für den Check
+      # test: ["CMD", "wget", "--spider", "-q", "http://localhost:${PB_PORT}/api/health"]
+      test: ["CMD-SHELL", "/usr/local/bin/pocketbase health --addr=localhost:8080 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3
     networks:
       - lager_network
-    
+
+  # Flutter Web Frontend  
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
       args:
-        # HIER DIE VARIABLE: Dein Browser muss diese URL erreichen können!
-        - PB_URL=http://localhost:8090 
+        # Hier wird die IP aus der .env in den Flutter-Build "eingebrannt"
+        - PB_URL=http://${MY_SERVER_IP}:${PB_PORT}
     container_name: lager_frontend
     restart: unless-stopped
     ports:
-      - "8081:80"             # Geändert auf 8081, damit Port 8080 nicht kollidiert
+      - "${WEB_PORT}:80"             # Geändert auf 8081, damit Port 8080 nicht kollidiert
     depends_on:
       server:
         condition: service_healthy

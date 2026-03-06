@@ -40,6 +40,12 @@ RUN flutter build web --release --dart-define=PB_URL=${PB_URL}
 
 # Stage 2: Serve with Nginx
 FROM nginx:alpine
+
+# Kopiere die gebauten Flutter-Dateien
 COPY --from=build-env /app/build/web /usr/share/nginx/html
+
+# KOPIERE DIE NGINX-KONFIGURATION
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

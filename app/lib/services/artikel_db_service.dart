@@ -1,3 +1,5 @@
+//lib/service/artikel_db_service.dart
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 //import 'package:sqflite/sqflite.dart'; // Für Mobile (Android/iOS)
 import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // Für Desktop
