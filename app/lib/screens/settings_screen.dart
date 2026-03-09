@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/artikel_db_service.dart';
+import '../services/artikel_db_service.backup';
 // ...existing code...
 
 class SettingsScreen extends StatefulWidget {

@@ -13,7 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/artikel_model.dart';
-import '../services/artikel_db_service.dart';
+import '../services/artikel_db_service.backup';
 import '../services/pdf_service.dart';
 import '../services/app_log_service.dart';
 import '../services/image_picker.dart';

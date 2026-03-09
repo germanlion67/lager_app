@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'screens/artikel_list_screen.dart';
 import 'screens/sync_management_screen.dart';
 import 'services/sync_service.dart';
-import 'services/artikel_db_service.dart';
+import 'services/artikel_db_service.backup';
 import 'services/nextcloud_client.dart';
 import 'widgets/sync_conflict_handler.dart';
 

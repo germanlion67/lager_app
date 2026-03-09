@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/artikel_model.dart';
-import '../services/artikel_db_service.dart';
+import '../services/artikel_db_service.backup';
 import '../widgets/article_icons.dart';
 import '../services/nextcloud_webdav_client.dart';
 import '../services/nextcloud_credentials.dart';

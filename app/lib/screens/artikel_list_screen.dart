@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../models/artikel_model.dart';
-import '../services/artikel_db_service.dart';
+import '../services/artikel_db_service.backup';
 import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/pdf_service.dart';

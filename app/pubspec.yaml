@@ -37,6 +37,8 @@ dependencies:
   # test_api: ^0.7.6
   archive: ^4.0.7
   pocketbase: ^0.23.2
+  sembast: ^3.8.6
+  sembast_web: ^2.4.4+1
   
 
   connectivity_plus: ^5.0.2 # Für WLAN-Check (nur Android/iOS)

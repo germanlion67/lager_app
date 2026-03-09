@@ -11,7 +11,7 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import '../models/artikel_model.dart';
-import 'artikel_db_service.dart';
+import 'artikel_db_service.backup';
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
 import 'package:flutter/material.dart';

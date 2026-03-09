@@ -5,7 +5,7 @@ import 'package:device_info_plus/device_info_plus.dart';
 import 'package:logger/logger.dart';
 import 'package:image/image.dart' as img;
 import 'nextcloud_client.dart';
-import 'artikel_db_service.dart';
+import 'artikel_db_service.backup';
 import '../models/artikel_model.dart';
 import '../screens/conflict_resolution_screen.dart';
 import 'sync_progress_service.dart';

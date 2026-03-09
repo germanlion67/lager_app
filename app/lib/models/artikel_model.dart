@@ -1,3 +1,5 @@
+  // lib/models/artikel_model.dart
+  
   //Diese Klasse bildet die Grundlage für die Datenstruktur deiner Artikel
   // und ist kompatibel mit SQLite.
 

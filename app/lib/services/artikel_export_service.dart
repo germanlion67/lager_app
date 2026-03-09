@@ -7,7 +7,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../services/app_log_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'artikel_db_service.dart';
+import 'artikel_db_service.backup';
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
 import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipEncoder;

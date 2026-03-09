@@ -1,5 +1,7 @@
 //lib/main.dart
 import 'dart:async';
+import 'services/pocketbase_sync_service.dart';
+import 'services/sync_orchestrator.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 
 //Startpunkt der App
@@ -8,7 +10,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:flutter/material.dart';
 import 'screens/artikel_list_screen.dart';
-import 'services/artikel_db_service.dart';
+import 'services/artikel_db_service.backup';
 import 'screens/settings_screen.dart';
 
 
@@ -17,7 +19,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // Web braucht nichts, dort funktioniert sqflite nicht
   if (!kIsWeb) {
@@ -28,6 +30,11 @@ void main() {
     }
     // Android/iOS → normales sqflite, keine Init notwendig
   }
+
+  // Run a single sync at startup (PocketBase is used by default).
+  final pocket = PocketBaseSyncService('artikel');
+  final orchestrator = SyncOrchestrator(pocket: pocket);
+  await orchestrator.runOnce();
 
   runApp(const MyApp());
 }
@@ -63,13 +70,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           debugPrint('[Sync] Übersprungen: Nicht im WLAN (${connectivityResult.name})');
           return;
         }
-        // SyncService initialisieren (ggf. mit echten Credentials)
-        // Implementierung erfolgt über SyncService in der Haupt-App
-        // final dbService = ArtikelDbService();
-        // final client = NextcloudClient(...);
-        // final syncService = SyncService(client, dbService);
-        // await syncService.syncOnce();
-        debugPrint('[Sync] Periodischer Sync ausgeführt um ${DateTime.now()}');
+        debugPrint('[Sync] Periodischer Sync startet um ${DateTime.now()}');
+        final pocket = PocketBaseSyncService('artikel');
+        final orchestrator = SyncOrchestrator(pocket: pocket);
+        await orchestrator.runOnce();
+        debugPrint('[Sync] Periodischer Sync beendet um ${DateTime.now()}');
       } catch (e) {
         debugPrint('[Sync] Fehler beim periodischen Sync: $e');
       }

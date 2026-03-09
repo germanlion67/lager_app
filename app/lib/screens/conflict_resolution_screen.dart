@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import '../models/artikel_model.dart';
 import '../services/sync_service.dart';
-import '../services/artikel_db_service.dart';
+import '../services/artikel_db_service.backup';
 import 'dart:io';
 
 /// Repräsentiert einen Sync-Konflikt zwischen lokaler und Remote-Version

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import '../services/sync_service.dart';
 import '../services/nextcloud_client.dart';
-import '../services/artikel_db_service.dart';
+import '../services/artikel_db_service.backup';
 
 class SimpleAttachmentSyncDemoScreen extends StatefulWidget {
   const SimpleAttachmentSyncDemoScreen({super.key});
