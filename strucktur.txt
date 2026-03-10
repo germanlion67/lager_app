@@ -1,23 +1,70 @@
-PocketBase Berechtigungskonzept (Konfiguration)
+🏗️ Architektur-Vorschlag
+┌──────────────────────────────────────────────────────┐
+│                    DEPLOYMENT                         │
+│                                                      │
+│  ┌─────────────┐    ┌─────────────────────────────┐  │
+│  │  📱 Handy   │    │  🐳 Docker Compose          │  │
+│  │  (APK/IPA)  │    │  ┌──────────┐ ┌──────────┐  │  │
+│  │             │    │  │ Flutter  │ │PocketBase│  │  │
+│  │             │    │  │ Web      │ │ Server   │  │  │
+│  │             │    │  │ (nginx)  │ │ (API+DB) │  │  │
+│  │             │    │  └────┬─────┘ └────┬─────┘  │  │
+│  └──────┬──────┘    └───────┼────────────┼────────┘  │
+│         │                   │            │           │
+│         └───────────────────┴─────┬──────┘           │
+│                                   │                  │
+│                          PocketBase API              │
+└──────────────────────────────────────────────────────┘
 
-PocketBase ist perfekt für deine Anforderung (3 Personen, Scans/Bilder). Nach dem ersten Start (docker-compose up -d) kannst du unter http://localhost:8090/_/ folgendes einstellen:
-1. Collection "artikel" erstellen:
-  - Felder: name (Text), beschreibung (Text), menge (Number), bild (File), qr_code (Text).
-2. API-Rules (Berechtigungen):
-  - List/View: @request.auth.id != "" (Jeder eingeloggte Nutzer darf lesen).
-  - Create/Update: @request.auth.id != "" (Oder schränke es auf spezifische IDs für deine 3 Personen ein).
+┌──────────────────────────────────────────────────────┐
+│                 APP-ARCHITEKTUR                       │
+│                                                      │
+│  ┌────────────────────────────────────────────────┐  │
+│  │                  Flutter UI                     │  │
+│  │         (identischer Code für alle)             │  │
+│  ├────────────────────────────────────────────────┤  │
+│  │              ArtikelRepository                  │  │
+│  │         (einheitliche Schnittstelle)             │  │
+│  ├──────────────┬─────────────────────────────────┤  │
+│  │  LocalStore   │        RemoteStore              │  │
+│  │  ┌─────────┐ │  ┌───────────┐ ┌────────────┐  │  │
+│  │  │ sqflite │ │  │PocketBase │ │ Nextcloud   │  │  │
+│  │  │ (Handy) │ │  │ (Primär)  │ │ (Optional)  │  │  │
+│  │  ├─────────┤ │  └───────────┘ └────────────┘  │  │
+│  │  │ sembast │ │                                 │  │
+│  │  │ (Web)   │ │                                 │  │
+│  │  └─────────┘ │                                 │  │
+│  └──────────────┴─────────────────────────────────┘  │
+└──────────────────────────────────────────────────────┘
+
+
+📁 Neue Projektstruktur
+lib/
+├── main.dart
+├── models/
+│   └── artikel_model.dart              # Unverändert ✅
+├── repositories/
+│   └── artikel_repository.dart         # NEU: Einheitliche Schnittstelle
+├── services/
+│   ├── local_db_service.dart           # Lokale DB (nur Handy)
+│   │                                   #   = bisherige .backup ohne Web-Code
+│   ├── pocketbase_service.dart         # PocketBase API Client
+│   ├── pocketbase_sync_service.dart    # Push/Pull Sync (nur Handy)
+│   ├── sync_engine.dart                # NEU: Sync-Steuerung
+│   ├── nextcloud_sync_service.dart     # Optional: Nextcloud Sync
+│   └── sync_orchestrator.dart          # PocketBase vs Nextcloud
+├── screens/
+│   ├── artikel_list_screen.dart        # Nutzt ArtikelRepository
+│   ├── artikel_detail_screen.dart
+│   ├── artikel_erfassen_screen.dart
+│   └── settings_screen.dart
+├── widgets/
+│   ├── artikel_bild.dart               # NEU: Plattform-sicheres Bild
+│   └── ...
+└── docker/
+    ├── Dockerfile                      # Flutter Web Build
+    ├── docker-compose.yml              # Web + PocketBase
+    └── nginx.conf                      # Reverse Proxy
 
 
 
-
-
-lager_app/
-├── app/                <-- Dein ganzer aktueller Code
-│   ├── lib/
-│   ├── web/
-│   ├── pubspec.yaml
-│   └── Dockerfile      <-- (Neu erstellt)
-├── server/
-│   ├── pb_data/        <-- (Wird von PocketBase erstellt, in .gitignore!)
-│   └── pb_public/
-└── docker-compose.yml  <-- (Neu erstellt)
