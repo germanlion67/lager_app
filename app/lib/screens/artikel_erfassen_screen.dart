@@ -1,8 +1,14 @@
 // lib/screens/artikel_erfassen_screen.dart
+//
+// Screen zum Erfassen neuer Artikel.
+// Web: Speichert direkt in PocketBase.
+// Mobile/Desktop: Speichert lokal in SQLite + Upload zu PocketBase im Hintergrund.
+
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:path/path.dart' as p;
+import 'package:pocketbase/pocketbase.dart' show MultipartFile;
 import '../models/artikel_model.dart';
 import '../services/pocketbase_service.dart';
 import '../services/artikel_db_service.dart';
@@ -63,9 +69,9 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
   Future<void> _pickImageFile() async {
     final picked = await ImagePickerService.pickImageFile(context);
-    if (picked.pfad == null && picked.bytes == null) return;
+    if (!picked.hasImage) return;
     setState(() {
-      _bildPfad = picked.pfad;
+      _bildPfad = picked.pfad; // null im Web – das ist OK
       _bildBytes = picked.bytes;
       _bildDateiname = picked.dateiname;
       _hasUnsavedChanges = true;
@@ -73,9 +79,9 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   }
 
   Future<void> _pickImageCamera() async {
-    if (kIsWeb) return; // Kamera im Web nicht unterstützt
+    if (!ImagePickerService.isCameraAvailable) return;
     final picked = await ImagePickerService.pickImageCamera(context);
-    if (picked.pfad == null && picked.bytes == null) return;
+    if (!picked.hasImage) return;
     setState(() {
       _bildPfad = picked.pfad;
       _bildBytes = picked.bytes;
@@ -140,10 +146,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       );
 
       if (kIsWeb) {
-        // ==================== WEB: PocketBase direkt ====================
         await _saveWeb(artikel);
       } else {
-        // ==================== MOBILE: Lokal + Sync ====================
         await _saveMobile(artikel);
       }
     } catch (e) {
@@ -157,17 +161,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     }
   }
 
-  /// Web: Artikel + Bild direkt in PocketBase speichern
+  /// Web: Artikel + Bild direkt in PocketBase speichern.
   Future<void> _saveWeb(Artikel artikel) async {
     final pb = PocketBaseService().client;
 
-    // Artikel in PocketBase erstellen (mit optionalem Bild als Multipart)
-    final body = artikel.toMap();
-    // Entferne lokale Felder die PocketBase nicht braucht
-    body.remove('id');
-    body.remove('bildPfad');
-    body.remove('thumbnailPfad');
-    body.remove('thumbnailEtag');
+    // Nur PocketBase-relevante Felder senden
+    final body = artikel.toPocketBaseMap();
 
     final List<MultipartFile> files = [];
     if (_bildBytes != null && _bildDateiname != null) {
@@ -186,13 +185,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
       Navigator.of(context).pop(artikel.copyWith(
-        id: null, // PocketBase nutzt String-IDs
         uuid: record.data['uuid'] ?? artikel.uuid,
       ));
     }
   }
 
-  /// Mobile/Desktop: Lokal speichern + Bild lokal ablegen
+  /// Mobile/Desktop: Lokal speichern + Bild lokal ablegen.
   Future<void> _saveMobile(Artikel artikel) async {
     final dbService = ArtikelDbService();
     final artikelId = await dbService.insertArtikel(artikel);
@@ -216,9 +214,9 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     if (localImagePath != null || _bildBytes != null) {
       _uploadImageToPocketBase(
         artikel: artikel,
-        localImagePath: localImagePath,
         bildBytes: _bildBytes,
         bildDateiname: _bildDateiname,
+        localImagePath: localImagePath,
       );
     }
 
@@ -231,12 +229,13 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     }
   }
 
-  /// Bild im Hintergrund zu PocketBase hochladen
+  /// Bild im Hintergrund zu PocketBase hochladen (fire-and-forget).
+  /// Fehler werden nur geloggt, nicht dem User angezeigt.
   Future<void> _uploadImageToPocketBase({
     required Artikel artikel,
-    String? localImagePath,
     Uint8List? bildBytes,
     String? bildDateiname,
+    String? localImagePath,
   }) async {
     try {
       final pb = PocketBaseService().client;
@@ -258,7 +257,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         filename = bildDateiname ?? 'bild.jpg';
       } else if (localImagePath != null) {
         bytes = await platform.readFileBytes(localImagePath);
-        filename = p.basename(localImagePath);
+        filename = platform.getBasename(localImagePath);
       } else {
         return;
       }
@@ -321,6 +320,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                     (v == null || v.trim().isEmpty) ? 'Bitte Ort eingeben' : null,
                 textInputAction: TextInputAction.next,
               ),
+              const SizedBox(height: spacing),
               TextFormField(
                 controller: _fachCtrl,
                 decoration: const InputDecoration(
@@ -357,7 +357,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                     label: const Text('Bilddatei wählen'),
                   ),
                   // Kamera-Button nur auf Mobile/Desktop
-                  if (!kIsWeb) ...[
+                  if (ImagePickerService.isCameraAvailable) ...[
                     const SizedBox(width: 12),
                     FilledButton.tonalIcon(
                       onPressed: _pickImageCamera,
