@@ -8,7 +8,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:pocketbase/pocketbase.dart' show MultipartFile;
+import 'package:http/http.dart' as http;
 import '../models/artikel_model.dart';
 import '../services/pocketbase_service.dart';
 import '../services/artikel_db_service.dart';
@@ -168,13 +168,13 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     // Nur PocketBase-relevante Felder senden
     final body = artikel.toPocketBaseMap();
 
-    final List<MultipartFile> files = [];
+    final List<http.MultipartFile> files = [];
     if (_bildBytes != null && _bildDateiname != null) {
-      files.add(MultipartFile.fromBytes(
-        'bild', // Feldname in PocketBase Collection
+      files.add(http.MultipartFile.fromBytes(
+        'bild',       //PocketBase Feldname
         _bildBytes!,
         filename: _bildDateiname!,
-      ));
+      ));   
     }
 
     final record = await pb.collection('artikel').create(
@@ -266,7 +266,10 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       await pb.collection('artikel').update(
         recordId,
         files: [
-          MultipartFile.fromBytes('bild', bytes, filename: filename),
+          http.MultipartFile.fromBytes(
+            'bild',
+             _bildBytes!,
+             filename: _bildDateiname!),
         ],
       );
 

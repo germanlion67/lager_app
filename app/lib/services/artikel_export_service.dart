@@ -16,7 +16,8 @@ import 'export_io.dart'
     if (dart.library.html) 'export_stub.dart' as platform;
 
 // Nextcloud nur auf Mobile
-import 'export_nextcloud.dart' as nextcloud;
+import 'export_nextcloud_stub.dart'
+    if (dart.library.io) 'export_nextcloud.dart' as nextcloud;
 
 final JsonEncoder _prettyJsonEncoder = JsonEncoder.withIndent('  ');
 

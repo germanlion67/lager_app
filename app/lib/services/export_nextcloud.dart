@@ -1,5 +1,4 @@
 // lib/services/export_nextcloud.dart
-// Nextcloud-spezifische Backup-Funktionen (nur Mobile)
 
 import 'dart:io';
 import 'dart:convert';
@@ -14,8 +13,10 @@ import 'nextcloud_webdav_client.dart';
 
 /// Lädt eine ZIP-Datei zu Nextcloud hoch
 Future<void> uploadZipToNextcloud(String zipFilePath, {BuildContext? context}) async {
-  final connectivityResults = await Connectivity().checkConnectivity();
-  if (!connectivityResults.contains(ConnectivityResult.wifi)) {
+  final results = await Connectivity().checkConnectivity();
+  final isWifi = results.contains(ConnectivityResult.wifi);
+
+  if (!isWifi) {
     await AppLogService().log('Nextcloud-Backup: Kein WLAN, übersprungen');
     return;
   }

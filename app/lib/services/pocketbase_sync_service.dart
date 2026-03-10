@@ -64,7 +64,7 @@ class PocketBaseSyncService {
           final updated = await PocketBaseService()
               .client
               .collection(collectionName)
-              .update(recId, body: artikel.toPocketBaseMap();
+              .update(recId, body: artikel.toPocketBaseMap());
 
           await db.markSynced(artikel.uuid, updated.id);
           _logger.d(

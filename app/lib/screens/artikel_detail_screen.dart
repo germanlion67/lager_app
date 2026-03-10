@@ -7,14 +7,19 @@ import 'package:path/path.dart' as p;
 import '../models/artikel_model.dart';
 import '../services/artikel_db_service.dart';
 import '../services/pocketbase_service.dart';
-import '../services/pdf_service.dart';
 import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
-import '_dokumente_button.dart';
+import 'package:http/http.dart' as http;
+
+
 
 // Conditional imports für dart:io
 import 'detail_screen_io.dart'
     if (dart.library.html) 'detail_screen_stub.dart' as platform;
+import '../services/pdf_service_stub.dart'
+    if (dart.library.io) '../services/pdf_service.dart';
+import '_dokumente_button_stub.dart'
+    if (dart.library.io) '_dokumente_button.dart';
 
 class ArtikelDetailScreen extends StatefulWidget {
   final Artikel artikel;
@@ -149,9 +154,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         'updated_at': DateTime.now().millisecondsSinceEpoch,
       };
 
-      final List<MultipartFile> files = [];
+      final List<http.MultipartFile> files = [];
       if (_bildBytes != null) {
-        files.add(MultipartFile.fromBytes(
+        files.add(http.MultipartFile.fromBytes(
           'bild',
           _bildBytes!,
           filename: 'bild_${widget.artikel.uuid}.jpg',
@@ -286,7 +291,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       await pb.collection('artikel').update(
         recordId,
-        files: [MultipartFile.fromBytes('bild', bytes, filename: filename)],
+        files: [http.MultipartFile.fromBytes('bild', bytes, filename: filename)],
       );
 
       debugPrint('[Upload] Bild zu PocketBase hochgeladen: $filename');

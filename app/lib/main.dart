@@ -53,7 +53,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
 
     _pocketSync = PocketBaseSyncService('artikel');
-    _orchestrator = SyncOrchestrator(pocket: _pocketSync);
+    _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
     // Sync nur auf Mobile/Desktop – Web braucht keinen Sync
     if (!kIsWeb) {
@@ -85,10 +85,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// Sync nur wenn Netzwerk verfügbar
   Future<void> _syncIfConnected() async {
     try {
-      final connectivityResults = await Connectivity().checkConnectivity();
+      final results = await Connectivity().checkConnectivity();
+      final isWifi = results.contains(ConnectivityResult.wifi);
 
-      // connectivity_plus 5.x+ gibt eine Liste zurück
-      if (_wifiOnlySync && !connectivityResults.contains(ConnectivityResult.wifi)) {
+      if (_wifiOnlySync && !isWifi) {
         debugPrint('[Sync] Übersprungen: Nicht im WLAN');
         return;
       }
