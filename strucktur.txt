@@ -107,3 +107,21 @@ Da die PB-URL aber auch in den Einstellungen änderbar sein soll (deine Anforder
 
 Default (/api): Nutzt den nginx Reverse Proxy → funktioniert im Docker out-of-the-box
 Einstellungen: User kann eine absolute URL eingeben (z.B. https://mein-server.de:8090) → überschreibt den Default
+
+🔑 Architektur-Änderung: Reverse Proxy
+VORHER (problematisch):
+┌──────────┐ :8081   ┌───────────┐
+│ Browser  │────────→│ nginx/App │   Flutter Web
+└──────────┘         └───────────┘
+     │
+     │ :8080         ┌────────────┐
+     └──────────────→│ PocketBase │   Direkt vom Browser!
+                     └────────────┘
+                     ↑ CORS nötig, Port offen, IP eingebrannt
+
+NACHHER (mit Reverse Proxy):
+┌──────────┐ :8081   ┌───────────┐  intern   ┌────────────┐
+│ Browser  │────────→│ nginx/App │──────────→│ PocketBase │
+└──────────┘         └───────────┘           └────────────┘
+                     ↑ Alles über EINEN Port!
+                       Kein CORS, keine IP nötig
