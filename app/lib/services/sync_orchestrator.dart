@@ -1,43 +1,37 @@
-//lib/services/sync_orchestrator.dart
+// lib/services/sync_orchestrator.dart
+//
+// Zentraler Einstiegspunkt für die Datensynchronisation.
+// Verwendet PocketBase als einziges Sync-Backend.
+//
+// ⚠️ NUR für Mobile/Desktop – im Web wird PocketBase direkt verwendet,
+// es gibt keine lokale DB und keinen Sync.
+
 import 'dart:async';
-import 'dart:developer' as developer;
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:logger/logger.dart';
 import 'pocketbase_sync_service.dart';
-import 'nextcloud_client.dart';
-import 'sync_service.dart' as nextcloud_sync;
-import 'artikel_db_service.backup';
 
-/// Orchestrator: PocketBase is default. If Nextcloud credentials are provided,
-/// the existing Nextcloud `SyncService` (in sync_service.dart) will be used.
 class SyncOrchestrator {
-  final PocketBaseSyncService pocket;
-  final Uri? nextcloudBaseUrl;
-  final String? nextcloudUser;
-  final String? nextcloudPassword;
+  final PocketBaseSyncService _pocketBaseSync;
+  final Logger _logger = Logger();
 
-  SyncOrchestrator({required this.pocket, this.nextcloudBaseUrl, this.nextcloudUser, this.nextcloudPassword});
+  SyncOrchestrator({required PocketBaseSyncService pocketBaseSync})
+      : _pocketBaseSync = pocketBaseSync;
 
-  bool get hasNextcloudCredentials =>
-      nextcloudBaseUrl != null && (nextcloudUser ?? '').isNotEmpty && (nextcloudPassword ?? '').isNotEmpty;
-
+  /// Führt einen kompletten Sync-Zyklus durch.
+  /// Wird im Web sofort abgebrochen (no-op).
   Future<void> runOnce() async {
-    developer.log('SyncOrchestrator: start', name: 'sync');
-    if (hasNextcloudCredentials) {
-      developer.log('SyncOrchestrator: using Nextcloud backend', name: 'sync');
-      final client = NextcloudClient(
-        baseUrl: nextcloudBaseUrl!,
-        username: nextcloudUser!,
-        appPassword: nextcloudPassword!,
-      );
-      // ArtikelDbService is required by the existing Nextcloud SyncService
-      final dbService = ArtikelDbService();
-      final svc = nextcloud_sync.SyncService(client, dbService);
-      await svc.syncOnce();
-    } else {
-      developer.log('SyncOrchestrator: using PocketBase backend (default)', name: 'sync');
-      await pocket.syncOnce();
+    if (kIsWeb) {
+      _logger.d('SyncOrchestrator: Skipping sync on Web platform');
+      return;
     }
-    developer.log('SyncOrchestrator: end', name: 'sync');
-  }
 
-  
+    _logger.i('SyncOrchestrator: start');
+    try {
+      await _pocketBaseSync.syncOnce();
+      _logger.i('SyncOrchestrator: end (success)');
+    } catch (e, st) {
+      _logger.e('SyncOrchestrator: sync failed', error: e, stackTrace: st);
+    }
+  }
 }
