@@ -1,4 +1,4 @@
-// .../lib/services/web_db_adapter.dart
+//lib/services/web_db_adapter.dart
 
 import 'package:sembast_web/sembast_web.dart';
 import 'dart:async';
