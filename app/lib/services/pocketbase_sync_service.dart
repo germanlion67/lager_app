@@ -39,10 +39,10 @@ class PocketBaseSyncService {
         // find existing record by uuid
         final filter = 'uuid = "${artikel.uuid}"';
         _logger.d('PocketBaseSync: searching for remote record with filter: $filter');
-        final list = await PocketBaseService.client.collection(collectionName).getList(filter: filter);
+        final list = await PocketBaseService().client.collection(collectionName).getList(filter: filter);
         if (list.items.isNotEmpty) {
           final recId = list.items.first.id;
-          final updated = await PocketBaseService.client.collection(collectionName).update(
+          final updated = await PocketBaseService().client.collection(collectionName).update(
             recId,
             body: artikel.toMap(),
           );
@@ -50,7 +50,7 @@ class PocketBaseSyncService {
           await db.markSynced(artikel.uuid, updated.id);
           _logger.d('Updated PocketBase record ${updated.id} for uuid ${artikel.uuid}');
         } else {
-          final created = await PocketBaseService.client.collection(collectionName).create(
+          final created = await PocketBaseService().client.collection(collectionName).create(
             body: artikel.toMap(),
           );
           await db.markSynced(artikel.uuid, created.id);
@@ -68,7 +68,7 @@ class PocketBaseSyncService {
     _logger.i('PocketBaseSync: pulling remote records');
 
     try {
-      final records = await PocketBaseService.client.collection(collectionName).getFullList();
+      final records = await PocketBaseService().client.collection(collectionName).getFullList();
       _logger.i('PocketBaseSync: fetched ${records.length} remote records');
 
       for (final r in records) {
