@@ -2,18 +2,22 @@
 //
 // Lokaler SQLite-Service für Mobile & Desktop.
 // Wird im Web NICHT verwendet – dort geht alles direkt über PocketBase.
+//
+// ⚠️ Verwendet Conditional Import für dart:io (Platform-Erkennung),
+// damit die Datei im Web kompiliert, auch wenn sie dort nie aufgerufen wird.
 
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:path/path.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:io' show Platform;
 import '../models/artikel_model.dart';
+
+// Conditional Import: dart:io nur auf Mobile/Desktop
+import 'artikel_db_platform_io.dart'
+    if (dart.library.html) 'artikel_db_platform_stub.dart' as platform;
 
 class ArtikelDbService {
   static final ArtikelDbService _instance = ArtikelDbService._internal();
@@ -29,7 +33,7 @@ class ArtikelDbService {
     if (kIsWeb) {
       throw UnsupportedError(
         'ArtikelDbService ist im Web nicht verfügbar. '
-        'Nutze ArtikelRepository, das im Web direkt PocketBase verwendet.',
+        'Nutze PocketBase direkt im Web.',
       );
     }
     if (_db != null) return _db!;
@@ -39,33 +43,11 @@ class ArtikelDbService {
 
   Future<Database> _initDb() async {
     try {
-      String path;
-
-      if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-        sqfliteFfiInit();
-        databaseFactory = databaseFactoryFfi;
-        final dbPath = await databaseFactoryFfi.getDatabasesPath();
-        path = join(dbPath, 'artikel.db');
-
-        return await databaseFactoryFfi.openDatabase(
-          path,
-          options: OpenDatabaseOptions(
-            version: 3,
-            onCreate: _onCreate,
-            onUpgrade: _onUpgrade,
-          ),
-        );
-      } else {
-        final dbPath = await getDatabasesPath();
-        path = join(dbPath, 'artikel.db');
-
-        return await openDatabase(
-          path,
-          version: 3,
-          onCreate: _onCreate,
-          onUpgrade: _onUpgrade,
-        );
-      }
+      return await platform.openArtikelDatabase(
+        version: 3,
+        onCreate: _onCreate,
+        onUpgrade: _onUpgrade,
+      );
     } catch (e, stack) {
       logger.e('❌ Fehler beim Initialisieren der DB', error: e, stackTrace: stack);
       rethrow;
