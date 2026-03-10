@@ -32,6 +32,8 @@ void main() async {
   }
 
   // Run a single sync at startup (PocketBase is used by default).
+  // NACHHER (vor dem Sync):
+  await PocketBaseService().initialize();
   final pocket = PocketBaseSyncService('artikel');
   final orchestrator = SyncOrchestrator(pocket: pocket);
   await orchestrator.runOnce();
