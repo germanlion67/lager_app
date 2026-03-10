@@ -280,7 +280,7 @@ class ArtikelDbService {
     if (kIsWeb) {
       try {
         // 🌐 WEB-PFAD: In PocketBase speichern
-        final record = await PocketBaseService.client.collection('artikel').create(
+        final record = await PocketBaseService().client.collection('artikel').create(
           body: artikel.toMap(),
         );
         logger.i("✅ Artikel erfolgreich in PocketBase gespeichert");
@@ -301,7 +301,7 @@ class ArtikelDbService {
     if (kIsWeb) {
       try {
         // 🌐 WEB-PFAD: Direkt über PocketBase
-        final records = await PocketBaseService.client.collection('artikel').getFullList(
+        final records = await PocketBaseService.client().collection('artikel').getFullList(
           sort: '-created',
         );
         // Mappt PocketBase Record-Daten auf dein Artikel-Objekt
@@ -326,13 +326,13 @@ class ArtikelDbService {
       if (kIsWeb) {
         // 🌐 WEB-PFAD: Update in PocketBase via UUID
         // Wir suchen zuerst den Record mit der passenden UUID
-        final records = await PocketBaseService.client
+        final records = await PocketBaseService().client
             .collection('artikel')
             .getList(filter: 'uuid = "${artikel.uuid}"');
 
         if (records.items.isNotEmpty) {
           final recordId = records.items.first.id;
-          await PocketBaseService.client.collection('artikel').update(
+          await PocketBaseService.client().collection('artikel').update(
                 recordId,
                 body: artikel.toMap(),
               );
@@ -365,13 +365,13 @@ class ArtikelDbService {
       if (kIsWeb) {
         // 🌐 WEB-PFAD: Löschen in PocketBase via UUID
         // Wir suchen den Record, der diese UUID hat
-        final result = await PocketBaseService.client
+        final result = await PocketBaseService().client
             .collection('artikel')
             .getList(filter: 'uuid = "${artikel.uuid}"');
 
         if (result.items.isNotEmpty) {
           final recordId = result.items.first.id;
-          await PocketBaseService.client.collection('artikel').delete(recordId);
+          await PocketBaseService.client().collection('artikel').delete(recordId);
           logger.i('✅ Artikel in PocketBase gelöscht (UUID: ${artikel.uuid})');
         } else {
           logger.w('⚠️ Artikel zum Löschen in PocketBase nicht gefunden.');
