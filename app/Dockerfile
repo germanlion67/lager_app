@@ -1,51 +1,62 @@
-# Stage 1: Build Flutter Web
+# ============================================================
+# Stage 1: Flutter Web Build
+# ============================================================
 FROM debian:bookworm-slim AS build-env
 
 # Abhängigkeiten installieren
-RUN apt-get update && apt-get install -y \
-    curl git unzip xz-utils zip libglu1-mesa python3 \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl git unzip xz-utils zip libglu1-mesa python3 ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Flutter klonen (korrekter Pfad)
-RUN git clone https://github.com/flutter/flutter.git -b stable /usr/local/flutter
+# Flutter klonen (stable channel)
+RUN git clone https://github.com/flutter/flutter.git -b stable --depth 1 /usr/local/flutter
 ENV PATH="/usr/local/flutter/bin:/usr/local/flutter/bin/cache/dart-sdk/bin:${PATH}"
 
-# Erlaube Flutter als Root auszuführen (für Docker notwendig)
-ENV CHROME_EXECUTABLE=/usr/bin/chromium
+# Flutter konfigurieren
 RUN git config --global --add safe.directory /usr/local/flutter \
     && flutter config --no-analytics --enable-web \
     && flutter precache --web
 
 WORKDIR /app
 
-# PERFORMANCE: Erst pub get, dann restlicher Code (Caching von Layern)
-COPY pubspec.* .
+# Layer-Caching: Erst Dependencies, dann Code
+COPY pubspec.* ./
 RUN flutter pub get
 
-# Alle Flutter-Dateien kopieren (aus dem /app Verzeichnis)
+# Restlichen Code kopieren
 COPY . .
 
-# Build-Argument für die PocketBase URL (Default: Localhost)
-ARG PB_URL=http://127.0.0.1:8090
+# Build-Argument für PocketBase URL
+# Default: Relativer Pfad → nginx Reverse Proxy leitet an PocketBase weiter
+ARG PB_URL=/api
 
+# Flutter Web Release Build
+RUN flutter build web --release \
+    --dart-define=PB_URL=${PB_URL} \
+    --dart-define=FLUTTER_WEB_AUTO_DETECT=true
 
-# Hilft bei der Fehlersuche im Build-Log, zeigt die Flutter-Umgebung und -Konfiguration an
-RUN flutter doctor
-
-# Flutter konfigurieren und bauen
-#RUN flutter config --enable-web
-#RUN flutter pub get
-
-RUN flutter build web --release --dart-define=PB_URL=${PB_URL}
-
-# Stage 2: Serve with Nginx
+# ============================================================
+# Stage 2: Serve mit nginx
+# ============================================================
 FROM nginx:alpine
 
-# Kopiere die gebauten Flutter-Dateien
+# Sicherheit: nginx als non-root (optional, aber empfohlen)
+RUN chown -R nginx:nginx /usr/share/nginx/html \
+    && chown -R nginx:nginx /var/cache/nginx \
+    && chown -R nginx:nginx /var/log/nginx \
+    && touch /var/run/nginx.pid \
+    && chown -R nginx:nginx /var/run/nginx.pid
+
+# Flutter Web Build kopieren
 COPY --from=build-env /app/build/web /usr/share/nginx/html
 
-# KOPIERE DIE NGINX-KONFIGURATION
+# nginx Konfiguration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# Health-Check für Docker Compose
+HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
+    CMD wget --spider -q http://localhost:80/ || exit 1
+
 EXPOSE 80
+
 CMD ["nginx", "-g", "daemon off;"]
