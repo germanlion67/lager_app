@@ -1,44 +1,54 @@
-#//docker-compose.yaml
+# docker-compose.yml
+
 services:
+  # ============================================================
   # PocketBase Backend
+  # ============================================================
   server:
     image: ghcr.io/muchobien/pocketbase:latest
     command:
       - serve
-      - --http=0.0.0.0:8080   # gesetzt in .env
+      - --http=0.0.0.0:8080
       - --dir=/pb_data
     container_name: lager_backend
     restart: unless-stopped
-    ports:
-      - "${PB_PORT}:8080"           # gesetzt in .env
+    # KEIN externer Port mehr nötig! nginx leitet intern weiter.
+    # Für direkten Admin-Zugriff optional freigeben:
+    # ports:
+    #   - "${PB_PORT:-8080}:8080"
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
     healthcheck:
-      # Nutzt den internen Port für den Check
-      # test: ["CMD", "wget", "--spider", "-q", "http://localhost:${PB_PORT}/api/health"]
-      test: ["CMD-SHELL", "/usr/local/bin/pocketbase health --addr=localhost:8080 || exit 1"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 3
     networks:
       - lager_network
 
-  # Flutter Web Frontend  
+  # ============================================================
+  # Flutter Web Frontend + Reverse Proxy
+  # ============================================================
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
       args:
-        # Hier wird die IP aus der .env in den Flutter-Build "eingebrannt"
-        - PB_URL=http://${MY_SERVER_IP}:${PB_PORT}
+        # Relativer Pfad! nginx leitet /api/* an PocketBase weiter
+        - PB_URL=/api
     container_name: lager_frontend
     restart: unless-stopped
     ports:
-      - "${WEB_PORT}:80"             # Geändert auf 8081, damit Port 8080 nicht kollidiert
+      - "${WEB_PORT:-8081}:80"
     depends_on:
       server:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
     networks:
       - lager_network
 
