@@ -90,4 +90,20 @@ lib/
 │  └── Zusätzlich ZIP-Backup hochladen    │
 └─────────────────────────────────────────┘
 
+🔑 Wichtig: PB_URL Strategie
+Die Änderung von PB_URL=http://127.0.0.1:8090 zu PB_URL=/api ist entscheidend:
 
+VORHER (problematisch):
+┌──────────┐     http://127.0.0.1:8090     ┌────────────┐
+│ Browser  │ ──────────────────────────────→│ PocketBase │
+└──────────┘  ← funktioniert nur lokal!    └────────────┘
+
+NACHHER (mit Reverse Proxy):
+┌──────────┐     /api/*      ┌───────┐    http://pocketbase:8090    ┌────────────┐
+│ Browser  │ ──────────────→ │ nginx │ ──────────────────────────→ │ PocketBase │
+└──────────┘                 └───────┘                              └────────────┘
+                          ↑ Funktioniert überall!
+Da die PB-URL aber auch in den Einstellungen änderbar sein soll (deine Anforderung), funktioniert das so:
+
+Default (/api): Nutzt den nginx Reverse Proxy → funktioniert im Docker out-of-the-box
+Einstellungen: User kann eine absolute URL eingeben (z.B. https://mein-server.de:8090) → überschreibt den Default
