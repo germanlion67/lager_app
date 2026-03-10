@@ -1,0 +1,40 @@
+# .dockerignore
+
+# Build-Artefakte
+build/
+.dart_tool/
+.packages
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Platform-spezifisch (nicht für Web nötig)
+android/
+ios/
+macos/
+windows/
+linux/
+
+# Tests
+test/
+integration_test/
+
+# Dokumentation
+*.md
+LICENSE
+CHANGELOG
+
+# Docker (verhindert rekursives Kopieren)
+Dockerfile
+docker-compose*.yml
+.dockerignore
