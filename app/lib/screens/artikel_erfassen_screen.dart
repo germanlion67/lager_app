@@ -1,18 +1,17 @@
-//lib/screens/artikel_erfassen_screen.dart
+// lib/screens/artikel_erfassen_screen.dart
 
-import 'dart:io';
-//import 'dart:typed_data';
 import 'package:flutter/material.dart';
-//import 'package/file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
 import '../models/artikel_model.dart';
-import '../services/artikel_db_service.backup';
-import '../widgets/article_icons.dart';
-import '../services/nextcloud_webdav_client.dart';
-import '../services/nextcloud_credentials.dart';
+import '../services/pocketbase_service.dart';
+import '../services/artikel_db_service.dart';
 import '../services/image_picker.dart';
-import 'package:flutter/foundation.dart';
+import '../widgets/article_icons.dart';
+
+// Conditional imports für dart:io (nur Mobile/Desktop)
+import 'artikel_erfassen_io.dart'
+    if (dart.library.html) 'artikel_erfassen_stub.dart' as platform;
 
 class ArtikelErfassenScreen extends StatefulWidget {
   const ArtikelErfassenScreen({super.key});
@@ -29,12 +28,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   final _fachCtrl = TextEditingController();
   final _mengeCtrl = TextEditingController(text: '0');
 
-  String? _bildPfad;         
-  Uint8List? _bildBytes;     
+  String? _bildPfad;
+  Uint8List? _bildBytes;
   String? _bildDateiname;
 
   bool _isSaving = false;
-  bool _hasUnsavedChanges = false;   
+  bool _hasUnsavedChanges = false;
 
   @override
   void initState() {
@@ -60,6 +59,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     super.dispose();
   }
 
+  // ==================== BILD AUSWAHL ====================
+
   Future<void> _pickImageFile() async {
     final picked = await ImagePickerService.pickImageFile(context);
     if (picked.pfad == null && picked.bytes == null) return;
@@ -72,6 +73,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   }
 
   Future<void> _pickImageCamera() async {
+    if (kIsWeb) return; // Kamera im Web nicht unterstützt
     final picked = await ImagePickerService.pickImageCamera(context);
     if (picked.pfad == null && picked.bytes == null) return;
     setState(() {
@@ -82,63 +84,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     });
   }
 
-  // --- Hilfsfunktionen für Remote-Pfad-Namen (ohne DB-ID-Abhängigkeit) ---
-  String _slug(String input) {
-    final s = input.toLowerCase();
-    final replaced = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
-    return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
-  }
+  // ==================== ABBRECHEN ====================
 
-  // Bilddateiname = Artikelnr-Slug.jpg
-  String _buildRemotePath({
-    required String baseFolder,
-    required int artikelId,
-    required String artikelName,
-  }) {
-    final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
-    final fileName = '$artikelId-$nameSlug.jpg';
-    return p.posix.join(baseFolder, fileName);
-  }
-
-  // Kopiert das Bild in das lokale app_flutter/images Verzeichnis
-  Future<String?> _copyImageToLocalDirectory({
-    required int artikelId,
-    required String artikelName,
-  }) async {
-    if (_bildBytes == null && _bildPfad == null) return null;
-
-    try {
-      // Lokales Verzeichnis für Bilder erstellen
-      final appDir = await getApplicationDocumentsDirectory();
-      final imagesDir = Directory(p.join(appDir.path, 'images'));
-      await imagesDir.create(recursive: true);
-
-      // Dateiname nach Schema: ID_slug.jpg
-      final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
-      final fileName = '${artikelId}_$nameSlug.jpg';
-      final localImagePath = p.join(imagesDir.path, fileName);
-
-      if (_bildBytes != null) {
-        // Bild aus Bytes speichern
-        final file = File(localImagePath);
-        await file.writeAsBytes(_bildBytes!);
-      } else if (_bildPfad != null) {
-        // Bild aus temporärem Pfad kopieren
-        final sourceFile = File(_bildPfad!);
-        if (await sourceFile.exists()) {
-          await sourceFile.copy(localImagePath);
-        } else {
-          return null;
-        }
-      }
-      
-      return localImagePath;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // ---------- Abbrechen mit Bestätigung ----------
   Future<void> _handleCancel() async {
     if (!_hasUnsavedChanges) {
       Navigator.pop(context);
@@ -170,118 +117,167 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       Navigator.pop(context);
     }
   }
-  // ---------- Speichern mit Upload ----------
-Future<void> _save() async {
-  if (!(_formKey.currentState?.validate() ?? false)) return;
 
-  final menge = int.tryParse(_mengeCtrl.text.trim()) ?? 0;
+  // ==================== SPEICHERN ====================
 
-  setState(() => _isSaving = true);
+  Future<void> _save() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-  try {
-    // --- 1) Artikel zuerst ohne Bildpfad in DB speichern ---
-    final artikel = Artikel(
-      name: _nameCtrl.text.trim(),
-      beschreibung: _beschreibungCtrl.text.trim(),
-      ort: _ortCtrl.text.trim(),
-      fach: _fachCtrl.text.trim(),
-      menge: menge,
-      bildPfad: '', // Wird später aktualisiert
-      remoteBildPfad: '', // Initialwert
-      erstelltAm: DateTime.now(),
-      aktualisiertAm: DateTime.now(),
-    );
-    
-  final dynamic artikelId = await ArtikelDbService().insertArtikel(artikel);
+    final menge = int.tryParse(_mengeCtrl.text.trim()) ?? 0;
+    setState(() => _isSaving = true);
 
-  // Zeile 198 (Nur auf Mobile/Desktop versuchen, lokal zu speichern)
-  String? localImagePath;
-  if (!kIsWeb && (_bildBytes != null || _bildPfad != null)) {
-    localImagePath = await _copyImageToLocalDirectory(
-      artikelId: artikelId is int ? artikelId : 0, 
-      artikelName: _nameCtrl.text.trim(),
-    );
-      
-      if (localImagePath != null) {
-        // Bildpfad in der Datenbank aktualisieren
-        await ArtikelDbService().updateBildPfad(artikelId, localImagePath);
-      }
-    }
+    try {
+      final artikel = Artikel(
+        name: _nameCtrl.text.trim(),
+        beschreibung: _beschreibungCtrl.text.trim(),
+        ort: _ortCtrl.text.trim(),
+        fach: _fachCtrl.text.trim(),
+        menge: menge,
+        bildPfad: '',
+        remoteBildPfad: '',
+        erstelltAm: DateTime.now(),
+        aktualisiertAm: DateTime.now(),
+      );
 
-    // --- 3) Bild zu Nextcloud hochladen, falls vorhanden ---
-    if (localImagePath != null) {
-      final creds = await NextcloudCredentialsStore().read();
-
-      if (creds == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content:
-                  Text('Hinweis: Nextcloud nicht konfiguriert – Bild nicht hochgeladen')),
-        );
+      if (kIsWeb) {
+        // ==================== WEB: PocketBase direkt ====================
+        await _saveWeb(artikel);
       } else {
-        final client = NextcloudWebDavClient(
-          NextcloudConfig(
-            serverBase: creds.server,
-            username: creds.user,
-            appPassword: creds.appPw,
-            baseRemoteFolder: creds.baseFolder,
-          ),
+        // ==================== MOBILE: Lokal + Sync ====================
+        await _saveMobile(artikel);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Speichern: $e')),
         );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
-        // Bildname immer nach Schema: Artikelnr-Slug.jpg
-        final remoteRelPath = _buildRemotePath(
-          baseFolder: client.config.baseRemoteFolder,
-          artikelId: artikelId,
-          artikelName: _nameCtrl.text.trim(),
-        );
+  /// Web: Artikel + Bild direkt in PocketBase speichern
+  Future<void> _saveWeb(Artikel artikel) async {
+    final pb = PocketBaseService().client;
 
-        try {
-          await client.uploadFileNew(
-            localPath: localImagePath,
-            remoteRelativePath: remoteRelPath,
-          );
+    // Artikel in PocketBase erstellen (mit optionalem Bild als Multipart)
+    final body = artikel.toMap();
+    // Entferne lokale Felder die PocketBase nicht braucht
+    body.remove('id');
+    body.remove('bildPfad');
+    body.remove('thumbnailPfad');
+    body.remove('thumbnailEtag');
 
-          // DB mit Remote-Pfad aktualisieren
-          if (!mounted) return; 
-          await ArtikelDbService().updateRemoteBildPfad(artikelId, remoteRelPath);
+    final List<MultipartFile> files = [];
+    if (_bildBytes != null && _bildDateiname != null) {
+      files.add(MultipartFile.fromBytes(
+        'bild', // Feldname in PocketBase Collection
+        _bildBytes!,
+        filename: _bildDateiname!,
+      ));
+    }
 
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Bild erfolgreich zu Nextcloud hochgeladen')),
-          );
-        } on WebDavException catch (e) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Upload fehlgeschlagen: ${e.message}')),
-          );
-        } catch (e) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Upload-Fehler: $e')),
-          );
-        }
+    final record = await pb.collection('artikel').create(
+      body: body,
+      files: files,
+    );
+
+    if (mounted) {
+      setState(() => _hasUnsavedChanges = false);
+      Navigator.of(context).pop(artikel.copyWith(
+        id: null, // PocketBase nutzt String-IDs
+        uuid: record.data['uuid'] ?? artikel.uuid,
+      ));
+    }
+  }
+
+  /// Mobile/Desktop: Lokal speichern + Bild lokal ablegen
+  Future<void> _saveMobile(Artikel artikel) async {
+    final dbService = ArtikelDbService();
+    final artikelId = await dbService.insertArtikel(artikel);
+
+    // Bild lokal speichern
+    String? localImagePath;
+    if (_bildBytes != null || _bildPfad != null) {
+      localImagePath = await platform.copyImageToLocalDirectory(
+        bildBytes: _bildBytes,
+        bildPfad: _bildPfad,
+        artikelId: artikelId,
+        artikelName: _nameCtrl.text.trim(),
+      );
+
+      if (localImagePath != null) {
+        await dbService.updateBildPfad(artikelId, localImagePath);
       }
     }
 
-    // --- 4) Screen schließen ---
+    // Bild zu PocketBase hochladen (im Hintergrund, non-blocking)
+    if (localImagePath != null || _bildBytes != null) {
+      _uploadImageToPocketBase(
+        artikel: artikel,
+        localImagePath: localImagePath,
+        bildBytes: _bildBytes,
+        bildDateiname: _bildDateiname,
+      );
+    }
+
     if (mounted) {
-      setState(() => _hasUnsavedChanges = false); 
+      setState(() => _hasUnsavedChanges = false);
       Navigator.of(context).pop(artikel.copyWith(
         id: artikelId,
         bildPfad: localImagePath ?? '',
       ));
     }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler beim Speichern: $e')),
-      );
-    }
-  } finally {
-    if (mounted) setState(() => _isSaving = false);
   }
-}
+
+  /// Bild im Hintergrund zu PocketBase hochladen
+  Future<void> _uploadImageToPocketBase({
+    required Artikel artikel,
+    String? localImagePath,
+    Uint8List? bildBytes,
+    String? bildDateiname,
+  }) async {
+    try {
+      final pb = PocketBaseService().client;
+
+      // Artikel in PocketBase finden (per UUID)
+      final filter = 'uuid = "${artikel.uuid}"';
+      final list = await pb.collection('artikel').getList(filter: filter);
+
+      if (list.items.isEmpty) return;
+
+      final recordId = list.items.first.id;
+
+      // Bild-Bytes vorbereiten
+      Uint8List bytes;
+      String filename;
+
+      if (bildBytes != null) {
+        bytes = bildBytes;
+        filename = bildDateiname ?? 'bild.jpg';
+      } else if (localImagePath != null) {
+        bytes = await platform.readFileBytes(localImagePath);
+        filename = p.basename(localImagePath);
+      } else {
+        return;
+      }
+
+      // Upload als Multipart
+      await pb.collection('artikel').update(
+        recordId,
+        files: [
+          MultipartFile.fromBytes('bild', bytes, filename: filename),
+        ],
+      );
+
+      debugPrint('[Upload] Bild zu PocketBase hochgeladen: $filename');
+    } catch (e) {
+      debugPrint('[Upload] PocketBase Bild-Upload fehlgeschlagen: $e');
+    }
+  }
+
+  // ==================== UI ====================
 
   @override
   Widget build(BuildContext context) {
@@ -351,8 +347,8 @@ Future<void> _save() async {
                 },
               ),
               const SizedBox(height: spacing),
-              
-              // Bilddatei-Auswahl
+
+              // Bild-Auswahl Buttons
               Row(
                 children: [
                   FilledButton.tonalIcon(
@@ -360,12 +356,15 @@ Future<void> _save() async {
                     icon: const ImageFileIcon(),
                     label: const Text('Bilddatei wählen'),
                   ),
-                  const SizedBox(width: 12),
-                  FilledButton.tonalIcon(
-                    onPressed: _pickImageCamera,
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Kamera'),
-                  ),
+                  // Kamera-Button nur auf Mobile/Desktop
+                  if (!kIsWeb) ...[
+                    const SizedBox(width: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: _pickImageCamera,
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Kamera'),
+                    ),
+                  ],
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -375,6 +374,8 @@ Future<void> _save() async {
                   ),
                 ],
               ),
+
+              // Bild-Vorschau
               if (_bildBytes != null) ...[
                 const SizedBox(height: spacing),
                 AspectRatio(
@@ -385,7 +386,10 @@ Future<void> _save() async {
                   ),
                 ),
               ],
+
               const SizedBox(height: spacing * 1.5),
+
+              // Buttons
               Row(
                 children: [
                   Expanded(
@@ -400,7 +404,8 @@ Future<void> _save() async {
                       onPressed: _isSaving ? null : _save,
                       icon: _isSaving
                           ? const SizedBox(
-                              width: 18, height: 18,
+                              width: 18,
+                              height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Icon(Icons.save),
@@ -416,14 +421,3 @@ Future<void> _save() async {
     );
   }
 }
-
-// Der Bildname in Nextcloud wird jetzt wie folgt erzeugt:
-// Beispiel: 1234-artikelname-datei.jpg
-// Dabei:
-//   1234         = Artikelnummer (ID)
-//   artikelname  = Slug des Artikelnamens (nur Kleinbuchstaben und Bindestriche)
-//   datei.jpg    = Originaldateiname des Bildes
-        // Beispiel für einen Originaldateinamen:
-        // - "foto123.jpg"
-        // - "scan_2024.png"
-        // - "bild.jpg" (Fallback)
