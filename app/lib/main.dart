@@ -1,46 +1,34 @@
-//lib/main.dart
+// lib/main.dart
+
 import 'dart:async';
-import 'services/pocketbase_sync_service.dart';
-import 'services/sync_orchestrator.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:connectivity_plus/connectivity_plus.dart';
 
-//Startpunkt der App
-//Lädt die Artikelliste als Hauptansicht
-//Kann später mit Routing zu weiteren Seiten erweitert werden (z. B. Detailansicht, QR-Scan, Einstellungen)
-
-import 'package:flutter/material.dart';
 import 'screens/artikel_list_screen.dart';
-import 'services/artikel_db_service.backup';
 import 'screens/settings_screen.dart';
+import 'services/pocketbase_service.dart';
+import 'services/artikel_db_service.dart';
+import 'services/pocketbase_sync_service.dart';
+import 'services/sync_orchestrator.dart';
 
-
-// ffi imports (nur für Desktop notwendig)
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
+// Conditional import für dart:io (Platform-Check)
+import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Web braucht nichts, dort funktioniert sqflite nicht
+
+  // Desktop: SQLite FFI initialisieren (nur Mobile/Desktop)
   if (!kIsWeb) {
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      // FFI initialisieren für Desktop
-      sqfliteFfiInit();
-      databaseFactory = databaseFactoryFfi;
-    }
-    // Android/iOS → normales sqflite, keine Init notwendig
+    platform.initDesktopDatabase();
   }
 
-  // Run a single sync at startup (PocketBase is used by default).
-  // NACHHER (vor dem Sync):
+  // PocketBase Service initialisieren (URL aus SharedPreferences laden)
   await PocketBaseService().initialize();
-  final pocket = PocketBaseSyncService('artikel');
-  final orchestrator = SyncOrchestrator(pocket: pocket);
-  await orchestrator.runOnce();
 
+  // App sofort starten – Sync im Hintergrund!
   runApp(const MyApp());
 }
-
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -50,37 +38,67 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  // WiFi-Only-Option (kann später aus Settings geladen werden)
+  // Sync-Konfiguration
   final bool _wifiOnlySync = true;
-  // Periodischer Sync-Timer
   Timer? _syncTimer;
-  final int _syncIntervalMinutes = 15; // Intervall in Minuten
+  final int _syncIntervalMinutes = 15;
+
+  // Sync-Instanzen (einmal erstellen, wiederverwenden)
+  late final PocketBaseSyncService _pocketSync;
+  late final SyncOrchestrator _orchestrator;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _startPeriodicSync();
+
+    _pocketSync = PocketBaseSyncService('artikel');
+    _orchestrator = SyncOrchestrator(pocket: _pocketSync);
+
+    // Sync nur auf Mobile/Desktop – Web braucht keinen Sync
+    if (!kIsWeb) {
+      _runInitialSync();
+      _startPeriodicSync();
+    }
   }
 
+  /// Initialer Sync nach App-Start (non-blocking)
+  Future<void> _runInitialSync() async {
+    try {
+      debugPrint('[Sync] Initialer Sync startet...');
+      await _orchestrator.runOnce();
+      debugPrint('[Sync] Initialer Sync abgeschlossen');
+    } catch (e) {
+      debugPrint('[Sync] Initialer Sync fehlgeschlagen: $e');
+    }
+  }
+
+  /// Periodischer Sync alle X Minuten
   void _startPeriodicSync() {
     _syncTimer?.cancel();
-    _syncTimer = Timer.periodic(Duration(minutes: _syncIntervalMinutes), (timer) async {
-      try {
-        final connectivityResult = await Connectivity().checkConnectivity();
-        if (_wifiOnlySync && connectivityResult != ConnectivityResult.wifi) {
-          debugPrint('[Sync] Übersprungen: Nicht im WLAN (${connectivityResult.name})');
-          return;
-        }
-        debugPrint('[Sync] Periodischer Sync startet um ${DateTime.now()}');
-        final pocket = PocketBaseSyncService('artikel');
-        final orchestrator = SyncOrchestrator(pocket: pocket);
-        await orchestrator.runOnce();
-        debugPrint('[Sync] Periodischer Sync beendet um ${DateTime.now()}');
-      } catch (e) {
-        debugPrint('[Sync] Fehler beim periodischen Sync: $e');
+    _syncTimer = Timer.periodic(
+      Duration(minutes: _syncIntervalMinutes),
+      (_) => _syncIfConnected(),
+    );
+  }
+
+  /// Sync nur wenn Netzwerk verfügbar
+  Future<void> _syncIfConnected() async {
+    try {
+      final connectivityResults = await Connectivity().checkConnectivity();
+
+      // connectivity_plus 5.x+ gibt eine Liste zurück
+      if (_wifiOnlySync && !connectivityResults.contains(ConnectivityResult.wifi)) {
+        debugPrint('[Sync] Übersprungen: Nicht im WLAN');
+        return;
       }
-    });
+
+      debugPrint('[Sync] Periodischer Sync startet um ${DateTime.now()}');
+      await _orchestrator.runOnce();
+      debugPrint('[Sync] Periodischer Sync beendet um ${DateTime.now()}');
+    } catch (e) {
+      debugPrint('[Sync] Fehler beim periodischen Sync: $e');
+    }
   }
 
   @override
@@ -92,18 +110,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached) {
-      // App wird beendet - Datenbank sauber schließen
-      _cleanupResources();
+    switch (state) {
+      case AppLifecycleState.resumed:
+        // App kommt in den Vordergrund → Sync anstoßen
+        if (!kIsWeb) {
+          _syncIfConnected();
+        }
+        break;
+      case AppLifecycleState.detached:
+        // App wird beendet → DB schließen
+        _cleanupResources();
+        break;
+      default:
+        break;
     }
   }
 
   Future<void> _cleanupResources() async {
+    if (kIsWeb) return; // Web hat keine lokale DB
     try {
-      final dbService = ArtikelDbService();
-      await dbService.closeDatabase();
+      await ArtikelDbService().closeDatabase();
     } catch (e) {
-      // Fehler beim Cleanup ignorieren, da App bereits beendet wird
       debugPrint('Cleanup error: $e');
     }
   }
@@ -115,12 +142,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       theme: ThemeData(
         primarySwatch: Colors.blue,
         inputDecorationTheme: const InputDecorationTheme(
-          labelStyle: TextStyle(color: Colors.black), // Label-Schriftfarbe
+          labelStyle: TextStyle(color: Colors.black),
         ),
         textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.black),   // Textfarbe groß
-          bodyMedium: TextStyle(color: Colors.black),  // Textfarbe mittel
-          bodySmall: TextStyle(color: Colors.black),   // Textfarbe klein
+          bodyLarge: TextStyle(color: Colors.black),
+          bodyMedium: TextStyle(color: Colors.black),
+          bodySmall: TextStyle(color: Colors.black),
         ),
       ),
       initialRoute: '/',
