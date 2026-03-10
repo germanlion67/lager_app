@@ -1,4 +1,8 @@
 // lib/screens/artikel_list_screen.dart
+//
+// Hauptscreen: Zeigt die Artikelliste an.
+// Web: Daten direkt von PocketBase.
+// Mobile/Desktop: Daten aus lokaler SQLite DB.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,22 +12,22 @@ import '../services/pocketbase_service.dart';
 import '../services/artikel_import_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/app_log_service.dart';
+import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
 import 'settings_screen.dart';
 
-// Conditional imports
+// Conditional imports: Plattform-spezifische Funktionen
 import 'list_screen_io.dart'
     if (dart.library.html) 'list_screen_stub.dart' as platform;
 
-// PDF nur auf Mobile/Desktop
-import '../services/pdf_service.dart';
+// Conditional imports: PDF & ZIP (nur Mobile/Desktop)
+import 'list_screen_mobile_actions.dart'
+    if (dart.library.html) 'list_screen_mobile_actions_stub.dart'
+    as mobileActions;
 
-// Scanner nur auf Mobile/Desktop
-import '../services/scan_service.dart';
-
-// Nextcloud nur als optionales Backup
+// Nextcloud nur als optionales Backup (nur Mobile)
 import '../services/nextcloud_connection_service.dart';
 
 class ArtikelListScreen extends StatefulWidget {
@@ -38,7 +42,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   String _suchbegriff = '';
   String _filterOrt = '';
   bool _isLoading = true;
-  bool _hasCamera = false;
 
   // PocketBase Verbindungsstatus
   bool? _pbConnected;
@@ -53,7 +56,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     _checkPocketBaseConnection();
 
     if (!kIsWeb) {
-      _checkCameraAvailability();
       _nextcloudService = NextcloudConnectionService();
       _nextcloudService!.startPeriodicCheck();
     }
@@ -73,11 +75,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       if (kIsWeb) {
         // Web: Direkt von PocketBase
         final pb = PocketBaseService().client;
-        final records = await pb.collection('artikel').getFullList(sort: '-created');
-        _artikelListe = records.map((r) => Artikel.fromMap({
-          ...r.data,
-          'id': r.id,
-        })).toList();
+        final records =
+            await pb.collection('artikel').getFullList(sort: '-created');
+        _artikelListe = records
+            .map((r) => Artikel.fromPocketBase(r.data, r.id))
+            .toList();
       } else {
         // Mobile: Aus lokaler DB
         _artikelListe = await ArtikelDbService().getAlleArtikel();
@@ -86,7 +88,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       debugPrint('[ArtikelList] Fehler beim Laden: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Laden: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Fehler beim Laden: $e'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -99,16 +103,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   Future<void> _checkPocketBaseConnection() async {
     final ok = await PocketBaseService().checkHealth();
     if (mounted) setState(() => _pbConnected = ok);
-  }
-
-  Future<void> _checkCameraAvailability() async {
-    if (kIsWeb) return;
-    try {
-      final hasCamera = await platform.checkCamera();
-      if (mounted) setState(() => _hasCamera = hasCamera);
-    } catch (_) {
-      if (mounted) setState(() => _hasCamera = false);
-    }
   }
 
   // ==================== FILTER ====================
@@ -133,7 +127,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
     if (!mounted) return;
     if (result is Artikel) {
-      await _ladeArtikel(); // Komplett neu laden (sicherer als manuelles Hinzufügen)
+      await _ladeArtikel();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Artikel hinzugefügt: ${result.name}')),
@@ -144,7 +138,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== VERBINDUNGS-ICON ====================
 
   Widget _buildConnectionStatusIcon() {
-    // PocketBase Status
     Widget pbIcon;
     String pbTooltip;
 
@@ -165,12 +158,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // PocketBase Status
         GestureDetector(
           onTap: _checkPocketBaseConnection,
           child: Tooltip(message: pbTooltip, child: pbIcon),
         ),
-
         // Nextcloud Status (nur Mobile, optional)
         if (!kIsWeb && _nextcloudService != null) ...[
           const SizedBox(width: 6),
@@ -220,12 +211,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== BILD-WIDGET ====================
 
   Widget _buildArtikelBild(Artikel artikel) {
-    // Web: Bild von PocketBase laden
     if (kIsWeb) {
       return _buildPocketBaseBild(artikel);
     }
 
-    // Mobile: Lokales Bild
     if (artikel.bildPfad.isNotEmpty && platform.fileExists(artikel.bildPfad)) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
@@ -244,13 +233,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   Widget _buildPocketBaseBild(Artikel artikel) {
     try {
       final pb = PocketBaseService().client;
-      // PocketBase Record-ID aus den Daten holen
-      final recordId = artikel.toMap()['id']?.toString();
-      final bildField = artikel.toMap()['bild']?.toString();
+      final data = artikel.toMap();
+      final recordId = data['id']?.toString();
+      final bildField = data['bild']?.toString();
 
       if (recordId != null && bildField != null && bildField.isNotEmpty) {
-        // PocketBase File-URL generieren – benötigt RecordModel
-        final url = '${PocketBaseService().url}/api/files/artikel/$recordId/$bildField';
+        final url =
+            '${PocketBaseService().url}/api/files/artikel/$recordId/$bildField';
         return ClipRRect(
           borderRadius: BorderRadius.circular(6),
           child: Image.network(
@@ -295,7 +284,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ],
         ),
         actions: [
-          // Refresh-Button
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Aktualisieren',
@@ -343,7 +331,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                           child: Text(ort),
                         )),
               ],
-              onChanged: (value) => setState(() => _filterOrt = value ?? ''),
+              onChanged: (value) =>
+                  setState(() => _filterOrt = value ?? ''),
             ),
           ),
 
@@ -355,7 +344,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     ? const Center(
                         child: Text(
                           'Keine Artikel gefunden',
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                          style:
+                              TextStyle(color: Colors.grey, fontSize: 16),
                         ),
                       )
                     : RefreshIndicator(
@@ -376,13 +366,17 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Scanner nur auf Mobile mit Kamera
-          if (!kIsWeb && _hasCamera) ...[
+          // Scanner-Button nur anzeigen wenn verfügbar (Mobile + Kamera)
+          if (ScanService.isAvailable) ...[
             FloatingActionButton(
               heroTag: 'scan',
               onPressed: () async {
                 await ScanService.scanArtikel(
-                    context, _artikelListe, _ladeArtikel, setState);
+                  context,
+                  _artikelListe,
+                  _ladeArtikel,
+                  setState,
+                );
               },
               tooltip: 'Artikel scannen',
               child: const Icon(Icons.qr_code_scanner),
@@ -417,14 +411,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
           Text(
             '${artikel.menge}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            style:
+                const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
         ],
       ),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(artikel.beschreibung, maxLines: 2, overflow: TextOverflow.ellipsis),
+          Text(artikel.beschreibung,
+              maxLines: 2, overflow: TextOverflow.ellipsis),
           Text(
             '${artikel.ort} • ${artikel.fach}',
             style: const TextStyle(
@@ -437,14 +433,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       ),
       isThreeLine: true,
       onTap: () async {
-        final result = await Navigator.of(context).push<Artikel>(
+        await Navigator.of(context).push<Artikel>(
           MaterialPageRoute(
             builder: (_) => ArtikelDetailScreen(artikel: artikel),
           ),
         );
-
         if (!mounted) return;
-        // Immer neu laden – einfacher und sicherer
         await _ladeArtikel();
       },
     );
@@ -460,7 +454,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       case _MenuAction.pdfReports:
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('PDF-Export ist im Web noch nicht verfügbar')),
+            const SnackBar(
+                content: Text('PDF-Export ist im Web nicht verfügbar')),
           );
         } else {
           await _showPdfReportsDialog();
@@ -469,10 +464,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       case _MenuAction.zipBackup:
         if (kIsWeb) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ZIP-Backup ist im Web nicht verfügbar')),
+            const SnackBar(
+                content: Text('ZIP-Backup ist im Web nicht verfügbar')),
           );
         } else {
-          await _showZipBackupDialog();
+          await mobileActions.showZipBackupDialog(context, _ladeArtikel);
         }
         break;
       case _MenuAction.resetDb:
@@ -492,7 +488,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           context,
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
         );
-        // Nach Einstellungen: PB-Verbindung neu prüfen
         _checkPocketBaseConnection();
         break;
     }
@@ -501,7 +496,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   Future<void> _handleResetDb() async {
     if (kIsWeb) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Datenbank-Reset ist im Web nicht verfügbar')),
+        const SnackBar(
+            content: Text('Datenbank-Reset ist im Web nicht verfügbar')),
       );
       return;
     }
@@ -534,7 +530,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       await _ladeArtikel();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lokale Datenbank wurde zurückgesetzt')),
+        const SnackBar(
+            content: Text('Lokale Datenbank wurde zurückgesetzt')),
       );
     }
   }
@@ -591,7 +588,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         ),
       ),
       const PopupMenuDivider(),
-      // Nextcloud nur auf Mobile
       if (!kIsWeb)
         const PopupMenuItem(
           value: _MenuAction.nextcloudSettings,
@@ -626,7 +622,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await ArtikelImportService.importArtikel(context, _ladeArtikel);
+                await ArtikelImportService.importArtikel(
+                    context, _ladeArtikel);
               },
               child: const Row(children: [
                 Icon(Icons.file_upload, color: Colors.blue),
@@ -651,98 +648,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
-  Future<void> _showZipBackupDialog() async {
-    await showDialog(
-      context: context,
-      builder: (ctx) {
-        return SimpleDialog(
-          title: const Text('ZIP-Backup Export/Import'),
-          children: [
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final zipPath = await ArtikelExportService().backupToZipFile(context);
-                if (zipPath != null && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ZIP-Backup lokal gespeichert')),
-                  );
-                }
-              },
-              child: const Row(children: [
-                Icon(Icons.archive, color: Colors.blue),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup lokal exportieren')),
-              ]),
-            ),
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final zipPath = await ArtikelExportService().backupToZipFile(context);
-                if (zipPath != null) {
-                  await ArtikelExportService().backupZipToNextcloud(zipPath);
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ZIP-Backup zu Nextcloud exportiert')),
-                  );
-                }
-              },
-              child: const Row(children: [
-                Icon(Icons.cloud_upload, color: Colors.green),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup zu Nextcloud exportieren')),
-              ]),
-            ),
-            const Divider(),
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final (success, errors) =
-                    await ArtikelImportService.importBackupFromZipService(
-                        reloadArtikel: _ladeArtikel);
-                if (!mounted) return;
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('ZIP-Backup erfolgreich importiert!')),
-                  );
-                } else {
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Fehler beim ZIP-Import'),
-                      content: SingleChildScrollView(child: Text(errors.join('\n'))),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('OK'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-              },
-              child: const Row(children: [
-                Icon(Icons.archive, color: Colors.orange),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup lokal importieren')),
-              ]),
-            ),
-            SimpleDialogOption(
-              onPressed: () async {
-                Navigator.pop(ctx);
-                await ArtikelImportService.importZipBackupAuto(context, _ladeArtikel);
-              },
-              child: const Row(children: [
-                Icon(Icons.cloud_download, color: Colors.purple),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup von Nextcloud importieren')),
-              ]),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   Future<void> _showPdfReportsDialog() async {
     await showDialog(
       context: context,
@@ -753,7 +658,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await _generateArtikelListePdf();
+                await mobileActions.generateArtikelListePdf(
+                    context, _artikelListe);
               },
               child: const Row(children: [
                 Icon(Icons.list_alt, color: Colors.red),
@@ -764,7 +670,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await _generateFilteredArtikelListePdf();
+                await mobileActions.generateFilteredArtikelListePdf(
+                    context, _gefilterteArtikel());
               },
               child: const Row(children: [
                 Icon(Icons.filter_list, color: Colors.orange),
@@ -776,99 +683,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         );
       },
     );
-  }
-
-  // ==================== PDF (nur Mobile) ====================
-
-  Future<void> _generateArtikelListePdf() async {
-    try {
-      await AppLogService().log('PDF-Export gestartet: Komplette Artikelliste');
-      final pdfService = PdfService();
-      final alleArtikel = await ArtikelDbService().getAlleArtikel();
-
-      if (alleArtikel.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Keine Artikel für PDF-Export vorhanden.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-
-      final pdfFile = await pdfService.generateArtikelListePdf(alleArtikel);
-
-      if (pdfFile != null) {
-        await AppLogService().log('PDF erstellt: ${pdfFile.path}');
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Öffnen',
-              onPressed: () async {
-                final success = await PdfService.openPdf(pdfFile.path);
-                if (!success && mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('PDF konnte nicht geöffnet werden')),
-                  );
-                }
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e, stack) {
-      await AppLogService().logError('PDF-Export Fehler: $e', stack);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  Future<void> _generateFilteredArtikelListePdf() async {
-    try {
-      final gefiltert = _gefilterteArtikel(); // Bestehende Methode wiederverwenden!
-
-      if (gefiltert.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Keine gefilterten Artikel vorhanden.'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
-
-      final pdfFile = await PdfService().generateArtikelListePdf(gefiltert);
-
-      if (pdfFile != null && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('PDF erstellt! (${gefiltert.length} Artikel)'),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Öffnen',
-              onPressed: () async {
-                await PdfService.openPdf(pdfFile.path);
-              },
-            ),
-          ),
-        );
-      }
-    } catch (e, stack) {
-      await AppLogService().logError('PDF-Export Fehler: $e', stack);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
   }
 }
 
