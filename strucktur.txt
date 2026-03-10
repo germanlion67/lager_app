@@ -125,3 +125,12 @@ NACHHER (mit Reverse Proxy):
 └──────────┘         └───────────┘           └────────────┘
                      ↑ Alles über EINEN Port!
                        Kein CORS, keine IP nötig
+
+
+So erreichst du alles über einen Port:
+URL	Ziel
+http://server:8081/	Flutter Web App
+http://server:8081/api/...	PocketBase API
+http://server:8081/_/	PocketBase Admin UI
+http://server:8081/api/files/...	Bilder aus PocketBase
+
