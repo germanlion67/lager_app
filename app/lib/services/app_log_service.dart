@@ -1,9 +1,11 @@
-# //lib/services/app_log_service.dart
+// lib/services/app_log_service.dart
 
-import 'dart:io';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
+// Conditional import für Datei-Operationen
+import 'app_log_io.dart'
+    if (dart.library.html) 'app_log_stub.dart' as platform;
 
 class AppLogService {
   static final AppLogService _instance = AppLogService._internal();
@@ -12,18 +14,6 @@ class AppLogService {
 
   final List<String> _webLogs = [];
   List<String> get webLogs => _webLogs;
-
-  // Gibt File? zurück, damit der Compiler weiß: Es kann null sein.
-  Future<File?> _getLogFile() async {
-    if (kIsWeb) return null;
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      return File('${dir.path}/app_debug.log');
-    } catch (e) {
-      debugPrint("Fehler beim Zugriff auf Filesystem: $e");
-      return null;
-    }
-  }
 
   Future<void> log(String message) async {
     final now = DateTime.now().toIso8601String();
@@ -35,11 +25,7 @@ class AppLogService {
       return;
     }
 
-    final file = await _getLogFile();
-    // WICHTIG: Null-Check für den Compiler
-    if (file != null) {
-      await file.writeAsString('$logLine\n', mode: FileMode.append, flush: true);
-    }
+    await platform.appendToLogFile(logLine);
   }
 
   Future<void> logError(String error, [StackTrace? stack]) async {
@@ -53,22 +39,17 @@ class AppLogService {
       return;
     }
 
-    final file = await _getLogFile();
-    if (file != null) {
-      await file.writeAsString('$logLine\n', mode: FileMode.append, flush: true);
-    }
+    await platform.appendToLogFile(logLine);
   }
 
   Future<String> readLog() async {
     if (kIsWeb) {
-      return _webLogs.isEmpty ? 'Keine Logeinträge vorhanden.' : _webLogs.join('\n');
+      return _webLogs.isEmpty
+          ? 'Keine Logeinträge vorhanden.'
+          : _webLogs.join('\n');
     }
 
-    final file = await _getLogFile();
-    if (file != null && await file.exists()) {
-      return await file.readAsString();
-    }
-    return '';
+    return await platform.readLogFile();
   }
 
   Future<void> clearLog() async {
@@ -77,16 +58,13 @@ class AppLogService {
       return;
     }
 
-    final file = await _getLogFile();
-    if (file != null && await file.exists()) {
-      await file.writeAsString('');
-    }
+    await platform.clearLogFile();
   }
 
   static Future<void> showLogDialog(BuildContext context) async {
     final logContent = await AppLogService().readLog();
     if (!context.mounted) return;
-    
+
     await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -94,7 +72,10 @@ class AppLogService {
         content: SizedBox(
           width: double.maxFinite,
           child: SingleChildScrollView(
-            child: Text(logContent.isEmpty ? 'Keine Logeinträge vorhanden.' : logContent),
+            child: Text(
+              logContent.isEmpty ? 'Keine Logeinträge vorhanden.' : logContent,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+            ),
           ),
         ),
         actions: [
