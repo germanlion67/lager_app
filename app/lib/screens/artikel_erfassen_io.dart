@@ -6,6 +6,16 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+/// Liest Datei-Bytes von einem lokalen Pfad.
+Future<Uint8List> readFileBytes(String path) async {
+  return await File(path).readAsBytes();
+}
+
+/// Gibt den Dateinamen aus einem Pfad zurück.
+String getBasename(String path) {
+  return p.basename(path);
+}
+
 String _slug(String input) {
   final s = input.toLowerCase();
   final replaced = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
