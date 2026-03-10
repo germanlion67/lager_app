@@ -4,6 +4,14 @@
 
 import 'dart:typed_data';
 
+Future<Uint8List> readFileBytes(String path) {
+  throw UnsupportedError('readFileBytes ist im Web nicht verfügbar');
+}
+
+String getBasename(String path) {
+  throw UnsupportedError('getBasename ist im Web nicht verfügbar');
+}
+
 Future<String?> copyImageToLocalDirectory({
   Uint8List? bildBytes,
   String? bildPfad,
