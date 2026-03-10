@@ -67,4 +67,27 @@ lib/
     └── nginx.conf                      # Reverse Proxy
 
 
+🔄 Sync-Strategie (Handy)
+┌─────────────────────────────────────────┐
+│            SYNC ENGINE (Handy)          │
+│                                         │
+│  Trigger:                               │
+│  ├── App-Start                          │
+│  ├── Alle 15 Min (Timer)                │
+│  ├── App kommt in Vordergrund           │
+│  ├── Nach jeder Schreib-Operation       │
+│  └── Manuell (Pull-to-Refresh)          │
+│                                         │
+│  Ablauf:                                │
+│  1. Konnektivität prüfen (WiFi-Only?)   │
+│  2. PUSH: Lokale Änderungen hochladen   │
+│  3. PULL: Remote-Änderungen holen       │
+│     (Delta-Sync mit updated_at Filter)  │
+│  4. Konflikte: Server gewinnt           │
+│  5. Last-Sync-Time speichern            │
+│                                         │
+│  Nextcloud (optional):                  │
+│  └── Zusätzlich ZIP-Backup hochladen    │
+└─────────────────────────────────────────┘
+
 
