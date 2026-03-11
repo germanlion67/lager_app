@@ -353,7 +353,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   Future<void> _generateArtikelDetailPdf() async {
     if (kIsWeb) {
-      // PDF-Export im Web – TODO: Kann später mit printing-Package implementiert werden
+      // PDF-Export im Web
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('PDF-Export ist im Web noch nicht verfügbar')),

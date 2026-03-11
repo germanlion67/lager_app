@@ -7,7 +7,7 @@ import 'package:logger/logger.dart';
 import 'package:path/path.dart' as p;
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
-import 'artikel_db_service.backup';
+import 'artikel_db_service.dart';
 import '../models/artikel_model.dart';
 import 'package:flutter/material.dart';
 

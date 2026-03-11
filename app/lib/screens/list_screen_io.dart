@@ -2,13 +2,15 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:camera/camera.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 /// Prüft ob eine Kamera verfügbar ist
 Future<bool> checkCamera() async {
   try {
-    final cameras = await availableCameras();
-    return cameras.isNotEmpty;
+    final controller = MobileScannerController();
+    await controller.start();
+    await controller.stop();
+    return true;
   } catch (_) {
     return false;
   }
@@ -31,11 +33,5 @@ Widget buildFileImage(
     width: width,
     height: height,
     fit: fit,
-    errorBuilder: (_, __, ___) => Container(
-      width: width ?? 50,
-      height: height ?? 50,
-      color: Colors.grey[300],
-      child: const Icon(Icons.broken_image, color: Colors.grey),
-    ),
   );
 }

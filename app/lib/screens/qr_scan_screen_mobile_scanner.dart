@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../services/artikel_db_service.backup';
+import '../services/artikel_db_service.dart';
 import '../models/artikel_model.dart';
 import 'artikel_detail_screen.dart';
 import 'dart:async';

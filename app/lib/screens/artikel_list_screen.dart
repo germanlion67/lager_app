@@ -25,7 +25,7 @@ import 'list_screen_io.dart'
 // Conditional imports: PDF & ZIP (nur Mobile/Desktop)
 import 'list_screen_mobile_actions.dart'
     if (dart.library.html) 'list_screen_mobile_actions_stub.dart'
-    as mobileActions;
+    as mobile_actions;
 
 // Nextcloud nur als optionales Backup (nur Mobile)
 import '../services/nextcloud_connection_service.dart';
@@ -232,7 +232,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   Widget _buildPocketBaseBild(Artikel artikel) {
     try {
-      final pb = PocketBaseService().client;
       final data = artikel.toMap();
       final recordId = data['id']?.toString();
       final bildField = data['bild']?.toString();
@@ -468,7 +467,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 content: Text('ZIP-Backup ist im Web nicht verfügbar')),
           );
         } else {
-          await mobileActions.showZipBackupDialog(context, _ladeArtikel);
+          await mobile_actions.showZipBackupDialog(context, _ladeArtikel);
         }
         break;
       case _MenuAction.resetDb:
@@ -658,7 +657,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await mobileActions.generateArtikelListePdf(
+                await mobile_actions.generateArtikelListePdf(
                     context, _artikelListe);
               },
               child: const Row(children: [
@@ -670,7 +669,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                await mobileActions.generateFilteredArtikelListePdf(
+                await mobile_actions.generateFilteredArtikelListePdf(
                     context, _gefilterteArtikel());
               },
               child: const Row(children: [

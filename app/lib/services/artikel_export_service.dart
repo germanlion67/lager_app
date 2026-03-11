@@ -71,6 +71,7 @@ class ArtikelExportService {
   // ==================== EXPORT DIALOG ====================
 
   Future<void> showExportDialog(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final exportType = await showDialog<String>(
         context: context,
@@ -100,7 +101,7 @@ class ArtikelExportService {
 
       if (exportData.isEmpty) {
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar( 
           const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
         );
         return;
@@ -112,6 +113,8 @@ class ArtikelExportService {
 
       await AppLogService().log('Export gestartet ($exportType)');
 
+      
+
       final savedPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Exportiere Artikeldaten',
         fileName: fileName,
@@ -120,11 +123,13 @@ class ArtikelExportService {
         bytes: bytes,
       );
 
-      if (savedPath != null && context.mounted) {
+      if (savedPath != null) {
         await AppLogService().log('Export erfolgreich: $savedPath');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export erfolgreich: $fileName')),
-        );
+        if (context.mounted) {
+          messenger.showSnackBar(
+            SnackBar(content: Text('Export erfolgreich: $fileName')),
+          );
+        }
       }
     } catch (e, stack) {
       await AppLogService().logError('Fehler beim Export: $e', stack);
@@ -149,13 +154,14 @@ class ArtikelExportService {
 
   /// Web: ZIP-Backup nur mit JSON-Daten (keine lokalen Bilder)
   Future<String?> _backupToZipWeb(BuildContext context) async {
+    final messenger2 = ScaffoldMessenger.of(context);
     await AppLogService().log('ZIP-Backup (Web) gestartet');
 
     try {
       final jsonString = await exportAllArtikelAsJson();
       if (jsonString == '[]') {
         if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger2.showSnackBar(                           
             const SnackBar(content: Text('Keine Artikel für Backup vorhanden')),
           );
         }
@@ -172,6 +178,7 @@ class ArtikelExportService {
       final zipData = ZipEncoder().encode(archive);
       final filename = _buildBackupFilename();
 
+      
       final result = await FilePicker.platform.saveFile(
         dialogTitle: 'Backup als ZIP speichern',
         fileName: filename,
@@ -180,11 +187,13 @@ class ArtikelExportService {
         bytes: Uint8List.fromList(zipData),
       );
 
-      if (result != null && context.mounted) {
+      if (result != null) {
         await AppLogService().log('ZIP-Backup (Web) gespeichert: $filename');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('ZIP-Backup erfolgreich gespeichert')),
-        );
+        if (context.mounted) {
+          messenger2.showSnackBar(
+            const SnackBar(content: Text('ZIP-Backup erfolgreich gespeichert')),
+          );
+        }
       }
 
       return result;

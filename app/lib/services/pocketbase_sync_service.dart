@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:logger/logger.dart';
 import 'pocketbase_service.dart';
 import 'artikel_db_service.dart';
-import '../models/artikel_model.dart';
 
 /// Simple PocketBase sync implementation (push local changes, then pull remote).
 ///
@@ -112,7 +111,7 @@ class PocketBaseSyncService {
           // Remote-Pfad und ETag für Upsert-Logik
           final remotePath = '${r.id}.json';
           final etag =
-              (r.updated != null) ? r.updated.toString() : r.id;
+              r.get<String>('updated').isNotEmpty ? r.get<String>('updated') : r.id;
           final jsonBody = jsonEncode({...data, 'id': r.id});
 
           await db.upsertFromRemote(remotePath, etag, jsonBody);

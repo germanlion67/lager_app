@@ -3,7 +3,6 @@
 // Mobile/Desktop-spezifische Aktionen für den ArtikelListScreen.
 // Enthält PDF-Generierung und ZIP-Backup – beides nur auf Mobile/Desktop.
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../services/pdf_service.dart';
 import '../services/app_log_service.dart';
@@ -18,13 +17,14 @@ Future<void> generateArtikelListePdf(
   List<Artikel> artikelListe,
 ) async {
   try {
+    final messenger = ScaffoldMessenger.of(context);  // ← HIERHER verschoben
     await AppLogService().log('PDF-Export gestartet: Komplette Artikelliste');
     final pdfService = PdfService();
     final alleArtikel = await ArtikelDbService().getAlleArtikel();
 
     if (alleArtikel.isEmpty) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar( 
         const SnackBar(
           content: Text('Keine Artikel für PDF-Export vorhanden.'),
           backgroundColor: Colors.orange,
@@ -35,25 +35,27 @@ Future<void> generateArtikelListePdf(
 
     final pdfFile = await pdfService.generateArtikelListePdf(alleArtikel);
 
-    if (pdfFile != null && context.mounted) {
+    if (pdfFile != null) {
       await AppLogService().log('PDF erstellt: ${pdfFile.path}');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
-          duration: const Duration(seconds: 5),
-          action: SnackBarAction(
-            label: 'Öffnen',
-            onPressed: () async {
-              final success = await PdfService.openPdf(pdfFile.path);
-              if (!success && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('PDF konnte nicht geöffnet werden')),
-                );
-              }
-            },
+      if (context.mounted) {                           // ← eigener if-Block
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Öffnen',
+              onPressed: () async {
+                final success = await PdfService.openPdf(pdfFile.path);
+                if (!success && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('PDF konnte nicht geöffnet werden')),
+                  );
+                }
+              },
+            ),
           ),
-        ),
-      );
+        );
+      }
     }
   } catch (e, stack) {
     await AppLogService().logError('PDF-Export Fehler: $e', stack);

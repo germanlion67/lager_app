@@ -7,14 +7,14 @@
 
 import 'dart:async';
 import 'artikel_db_service.dart';
-import 'database_provider.dart';
+import 'package:sqflite/sqflite.dart';
 
 class TagService {
   static final TagService _instance = TagService._internal();
   factory TagService() => _instance;
   TagService._internal();
 
-  Future<DatabaseProvider> _dbProvider() async {
+  Future<Database> _dbProvider() async {
     return await ArtikelDbService().database;
   }
 

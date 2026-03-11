@@ -58,7 +58,3 @@ Future<String?> copyImageToLocalDirectory({
   }
 }
 
-/// Liest Datei-Bytes von einem lokalen Pfad
-Future<Uint8List> readFileBytes(String path) async {
-  return await File(path).readAsBytes();
-}

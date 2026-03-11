@@ -2,7 +2,6 @@
 
 import 'package:pocketbase/pocketbase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter/foundation.dart';
 import 'dart:developer' as developer;
 
 /// Zentraler PocketBase-Service.
@@ -96,7 +95,7 @@ class PocketBaseService {
   Future<bool> checkHealth() async {
     if (_client == null) return false;
     try {
-      final response = await _client!.health.check();
+      await _client!.health.check();
       developer.log('PocketBase Health-Check OK', name: 'pb');
       return true;
     } catch (e) {

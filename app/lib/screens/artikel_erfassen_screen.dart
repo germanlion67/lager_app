@@ -268,8 +268,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         files: [
           http.MultipartFile.fromBytes(
             'bild',
-             _bildBytes!,
-             filename: _bildDateiname!),
+             bytes,
+             filename: filename),
         ],
       );
 

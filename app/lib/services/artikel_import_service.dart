@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
-import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipDecoder;
+import 'package:archive/archive.dart' show ArchiveFile, ZipDecoder;
 import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'pocketbase_service.dart';
@@ -16,7 +16,7 @@ import 'import_io.dart'
     if (dart.library.html) 'import_stub.dart' as platform;
 
 // Nextcloud-Import (nur Mobile)
-import 'import_nextcloud.dart' as nextcloudImport;
+import 'import_nextcloud.dart' as nextcloud_import;
 
 class ArtikelImportService {
   // ==================== JSON/CSV PARSING ====================
@@ -385,7 +385,7 @@ class ArtikelImportService {
       }
       return;
     }
-    await nextcloudImport.importZipBackupAuto(
+    await nextcloud_import.importZipBackupAuto(
       context,
       reloadArtikel,
       setzePlatzhalter,

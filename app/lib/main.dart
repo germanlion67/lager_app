@@ -82,8 +82,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  /// Sync nur wenn Netzwerk verfügbar
+  /// Sync nur wenn Netzwerk verfügbar (Mobile/Desktop only)
   Future<void> _syncIfConnected() async {
+    if (kIsWeb) return; // ✅ Expliziter Guard – Web braucht keinen lokalen Sync
+
     try {
       final results = await Connectivity().checkConnectivity();
       final isWifi = results.contains(ConnectivityResult.wifi);
@@ -114,12 +116,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       case AppLifecycleState.resumed:
         // App kommt in den Vordergrund → Sync anstoßen
         if (!kIsWeb) {
-          _syncIfConnected();
+          unawaited(_syncIfConnected()); // ✅ unawaited macht Absicht explizit
         }
         break;
       case AppLifecycleState.detached:
         // App wird beendet → DB schließen
-        _cleanupResources();
+        unawaited(_cleanupResources()); // ✅ unawaited macht Absicht explizit
         break;
       default:
         break;

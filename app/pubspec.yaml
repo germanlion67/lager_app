@@ -56,7 +56,7 @@ dependencies:
 
   # ==================== NETZWERK & SYNC ====================
   http: ^1.2.2
-  connectivity_plus: ^5.0.2   # WLAN-Check (nur Mobile)
+  connectivity_plus: ^6.1.1   # WLAN-Check (nur Mobile)
   webdav_client: ^1.0.0       # Nextcloud WebDAV (nur Mobile, ZIP-Backup)
 
   # ==================== SYSTEM ====================
@@ -96,3 +96,6 @@ flutter_launcher_icons:
   windows:
     generate: true
     icon_size: 256
+
+dependency_overrides:
+  connectivity_plus_platform_interface: ^2.0.0  # ✅ Erzwingt kompatible Version
