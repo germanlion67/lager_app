@@ -1,158 +1,339 @@
-System/Role
-- Du bist ein erfahrener Flutter/Dart-Entwickler. Baue eine funktionsfähige App mit sauberer Architektur, robustem Fehlerhandling, guter Performance und Tests.
+# 🧪 Lager App – Prüf- & Fix-Plan
 
-Ziel
-- Implementiere die Kernfunktionen der EV-App: Artikelverwaltung, Bilderfassung (Kamera/Galerie) mit Zuschnitt, Import/Export als ZIP (Nextcloud-kompatibel), Nextcloud-WebDAV-Anbindung, großer Import mit Pagination und Fortschritt, performante Listenansicht mit Lazy Loading.
+Du bist ein erfahrener Flutter-Entwickler. Ich habe eine fertig implementierte
+Flutter Lager-App, die noch **nie manuell getestet** wurde. Hilf mir dabei,
+alle Features systematisch zu testen und Bugs zu fixen.
 
-Projektkontext
-- Dev-Umgebung: Windows + VS Code
-- Projektroot: ev/
-- Relevante bestehende Dateien/Ordner: 
-  - lib/models/artikel_model.dart
-  - lib/services/artikel_db_service.dart
-  - lib/services/nextcloud_webdav_client.dart
-  - lib/services/nextcloud_credentials.dart
-  - lib/services/image_picker.dart
-  - lib/screens/artikel_erfassen_screen.dart
-  - lib/screens/nextcloud_settings_screen.dart
-  - tool/generate_import_dataset.dart
-  - test/performance/import_500_smoke_test.dart
-- ZIP-Export der App: JSON-Format mit Feldern:
-  [{"id":1000,"name":"...","menge":5,"ort":"...","fach":"...","beschreibung":"...","bildPfad":"images/1000_name.jpg","erstelltAm":"ISO8601","aktualisiertAm":"ISO8601","remoteBildPfad":""}]
-- ZIP-Struktur: 
-  import.zip
-  ├─ import.json
-  └─ images/
-     └─ <id>_<slug>.jpg
+## 🏗️ Architektur-Überblick
 
-Tech-Stack/Libs
-- Flutter, Dart, Material 3
-- Lokale DB: sqflite (oder drift, falls sinnvoll) + DAOs
-- Bildaufnahme: image_picker
-- Zuschneiden: image_cropper
-- Bildkompression optional: flutter_image_compress
-- ZIP: archive
-- HTTP/WebDAV: http (oder dio) + WebDAV-Client
-- Tests: flutter_test
+- **Plattformen:** Android (Prio 1), Web (Prio 2), Desktop/Linux (Prio 3)
+- **Sync-Backend:** PocketBase (primär) – SQLite lokal auf Mobile/Desktop
+- **Web:** Direktzugriff auf PocketBase (kein SQLite)
+- **Nextcloud:** Optional, keine Prio
 
-Ausgabe-Regeln (sehr wichtig)
-- Liefere zunächst eine geplante Ordner-/Dateistruktur (File tree).
-- Erstelle danach inkrementell Dateien/Änderungen in Codeblöcken mit 4 Backticks und Sprache.
-- Jeder Codeblock enthält als erste Zeile einen Kommentar mit 'filepath:' und absolutem oder projekt-relativem Pfad.
-- In geänderten Dateien markiere unveränderte Stellen mit // ...existing code...
-- Schreibe lauffähigen Code, der kompiliert (Stub-Implementierungen erlaubt).
-- Erzeuge auch einfache Widget-/Service-Tests.
-- Halte dich an Null-Safety.
+## 📁 Projektstruktur
 
-Datenmodell
-- Artikel:
-  - id (int, PK)
-  - name (String, required)
-  - beschreibung (String?)
-  - ort (String?)
-  - fach (String?)
-  - menge (int, default 0)
-  - bildPfad (String?)        // lokaler Pfad relativ zu App-Storage oder ZIP
-  - remoteBildPfad (String?)  // Nextcloud-Pfad
-  - erstelltAm (DateTime)
-  - aktualisiertAm (DateTime)
-- Mapping zu/from JSON (Export/Import) exakt wie App-Export.
+```
+lib/
+├── main.dart / main_io.dart / main_stub.dart
+├── models/artikel_model.dart
+├── screens/
+│   ├── artikel_list_screen.dart
+│   ├── artikel_detail_screen.dart
+│   ├── artikel_erfassen_screen.dart
+│   ├── conflict_resolution_screen.dart
+│   ├── settings_screen.dart
+│   ├── sync_management_screen.dart
+│   ├── nextcloud_settings_screen.dart
+│   ├── qr_scan_screen_mobile_scanner.dart
+│   └── *_io.dart / *_stub.dart  (Plattform-Splits)
+├── services/
+│   ├── pocketbase_service.dart
+│   ├── pocketbase_sync_service.dart
+│   ├── sync_orchestrator.dart
+│   ├── artikel_db_service.dart
+│   ├── artikel_import_service.dart
+│   ├── artikel_export_service.dart
+│   ├── pdf_service.dart
+│   ├── scan_service.dart
+│   ├── nextcloud_sync_service.dart (optional)
+│   ├── nextcloud_client.dart (optional)
+│   └── tag_service.dart
+└── widgets/
+    ├── sync_conflict_handler.dart
+    ├── sync_error_widgets.dart
+    └── sync_progress_widgets.dart
+```
 
-Kernfunktionen
-1) Artikel-Liste
-   - ListView.builder mit Lazy Loading/Pagination (z. B. pageSize 50)
-   - Suchfeld optional
-   - Tippen öffnet Detail/Erfassen-Screen
-2) Artikel erfassen/bearbeiten
-   - Felder: name, beschreibung, ort, fach, menge
-   - Bild: aufnehmen (Kamera) oder auswählen (Galerie), direkt optional zuschneiden (image_cropper)
-   - Bild lokal speichern als images/<id>_<slug>.jpg
-   - Speichern in DB, aktualisiertAm setzen
-3) Nextcloud-Einstellungen
-   - Felder: Server-URL, Benutzer, Passwort/Token
-   - Buttons: Speichern (größer), Testen, Logout
-4) Import (ZIP)
-   - Einlesen ZIP aus Datei oder Bytes
-   - Streaming-/Datei-basierte Verarbeitung (archive) ohne alles in Memory zu laden
-   - import.json parsen (Streaming oder sequenziell)
-   - Bilder nach images/ kopieren
-   - Import in Batches (z. B. 10–25 Artikel), mit DB-Transaktionen
-   - UI-Fortschrittsdialog: Gesamtfortschritt (0–100%), Status pro Batch, Abbrechen möglich
-5) Export (ZIP)
-   - DB→JSON im App-Format (kompakt, ohne Einrückung)
-   - Bilder einsammeln, ZIP schreiben (Datei-streaming)
-6) Nextcloud-Upload/Download (WebDAV)
-   - Upload einzelner Bilder/ZIP (mit Fortschritt)
-   - Optionen: parallele Uploads begrenzen (z. B. 2–3), Retry mit Backoff
-7) Performance/Memory
-   - Import/Export: keine decodeBytes großer ZIPs in RAM; statt dessen file streaming
-   - Bild-Handling: optional Kompression, nie große Bytearrays unnötig halten
-   - Liste: Pagination, kein komplettes preload
-8) Tests
-   - Smoke-Test für import_500 (existiert)
-   - Unit-Test: Artikel-JSON Mapping
-   - Widget-Test: Fortschrittsdialog rendert Fortschritt
+## ✅ Prüfreihenfolge (nach Priorität)
 
-UI-Flows (kurz)
-- ArtikelListeScreen -> ArtikelErfassenScreen
-- SettingsScreen (Nextcloud) mit Buttons: Save (breiter), Test, Logout
-- Import/Export Screen mit Buttons:
-  - ZIP importieren (öffnet Dateiwähler), zeigt Fortschritt
-  - ZIP exportieren
+### 🥇 Phase 1 – Android (Kern-Features)
 
-Architektur
-- lib/models: DTO/Entity + Mapper
-- lib/services: DB, Import/Export, Nextcloud/WebDAV, Image IO
-- lib/screens: UI
-- lib/widgets: ProgressDialog, ListItems, etc.
+Teste und fixe in dieser Reihenfolge:
 
-Import-Spezifikation (Detail)
-- Erwartet ZIP mit:
-  - import.json (Array kompaktes JSON ohne Einrückung, Felder exakt wie oben)
-  - images/ Ordner mit referenzierten Dateien
-- Import-Strategie:
-  - ZIP auf Disk schreiben (temp)
-  - ArchiveFile über archive (InputFileStream) iterieren
-  - import.json streamen/parsen (falls groß, sonst normal)
-  - Images nacheinander extrahieren, sofort auf Disk speichern
-  - Artikel in Batches einfügen/aktualisieren (Upsert: id als PK)
-  - Fortschritt = processed/total
-  - Abbruch unterstützt
+1. **App startet ohne Crash**
+   - `flutter run -d android`
+   - PocketBase Service initialisiert sich korrekt?
 
-Fehler- und Randfälle
-- Fehlende Bilder: Artikel dennoch importieren, bildPfad leer lassen, warnen
-- Doppelte IDs: Upsert (replace/update)
-- Korruptes JSON/ZIP: sauberer Abbruch, UI-Fehlermeldung
-- Out-of-Memory vermeiden: keine großen Byte-Arrays für komplette ZIPs
+2. **PocketBase Verbindung**
+   - Einstellungen → PocketBase URL setzen
+   - Verbindungstest → grünes Häkchen?
 
-Akzeptanzkriterien
-- 500 Artikel (4032x2268-Bilder ~1.5–2MB) können ohne OOM importiert werden; Dauer < 3 Minuten auf durchschnittlichem Gerät
-- Fortschrittsdialog zeigt nachvollziehbar an (Prozent, Batches)
-- Export erzeugt ZIP mit exakt kompatibler Struktur/JSON
-- Liste scrollt flüssig, lädt seitenweise
-- Settings: Test-Verbindung liefert sinnvolle Fehlermeldungen
-- Unit- und Widget-Tests laufen grün
+3. **Artikel anlegen (Mobile)**
+   - Neuer Artikel → alle Felder ausfüllen
+   - Bild aufnehmen (Kamera)
+   - Speichern → in SQLite lokal?
+   - Sync → in PocketBase angekommen?
 
-Output bitte in dieser Reihenfolge liefern
-1) Dateibaum (nur relevante neue/aktualisierte Dateien)
-2) Modelle + Mapper
-3) DB-Service (Schema, Migrations, DAO/Repository)
-4) Image-Service (Pick, Crop, Save, Compress)
-5) Import/Export-Service (Streaming ZIP, Batches, Progress-API)
-6) Nextcloud-WebDAV-Service (Stub falls nötig, mit Upload/Download und Limitierung)
-7) UI: Screens (Liste, Erfassen, Settings, Import/Export) + ProgressDialog-Widget
-8) Tests: JSON-Mapping, ProgressDialog, Smoke-Test-Verweis
-9) Kurze Anleitung (Befehle unter Windows)
+4. **Artikel bearbeiten**
+   - Artikel öffnen → Felder ändern → Speichern
+   - Sync korrekt?
 
-Besondere Implementierungsdetails/Tipps
-- Verwende für den Fortschritt ein ChangeNotifier/Stream oder ValueNotifier<double>
-- Batch-Größe als Konstante konfigurierbar (z. B. const importBatchSize = 10)
-- Für ZIP: archive + InputFileStream/OutputFileStream (keine decodeBytes großer Dateien)
-- Für Bilder: bei Kamera/Galerie optional image_cropper; beim Speichern Dateiname <id>_<slug>.jpg
-- Slug aus name: lowercase, whitespace→-, nur [a-z0-9-]
-- Zeiten als ISO8601 mit toIso8601String()
+5. **Artikel löschen**
+   - Löschen → aus SQLite entfernt?
+   - Sync → aus PocketBase entfernt?
 
-Offene Punkte (falls unklar, Annahmen treffen und dokumentieren)
-- DB: sqflite vs. drift (wenn unklar, nimm sqflite)
-- Nextcloud Auth: Basic Auth mit App-Token (falls unklar)
-- Bildkompression: optional; Default Qualität 90
+6. **QR/Barcode Scanner**
+   - Scanner öffnen → Kamera startet?
+   - QR-Code scannen → Artikel gefunden?
+
+7. **PocketBase Sync (Push/Pull)**
+   - Artikel auf Gerät A anlegen
+   - Sync auf Gerät B → Artikel erscheint?
+   - Konflikt erzeugen → Conflict Resolution Screen?
+
+8. **Import (CSV/JSON/ZIP)**
+   - Testdatei importieren
+   - Artikel korrekt in SQLite?
+   - Sync zu PocketBase?
+
+9. **Export (CSV/JSON/ZIP)**
+   - Exportieren → Datei korrekt?
+   - ZIP enthält Bilder?
+
+10. **PDF Export**
+    - Artikel-Liste als PDF exportieren
+    - PDF korrekt gerendert?
+
+---
+
+### 🥈 Phase 2 – Web
+
+1. **App startet im Browser**
+   - `flutter run -d chrome`
+   - PocketBase direkt erreichbar?
+
+2. **Artikel anlegen (Web)**
+   - Direkt in PocketBase gespeichert?
+   - Bild-Upload zu PocketBase?
+
+3. **Artikel-Liste**
+   - Daten von PocketBase geladen?
+   - Bilder korrekt angezeigt?
+
+4. **Import/Export (Web)**
+   - CSV/JSON Import → PocketBase?
+   - Export → ZIP ohne lokale Bilder?
+
+5. **QR-Scanner (Web)**
+   - Muss `UnsupportedError` werfen → korrekt abgefangen?
+   - Fehlermeldung für User sichtbar?
+
+---
+
+### 🥉 Phase 3 – Desktop (Linux)
+
+1. **App startet**
+   - `flutter run -d linux`
+   - Gleiche Prüfung wie Android
+
+2. **SQLite lokal**
+   - Daten werden gespeichert?
+
+3. **PocketBase Sync**
+   - Sync funktioniert wie auf Android?
+
+---
+
+### 🔵 Phase 4 – Nextcloud (Optional, niedrige Prio)
+
+1. Nextcloud-Credentials eingeben
+2. Datei-Backup starten
+3. Bilder in Nextcloud vorhanden?
+4. Import aus Nextcloud?
+
+---
+
+## 🐛 Bekannte Risikobereiche
+
+| Bereich | Risiko | Warum |
+|---|---|---|
+| PocketBase Sync | 🔴 Hoch | Nie getestet, komplexe Push/Pull Logik |
+| QR-Scanner Web | 🟡 Mittel | `UnsupportedError` – muss sauber abgefangen werden |
+| Conflict Resolution | 🟡 Mittel | Screen vorhanden – wird er je aufgerufen? |
+| PDF Export | 🟡 Mittel | Stub vorhanden – funktioniert auf allen Plattformen? |
+| Import 500 Artikel | 🟡 Mittel | Performance-Test fehlt noch |
+| Nextcloud Sync | 🟢 Niedrig | Optional – keine Prio |
+
+---
+
+## 🔧 Arbeitsweise
+
+Wenn ich dir eine Datei zeige oder einen Fehler beschreibe:
+1. Analysiere das Problem
+2. Erkläre die Ursache kurz
+3. Liefere den fertigen Fix-Code
+4. Sag mir was ich danach testen soll
+
+Starte mit: **"Zeig mir zuerst den Inhalt von `lib/main.dart`"**# 🧪 Lager App – Prüf- & Fix-Plan
+
+Du bist ein erfahrener Flutter-Entwickler. Ich habe eine fertig implementierte
+Flutter Lager-App, die noch **nie manuell getestet** wurde. Hilf mir dabei,
+alle Features systematisch zu testen und Bugs zu fixen.
+
+## 🏗️ Architektur-Überblick
+
+- **Plattformen:** Android (Prio 1), Web (Prio 2), Desktop/Linux (Prio 3)
+- **Sync-Backend:** PocketBase (primär) – SQLite lokal auf Mobile/Desktop
+- **Web:** Direktzugriff auf PocketBase (kein SQLite)
+- **Nextcloud:** Optional, keine Prio
+
+## 📁 Projektstruktur
+
+```
+lib/
+├── main.dart / main_io.dart / main_stub.dart
+├── models/artikel_model.dart
+├── screens/
+│   ├── artikel_list_screen.dart
+│   ├── artikel_detail_screen.dart
+│   ├── artikel_erfassen_screen.dart
+│   ├── conflict_resolution_screen.dart
+│   ├── settings_screen.dart
+│   ├── sync_management_screen.dart
+│   ├── nextcloud_settings_screen.dart
+│   ├── qr_scan_screen_mobile_scanner.dart
+│   └── *_io.dart / *_stub.dart  (Plattform-Splits)
+├── services/
+│   ├── pocketbase_service.dart
+│   ├── pocketbase_sync_service.dart
+│   ├── sync_orchestrator.dart
+│   ├── artikel_db_service.dart
+│   ├── artikel_import_service.dart
+│   ├── artikel_export_service.dart
+│   ├── pdf_service.dart
+│   ├── scan_service.dart
+│   ├── nextcloud_sync_service.dart (optional)
+│   ├── nextcloud_client.dart (optional)
+│   └── tag_service.dart
+└── widgets/
+    ├── sync_conflict_handler.dart
+    ├── sync_error_widgets.dart
+    └── sync_progress_widgets.dart
+```
+
+## ✅ Prüfreihenfolge (nach Priorität)
+
+### 🥇 Phase 1 – Android (Kern-Features)
+
+Teste und fixe in dieser Reihenfolge:
+
+1. **App startet ohne Crash**
+   - `flutter run -d android`
+   - PocketBase Service initialisiert sich korrekt?
+
+2. **PocketBase Verbindung**
+   - Einstellungen → PocketBase URL setzen
+   - Verbindungstest → grünes Häkchen?
+
+3. **Artikel anlegen (Mobile)**
+   - Neuer Artikel → alle Felder ausfüllen
+   - Bild aufnehmen (Kamera)
+   - Speichern → in SQLite lokal?
+   - Sync → in PocketBase angekommen?
+
+4. **Artikel bearbeiten**
+   - Artikel öffnen → Felder ändern → Speichern
+   - Sync korrekt?
+
+5. **Artikel löschen**
+   - Löschen → aus SQLite entfernt?
+   - Sync → aus PocketBase entfernt?
+
+6. **QR/Barcode Scanner**
+   - Scanner öffnen → Kamera startet?
+   - QR-Code scannen → Artikel gefunden?
+
+7. **PocketBase Sync (Push/Pull)**
+   - Artikel auf Gerät A anlegen
+   - Sync auf Gerät B → Artikel erscheint?
+   - Konflikt erzeugen → Conflict Resolution Screen?
+
+8. **Import (CSV/JSON/ZIP)**
+   - Testdatei importieren
+   - Artikel korrekt in SQLite?
+   - Sync zu PocketBase?
+
+9. **Export (CSV/JSON/ZIP)**
+   - Exportieren → Datei korrekt?
+   - ZIP enthält Bilder?
+
+10. **PDF Export**
+    - Artikel-Liste als PDF exportieren
+    - PDF korrekt gerendert?
+
+---
+
+### 🥈 Phase 2 – Web
+
+1. **App startet im Browser**
+   - `flutter run -d chrome`
+   - PocketBase direkt erreichbar?
+
+2. **Artikel anlegen (Web)**
+   - Direkt in PocketBase gespeichert?
+   - Bild-Upload zu PocketBase?
+
+3. **Artikel-Liste**
+   - Daten von PocketBase geladen?
+   - Bilder korrekt angezeigt?
+
+4. **Import/Export (Web)**
+   - CSV/JSON Import → PocketBase?
+   - Export → ZIP ohne lokale Bilder?
+
+5. **QR-Scanner (Web)**
+   - Muss `UnsupportedError` werfen → korrekt abgefangen?
+   - Fehlermeldung für User sichtbar?
+
+---
+
+### 🥉 Phase 3 – Desktop (Linux)
+
+1. **App startet**
+   - `flutter run -d linux`
+   - Gleiche Prüfung wie Android
+
+2. **SQLite lokal**
+   - Daten werden gespeichert?
+
+3. **PocketBase Sync**
+   - Sync funktioniert wie auf Android?
+
+---
+
+### 🔵 Phase 4 – Nextcloud (Optional, niedrige Prio)
+
+1. Nextcloud-Credentials eingeben
+2. Datei-Backup starten
+3. Bilder in Nextcloud vorhanden?
+4. Import aus Nextcloud?
+
+---
+
+## 🐛 Bekannte Risikobereiche
+
+| Bereich | Risiko | Warum |
+|---|---|---|
+| PocketBase Sync | 🔴 Hoch | Nie getestet, komplexe Push/Pull Logik |
+| QR-Scanner Web | 🟡 Mittel | `UnsupportedError` – muss sauber abgefangen werden |
+| Conflict Resolution | 🟡 Mittel | Screen vorhanden – wird er je aufgerufen? |
+| PDF Export | 🟡 Mittel | Stub vorhanden – funktioniert auf allen Plattformen? |
+| Import 500 Artikel | 🟡 Mittel | Performance-Test fehlt noch |
+| Nextcloud Sync | 🟢 Niedrig | Optional – keine Prio |
+
+---
+
+## 🔧 Arbeitsweise
+
+Wenn ich dir eine Datei zeige oder einen Fehler beschreibe:
+1. Analysiere das Problem
+2. Erkläre die Ursache kurz
+3. Liefere den fertigen Fix-Code
+4. Sag mir was ich danach testen soll
+5.Schreibe lauffähigen Code, der kompiliert (Stub-Implementierungen erlaubt).
+6. Erzeuge auch einfache Widget-/Service-Tests.
+7. Halte dich an Null-Safety.
+
+
+Starte mit: **"Zeig mir zuerst den Inhalt von `lib/main.dart`"**
