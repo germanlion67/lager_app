@@ -2,31 +2,38 @@
 //
 // Datenmodell für Artikel (Elektronikbauteile).
 // Kompatibel mit SQLite (lokal) UND PocketBase (remote).
+//
+// Änderungen gegenüber Vorversion:
+// - UUID-Generierung → UuidGenerator (kryptografisch sicher)
+// - toPocketBaseMap() → exakt passend zum echten PB-Schema (camelCase)
+// - fromPocketBase() → liest PB-Felder korrekt (camelCase, bool, kein .json)
+// - fromMap()        → unterstützt snake_case (SQLite) UND camelCase (PocketBase)
+// - isValid()        → prüft jetzt auch menge >= 0
 
 import 'dart:convert';
-import 'dart:math';
+import '../utils/uuid_generator.dart';
 
 class Artikel {
-  final int? id; // SQLite Auto-Increment ID (lokal)
+  final int? id; // SQLite Auto-Increment ID (nur lokal, nie zu PB senden)
   final String name;
   final int menge;
   final String ort;
   final String fach;
   final String beschreibung;
-  final String bildPfad; // Lokaler Bildpfad (Mobile/Desktop)
+  final String bildPfad; // Lokaler Bildpfad (nur Mobile/Desktop)
   final String? thumbnailPfad;
   final String? thumbnailEtag;
   final DateTime erstelltAm;
   final DateTime aktualisiertAm;
-  final String? remoteBildPfad; // PocketBase Bild-URL oder Dateiname
+  final String? remoteBildPfad; // PocketBase Dateiname (aus 'bild'-Feld)
 
   // Sync-Felder
-  final String uuid; // UUID für eindeutige Identifikation über alle Geräte
+  final String uuid; // Eindeutiger Schlüssel über alle Geräte
   final int updatedAt; // Milliseconds seit Epoch (UTC) für Sync-Erkennung
-  final bool deleted; // Soft Delete Flag
-  final String? etag; // PocketBase Record-ID oder Update-Timestamp für Konflikterkennung
-  final String? remotePath; // PocketBase Record-ID (z.B. "abc123def456789")
-  final String? deviceId; // ID des Geräts, das zuletzt geändert hat
+  final bool deleted; // Soft-Delete Flag
+  final String? etag; // PocketBase Record-ID für Konflikterkennung
+  final String? remotePath; // PocketBase Record-ID (z.B. "abc123def456xyz")
+  final String? deviceId; // Gerät, das zuletzt geändert hat
 
   Artikel({
     this.id,
@@ -47,26 +54,14 @@ class Artikel {
     this.etag,
     this.remotePath,
     this.deviceId,
-  })  : uuid = uuid ?? _generateUUID(),
+  })  : uuid = uuid ?? UuidGenerator.generate(),
         updatedAt = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
-
-  // ==================== UUID ====================
-
-  static String _generateUUID() {
-    return '${_randomHex(8)}-${_randomHex(4)}-${_randomHex(4)}-${_randomHex(4)}-${_randomHex(12)}';
-  }
-
-  static String _randomHex(int length) {
-    final random = Random();
-    const chars = '0123456789abcdef';
-    return String.fromCharCodes(
-      Iterable.generate(length, (_) => chars.codeUnitAt(random.nextInt(16))),
-    );
-  }
 
   // ==================== SERIALISIERUNG ====================
 
-  /// Konvertierung in Map für SQLite (enthält lokale `id`).
+  /// Konvertierung in Map für SQLite.
+  /// Enthält lokale Felder (id, bildPfad, thumbnail etc.).
+  /// Feldnamen: snake_case (SQLite-Konvention).
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -82,17 +77,22 @@ class Artikel {
       'aktualisiertAm': aktualisiertAm.toIso8601String(),
       'remoteBildPfad': remoteBildPfad,
       'uuid': uuid,
-      'updated_at': updatedAt,
-      'deleted': deleted ? 1 : 0,
+      'updated_at': updatedAt, // SQLite: snake_case
+      'deleted': deleted ? 1 : 0, // SQLite: bool als int
       'etag': etag,
-      'remote_path': remotePath,
-      'device_id': deviceId,
+      'remote_path': remotePath, // SQLite: snake_case
+      'device_id': deviceId, // SQLite: snake_case
     };
   }
 
   /// Konvertierung in Map für PocketBase API.
-  /// Enthält KEINE lokale SQLite-`id` und keine lokalen Pfade.
-  /// SQLite-spezifische Felder (thumbnailPfad etc.) werden nicht gesendet.
+  ///
+  /// ⚠️  Wichtige Regeln:
+  /// - Feldnamen: camelCase (exakt wie im PB-Schema definiert)
+  /// - KEINE lokale SQLite-id senden
+  /// - KEINE lokalen Pfade senden (bildPfad, thumbnailPfad etc.)
+  /// - KEIN 'bild' hier → separater Multipart-Upload nötig!
+  /// - KEIN 'created'/'updated' → PocketBase setzt diese automatisch
   Map<String, dynamic> toPocketBaseMap() {
     return {
       'name': name,
@@ -100,16 +100,27 @@ class Artikel {
       'ort': ort,
       'fach': fach,
       'beschreibung': beschreibung,
-      'erstelltAm': erstelltAm.toIso8601String(),
-      'aktualisiertAm': aktualisiertAm.toIso8601String(),
       'uuid': uuid,
-      'updated_at': updatedAt,
-      'deleted': deleted,
-      'device_id': deviceId,
+      'updatedAt': updatedAt, // ✅ PB-Schema: camelCase
+      'deleted': deleted, // ✅ PB-Schema: bool direkt (nicht 0/1)
+      'etag': etag,
+      'remotePath': remotePath, // ✅ PB-Schema: camelCase
+      'deviceId': deviceId, // ✅ PB-Schema: camelCase
+      // 'bild'          → separater Multipart-Upload!
+      // 'created'       → PocketBase autodate, nicht senden
+      // 'updated'       → PocketBase autodate, nicht senden
+      // 'id'            → nur bei Update als URL-Parameter, nie im Body
     };
   }
 
-  /// Konstruktor aus Map – kompatibel mit SQLite UND PocketBase.
+  /// Konstruktor aus Map.
+  ///
+  /// Unterstützt BEIDE Quellen:
+  /// - SQLite: snake_case Feldnamen (updated_at, remote_path, device_id)
+  /// - PocketBase: camelCase Feldnamen (updatedAt, remotePath, deviceId)
+  ///
+  /// Bei Konflikten gilt: snake_case hat Vorrang (SQLite ist primäre Quelle
+  /// für fromMap; für PocketBase-Records → fromPocketBase() verwenden).
   factory Artikel.fromMap(Map<String, dynamic> map) {
     return Artikel(
       // SQLite liefert int, PocketBase liefert String oder null für 'id'
@@ -124,26 +135,33 @@ class Artikel {
       bildPfad: map['bildPfad']?.toString() ?? '',
       thumbnailPfad: map['thumbnailPfad']?.toString(),
       thumbnailEtag: map['thumbnailEtag']?.toString(),
-      // PocketBase verwendet 'created'/'updated', SQLite 'erstelltAm'/'aktualisiertAm'
       erstelltAm: _parseDateTime(map['erstelltAm'] ?? map['created']),
       aktualisiertAm: _parseDateTime(map['aktualisiertAm'] ?? map['updated']),
       remoteBildPfad: map['remoteBildPfad']?.toString(),
-      // Sync-Felder
-      uuid: map['uuid']?.toString() ?? _generateUUID(),
-      updatedAt: map['updated_at'] is int
-          ? map['updated_at'] as int
-          : int.tryParse(map['updated_at']?.toString() ?? '') ??
-              DateTime.now().millisecondsSinceEpoch,
-      // SQLite speichert bool als int (0/1), PocketBase als bool
+      uuid: map['uuid']?.toString() ?? UuidGenerator.generate(),
+
+      // ✅ snake_case (SQLite) hat Vorrang, camelCase (PB) als Fallback
+      updatedAt: _parseInt(map['updated_at'] ?? map['updatedAt']),
+
+      // ✅ SQLite: int (0/1) | PocketBase: bool → beide Formate abfangen
       deleted: map['deleted'] == 1 || map['deleted'] == true,
+
       etag: map['etag']?.toString(),
-      remotePath: map['remote_path']?.toString(),
-      deviceId: map['device_id']?.toString(),
+
+      // ✅ snake_case (SQLite) hat Vorrang, camelCase (PB) als Fallback
+      remotePath:
+          map['remote_path']?.toString() ?? map['remotePath']?.toString(),
+      deviceId: map['device_id']?.toString() ?? map['deviceId']?.toString(),
     );
   }
 
   /// Konstruktor speziell für PocketBase Records.
-  /// Mappt PocketBase-spezifische Felder korrekt.
+  ///
+  /// Mappt PocketBase-spezifische Felder korrekt:
+  /// - camelCase Feldnamen (updatedAt, remotePath, deviceId)
+  /// - 'bild' → remoteBildPfad
+  /// - 'created'/'updated' → erstelltAm/aktualisiertAm
+  /// - recordId → etag UND remotePath (nur die ID, kein '.json'!)
   factory Artikel.fromPocketBase(Map<String, dynamic> data, String recordId) {
     return Artikel(
       id: null, // PocketBase hat keine int-IDs
@@ -154,25 +172,32 @@ class Artikel {
       ort: data['ort']?.toString() ?? '',
       fach: data['fach']?.toString() ?? '',
       beschreibung: data['beschreibung']?.toString() ?? '',
-      bildPfad: '', // Lokal nicht vorhanden bei PB-Records
-      erstelltAm: _parseDateTime(data['erstelltAm'] ?? data['created']),
-      aktualisiertAm: _parseDateTime(data['aktualisiertAm'] ?? data['updated']),
-      remoteBildPfad: data['remoteBildPfad']?.toString(),
-      uuid: data['uuid']?.toString() ?? _generateUUID(),
-      updatedAt: data['updated_at'] is int
-          ? data['updated_at'] as int
-          : int.tryParse(data['updated_at']?.toString() ?? '') ??
-              DateTime.now().millisecondsSinceEpoch,
-      deleted: data['deleted'] == 1 || data['deleted'] == true,
-      etag: recordId, // PocketBase Record-ID als ETag
-      remotePath: '$recordId.json',
-      deviceId: data['device_id']?.toString(),
+      bildPfad: '', // Kein lokaler Pfad bei PB-Records
+      erstelltAm: _parseDateTime(data['created']), // ✅ PB autodate-Feld
+      aktualisiertAm: _parseDateTime(data['updated']), // ✅ PB autodate-Feld
+      remoteBildPfad: data['bild']?.toString(), // ✅ PB file-Feld heißt 'bild'
+      uuid: data['uuid']?.toString() ?? UuidGenerator.generate(),
+
+      // ✅ PB liefert camelCase
+      updatedAt: _parseInt(data['updatedAt']),
+
+      // ✅ PB liefert bool direkt
+      deleted: data['deleted'] == true,
+
+      etag: data['etag']?.toString() ?? recordId,
+
+      // ✅ Nur die Record-ID – kein '.json' Suffix!
+      remotePath: recordId,
+
+      // ✅ PB liefert camelCase
+      deviceId: data['deviceId']?.toString(),
     );
   }
 
   // ==================== HELPER ====================
 
-  /// Parst verschiedene DateTime-Formate (ISO 8601, PocketBase-Format).
+  /// Parst verschiedene DateTime-Formate sicher.
+  /// Unterstützt: ISO 8601, PocketBase-Format, DateTime-Objekte.
   static DateTime _parseDateTime(dynamic value) {
     if (value == null) return DateTime.now();
     if (value is DateTime) return value;
@@ -181,6 +206,16 @@ class Artikel {
     } catch (_) {
       return DateTime.now();
     }
+  }
+
+  /// Parst int-Werte sicher aus verschiedenen Typen.
+  /// Unterstützt: int, String, null.
+  static int _parseInt(dynamic value) {
+    if (value == null) return DateTime.now().millisecondsSinceEpoch;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    return int.tryParse(value.toString()) ??
+        DateTime.now().millisecondsSinceEpoch;
   }
 
   // ==================== COPY WITH ====================
@@ -229,26 +264,32 @@ class Artikel {
 
   // ==================== JSON ====================
 
-  /// JSON Serialisierung (für Export/Backup).
+  /// JSON-Serialisierung (für Export/Backup).
+  /// Verwendet toMap() → snake_case Format.
   String toJson() => json.encode(toMap());
 
   factory Artikel.fromJson(String source) =>
-      Artikel.fromMap(json.decode(source));
+      Artikel.fromMap(json.decode(source) as Map<String, dynamic>);
 
   // ==================== VALIDIERUNG ====================
 
-  /// Prüft ob die Pflichtfelder ausgefüllt sind.
+  /// Prüft ob alle Pflichtfelder korrekt ausgefüllt sind.
   bool isValid() {
     return name.trim().isNotEmpty &&
         ort.trim().isNotEmpty &&
-        fach.trim().isNotEmpty;
+        fach.trim().isNotEmpty &&
+        menge >= 0; // ✅ Negative Mengen sind kein gültiger Lagerbestand
   }
+
+  // ==================== OBJECT OVERRIDES ====================
 
   @override
   String toString() {
-    return 'Artikel(uuid: $uuid, name: $name, menge: $menge, ort: $ort, fach: $fach)';
+    return 'Artikel(uuid: $uuid, name: $name, menge: $menge, '
+        'ort: $ort, fach: $fach, deleted: $deleted)';
   }
 
+  /// Gleichheit basiert auf UUID – eindeutig über alle Geräte.
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;

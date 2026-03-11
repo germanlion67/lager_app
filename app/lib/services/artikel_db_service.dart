@@ -14,6 +14,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/artikel_model.dart';
+import '../utils/uuid_generator.dart';
 
 // Conditional Import: dart:io nur auf Mobile/Desktop
 import 'artikel_db_platform_io.dart'
@@ -140,7 +141,7 @@ class ArtikelDbService {
   Future<void> _generateUUIDsForExistingRecords(Database db) async {
     final existing = await db.query('artikel', where: 'uuid IS NULL OR uuid = ""');
     for (final article in existing) {
-      final uuid = _generateUUID();
+      final uuid = UuidGenerator.generate();
       await db.update(
         'artikel',
         {'uuid': uuid, 'updated_at': DateTime.now().millisecondsSinceEpoch},
@@ -390,29 +391,4 @@ class ArtikelDbService {
   }
 
   // ==================== HELPER ====================
-
-  static String _generateUUID() {
-    return '${_randomHex(8)}-${_randomHex(4)}-${_randomHex(4)}-${_randomHex(4)}-${_randomHex(12)}';
-  }
-
-  static String _randomHex(int length) {
-    final random = Random();
-    const chars = '0123456789abcdef';
-    return String.fromCharCodes(
-      Iterable.generate(length, (_) => chars.codeUnitAt(random.nextInt(16))),
-    );
-  }
-
-  // ==================== DEBUG ====================
-
-  Future<int> debugCountArtikel() async {
-    final db = await database;
-    final rows = await db.rawQuery('SELECT COUNT(*) as c FROM artikel');
-    return (rows.first['c'] as int?) ?? 0;
-  }
-
-  Future<List<Map<String, dynamic>>> debugDumpArtikel({int limit = 50}) async {
-    final db = await database;
-    return await db.rawQuery('SELECT * FROM artikel LIMIT ?', [limit]);
-  }
 }
