@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/artikel_list_screen.dart';
 import 'screens/settings_screen.dart';
@@ -12,21 +13,25 @@ import 'services/artikel_db_service.dart';
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
 
-// Conditional import für dart:io (Platform-Check)
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Desktop: SQLite FFI initialisieren (nur Mobile/Desktop)
   if (!kIsWeb) {
     platform.initDesktopDatabase();
   }
 
-  // PocketBase Service initialisieren (URL aus SharedPreferences laden)
   await PocketBaseService().initialize();
 
-  // App sofort starten – Sync im Hintergrund!
+  if (!kIsWeb) {
+    PocketBaseService().checkHealth().then((ok) {
+      debugPrint(ok
+          ? '[Main] ✅ PocketBase erreichbar'
+          : '[Main] ⚠️ PocketBase nicht erreichbar beim Start');
+    });
+  }
+
   runApp(const MyApp());
 }
 
@@ -38,12 +43,13 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
-  // Sync-Konfiguration
-  final bool _wifiOnlySync = true;
+  bool _wifiOnlySync = true;
   Timer? _syncTimer;
   final int _syncIntervalMinutes = 15;
 
-  // Sync-Instanzen (einmal erstellen, wiederverwenden)
+  // ✅ Fix Bug 2: Alle Instanzen einmal erstellen und speichern
+  late final ArtikelDbService _db;
+  late final PocketBaseService _pbService;
   late final PocketBaseSyncService _pocketSync;
   late final SyncOrchestrator _orchestrator;
 
@@ -52,17 +58,29 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _pocketSync = PocketBaseSyncService('artikel');
+    // ✅ Fix Bug 1 + 2: Instanzen einmal erstellen, dann injizieren
+    _db = ArtikelDbService();
+    _pbService = PocketBaseService();
+    _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
     _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
-    // Sync nur auf Mobile/Desktop – Web braucht keinen Sync
     if (!kIsWeb) {
-      _runInitialSync();
-      _startPeriodicSync();
+      _loadSyncSettings().then((_) {
+        _runInitialSync();
+        _startPeriodicSync();
+      });
     }
   }
 
-  /// Initialer Sync nach App-Start (non-blocking)
+  Future<void> _loadSyncSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _wifiOnlySync = prefs.getBool('wifi_only_sync') ?? true;
+      });
+    }
+  }
+
   Future<void> _runInitialSync() async {
     try {
       debugPrint('[Sync] Initialer Sync startet...');
@@ -73,7 +91,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  /// Periodischer Sync alle X Minuten
   void _startPeriodicSync() {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(
@@ -82,9 +99,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  /// Sync nur wenn Netzwerk verfügbar (Mobile/Desktop only)
   Future<void> _syncIfConnected() async {
-    if (kIsWeb) return; // ✅ Expliziter Guard – Web braucht keinen lokalen Sync
+    if (kIsWeb) return;
 
     try {
       final results = await Connectivity().checkConnectivity();
@@ -107,6 +123,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _syncTimer?.cancel();
+    _orchestrator.dispose(); // ✅ Fix Bug 3: StreamController sauber schließen
     super.dispose();
   }
 
@@ -114,14 +131,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        // App kommt in den Vordergrund → Sync anstoßen
         if (!kIsWeb) {
-          unawaited(_syncIfConnected()); // ✅ unawaited macht Absicht explizit
+          unawaited(_syncIfConnected());
         }
         break;
+      case AppLifecycleState.paused:
+        unawaited(_cleanupResources());
+        break;
       case AppLifecycleState.detached:
-        // App wird beendet → DB schließen
-        unawaited(_cleanupResources()); // ✅ unawaited macht Absicht explizit
+        unawaited(_cleanupResources());
         break;
       default:
         break;
@@ -129,9 +147,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _cleanupResources() async {
-    if (kIsWeb) return; // Web hat keine lokale DB
+    if (kIsWeb) return;
     try {
-      await ArtikelDbService().closeDatabase();
+      await _db.closeDatabase(); // ✅ Fix Bug 2: korrekte Instanz
     } catch (e) {
       debugPrint('Cleanup error: $e');
     }

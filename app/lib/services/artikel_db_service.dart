@@ -2,9 +2,6 @@
 //
 // Lokaler SQLite-Service für Mobile & Desktop.
 // Wird im Web NICHT verwendet – dort geht alles direkt über PocketBase.
-//
-// ⚠️ Verwendet Conditional Import für dart:io (Platform-Erkennung),
-// damit die Datei im Web kompiliert, auch wenn sie dort nie aufgerufen wird.
 
 import 'dart:async';
 import 'dart:convert';
@@ -16,7 +13,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/artikel_model.dart';
 import '../utils/uuid_generator.dart';
 
-// Conditional Import: dart:io nur auf Mobile/Desktop
 import 'artikel_db_platform_io.dart'
     if (dart.library.html) 'artikel_db_platform_stub.dart' as platform;
 
@@ -28,8 +24,6 @@ class ArtikelDbService {
   final logger = Logger();
   Database? _db;
 
-  /// Gibt die Datenbank-Instanz zurück.
-  /// Wirft einen Fehler im Web – dort PocketBase direkt nutzen.
   Future<Database> get database async {
     if (kIsWeb) {
       throw UnsupportedError(
@@ -130,7 +124,9 @@ class ArtikelDbService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final startNummer = prefs.getInt('artikel_start_nummer') ?? 1000;
-      await db.insert('sqlite_sequence', {'name': 'artikel', 'seq': startNummer - 1});
+      await db.insert('sqlite_sequence',
+        {'name': 'artikel', 'seq': startNummer - 1},
+      );
       logger.i("🔢 Startwert für Artikel-IDs auf $startNummer gesetzt");
     } catch (e) {
       logger.w('Fehler beim Setzen des Startwerts: $e');
@@ -139,7 +135,9 @@ class ArtikelDbService {
   }
 
   Future<void> _generateUUIDsForExistingRecords(Database db) async {
-    final existing = await db.query('artikel', where: 'uuid IS NULL OR uuid = ""');
+    final existing = await db.query('artikel',
+      where: 'uuid IS NULL OR uuid = ""',
+    );
     for (final article in existing) {
       final uuid = UuidGenerator.generate();
       await db.update(
@@ -157,6 +155,8 @@ class ArtikelDbService {
     final db = await database;
     final data = artikel.toMap();
     data['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+    // ✅ Neuer Artikel hat noch kein etag → wird als pending erkannt
+    data['etag'] = null;
     return await db.insert('artikel', data);
   }
 
@@ -170,18 +170,25 @@ class ArtikelDbService {
     return maps.map((m) => Artikel.fromMap(m)).toList();
   }
 
+  // ✅ Fix Bug 4: etag zurücksetzen bei lokalem Update
   Future<void> updateArtikel(Artikel artikel) async {
     final db = await database;
     final data = Map<String, dynamic>.from(artikel.toMap());
     data['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+    data['etag'] = null; // ✅ Markiert als "lokal geändert, noch nicht gesynct"
     await db.update('artikel', data, where: 'id = ?', whereArgs: [artikel.id]);
   }
 
+  // ✅ Fix Bug 3: etag zurücksetzen bei Soft-Delete
   Future<void> deleteArtikel(Artikel artikel) async {
     final db = await database;
     await db.update(
       'artikel',
-      {'deleted': 1, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+      {
+        'deleted': 1,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+        'etag': null, // ✅ Markiert als "pending delete"
+      },
       where: 'id = ?',
       whereArgs: [artikel.id],
     );
@@ -234,7 +241,10 @@ class ArtikelDbService {
     final db = await database;
     await db.update(
       'artikel',
-      {'remoteBildPfad': remoteBildPfad, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+      {
+        'remoteBildPfad': remoteBildPfad,
+        'updated_at': DateTime.now().millisecondsSinceEpoch,
+      },
       where: 'uuid = ?',
       whereArgs: [uuid],
     );
@@ -261,7 +271,8 @@ class ArtikelDbService {
   Future<List<Artikel>> getUnsyncedArtikel() async {
     final db = await database;
     final maps = await db.query('artikel',
-      where: 'bildPfad IS NOT NULL AND bildPfad != "" AND (remoteBildPfad IS NULL OR remoteBildPfad = "")',
+      where: 'bildPfad IS NOT NULL AND bildPfad != "" '
+             'AND (remoteBildPfad IS NULL OR remoteBildPfad = "")',
       orderBy: 'id DESC',
     );
     return maps.map((m) => Artikel.fromMap(m)).toList();
@@ -269,12 +280,12 @@ class ArtikelDbService {
 
   // ==================== SYNC ====================
 
+  // ✅ Fix Bug 2: etag-basierte Pending-Erkennung
   Future<List<Artikel>> getPendingChanges() async {
     final db = await database;
-    final lastSync = await _getLastSyncTime();
-    final maps = await db.query('artikel',
-      where: 'updated_at > ?',
-      whereArgs: [lastSync],
+    final maps = await db.query(
+      'artikel',
+      where: 'etag IS NULL OR etag = ""',
       orderBy: 'updated_at ASC',
     );
     return maps.map((m) => Artikel.fromMap(m)).toList();
@@ -287,26 +298,38 @@ class ArtikelDbService {
     );
   }
 
-  Future<void> upsertFromRemote(String remotePath, String etag, String jsonBody) async {
+  // ✅ Fix Bug 1: upsertArtikel() ersetzt upsertFromRemote()
+  // Nutzt Artikel.fromPocketBase() für korrektes Mapping
+  Future<void> upsertArtikel(Artikel artikel, {String? etag}) async {
     final db = await database;
-    final artikelData = json.decode(jsonBody) as Map<String, dynamic>;
-    artikelData['etag'] = etag;
-    artikelData['remote_path'] = remotePath;
+    final data = artikel.toMap();
+    if (etag != null) data['etag'] = etag;
 
-    final artikel = Artikel.fromMap(artikelData);
+    // ✅ Fix: updatedAt ist int (Unix-Timestamp) – kein .millisecondsSinceEpoch!
+    data['updated_at'] = artikel.updatedAt;
+    
     final existing = await db.query('artikel',
       where: 'uuid = ?', whereArgs: [artikel.uuid], limit: 1,
     );
 
     if (existing.isNotEmpty) {
-      await db.update('artikel', artikel.toMap(),
+      await db.update('artikel', data,
         where: 'uuid = ?', whereArgs: [artikel.uuid],
       );
     } else {
-      await db.insert('artikel', artikel.toMap(),
+      await db.insert('artikel', data,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
+  }
+
+  // ✅ Behalten für Rückwärtskompatibilität – delegiert an upsertArtikel()
+  @Deprecated('Nutze upsertArtikel() mit Artikel.fromPocketBase()')
+  Future<void> upsertFromRemote(
+      String remotePath, String etag, String jsonBody) async {
+    final artikelData = json.decode(jsonBody) as Map<String, dynamic>;
+    final artikel = Artikel.fromMap(artikelData);
+    await upsertArtikel(artikel, etag: etag);
   }
 
   Future<void> setLastSyncTime() async {
@@ -317,19 +340,6 @@ class ArtikelDbService {
       'value': now.toString(),
       'updated_at': now,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
-  }
-
-  Future<int> _getLastSyncTime() async {
-    try {
-      final db = await database;
-      final result = await db.query('sync_meta',
-        where: 'key = ?', whereArgs: ['last_sync'], limit: 1,
-      );
-      if (result.isEmpty) return 0;
-      return int.tryParse(result.first['value'] as String) ?? 0;
-    } catch (_) {
-      return 0;
-    }
   }
 
   // ==================== SEARCH ====================
@@ -347,11 +357,22 @@ class ArtikelDbService {
 
   // ==================== ADMIN ====================
 
+  // ✅ Fix Bug 5: sync_meta wird auch zurückgesetzt
   Future<void> resetDatabase({int startId = 1000}) async {
     final db = await database;
+
     await db.execute("DROP TABLE IF EXISTS artikel");
+    await db.execute("DROP TABLE IF EXISTS sync_meta");
+
     await db.execute(_createTableSql);
-    await db.insert('sqlite_sequence', {'name': 'artikel', 'seq': startId - 1});
+    await db.execute(_createSyncMetaTableSql);
+
+    await _createIndices(db);
+
+    await db.insert('sqlite_sequence',
+      {'name': 'artikel', 'seq': startId - 1},
+    );
+
     logger.w("🗑️ Datenbank zurückgesetzt. Nächste ID startet bei $startId");
   }
 
@@ -389,6 +410,4 @@ class ArtikelDbService {
     await _db?.close();
     _db = null;
   }
-
-  // ==================== HELPER ====================
 }

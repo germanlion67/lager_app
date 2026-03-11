@@ -1,8 +1,4 @@
 // lib/screens/artikel_list_screen.dart
-//
-// Hauptscreen: Zeigt die Artikelliste an.
-// Web: Daten direkt von PocketBase.
-// Mobile/Desktop: Daten aus lokaler SQLite DB.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -18,16 +14,13 @@ import 'artikel_erfassen_screen.dart';
 import 'artikel_detail_screen.dart';
 import 'settings_screen.dart';
 
-// Conditional imports: Plattform-spezifische Funktionen
 import 'list_screen_io.dart'
     if (dart.library.html) 'list_screen_stub.dart' as platform;
 
-// Conditional imports: PDF & ZIP (nur Mobile/Desktop)
 import 'list_screen_mobile_actions.dart'
     if (dart.library.html) 'list_screen_mobile_actions_stub.dart'
     as mobile_actions;
 
-// Nextcloud nur als optionales Backup (nur Mobile)
 import '../services/nextcloud_connection_service.dart';
 
 class ArtikelListScreen extends StatefulWidget {
@@ -43,19 +36,22 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   String _filterOrt = '';
   bool _isLoading = true;
 
-  // PocketBase Verbindungsstatus
   bool? _pbConnected;
 
-  // Nextcloud (optional, nur Mobile)
   NextcloudConnectionService? _nextcloudService;
+
+  // ==================== LIFECYCLE ====================
 
   @override
   void initState() {
     super.initState();
     _ladeArtikel();
-    _checkPocketBaseConnection();
 
-    if (!kIsWeb) {
+    // ✅ Fix Bug 3: Im Web kein Health-Check nötig → direkt true
+    if (kIsWeb) {
+      _pbConnected = true;
+    } else {
+      _checkPocketBaseConnection();
       _nextcloudService = NextcloudConnectionService();
       _nextcloudService!.startPeriodicCheck();
     }
@@ -73,15 +69,19 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     setState(() => _isLoading = true);
     try {
       if (kIsWeb) {
-        // Web: Direkt von PocketBase
         final pb = PocketBaseService().client;
         final records =
             await pb.collection('artikel').getFullList(sort: '-created');
+        // ✅ Fix Bug 1: created/updated korrekt übergeben
         _artikelListe = records
-            .map((r) => Artikel.fromPocketBase(r.data, r.id))
+            .map((r) => Artikel.fromPocketBase(
+                  r.data,
+                  r.id,
+                  created: r.get<String>('created'),
+                  updated: r.get<String>('updated'),
+                ))
             .toList();
       } else {
-        // Mobile: Aus lokaler DB
         _artikelListe = await ArtikelDbService().getAlleArtikel();
       }
     } catch (e) {
@@ -162,7 +162,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           onTap: _checkPocketBaseConnection,
           child: Tooltip(message: pbTooltip, child: pbIcon),
         ),
-        // Nextcloud Status (nur Mobile, optional)
         if (!kIsWeb && _nextcloudService != null) ...[
           const SizedBox(width: 6),
           _buildNextcloudIcon(),
@@ -230,27 +229,28 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     return _buildBildPlaceholder();
   }
 
+  // ✅ Fix Bug 2: Direkt Artikel-Felder nutzen statt toMap()
   Widget _buildPocketBaseBild(Artikel artikel) {
-    try {
-      final data = artikel.toMap();
-      final recordId = data['id']?.toString();
-      final bildField = data['bild']?.toString();
+    final recordId = artikel.remotePath;
+    final bildField = artikel.remoteBildPfad;
 
-      if (recordId != null && bildField != null && bildField.isNotEmpty) {
-        final url =
-            '${PocketBaseService().url}/api/files/artikel/$recordId/$bildField';
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: Image.network(
-            url,
-            width: 50,
-            height: 50,
-            fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _buildBildPlaceholder(),
-          ),
-        );
-      }
-    } catch (_) {}
+    if (recordId != null &&
+        recordId.isNotEmpty &&
+        bildField != null &&
+        bildField.isNotEmpty) {
+      final url =
+          '${PocketBaseService().url}/api/files/artikel/$recordId/$bildField';
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Image.network(
+          url,
+          width: 50,
+          height: 50,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => _buildBildPlaceholder(),
+        ),
+      );
+    }
 
     return _buildBildPlaceholder();
   }
@@ -296,7 +296,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       ),
       body: Column(
         children: [
-          // Suchleiste
           Padding(
             padding: const EdgeInsets.all(8),
             child: TextField(
@@ -308,8 +307,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               onChanged: (value) => setState(() => _suchbegriff = value),
             ),
           ),
-
-          // Ort-Filter
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             child: DropdownButton<String>(
@@ -330,12 +327,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                           child: Text(ort),
                         )),
               ],
-              onChanged: (value) =>
-                  setState(() => _filterOrt = value ?? ''),
+              onChanged: (value) => setState(() => _filterOrt = value ?? ''),
             ),
           ),
-
-          // Artikelliste
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -360,12 +354,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ],
       ),
-
-      // FABs
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Scanner-Button nur anzeigen wenn verfügbar (Mobile + Kamera)
           if (ScanService.isAvailable) ...[
             FloatingActionButton(
               heroTag: 'scan',
@@ -487,7 +478,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           context,
           MaterialPageRoute(builder: (_) => const SettingsScreen()),
         );
-        _checkPocketBaseConnection();
+        // ✅ Nur auf Mobile nach Settings neu prüfen
+        if (!kIsWeb) _checkPocketBaseConnection();
         break;
     }
   }
@@ -546,7 +538,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           dense: true,
         ),
       ),
-      // PDF & ZIP nur auf Mobile anzeigen
       if (!kIsWeb) ...[
         const PopupMenuItem(
           value: _MenuAction.pdfReports,
@@ -657,6 +648,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
+                // ✅ Fix Bug 4: mounted-Check nach async
+                if (!mounted) return;
                 await mobile_actions.generateArtikelListePdf(
                     context, _artikelListe);
               },
@@ -669,6 +662,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
+                // ✅ Fix Bug 4: mounted-Check nach async
+                if (!mounted) return;
                 await mobile_actions.generateFilteredArtikelListePdf(
                     context, _gefilterteArtikel());
               },

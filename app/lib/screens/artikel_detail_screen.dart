@@ -10,9 +10,6 @@ import '../services/pocketbase_service.dart';
 import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
 import 'package:http/http.dart' as http;
-
-
-
 // Conditional imports für dart:io
 import 'detail_screen_io.dart'
     if (dart.library.html) 'detail_screen_stub.dart' as platform;
@@ -41,26 +38,25 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   String? _bildPfad;
   Uint8List? _bildBytes;
   String? _remoteBildUrl; // PocketBase Bild-URL für Web
-
   @override
   void initState() {
     super.initState();
-    _beschreibungController = TextEditingController(text: widget.artikel.beschreibung)
-      ..addListener(_onChanged);
+    _beschreibungController =
+        TextEditingController(text: widget.artikel.beschreibung)
+          ..addListener(_onChanged);
     _ortController = TextEditingController(text: widget.artikel.ort)
       ..addListener(_onChanged);
     _fachController = TextEditingController(text: widget.artikel.fach)
       ..addListener(_onChanged);
     _menge = widget.artikel.menge;
-    _bildPfad = widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
+    _bildPfad =
+        widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
 
-    // Im Web: Bild-URL von PocketBase laden
     if (kIsWeb) {
       _loadRemoteBildUrl();
     }
   }
 
-  /// Lädt die Bild-URL aus PocketBase für die Web-Anzeige
   Future<void> _loadRemoteBildUrl() async {
     try {
       final pb = PocketBaseService().client;
@@ -72,7 +68,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         final bildField = record.data['bild'];
         if (bildField != null && bildField.toString().isNotEmpty) {
           final url = pb.files.getUrl(record, bildField.toString()).toString();
-          setState(() => _remoteBildUrl = url);
+          if (mounted) setState(() => _remoteBildUrl = url);
         }
       }
     } catch (e) {
@@ -127,7 +123,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
   }
 
-  /// Web: Direkt in PocketBase speichern
   Future<void> _speichernWeb() async {
     try {
       final pb = PocketBaseService().client;
@@ -137,7 +132,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       if (list.items.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Artikel nicht in PocketBase gefunden')),
+            const SnackBar(
+                content: Text('Artikel nicht in PocketBase gefunden')),
           );
         }
         return;
@@ -166,6 +162,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       await pb.collection('artikel').update(recordId, body: body, files: files);
 
       if (!mounted) return;
+
       final gespeicherterArtikel = widget.artikel.copyWith(
         menge: _menge,
         ort: _ortController.text,
@@ -180,7 +177,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         _bildBytes = null;
       });
 
-      // Bild-URL neu laden
+      // ✅ Fix Bug 1: mounted-Check vor _loadRemoteBildUrl()
+      if (!mounted) return;
       _loadRemoteBildUrl();
 
       Navigator.pop(context, gespeicherterArtikel);
@@ -193,18 +191,16 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
   }
 
-  /// Mobile/Desktop: Lokal speichern + PocketBase Sync
   Future<void> _speichernMobile() async {
     final artikelId = widget.artikel.id;
     if (artikelId == null) return;
 
-    final hasNewImage =
-        _bildBytes != null || (_bildPfad != null && _bildPfad != widget.artikel.bildPfad);
+    final hasNewImage = _bildBytes != null ||
+        (_bildPfad != null && _bildPfad != widget.artikel.bildPfad);
 
     String? localImagePath =
         widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
 
-    // Neues Bild lokal speichern
     if (hasNewImage) {
       localImagePath = await platform.persistSelectedImage(
         bildBytes: _bildBytes,
@@ -216,7 +212,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       if (localImagePath == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Bild konnte nicht gespeichert werden')),
+          const SnackBar(
+              content: Text('Bild konnte nicht gespeichert werden')),
         );
         return;
       }
@@ -234,7 +231,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     try {
       await ArtikelDbService().updateArtikel(artikelMitAenderungen);
 
-      // Bild zu PocketBase hochladen (im Hintergrund)
       if (hasNewImage) {
         _uploadImageToPocketBase(
           uuid: widget.artikel.uuid,
@@ -262,7 +258,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
   }
 
-  /// Bild im Hintergrund zu PocketBase hochladen
   Future<void> _uploadImageToPocketBase({
     required String uuid,
     String? localImagePath,
@@ -291,8 +286,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       await pb.collection('artikel').update(
         recordId,
-        files: [http.MultipartFile.fromBytes('bild', bytes, filename: filename)],
+        files: [
+          http.MultipartFile.fromBytes('bild', bytes, filename: filename)
+        ],
       );
+
+      // ✅ Fix Bug 2: markSynced() nach Upload → kein Endlos-Upload
+      await ArtikelDbService().markSynced(uuid, recordId);
 
       debugPrint('[Upload] Bild zu PocketBase hochgeladen: $filename');
     } catch (e) {
@@ -307,7 +307,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Artikel löschen?'),
-        content: Text('Möchtest du "${widget.artikel.name}" wirklich löschen?'),
+        content:
+            Text('Möchtest du "${widget.artikel.name}" wirklich löschen?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -326,7 +327,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     try {
       if (kIsWeb) {
-        // Web: In PocketBase löschen
         final pb = PocketBaseService().client;
         final filter = 'uuid = "${widget.artikel.uuid}"';
         final list = await pb.collection('artikel').getList(filter: filter);
@@ -334,7 +334,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           await pb.collection('artikel').delete(list.items.first.id);
         }
       } else {
-        // Mobile: Soft-Delete lokal
         await ArtikelDbService().deleteArtikel(widget.artikel);
       }
 
@@ -353,17 +352,18 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   Future<void> _generateArtikelDetailPdf() async {
     if (kIsWeb) {
-      // PDF-Export im Web
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('PDF-Export ist im Web noch nicht verfügbar')),
+          const SnackBar(
+              content: Text('PDF-Export ist im Web noch nicht verfügbar')),
         );
       }
       return;
     }
 
     try {
-      await AppLogService().log('PDF-Export gestartet für Artikel: ${widget.artikel.name}');
+      await AppLogService()
+          .log('PDF-Export gestartet für Artikel: ${widget.artikel.name}');
       final pdfService = PdfService();
 
       final aktuellerArtikel = widget.artikel.copyWith(
@@ -375,10 +375,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         aktualisiertAm: DateTime.now(),
       );
 
-      final pdfFile = await pdfService.generateArtikelDetailPdf(aktuellerArtikel);
+      final pdfFile =
+          await pdfService.generateArtikelDetailPdf(aktuellerArtikel);
 
       if (pdfFile != null) {
-        await AppLogService().log('Artikel-PDF erstellt: ${pdfFile.path}');
+        await AppLogService()
+            .log('Artikel-PDF erstellt: ${pdfFile.path}');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -390,7 +392,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                 final success = await PdfService.openPdf(pdfFile.path);
                 if (!success && mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('PDF konnte nicht geöffnet werden')),
+                    const SnackBar(
+                        content:
+                            Text('PDF konnte nicht geöffnet werden')),
                   );
                 }
               },
@@ -411,15 +415,26 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   // ==================== MENGEN-STEUERUNG ====================
 
   void _mengeErhoehen() {
-    if (_isEditing) setState(() { _menge++; _hasChanged = true; });
+    setState(() {
+      _menge++;
+      _hasChanged = true;
+    });
   }
 
   void _mengeVerringern() {
-    if (_isEditing && _menge > 0) setState(() { _menge--; _hasChanged = true; });
+    if (_menge > 0) {
+      setState(() {
+        _menge--;
+        _hasChanged = true;
+      });
+    }
   }
 
   void _enableEdit() {
-    setState(() { _isEditing = true; _hasChanged = false; });
+    setState(() {
+      _isEditing = true;
+      _hasChanged = false;
+    });
   }
 
   // ==================== BILD VOLLBILD ====================
@@ -454,7 +469,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   // ==================== BILD WIDGET ====================
 
   Widget _buildBildAnzeige() {
-    // 1. Neue Bytes ausgewählt (noch nicht gespeichert)
     if (_bildBytes != null) {
       return GestureDetector(
         onTap: _zeigeBildVollbild,
@@ -470,7 +484,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       );
     }
 
-    // 2. Web: Bild von PocketBase
     if (kIsWeb) {
       if (_remoteBildUrl != null) {
         return GestureDetector(
@@ -490,7 +503,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       return _buildPlaceholder();
     }
 
-    // 3. Mobile: Lokales Bild
     if (_bildPfad != null && platform.fileExists(_bildPfad!)) {
       return GestureDetector(
         onTap: _zeigeBildVollbild,
@@ -518,7 +530,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         color: Colors.grey[200],
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+      child:
+          const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
     );
   }
 
@@ -528,124 +541,151 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   Widget build(BuildContext context) {
     final artikel = widget.artikel;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.artikel.name),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            onPressed: _generateArtikelDetailPdf,
-            tooltip: 'Artikel als PDF exportieren',
+    // ✅ Fix Bug 3: PopScope verhindert Back-Button-Bypass
+    return PopScope(
+      canPop: !(_isEditing && _hasChanged),
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!mounted) return;
+        final ctx2 = this.context;
+        if (didPop) return;
+        final discard = await showDialog<bool>(
+          context: ctx2,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Änderungen verwerfen?'),
+            content: const Text('Ungespeicherte Änderungen gehen verloren.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Weiter bearbeiten'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Verwerfen'),
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: _loeschen,
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Ort
-            TextField(
-              controller: _ortController,
-              enabled: _isEditing,
-              decoration: InputDecoration(
-                labelText: 'Ort',
-                border: const OutlineInputBorder(),
-                filled: true,
-                fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                labelStyle: const TextStyle(color: Colors.black),
-              ),
-              style: const TextStyle(color: Colors.black),
+        );
+        if (discard != true) return;
+        if (!mounted) return;
+        Navigator.pop(this.context);
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.artikel.name),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf),
+              onPressed: _generateArtikelDetailPdf,
+              tooltip: 'Artikel als PDF exportieren',
             ),
-            const SizedBox(height: 12),
-
-            // Fach
-            TextField(
-              controller: _fachController,
-              enabled: _isEditing,
-              decoration: InputDecoration(
-                labelText: 'Fach',
-                border: const OutlineInputBorder(),
-                filled: true,
-                fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                labelStyle: const TextStyle(color: Colors.black),
-              ),
-              style: const TextStyle(color: Colors.black),
-            ),
-            const SizedBox(height: 20),
-
-            // Menge
-            Row(
-              children: [
-                Text('Menge: $_menge'),
-                IconButton(icon: const Icon(Icons.add), onPressed: _mengeErhoehen),
-                IconButton(icon: const Icon(Icons.remove), onPressed: _mengeVerringern),
-                Text(
-                  'Art.-Nr.: ${artikel.id ?? "-"}',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Beschreibung
-            TextField(
-              controller: _beschreibungController,
-              enabled: _isEditing,
-              decoration: InputDecoration(
-                labelText: 'Beschreibung',
-                filled: true,
-                fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                labelStyle: const TextStyle(color: Colors.black),
-              ),
-              style: const TextStyle(color: Colors.black),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 20),
-
-            // Bild-Buttons
-            Row(
-              children: [
-                FilledButton.tonalIcon(
-                  onPressed: _isEditing ? _pickImageFile : null,
-                  icon: const Icon(Icons.image),
-                  label: const Text('Bild wählen'),
-                ),
-                if (!kIsWeb) ...[
-                  const SizedBox(width: 12),
-                  FilledButton.tonalIcon(
-                    onPressed: _isEditing ? _pickImageCamera : null,
-                    icon: const Icon(Icons.camera_alt),
-                    label: const Text('Kamera'),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 20),
-
-            // Dokumente Button
-            DokumenteButton(artikelId: artikel.id),
-            const SizedBox(height: 20),
-
-            // Bild-Anzeige (plattformübergreifend)
-            _buildBildAnzeige(),
-
-            const SizedBox(height: 20),
-
-            // Speichern/Bearbeiten Button
-            ElevatedButton(
-              onPressed: !_isEditing
-                  ? _enableEdit
-                  : (_hasChanged ? _speichern : null),
-              child: Text(!_isEditing
-                  ? 'Ändern'
-                  : (_hasChanged ? 'Speichern' : 'Speichern (inaktiv)')),
+            IconButton(
+              icon: const Icon(Icons.delete),
+              onPressed: _loeschen,
             ),
           ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _ortController,
+                enabled: _isEditing,
+                decoration: InputDecoration(
+                  labelText: 'Ort',
+                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: _isEditing ? Colors.white : Colors.grey[100],
+                  labelStyle: const TextStyle(color: Colors.black),
+                ),
+                style: const TextStyle(color: Colors.black),
+              ),
+              const SizedBox(height: 12),
+
+              TextField(
+                controller: _fachController,
+                enabled: _isEditing,
+                decoration: InputDecoration(
+                  labelText: 'Fach',
+                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: _isEditing ? Colors.white : Colors.grey[100],
+                  labelStyle: const TextStyle(color: Colors.black),
+                ),
+                style: const TextStyle(color: Colors.black),
+              ),
+              const SizedBox(height: 20),
+
+              // ✅ Fix Bug 4: Buttons visuell deaktiviert wenn nicht im Edit-Modus
+              Row(
+                children: [
+                  Text('Menge: $_menge'),
+                  IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: _isEditing ? _mengeErhoehen : null,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.remove),
+                    onPressed: _isEditing ? _mengeVerringern : null,
+                  ),
+                  Text(
+                    'Art.-Nr.: ${artikel.id ?? "-"}',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              TextField(
+                controller: _beschreibungController,
+                enabled: _isEditing,
+                decoration: InputDecoration(
+                  labelText: 'Beschreibung',
+                  filled: true,
+                  fillColor: _isEditing ? Colors.white : Colors.grey[100],
+                  labelStyle: const TextStyle(color: Colors.black),
+                ),
+                style: const TextStyle(color: Colors.black),
+                maxLines: 3,
+              ),
+              const SizedBox(height: 20),
+
+              Row(
+                children: [
+                  FilledButton.tonalIcon(
+                    onPressed: _isEditing ? _pickImageFile : null,
+                    icon: const Icon(Icons.image),
+                    label: const Text('Bild wählen'),
+                  ),
+                  if (!kIsWeb) ...[
+                    const SizedBox(width: 12),
+                    FilledButton.tonalIcon(
+                      onPressed: _isEditing ? _pickImageCamera : null,
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Kamera'),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              DokumenteButton(artikelId: artikel.id),
+              const SizedBox(height: 20),
+
+              _buildBildAnzeige(),
+              const SizedBox(height: 20),
+
+              ElevatedButton(
+                onPressed: !_isEditing
+                    ? _enableEdit
+                    : (_hasChanged ? _speichern : null),
+                child: Text(!_isEditing
+                    ? 'Ändern'
+                    : (_hasChanged ? 'Speichern' : 'Speichern (inaktiv)')),
+              ),
+            ],
+          ),
         ),
       ),
     );
