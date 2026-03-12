@@ -1,4 +1,5 @@
 // lib/services/import_stub.dart
+// Web-Stubs: Datei-Operationen sind im Web nicht verfügbar.
 
 import 'dart:typed_data';
 import 'package:archive/archive.dart' show ArchiveFile;
@@ -17,6 +18,6 @@ Future<List<Artikel>> extractImagesToLocal(
   List<ArchiveFile> imageFiles,
   List<String> errors,
 ) async {
-  // Im Web: Bilder nicht lokal speichern
+  // Web: Bilder werden nicht lokal gespeichert
   return artikelList;
 }

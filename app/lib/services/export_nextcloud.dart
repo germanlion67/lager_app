@@ -12,7 +12,10 @@ import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
 
 /// Lädt eine ZIP-Datei zu Nextcloud hoch
-Future<void> uploadZipToNextcloud(String zipFilePath, {BuildContext? context}) async {
+Future<void> uploadZipToNextcloud(
+  String zipFilePath, {
+  BuildContext? context,
+}) async {
   final results = await Connectivity().checkConnectivity();
   final isWifi = results.contains(ConnectivityResult.wifi);
 
@@ -39,12 +42,16 @@ Future<void> uploadZipToNextcloud(String zipFilePath, {BuildContext? context}) a
 
     final zipFile = File(zipFilePath);
     if (!await zipFile.exists()) {
-      await AppLogService().log('Nextcloud-Backup: ZIP nicht gefunden: $zipFilePath');
+      await AppLogService().log(
+        'Nextcloud-Backup: ZIP nicht gefunden: $zipFilePath',
+      );
       return;
     }
 
     final zipBytes = await zipFile.readAsBytes();
-    final now = DateTime.now();
+
+    // FIX: UTC-Timestamp konsistent mit restlichem Code
+    final now = DateTime.now().toUtc();
     final remoteFileName =
         'backup_${now.year}${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}_'
@@ -58,7 +65,9 @@ Future<void> uploadZipToNextcloud(String zipFilePath, {BuildContext? context}) a
       contentType: 'application/zip',
     );
 
-    await AppLogService().log('Nextcloud-Backup: Upload erfolgreich: $remotePath');
+    await AppLogService().log(
+      'Nextcloud-Backup: Upload erfolgreich: $remotePath',
+    );
 
     if (context != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,8 +77,12 @@ Future<void> uploadZipToNextcloud(String zipFilePath, {BuildContext? context}) a
         ),
       );
     }
-  } catch (e) {
-    await AppLogService().log('Nextcloud-Backup: Fehler: $e');
+  } catch (e, stack) {
+    // FIX: logError() mit StackTrace statt log()
+    await AppLogService().logError(
+      'Nextcloud-Backup: Fehler: $e',
+      stack,
+    );
   }
 }
 
@@ -93,7 +106,9 @@ Future<void> backupWithImagesToNextcloud(BuildContext context) async {
     );
 
     final artikelList = await ArtikelDbService().getAlleArtikel();
-    final now = DateTime.now();
+
+    // FIX: UTC-Timestamp konsistent mit restlichem Code
+    final now = DateTime.now().toUtc();
     final backupFolder =
         'backup_${now.year}${now.month.toString().padLeft(2, '0')}'
         '${now.day.toString().padLeft(2, '0')}'
@@ -126,7 +141,9 @@ Future<void> backupWithImagesToNextcloud(BuildContext context) async {
         successCount++;
       } catch (e) {
         failCount++;
-        await AppLogService().log('Bild-Upload Fehler (${artikel.name}): $e');
+        await AppLogService().log(
+          'Bild-Upload Fehler (${artikel.name}): $e',
+        );
       }
     }
 
@@ -156,10 +173,16 @@ Future<void> backupWithImagesToNextcloud(BuildContext context) async {
       );
     }
   } catch (e, stack) {
-    await AppLogService().logError('Nextcloud Bild-Backup Fehler: $e', stack);
+    await AppLogService().logError(
+      'Nextcloud Bild-Backup Fehler: $e',
+      stack,
+    );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Fehler: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }

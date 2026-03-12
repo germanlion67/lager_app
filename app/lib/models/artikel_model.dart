@@ -2,8 +2,9 @@
 
 import 'dart:convert';
 import '../utils/uuid_generator.dart';
+import 'package:logger/logger.dart';
 
-// ✅ Fix Bug 4: Sentinel für nullable copyWith-Felder
+// ✅ Sentinel für nullable copyWith-Felder
 class _Undefined {
   const _Undefined();
 }
@@ -31,6 +32,8 @@ class Artikel {
   final String? remotePath;
   final String? deviceId;
 
+  static final Logger _logger = Logger();
+
   Artikel({
     this.id,
     required this.name,
@@ -51,7 +54,8 @@ class Artikel {
     this.remotePath,
     this.deviceId,
   })  : uuid = uuid ?? UuidGenerator.generate(),
-        updatedAt = updatedAt ?? DateTime.now().millisecondsSinceEpoch;
+        updatedAt = updatedAt ?? DateTime.now().toUtc().millisecondsSinceEpoch;
+  // FIX #8: ↑ UTC-Normalisierung auch im Konstruktor
 
   // ==================== SERIALISIERUNG ====================
 
@@ -66,8 +70,9 @@ class Artikel {
       'bildPfad': bildPfad,
       'thumbnailPfad': thumbnailPfad,
       'thumbnailEtag': thumbnailEtag,
-      'erstelltAm': erstelltAm.toIso8601String(),
-      'aktualisiertAm': aktualisiertAm.toIso8601String(),
+      // FIX #8: UTC-normalisierte ISO-Strings für konsistenten Sync
+      'erstelltAm': erstelltAm.toUtc().toIso8601String(),
+      'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
       'remoteBildPfad': remoteBildPfad,
       'uuid': uuid,
       'updated_at': updatedAt,
@@ -89,7 +94,6 @@ class Artikel {
       'fach': fach,
       'beschreibung': beschreibung,
       'uuid': uuid,
-      // ✅ Fix Bug 1: updatedAt entfernt → PocketBase autodate
       'deleted': deleted,
       'deviceId': deviceId,
     };
@@ -97,27 +101,38 @@ class Artikel {
 
   /// SQLite → Artikel.
   factory Artikel.fromMap(Map<String, dynamic> map) {
+    final parsedId = map['id'] is int
+        ? map['id'] as int
+        : int.tryParse(map['id']?.toString() ?? '');
+    final parsedMenge = map['menge'] is int
+        ? map['menge'] as int
+        : int.tryParse(map['menge']?.toString() ?? '0') ?? 0;
+
+    final erstelltAmValue = map['erstelltAm'] ?? map['created'];
+    final aktualisiertAmValue = map['aktualisiertAm'] ?? map['updated'];
+
     return Artikel(
-      id: map['id'] is int ? map['id'] as int : null,
+      id: parsedId,
       name: map['name']?.toString() ?? '',
-      menge: map['menge'] is int
-          ? map['menge'] as int
-          : int.tryParse(map['menge']?.toString() ?? '0') ?? 0,
+      menge: parsedMenge,
       ort: map['ort']?.toString() ?? '',
       fach: map['fach']?.toString() ?? '',
       beschreibung: map['beschreibung']?.toString() ?? '',
       bildPfad: map['bildPfad']?.toString() ?? '',
       thumbnailPfad: map['thumbnailPfad']?.toString(),
       thumbnailEtag: map['thumbnailEtag']?.toString(),
-      erstelltAm: _parseDateTime(map['erstelltAm'] ?? map['created']),
-      aktualisiertAm: _parseDateTime(map['aktualisiertAm'] ?? map['updated']),
+      // FIX #8: _parseDateTime() gibt jetzt immer UTC zurück
+      erstelltAm: _parseDateTime(erstelltAmValue),
+      aktualisiertAm: _parseDateTime(aktualisiertAmValue),
       remoteBildPfad: map['remoteBildPfad']?.toString(),
       uuid: map['uuid']?.toString() ?? UuidGenerator.generate(),
       updatedAt: _parseInt(map['updated_at'] ?? map['updatedAt']),
       deleted: map['deleted'] == 1 || map['deleted'] == true,
       etag: map['etag']?.toString(),
-      remotePath: map['remote_path']?.toString() ?? map['remotePath']?.toString(),
-      deviceId: map['device_id']?.toString() ?? map['deviceId']?.toString(),
+      remotePath: map['remote_path']?.toString()
+          ?? map['remotePath']?.toString(),
+      deviceId: map['device_id']?.toString()
+          ?? map['deviceId']?.toString(),
     );
   }
 
@@ -128,26 +143,36 @@ class Artikel {
     String? created,
     String? updated,
   }) {
+    final parsedMenge = data['menge'] is int
+        ? data['menge'] as int
+        : int.tryParse(data['menge']?.toString() ?? '0') ?? 0;
+
+    final erstelltAmValue = created ?? data['created'];
+    final aktualisiertAmValue = updated ?? data['updated'];
+
+    final String? pbBildPfad = data['bild']?.toString();
+    final String? pbRemoteBildPfad =
+        pbBildPfad != null && pbBildPfad.isNotEmpty ? pbBildPfad : null;
+
     return Artikel(
       id: null,
       name: data['name']?.toString() ?? '',
-      menge: data['menge'] is int
-          ? data['menge'] as int
-          : int.tryParse(data['menge']?.toString() ?? '0') ?? 0,
+      menge: parsedMenge,
       ort: data['ort']?.toString() ?? '',
       fach: data['fach']?.toString() ?? '',
       beschreibung: data['beschreibung']?.toString() ?? '',
       bildPfad: '',
-      erstelltAm: _parseDateTime(created ?? data['created']),
-      aktualisiertAm: _parseDateTime(updated ?? data['updated']),
-      remoteBildPfad: data['bild']?.toString(),
+      // FIX #8: _parseDateTime() gibt jetzt immer UTC zurück
+      erstelltAm: _parseDateTime(erstelltAmValue),
+      aktualisiertAm: _parseDateTime(aktualisiertAmValue),
+      remoteBildPfad: pbRemoteBildPfad,
       uuid: data['uuid']?.toString() ?? UuidGenerator.generate(),
-      // ✅ Fix Bug 2: 'updated' named param → Millisekunden
-      updatedAt: updated != null
-          ? _parseDateTimeToMillis(updated)
-          : DateTime.now().millisecondsSinceEpoch,
+      updatedAt: aktualisiertAmValue != null
+          ? _parseDateTimeToMillis(aktualisiertAmValue)
+          : DateTime.now().toUtc().millisecondsSinceEpoch,
+      // FIX #8: ↑ UTC-Normalisierung im Fallback
       deleted: data['deleted'] == true,
-      etag: recordId, // ✅ recordId als etag → markiert als gesynct
+      etag: recordId,
       remotePath: recordId,
       deviceId: data['deviceId']?.toString(),
     );
@@ -155,41 +180,67 @@ class Artikel {
 
   // ==================== HELPER ====================
 
-  // ✅ Fix Bug 3: assert im Debug-Mode bei Parse-Fehler
+  // FIX #8: _parseDateTime() normalisiert immer auf UTC
+  // → verhindert Zeitzonenprobleme beim Sync zwischen Geräten
   static DateTime _parseDateTime(dynamic value) {
-    if (value == null) return DateTime.now();
-    if (value is DateTime) return value;
+    if (value == null) {
+      _logger.w(
+        '⚠️ _parseDateTime: Null-Wert erhalten, verwende aktuelles UTC-Datum.',
+      );
+      return DateTime.now().toUtc();
+    }
+    if (value is DateTime) return value.toUtc(); // FIX #8: .toUtc()
     try {
-      return DateTime.parse(value.toString());
-    } catch (e) {
-      assert(false, '⚠️ _parseDateTime: Ungültiger Wert "$value" → $e');
-      return DateTime.now();
+      return DateTime.parse(value.toString()).toUtc(); // FIX #8: .toUtc()
+    } catch (e, stack) {
+      _logger.e(
+        '❌ _parseDateTime: Ungültiger Wert "$value" konnte nicht geparst '
+        'werden. Verwende aktuelles UTC-Datum.',
+        error: e,
+        stackTrace: stack,
+      );
+      return DateTime.now().toUtc(); // FIX #8: .toUtc()
     }
   }
 
-  // ✅ Fix Bug 2: Neuer Helper – ISO 8601 String → Millisekunden
-  static int _parseDateTimeToMillis(String value) {
+  // FIX #8: _parseDateTimeToMillis() normalisiert auf UTC vor Konvertierung
+  static int _parseDateTimeToMillis(dynamic value) {
+    if (value == null) return DateTime.now().toUtc().millisecondsSinceEpoch;
+    if (value is DateTime) return value.toUtc().millisecondsSinceEpoch;
     try {
-      return DateTime.parse(value).millisecondsSinceEpoch;
-    } catch (e) {
-      assert(false, '⚠️ _parseDateTimeToMillis: Ungültiger Wert "$value" → $e');
-      return DateTime.now().millisecondsSinceEpoch;
+      // FIX #8: .toUtc() vor .millisecondsSinceEpoch
+      return DateTime.parse(value.toString())
+          .toUtc()
+          .millisecondsSinceEpoch;
+    } catch (e, stack) {
+      _logger.e(
+        '❌ _parseDateTimeToMillis: Ungültiger Wert "$value". '
+        'Verwende aktuellen UTC-Timestamp.',
+        error: e,
+        stackTrace: stack,
+      );
+      return DateTime.now().toUtc().millisecondsSinceEpoch;
     }
   }
 
   static int _parseInt(dynamic value) {
-    if (value == null) return DateTime.now().millisecondsSinceEpoch;
+    if (value == null) return 0;
     if (value is int) return value;
     if (value is double) return value.toInt();
-    return int.tryParse(value.toString()) ??
-        DateTime.now().millisecondsSinceEpoch;
+    final parsed = int.tryParse(value.toString());
+    if (parsed == null) {
+      _logger.w(
+        '⚠️ _parseInt: Ungültiger Wert "$value" konnte nicht zu int '
+        'geparst werden. Verwende 0.',
+      );
+    }
+    return parsed ?? 0;
   }
 
   // ==================== COPY WITH ====================
 
-  // ✅ Fix Bug 4: Sentinel-Pattern für nullable Felder
   Artikel copyWith({
-    int? id,
+    Object? id = _undefined,
     String? name,
     int? menge,
     String? ort,
@@ -202,14 +253,14 @@ class Artikel {
     DateTime? aktualisiertAm,
     Object? remoteBildPfad = _undefined,
     String? uuid,
-    int? updatedAt,
+    Object? updatedAt = _undefined,
     bool? deleted,
     Object? etag = _undefined,
     Object? remotePath = _undefined,
     Object? deviceId = _undefined,
   }) {
     return Artikel(
-      id: id ?? this.id,
+      id: id is _Undefined ? this.id : id as int?,
       name: name ?? this.name,
       menge: menge ?? this.menge,
       ort: ort ?? this.ort,
@@ -228,7 +279,9 @@ class Artikel {
           ? this.remoteBildPfad
           : remoteBildPfad as String?,
       uuid: uuid ?? this.uuid,
-      updatedAt: updatedAt ?? this.updatedAt,
+      updatedAt: updatedAt is _Undefined
+          ? this.updatedAt
+          : updatedAt as int?,
       deleted: deleted ?? this.deleted,
       etag: etag is _Undefined ? this.etag : etag as String?,
       remotePath: remotePath is _Undefined

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart' show ArchiveFile, ZipDecoder;
+import 'package:csv/csv.dart'; // FIX #12: RFC-4180-konformer CSV-Parser
 import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'pocketbase_service.dart';
@@ -21,22 +22,86 @@ import 'import_nextcloud.dart' as nextcloud_import;
 class ArtikelImportService {
   // ==================== JSON/CSV PARSING ====================
 
+  // FIX #11: Erweiterte JSON-Schema-Validierung
+  // Prüft alle Pflichtfelder + Typen vor dem Parsen
+  static const _requiredFields = ['name', 'ort', 'fach', 'menge'];
+
+  static String? _validateArtikelMap(Map<String, dynamic> map) {
+    for (final field in _requiredFields) {
+      if (!map.containsKey(field) || map[field] == null) {
+        return 'Pflichtfeld "$field" fehlt oder ist null';
+      }
+    }
+    // Typ-Validierung
+    if (map['name'] is! String || (map['name'] as String).trim().isEmpty) {
+      return '"name" muss ein nicht-leerer String sein';
+    }
+    if (map['ort'] is! String) {
+      return '"ort" muss ein String sein';
+    }
+    if (map['fach'] is! String) {
+      return '"fach" muss ein String sein';
+    }
+    // menge: int oder parsebarer String
+    final mengeRaw = map['menge'];
+    if (mengeRaw is! int) {
+      final parsed = int.tryParse(mengeRaw?.toString() ?? '');
+      if (parsed == null) {
+        return '"menge" muss eine Ganzzahl sein (Wert: $mengeRaw)';
+      }
+    }
+    return null; // null = gültig
+  }
+
   /// Importiert Artikel aus einem JSON-String
   Future<List<Artikel>> importFromJson(String jsonString) async {
-    final List<dynamic> jsonList = json.decode(jsonString);
+    // FIX #11: Top-Level-Typ prüfen
+    dynamic decoded;
+    try {
+      decoded = json.decode(jsonString);
+    } catch (e) {
+      await AppLogService().logError('JSON-Parse-Fehler: $e');
+      throw FormatException('Ungültiges JSON: $e');
+    }
+
+    if (decoded is! List) {
+      await AppLogService().logError(
+        'JSON-Schema-Fehler: Erwartet eine Liste, erhalten: ${decoded.runtimeType}',
+      );
+      throw FormatException(
+        'JSON muss eine Liste von Artikeln sein, nicht ${decoded.runtimeType}',
+      );
+    }
+
+    final List<dynamic> jsonList = decoded;
     final artikelList = <Artikel>[];
 
-    for (final item in jsonList) {
+    for (int i = 0; i < jsonList.length; i++) {
+      final item = jsonList[i];
       try {
-        final map = item as Map<String, dynamic>;
-        if (!map.containsKey('name')) {
-          await AppLogService().logError('Artikel übersprungen - Fehlende Felder: $map');
+        // FIX #11: Typ des einzelnen Eintrags prüfen
+        if (item is! Map<String, dynamic>) {
+          await AppLogService().logError(
+            'Artikel[$i] übersprungen — kein Objekt: ${item.runtimeType}',
+          );
           continue;
         }
-        map['bildPfad'] ??= '';
-        artikelList.add(Artikel.fromMap(map));
+
+        // FIX #11: Schema-Validierung
+        final validationError = _validateArtikelMap(item);
+        if (validationError != null) {
+          await AppLogService().logError(
+            'Artikel[$i] übersprungen — $validationError: $item',
+          );
+          continue;
+        }
+
+        item['bildPfad'] ??= '';
+        artikelList.add(Artikel.fromMap(item));
       } catch (e) {
-        await AppLogService().logError('Fehler bei Artikel: $item - $e');
+        await AppLogService().logError(
+          'Fehler bei Artikel[$i]: $item — $e',
+        );
         continue;
       }
     }
@@ -44,30 +109,89 @@ class ArtikelImportService {
   }
 
   /// Importiert Artikel aus einem CSV-String
+  // FIX #12: RFC-4180-konformer Parser via csv-Package
+  // → unterstützt mehrzeilige Felder, Kommas in Anführungszeichen, etc.
   Future<List<Artikel>> importFromCsv(String csvString) async {
-    final rows = const LineSplitter().convert(csvString.trim());
+    if (csvString.trim().isEmpty) return [];
+
+    // FIX #12: Entferne UTF-8 BOM falls vorhanden (von Excel-Export)
+    final cleanedCsv = csvString.startsWith('\uFEFF')
+        ? csvString.substring(1)
+        : csvString;
+
+    // FIX #12: RFC-4180-konformer Parser statt naivem split(',')
+    List<List<dynamic>> rows;
+    try {
+      rows = const CsvToListConverter(
+        eol: '\n',
+        shouldParseNumbers: false, // Wir parsen Typen selbst
+      ).convert(cleanedCsv);
+    } catch (e) {
+      await AppLogService().logError('CSV-Parse-Fehler: $e');
+      throw FormatException('Ungültiges CSV-Format: $e');
+    }
+
     if (rows.isEmpty) return [];
 
-    final header = rows.first.split(',').map((h) => h.trim()).toList();
+    // Erste Zeile = Header
+    final header = rows.first
+        .map((h) => h.toString().trim())
+        .toList();
+
+    // FIX #11: Pflichtfelder im CSV-Header prüfen
+    for (final field in _requiredFields) {
+      if (!header.contains(field)) {
+        await AppLogService().logError(
+          'CSV-Schema-Fehler: Pflichtfeld "$field" fehlt im Header',
+        );
+        throw FormatException(
+          'CSV-Header enthält nicht das Pflichtfeld "$field"',
+        );
+      }
+    }
+
     final artikelList = <Artikel>[];
 
-    for (final row in rows.skip(1)) {
-      final values = row.split(',').map((v) => v.trim()).toList();
-      if (values.length < header.length) continue;
+    for (int i = 1; i < rows.length; i++) {
+      final values = rows[i];
 
-      final map = Map<String, String>.fromIterables(header, values);
+      // Überspringe leere Zeilen
+      if (values.every((v) => v.toString().trim().isEmpty)) continue;
 
-      if (map['menge'] != null && map['menge']!.isNotEmpty) {
-        map['menge'] = (int.tryParse(map['menge']!) ?? 0).toString();
-      } else {
-        map['menge'] = '0';
+      // FIX #12: Fehlende Spalten mit Leerstring auffüllen
+      final paddedValues = List<String>.generate(
+        header.length,
+        (idx) => idx < values.length ? values[idx].toString().trim() : '',
+      );
+
+      final map = Map<String, String>.fromIterables(header, paddedValues);
+
+      // menge normalisieren
+      final mengeStr = map['menge'] ?? '';
+      map['menge'] = (int.tryParse(mengeStr) ?? 0).toString();
+
+      // bildPfad sicherstellen
+      map['bildPfad'] ??= '';
+      if (map['bildPfad']!.isEmpty) map['bildPfad'] = '';
+
+      // FIX #11: Schema-Validierung auch für CSV-Zeilen
+      final mapDynamic = Map<String, dynamic>.from(map);
+      final validationError = _validateArtikelMap(mapDynamic);
+      if (validationError != null) {
+        await AppLogService().logError(
+          'CSV-Zeile[$i] übersprungen — $validationError',
+        );
+        continue;
       }
 
-      if (map['bildPfad'] == null || map['bildPfad']!.isEmpty) {
-        map['bildPfad'] = '';
+      try {
+        artikelList.add(Artikel.fromMap(mapDynamic));
+      } catch (e) {
+        await AppLogService().logError(
+          'Fehler bei CSV-Zeile[$i]: $map — $e',
+        );
+        continue;
       }
-
-      artikelList.add(Artikel.fromMap(map));
     }
     return artikelList;
   }
@@ -119,7 +243,8 @@ class ArtikelImportService {
       }
     }
     await AppLogService().log(
-      'Artikel in PocketBase eingefügt: $insertedCount von ${artikelList.length}',
+      'Artikel in PocketBase eingefügt: '
+      '$insertedCount von ${artikelList.length}',
     );
   }
 
@@ -144,13 +269,15 @@ class ArtikelImportService {
     // Datei-Inhalt lesen (Web: aus bytes, Mobile: aus Datei)
     String content;
     if (file.bytes != null) {
-      content = String.fromCharCodes(file.bytes!);
+      content = utf8.decode(file.bytes!, allowMalformed: true);
     } else if (!kIsWeb && file.path != null) {
       content = await platform.readFileAsString(file.path!);
     } else {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Datei konnte nicht gelesen werden')),
+          const SnackBar(
+            content: Text('Datei konnte nicht gelesen werden'),
+          ),
         );
       }
       return;
@@ -162,12 +289,16 @@ class ArtikelImportService {
     try {
       if (ext == 'json') {
         await AppLogService().log('JSON-Import gestartet');
-        artikelList = await ArtikelImportService().importFromJson(content);
-        importMsg = 'Importierte Artikel aus JSON: ${artikelList.length}';
+        artikelList =
+            await ArtikelImportService().importFromJson(content);
+        importMsg =
+            'Importierte Artikel aus JSON: ${artikelList.length}';
       } else if (ext == 'csv') {
         await AppLogService().log('CSV-Import gestartet');
-        artikelList = await ArtikelImportService().importFromCsv(content);
-        importMsg = 'Importierte Artikel aus CSV: ${artikelList.length}';
+        artikelList =
+            await ArtikelImportService().importFromCsv(content);
+        importMsg =
+            'Importierte Artikel aus CSV: ${artikelList.length}';
       } else {
         importMsg = 'Dateiformat nicht unterstützt.';
       }
@@ -205,7 +336,8 @@ class ArtikelImportService {
       if (!file.isFile) continue;
       if (file.name == 'artikel_backup.json') {
         jsonContent = utf8.decode(file.content as List<int>);
-      } else if (file.name.startsWith('images/') && file.name.endsWith('.jpg')) {
+      } else if (file.name.startsWith('images/') &&
+          file.name.endsWith('.jpg')) {
         imageFiles.add(file);
       }
     }
@@ -217,7 +349,10 @@ class ArtikelImportService {
 
     List<Artikel> artikelList;
     try {
-      artikelList = await ArtikelImportService().importFromJson(jsonContent);
+      // FIX #11: importFromJson wirft jetzt FormatException bei
+      // Schema-Fehlern → wird hier korrekt gefangen
+      artikelList =
+          await ArtikelImportService().importFromJson(jsonContent);
     } catch (e) {
       errors?.add('Fehler beim Verarbeiten der JSON: $e');
       throw StateError('JSON im ZIP konnte nicht verarbeitet werden');
@@ -250,7 +385,6 @@ class ArtikelImportService {
       return (false, ['Keine ZIP-Datei ausgewählt.']);
     }
 
-    // Bytes lesen (Web: aus bytes, Mobile: aus Datei)
     Uint8List bytes;
     if (result.files.single.bytes != null) {
       bytes = result.files.single.bytes!;
@@ -327,7 +461,9 @@ class ArtikelImportService {
         await dbService.insertArtikel(artikel);
       } catch (e) {
         errors?.add('Fehler beim Einfügen: ${artikel.name}: $e');
-        await AppLogService().logError('DB Insert Fehler (${artikel.name}): $e');
+        await AppLogService().logError(
+          'DB Insert Fehler (${artikel.name}): $e',
+        );
       }
     }
 
@@ -380,7 +516,10 @@ class ArtikelImportService {
     if (kIsWeb) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nextcloud-Import im Web nicht verfügbar')),
+          const SnackBar(
+            content:
+                Text('Nextcloud-Import im Web nicht verfügbar'),
+          ),
         );
       }
       return;
@@ -398,10 +537,12 @@ class ArtikelImportService {
   static List<String> konsistenzPruefung(List<Artikel> artikelList) {
     final warnungen = <String>[];
 
-    final artikelOhneBild = artikelList.where((a) => a.bildPfad.isEmpty).toList();
+    final artikelOhneBild =
+        artikelList.where((a) => a.bildPfad.isEmpty).toList();
     if (artikelOhneBild.isNotEmpty) {
       warnungen.add(
-        'Artikel ohne Bild: ${artikelOhneBild.map((a) => a.name).join(', ')}',
+        'Artikel ohne Bild: '
+        '${artikelOhneBild.map((a) => a.name).join(', ')}',
       );
     }
 
@@ -426,23 +567,33 @@ class ArtikelImportService {
     return warnungen;
   }
 
-  static const String placeholderImagePath = 'assets/images/placeholder.jpg';
+  static const String placeholderImagePath =
+      'assets/images/placeholder.jpg';
 
-  static List<Artikel> setzePlatzhalterBilder(List<Artikel> artikelList) {
+  static List<Artikel> setzePlatzhalterBilder(
+    List<Artikel> artikelList,
+  ) {
     return artikelList.map((a) {
-      if (a.bildPfad.isEmpty) return a.copyWith(bildPfad: placeholderImagePath);
+      if (a.bildPfad.isEmpty) {
+        return a.copyWith(bildPfad: placeholderImagePath);
+      }
       return a;
     }).toList();
   }
 
   /// Fehler-Dialog anzeigen
-  static void showImportErrors(BuildContext context, List<String> errors) {
+  static void showImportErrors(
+    BuildContext context,
+    List<String> errors,
+  ) {
     if (!context.mounted || errors.isEmpty) return;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Fehler und Warnungen beim Import'),
-        content: SingleChildScrollView(child: Text(errors.join('\n\n'))),
+        content: SingleChildScrollView(
+          child: Text(errors.join('\n\n')),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),

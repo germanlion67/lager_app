@@ -1,4 +1,4 @@
-//lib/services/nextcloud_credentials.dart
+// lib/services/nextcloud_credentials.dart
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -41,22 +41,34 @@ class NextcloudCredentialsStore {
     await _storage.write(key: _kUser, value: username);
     await _storage.write(key: _kAppPw, value: appPassword);
     await _storage.write(key: _kBaseFolder, value: baseRemoteFolder);
-    await _storage.write(key: _kCheckInterval, value: checkIntervalMinutes.toString());
+    await _storage.write(
+      key: _kCheckInterval,
+      value: checkIntervalMinutes.toString(),
+    );
   }
 
   Future<NextcloudCredentials?> read() async {
     final s = await _storage.read(key: _kServer);
     final u = await _storage.read(key: _kUser);
-    final p = await _storage.read(key: _kAppPw);
+    final pw = await _storage.read(key: _kAppPw);
     final b = await _storage.read(key: _kBaseFolder) ?? 'Apps/Artikel';
     final i = await _storage.read(key: _kCheckInterval);
     final checkInterval = int.tryParse(i ?? '10') ?? 10;
-    
-    if (s == null || u == null || p == null) return null;
+
+    if (s == null || u == null || pw == null) return null;
+
+    // FIX: Uri.parse kann FormatException werfen — sicher abfangen
+    final Uri serverUri;
+    try {
+      serverUri = Uri.parse(s);
+    } on FormatException {
+      return null; // Ungültige URL → wie nicht vorhanden behandeln
+    }
+
     return NextcloudCredentials(
-      server: Uri.parse(s),
+      server: serverUri,
       user: u,
-      appPw: p,
+      appPw: pw,
       baseFolder: b,
       checkIntervalMinutes: checkInterval,
     );
@@ -70,20 +82,30 @@ class NextcloudCredentialsStore {
     await _storage.delete(key: _kCheckInterval);
   }
 
-  static Future<void> showLogoutDialog(BuildContext context, NextcloudConnectionService connectionService) async {
+  static Future<void> showLogoutDialog(
+    BuildContext context,
+    NextcloudConnectionService connectionService,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Logout Nextcloud'),
         content: const Text(
-          'Gespeicherte Nextcloud-Zugangsdaten werden gelöscht. Fortfahren?'
+          'Gespeicherte Nextcloud-Zugangsdaten werden gelöscht. Fortfahren?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Abbrechen')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Logout')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Logout'),
+          ),
         ],
       ),
     );
+
     if (!context.mounted) return;
     if (confirm == true) {
       await NextcloudCredentialsStore().clear();

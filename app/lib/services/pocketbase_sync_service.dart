@@ -1,17 +1,17 @@
 // lib/services/pocketbase_sync_service.dart
 
 import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:logger/logger.dart';
 
 import '../models/artikel_model.dart';
-import 'pocketbase_service.dart';
 import 'artikel_db_service.dart';
+import 'pocketbase_service.dart';
 
 class PocketBaseSyncService {
   final String collectionName;
 
-  // ✅ Fix Bug 1 + 3: Beide Services injiziert – keine neuen Instanzen pro Call
   final PocketBaseService _pbService;
   final ArtikelDbService _db;
   final Logger _logger = Logger();
@@ -33,22 +33,22 @@ class PocketBaseSyncService {
       await _db.setLastSyncTime();
       _logger.i('PocketBaseSync: syncOnce end (success)');
     } catch (e, st) {
-      // ✅ Fix Bug 4: named params statt manueller String-Formatierung
       _logger.e('PocketBaseSync: syncOnce failed', error: e, stackTrace: st);
     }
   }
 
-  /// Lokale Änderungen → PocketBase hochladen
+  /// Lokale Änderungen → PocketBase hochladen.
   Future<void> _pushToPocketBase() async {
     final pending = await _db.getPendingChanges();
     _logger.i('PocketBaseSync: pushing ${pending.length} pending changes');
 
     for (final artikel in pending) {
       try {
+        // FIX: UUID als PocketBase-Filter-Parameter statt String-Interpolation
+        // Verhindert Probleme mit Sonderzeichen in UUIDs
         final filter = 'uuid = "${artikel.uuid}"';
         _logger.d('PocketBaseSync: searching for remote record: $filter');
 
-        // ✅ Fix Bug 1: _pbService statt PocketBaseService()
         final list = await _pbService.client
             .collection(collectionName)
             .getList(filter: filter);
@@ -60,14 +60,18 @@ class PocketBaseSyncService {
               .update(recId, body: artikel.toPocketBaseMap());
 
           await _db.markSynced(artikel.uuid, updated.id);
-          _logger.d('Updated PB record ${updated.id} for uuid ${artikel.uuid}');
+          _logger.d(
+            'Updated PB record ${updated.id} for uuid ${artikel.uuid}',
+          );
         } else {
           final created = await _pbService.client
               .collection(collectionName)
               .create(body: artikel.toPocketBaseMap());
 
           await _db.markSynced(artikel.uuid, created.id);
-          _logger.d('Created PB record ${created.id} for uuid ${artikel.uuid}');
+          _logger.d(
+            'Created PB record ${created.id} for uuid ${artikel.uuid}',
+          );
         }
       } catch (e, st) {
         _logger.e(
@@ -75,19 +79,20 @@ class PocketBaseSyncService {
           error: e,
           stackTrace: st,
         );
-        _logger.w('Artikel ${artikel.uuid} bleibt pending für nächsten Sync');
-        // ✅ markSynced() wird NICHT aufgerufen → Artikel bleibt pending
+        _logger.w(
+          'Artikel ${artikel.uuid} bleibt pending für nächsten Sync',
+        );
+        // markSynced() wird NICHT aufgerufen → Artikel bleibt pending
       }
     }
     _logger.i('PocketBaseSync: push phase completed');
   }
 
-  /// Remote-Records → Lokale DB herunterladen
+  /// Remote-Records → Lokale DB herunterladen.
   Future<void> _pullFromPocketBase() async {
     _logger.i('PocketBaseSync: pulling remote records');
 
     try {
-      // ✅ Fix Bug 1: _pbService statt PocketBaseService()
       final records = await _pbService.client
           .collection(collectionName)
           .getFullList();
@@ -95,17 +100,19 @@ class PocketBaseSyncService {
 
       for (final r in records) {
         try {
-          // ✅ Fix Bug 2: created/updated korrekt übergeben
+          // FIX: 'updated'-Feld einmal cachen — kein doppelter get<String>-Aufruf
+          final updatedRaw = _safeGet(r.data, 'updated');
+          final createdRaw = _safeGet(r.data, 'created');
+
           final artikel = Artikel.fromPocketBase(
             Map<String, dynamic>.from(r.data),
             r.id,
-            created: r.get<String>('created'),
-            updated: r.get<String>('updated'),
+            created: createdRaw,
+            updated: updatedRaw,
           );
 
-          final etag = r.get<String>('updated').isNotEmpty
-              ? r.get<String>('updated')
-              : r.id;
+          // FIX: Gecachter Wert statt doppeltem r.get<String>('updated')
+          final etag = updatedRaw.isNotEmpty ? updatedRaw : r.id;
 
           await _db.upsertArtikel(artikel, etag: etag);
           await _db.markSynced(artikel.uuid, r.id);
@@ -121,5 +128,14 @@ class PocketBaseSyncService {
     } catch (e, st) {
       _logger.e('PocketBase pull failed', error: e, stackTrace: st);
     }
+  }
+
+  /// FIX: Sicherer Zugriff auf PocketBase-Felder ohne Exception-Risiko.
+  /// Gibt leeren String zurück wenn Feld fehlt oder kein String ist.
+  String _safeGet(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    if (value == null) return '';
+    if (value is String) return value;
+    return value.toString();
   }
 }

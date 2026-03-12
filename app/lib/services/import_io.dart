@@ -10,12 +10,26 @@ import 'app_log_service.dart';
 
 /// Liest eine Datei als String
 Future<String> readFileAsString(String path) async {
-  return await File(path).readAsString();
+  try {
+    return await File(path).readAsString();
+  } catch (e) {
+    await AppLogService().logError(
+      'readFileAsString fehlgeschlagen (Pfad: $path): $e',
+    );
+    rethrow;
+  }
 }
 
 /// Liest eine Datei als Bytes
 Future<Uint8List> readFileBytes(String path) async {
-  return await File(path).readAsBytes();
+  try {
+    return await File(path).readAsBytes();
+  } catch (e) {
+    await AppLogService().logError(
+      'readFileBytes fehlgeschlagen (Pfad: $path): $e',
+    );
+    rethrow;
+  }
 }
 
 /// Extrahiert Bilder aus ZIP-ArchiveFiles ins lokale Dateisystem
@@ -38,14 +52,20 @@ Future<List<Artikel>> extractImagesToLocal(
     );
 
     if (imageFile.name.isNotEmpty) {
-      final localImagePath = p.join(imagesDir.path, p.basename(imageFile.name));
+      final localImagePath = p.join(
+        imagesDir.path,
+        p.basename(imageFile.name),
+      );
       try {
         final outFile = File(localImagePath);
         await outFile.writeAsBytes(imageFile.content as List<int>);
         result[i] = artikel.copyWith(bildPfad: localImagePath);
       } catch (e) {
         errors.add('Bild-Fehler (${artikel.name}): $e');
-        await AppLogService().logError('Bild schreiben fehlgeschlagen (${artikel.name}): $e');
+        await AppLogService().logError(
+          'Bild schreiben fehlgeschlagen (${artikel.name}): $e',
+        );
+        result[i] = artikel.copyWith(bildPfad: '');
       }
     } else {
       await AppLogService().log('${artikel.name}: Kein Bild im ZIP');

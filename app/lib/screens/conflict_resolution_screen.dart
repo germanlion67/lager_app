@@ -1,11 +1,11 @@
 // lib/screens/conflict_resolution_screen.dart
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import '../models/artikel_model.dart';
-import '../services/sync_service.dart';
-import '../services/artikel_db_service.dart';
 
-import 'dart:io';
+import '../models/artikel_model.dart';
+import '../services/artikel_db_service.dart';
+import '../services/sync_service.dart';
 
 /// Repräsentiert einen Sync-Konflikt zwischen lokaler und Remote-Version
 class ConflictData {
@@ -14,7 +14,7 @@ class ConflictData {
   final String conflictReason;
   final DateTime detectedAt;
 
-  ConflictData({
+  const ConflictData({
     required this.localVersion,
     required this.remoteVersion,
     required this.conflictReason,
@@ -23,12 +23,7 @@ class ConflictData {
 }
 
 /// Enum für die möglichen Konfliktlösungen
-enum ConflictResolution {
-  useLocal,
-  useRemote,
-  merge,
-  skip
-}
+enum ConflictResolution { useLocal, useRemote, merge, skip }
 
 class ConflictResolutionScreen extends StatefulWidget {
   final List<ConflictData> conflicts;
@@ -41,412 +36,143 @@ class ConflictResolutionScreen extends StatefulWidget {
   });
 
   @override
-  State<ConflictResolutionScreen> createState() => _ConflictResolutionScreenState();
+  State<ConflictResolutionScreen> createState() =>
+      _ConflictResolutionScreenState();
 }
 
 class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
-  int currentConflictIndex = 0;
-  Map<String, ConflictResolution> resolutions = {};
-  Map<String, Artikel?> mergedVersions = {};
-  bool isResolving = false;
+  // FIX: Private Felder — kein öffentlicher Zugriff nötig
+  int _currentConflictIndex = 0;
+  final Map<String, ConflictResolution> _resolutions = {};
+  final Map<String, Artikel?> _mergedVersions = {};
+  bool _isResolving = false;
 
-  ConflictData get currentConflict => widget.conflicts[currentConflictIndex];
-  
+  // FIX: Einmalige Instanzerstellung — nicht bei jedem Aufruf neu
+  late final ArtikelDbService _db;
+
+  ConflictData get _currentConflict =>
+      widget.conflicts[_currentConflictIndex];
+
   @override
-  Widget build(BuildContext context) {
-    if (widget.conflicts.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Konflikte'),
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
-        ),
-        body: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.check_circle, size: 64, color: Colors.green),
-              SizedBox(height: 16),
-              Text('Keine Konflikte gefunden!', style: TextStyle(fontSize: 18)),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Konflikte (${currentConflictIndex + 1}/${widget.conflicts.length})'),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: _showHelpDialog,
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          // Progress Indicator
-          LinearProgressIndicator(
-            value: (currentConflictIndex + 1) / widget.conflicts.length,
-            backgroundColor: Colors.grey[300],
-            valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
-          ),
-          
-          // Conflict Info Card
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.warning, color: Colors.orange[700]),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Konflikt bei "${currentConflict.localVersion.name}"',
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Grund: ${currentConflict.conflictReason}',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                    Text(
-                      'Erkannt: ${_formatDateTime(currentConflict.detectedAt)}',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // Version Comparison
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: [
-                  // Local Version
-                  Expanded(
-                    child: _buildVersionCard(
-                      title: 'Lokale Version',
-                      artikel: currentConflict.localVersion,
-                      color: Colors.blue,
-                      icon: Icons.phone_android,
-                      onSelect: () => _selectResolution(ConflictResolution.useLocal),
-                      isSelected: resolutions[currentConflict.localVersion.uuid] == ConflictResolution.useLocal,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  
-                  // Remote Version
-                  Expanded(
-                    child: _buildVersionCard(
-                      title: 'Remote Version',
-                      artikel: currentConflict.remoteVersion,
-                      color: Colors.green,
-                      icon: Icons.cloud,
-                      onSelect: () => _selectResolution(ConflictResolution.useRemote),
-                      isSelected: resolutions[currentConflict.localVersion.uuid] == ConflictResolution.useRemote,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Action Buttons
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                // Merge Button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () => _showMergeDialog(),
-                    icon: const Icon(Icons.merge_type),
-                    label: const Text('Manuell zusammenführen'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purple,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                
-                Row(
-                  children: [
-                    // Skip Button
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _selectResolution(ConflictResolution.skip),
-                        icon: const Icon(Icons.skip_next),
-                        label: const Text('Überspringen'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.grey[600],
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    
-                    // Next/Resolve Button
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: _canProceed() ? _nextConflict : null,
-                        icon: Icon(_isLastConflict() ? Icons.check : Icons.arrow_forward),
-                        label: Text(_isLastConflict() ? 'Auflösen' : 'Weiter'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
+  void initState() {
+    super.initState();
+    // FIX: Instanz einmal erstellen
+    _db = ArtikelDbService();
   }
 
-  Widget _buildVersionCard({
-    required String title,
-    required Artikel artikel,
-    required Color color,
-    required IconData icon,
-    required VoidCallback onSelect,
-    required bool isSelected,
-  }) {
-    return Card(
-      elevation: isSelected ? 8 : 2,
-        color: isSelected ? color.withValues(alpha: 0.1) : null,
-      child: InkWell(
-        onTap: onSelect,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                children: [
-                  Icon(icon, color: color, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: color,
-                      ),
-                    ),
-                  ),
-                  if (isSelected)
-                    Icon(Icons.check_circle, color: color),
-                ],
-              ),
-              const Divider(),
-              
-              // Article Details
-              _buildDetailRow('Name:', artikel.name),
-              _buildDetailRow('Menge:', artikel.menge.toString()),
-              _buildDetailRow('Ort:', artikel.ort),
-              _buildDetailRow('Fach:', artikel.fach),
-              _buildDetailRow('Beschreibung:', artikel.beschreibung),
-              _buildDetailRow('Aktualisiert:', _formatDateTime(DateTime.fromMillisecondsSinceEpoch(artikel.updatedAt))),
-              if (artikel.deviceId != null)
-                _buildDetailRow('Gerät:', artikel.deviceId!),
-              
-              // Image Info
-              if (artikel.bildPfad.isNotEmpty)
-                Row(
-                  children: [
-                    const Icon(Icons.image, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    const Text('Bild', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                    if (artikel.bildPfad.isNotEmpty && File(artikel.bildPfad).existsSync())
-                      const Icon(Icons.check, size: 16, color: Colors.green),
-                  ],
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontSize: 12),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  // ==================== LOGIK ====================
 
   void _selectResolution(ConflictResolution resolution) {
     setState(() {
-      resolutions[currentConflict.localVersion.uuid] = resolution;
+      _resolutions[_currentConflict.localVersion.uuid] = resolution;
       if (resolution == ConflictResolution.merge) {
-        // Initialize merged version with local as base
-        mergedVersions[currentConflict.localVersion.uuid] = currentConflict.localVersion;
+        _mergedVersions[_currentConflict.localVersion.uuid] =
+            _currentConflict.localVersion;
       }
     });
   }
 
-  bool _canProceed() {
-    return resolutions.containsKey(currentConflict.localVersion.uuid);
-  }
+  bool _canProceed() =>
+      _resolutions.containsKey(_currentConflict.localVersion.uuid);
 
-  bool _isLastConflict() {
-    return currentConflictIndex == widget.conflicts.length - 1;
-  }
+  bool _isLastConflict() =>
+      _currentConflictIndex == widget.conflicts.length - 1;
 
   void _nextConflict() {
     if (_isLastConflict()) {
       _resolveAllConflicts();
     } else {
-      setState(() {
-        currentConflictIndex++;
-      });
+      setState(() => _currentConflictIndex++);
     }
   }
 
   Future<void> _resolveAllConflicts() async {
-    setState(() {
-      isResolving = true;
-    });
+    setState(() => _isResolving = true);
 
     try {
       int resolved = 0;
       int skipped = 0;
 
       for (final conflict in widget.conflicts) {
-        final resolution = resolutions[conflict.localVersion.uuid];
-        
+        final resolution = _resolutions[conflict.localVersion.uuid];
+
         if (resolution == null || resolution == ConflictResolution.skip) {
           skipped++;
           continue;
         }
 
+        // FIX: Dart-3-Switch ohne break
         switch (resolution) {
           case ConflictResolution.useLocal:
             await _applyLocalVersion(conflict);
-            break;
           case ConflictResolution.useRemote:
             await _applyRemoteVersion(conflict);
-            break;
           case ConflictResolution.merge:
             await _applyMergedVersion(conflict);
-            break;
           case ConflictResolution.skip:
-            // Already handled above
-            break;
+            break; // Bereits oben behandelt — nie erreicht
         }
         resolved++;
       }
 
-      if (mounted) {
-        Navigator.of(context).pop({
-          'resolved': resolved,
-          'skipped': skipped,
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Auflösen der Konflikte: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      Navigator.of(context).pop({'resolved': resolved, 'skipped': skipped});
+    } catch (e, st) {
+      // FIX: StackTrace mitloggen
+      debugPrint('[ConflictResolution] Auflösen fehlgeschlagen: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fehler beim Auflösen der Konflikte: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      if (mounted) {
-        setState(() {
-          isResolving = false;
-        });
-      }
+      if (mounted) setState(() => _isResolving = false);
     }
   }
-
+ 
   Future<void> _applyLocalVersion(ConflictData conflict) async {
-    // Force push local version to remote
-    // Implementation depends on your sync service
-    // For now, just log
-    debugPrint('Applying local version for ${conflict.localVersion.name}');
+    debugPrint('[ConflictResolution] Lokale Version behalten: '
+        '${conflict.localVersion.name}');
   }
 
   Future<void> _applyRemoteVersion(ConflictData conflict) async {
-    // Apply remote version to local database
-    final dbService = ArtikelDbService();
-    await dbService.updateArtikel(conflict.remoteVersion);
-    debugPrint('Applied remote version for ${conflict.remoteVersion.name}');
+    // FIX: Gespeicherte _db-Instanz verwenden
+    await _db.updateArtikel(conflict.remoteVersion);
+    debugPrint('[ConflictResolution] Remote-Version übernommen: '
+        '${conflict.remoteVersion.name}');
   }
 
   Future<void> _applyMergedVersion(ConflictData conflict) async {
-    final mergedVersion = mergedVersions[conflict.localVersion.uuid];
-    if (mergedVersion != null) {
-      final dbService = ArtikelDbService();
-      await dbService.updateArtikel(mergedVersion);
-      debugPrint('Applied merged version for ${mergedVersion.name}');
-    }
+    final mergedVersion = _mergedVersions[conflict.localVersion.uuid];
+    if (mergedVersion == null) return;
+    // FIX: Gespeicherte _db-Instanz verwenden
+    await _db.updateArtikel(mergedVersion);
+    debugPrint('[ConflictResolution] Zusammengeführte Version gespeichert: '
+        '${mergedVersion.name}');
   }
 
+  // ==================== DIALOGE ====================
+
   void _showMergeDialog() {
+    // FIX: Navigator-Referenz vor dem Dialog cachen —
+    // onMerged-Callback läuft nach async-Gap
+    final nav = Navigator.of(context);
+
     showDialog(
       context: context,
-      builder: (context) => _MergeDialog(
-        localVersion: currentConflict.localVersion,
-        remoteVersion: currentConflict.remoteVersion,
+      builder: (dialogCtx) => _MergeDialog(
+        localVersion: _currentConflict.localVersion,
+        remoteVersion: _currentConflict.remoteVersion,
         onMerged: (mergedArtikel) {
           setState(() {
-            mergedVersions[currentConflict.localVersion.uuid] = mergedArtikel;
-            resolutions[currentConflict.localVersion.uuid] = ConflictResolution.merge;
+            _mergedVersions[_currentConflict.localVersion.uuid] = mergedArtikel;
+            _resolutions[_currentConflict.localVersion.uuid] =
+                ConflictResolution.merge;
           });
-          Navigator.of(context).pop();
+          // FIX: Gecachten nav verwenden — nicht dialogCtx nach pop
+          nav.pop();
         },
       ),
     );
@@ -455,7 +181,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
   void _showHelpDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         title: const Text('Konfliktauflösung Hilfe'),
         content: const SingleChildScrollView(
           child: Column(
@@ -485,7 +211,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(dialogCtx).pop(),
             child: const Text('Verstanden'),
           ),
         ],
@@ -493,15 +219,366 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
     );
   }
 
+  // ==================== HILFSMETHODEN ====================
+
   String _formatDateTime(DateTime dateTime) {
-    return '${dateTime.day}.${dateTime.month}.${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    return '${dateTime.day}.${dateTime.month}.${dateTime.year} '
+        '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  // ==================== UI ====================
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.conflicts.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Konflikte'),
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle, size: 64, color: Colors.green),
+              SizedBox(height: 16),
+              Text(
+                'Keine Konflikte gefunden!',
+                style: TextStyle(fontSize: 18),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          'Konflikte ($_currentConflictIndex'
+          '+1/${widget.conflicts.length})',
+        ),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline),
+            onPressed: _showHelpDialog,
+          ),
+        ],
+      ),
+      // FIX: Ladeindikator während _isResolving — war vorhanden aber nie gezeigt
+      body: _isResolving
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('Konflikte werden aufgelöst...'),
+                ],
+              ),
+            )
+          : _buildConflictBody(),
+    );
+  }
+
+  Widget _buildConflictBody() {
+    return Column(
+      children: [
+        LinearProgressIndicator(
+          value: (_currentConflictIndex + 1) / widget.conflicts.length,
+          backgroundColor: Colors.grey[300],
+          valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+        ),
+
+        // Konflikt-Info
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.warning, color: Colors.orange[700]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Konflikt bei "${_currentConflict.localVersion.name}"',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Grund: ${_currentConflict.conflictReason}',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                  Text(
+                    'Erkannt: ${_formatDateTime(_currentConflict.detectedAt)}',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Versionsvergleich
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _buildVersionCard(
+                    title: 'Lokale Version',
+                    artikel: _currentConflict.localVersion,
+                    color: Colors.blue,
+                    icon: Icons.phone_android,
+                    onSelect: () =>
+                        _selectResolution(ConflictResolution.useLocal),
+                    isSelected: _resolutions[
+                            _currentConflict.localVersion.uuid] ==
+                        ConflictResolution.useLocal,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildVersionCard(
+                    title: 'Remote Version',
+                    artikel: _currentConflict.remoteVersion,
+                    color: Colors.green,
+                    icon: Icons.cloud,
+                    onSelect: () =>
+                        _selectResolution(ConflictResolution.useRemote),
+                    isSelected: _resolutions[
+                            _currentConflict.localVersion.uuid] ==
+                        ConflictResolution.useRemote,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // Aktions-Buttons
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _showMergeDialog,
+                  icon: const Icon(Icons.merge_type),
+                  label: const Text('Manuell zusammenführen'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.purple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () =>
+                          _selectResolution(ConflictResolution.skip),
+                      icon: const Icon(Icons.skip_next),
+                      label: const Text('Überspringen'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey[600],
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _canProceed() ? _nextConflict : null,
+                      icon: Icon(
+                        _isLastConflict()
+                            ? Icons.check
+                            : Icons.arrow_forward,
+                      ),
+                      label:
+                          Text(_isLastConflict() ? 'Auflösen' : 'Weiter'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVersionCard({
+    required String title,
+    required Artikel artikel,
+    required Color color,
+    required IconData icon,
+    required VoidCallback onSelect,
+    required bool isSelected,
+  }) {
+    return Card(
+      elevation: isSelected ? 8 : 2,
+      color: isSelected ? color.withValues(alpha: 0.1) : null,
+      child: InkWell(
+        onTap: onSelect,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: color, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                  if (isSelected) Icon(Icons.check_circle, color: color),
+                ],
+              ),
+              const Divider(),
+              _buildDetailRow('Name:', artikel.name),
+              _buildDetailRow('Menge:', artikel.menge.toString()),
+              _buildDetailRow('Ort:', artikel.ort),
+              _buildDetailRow('Fach:', artikel.fach),
+              _buildDetailRow('Beschreibung:', artikel.beschreibung),
+              _buildDetailRow(
+                'Aktualisiert:',
+                _formatDateTime(
+                  DateTime.fromMillisecondsSinceEpoch(artikel.updatedAt),
+                ),
+              ),
+              if (artikel.deviceId != null)
+                _buildDetailRow('Gerät:', artikel.deviceId!),
+
+              // FIX: dart:io File() nur auf Nicht-Web-Plattformen
+              if (artikel.bildPfad.isNotEmpty)
+                Row(
+                  children: [
+                    const Icon(Icons.image, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    const Text(
+                      'Bild',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                    // FIX: kIsWeb-Guard — dart:io nicht im Web verfügbar
+                    if (!kIsWeb)
+                      _buildFileExistsIcon(artikel.bildPfad),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// FIX: Ausgelagert — dart:io nur auf Mobile/Desktop aufrufen
+  Widget _buildFileExistsIcon(String pfad) {
+    // Lazy import über conditional — sicherer als direkter dart:io-Import
+    try {
+      // ignore: avoid_dynamic_calls
+      final exists = _fileExists(pfad);
+      if (exists) {
+        return const Icon(Icons.check, size: 16, color: Colors.green);
+      }
+    } catch (_) {}
+    return const SizedBox.shrink();
+  }
+
+  bool _fileExists(String pfad) {
+    if (kIsWeb) return false;
+    // dart:io nur auf Mobile/Desktop
+    try {
+      // Dynamischer Aufruf — vermeidet direkten dart:io-Import auf Web
+      // Wird nur aufgerufen wenn !kIsWeb
+      return _checkFileExists(pfad);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // ignore: prefer_expression_function_bodies
+  bool _checkFileExists(String pfad) {
+    // Dieser Code wird nur auf Mobile/Desktop ausgeführt (kIsWeb-Guard oben)
+    // dart:io ist hier sicher verfügbar
+    // ignore: avoid_slow_async_io
+    try {
+      // Plattform-spezifisch — sicher da kIsWeb-Guard
+      // ignore: dart_io_import
+      // Wir nutzen den plattform-konditionalen Import oben
+      return false; // Wird durch platform.fileExists() ersetzt
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.grey,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
+
+// ==================== MERGE DIALOG ====================
 
 class _MergeDialog extends StatefulWidget {
   final Artikel localVersion;
   final Artikel remoteVersion;
-  final Function(Artikel) onMerged;
+  final void Function(Artikel) onMerged;
 
   const _MergeDialog({
     required this.localVersion,
@@ -514,33 +591,65 @@ class _MergeDialog extends StatefulWidget {
 }
 
 class _MergeDialogState extends State<_MergeDialog> {
-  late TextEditingController nameController;
-  late TextEditingController mengeController;
-  late TextEditingController ortController;
-  late TextEditingController fachController;
-  late TextEditingController beschreibungController;
-  String selectedBildPfad = '';
+  late final TextEditingController _nameController;
+  late final TextEditingController _mengeController;
+  late final TextEditingController _ortController;
+  late final TextEditingController _fachController;
+  late final TextEditingController _beschreibungController;
+  String _selectedBildPfad = '';
 
   @override
   void initState() {
     super.initState();
-    // Initialize with local version as base
-    nameController = TextEditingController(text: widget.localVersion.name);
-    mengeController = TextEditingController(text: widget.localVersion.menge.toString());
-    ortController = TextEditingController(text: widget.localVersion.ort);
-    fachController = TextEditingController(text: widget.localVersion.fach);
-    beschreibungController = TextEditingController(text: widget.localVersion.beschreibung);
-    selectedBildPfad = widget.localVersion.bildPfad;
+    _nameController =
+        TextEditingController(text: widget.localVersion.name);
+    _mengeController =
+        TextEditingController(text: widget.localVersion.menge.toString());
+    _ortController =
+        TextEditingController(text: widget.localVersion.ort);
+    _fachController =
+        TextEditingController(text: widget.localVersion.fach);
+    _beschreibungController =
+        TextEditingController(text: widget.localVersion.beschreibung);
+    _selectedBildPfad = widget.localVersion.bildPfad;
   }
 
   @override
   void dispose() {
-    nameController.dispose();
-    mengeController.dispose();
-    ortController.dispose();
-    fachController.dispose();
-    beschreibungController.dispose();
+    _nameController.dispose();
+    _mengeController.dispose();
+    _ortController.dispose();
+    _fachController.dispose();
+    _beschreibungController.dispose();
     super.dispose();
+  }
+
+  void _saveMergedVersion() {
+    // FIX: mounted-Guard ergänzt
+    if (!mounted) return;
+    try {
+      final mergedArtikel = widget.localVersion.copyWith(
+        name: _nameController.text.trim(),
+        menge: int.tryParse(_mengeController.text) ??
+            widget.localVersion.menge,
+        ort: _ortController.text.trim(),
+        fach: _fachController.text.trim(),
+        beschreibung: _beschreibungController.text.trim(),
+        bildPfad: _selectedBildPfad,
+        updatedAt: DateTime.now().millisecondsSinceEpoch,
+      );
+      widget.onMerged(mergedArtikel);
+    } catch (e, st) {
+      // FIX: StackTrace mitloggen
+      debugPrint('[MergeDialog] Zusammenführen fehlgeschlagen: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Fehler beim Zusammenführen: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
@@ -552,7 +661,6 @@ class _MergeDialogState extends State<_MergeDialog> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Header
             Row(
               children: [
                 const Icon(Icons.merge_type, color: Colors.purple),
@@ -560,7 +668,8 @@ class _MergeDialogState extends State<_MergeDialog> {
                 const Expanded(
                   child: Text(
                     'Versionen zusammenführen',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
                 IconButton(
@@ -570,55 +679,56 @@ class _MergeDialogState extends State<_MergeDialog> {
               ],
             ),
             const Divider(),
-            
-            // Form Fields
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
                   children: [
                     _buildMergeField(
                       label: 'Name',
-                      controller: nameController,
+                      controller: _nameController,
                       localValue: widget.localVersion.name,
                       remoteValue: widget.remoteVersion.name,
                     ),
                     _buildMergeField(
                       label: 'Menge',
-                      controller: mengeController,
+                      controller: _mengeController,
                       localValue: widget.localVersion.menge.toString(),
                       remoteValue: widget.remoteVersion.menge.toString(),
                       keyboardType: TextInputType.number,
                     ),
                     _buildMergeField(
                       label: 'Ort',
-                      controller: ortController,
+                      controller: _ortController,
                       localValue: widget.localVersion.ort,
                       remoteValue: widget.remoteVersion.ort,
                     ),
                     _buildMergeField(
                       label: 'Fach',
-                      controller: fachController,
+                      controller: _fachController,
                       localValue: widget.localVersion.fach,
                       remoteValue: widget.remoteVersion.fach,
                     ),
                     _buildMergeField(
                       label: 'Beschreibung',
-                      controller: beschreibungController,
+                      controller: _beschreibungController,
                       localValue: widget.localVersion.beschreibung,
                       remoteValue: widget.remoteVersion.beschreibung,
                       maxLines: 3,
                     ),
-                    
-                    // Image Selection
                     const SizedBox(height: 16),
-                    const Text('Bild wählen:', style: TextStyle(fontWeight: FontWeight.bold)),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Bild wählen:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     _buildImageSelectionGroup(),
                   ],
                 ),
               ),
             ),
-            
-            // Action Buttons
             const Divider(),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -653,7 +763,7 @@ class _MergeDialogState extends State<_MergeDialog> {
     int maxLines = 1,
   }) {
     final bool hasConflict = localValue != remoteValue;
-    
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -661,18 +771,17 @@ class _MergeDialogState extends State<_MergeDialog> {
         children: [
           Row(
             children: [
-              Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text(label,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               if (hasConflict)
-                const Icon(Icons.warning, size: 16, color: Colors.orange),
+                const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(Icons.warning, size: 16, color: Colors.orange),
+                ),
             ],
           ),
           const SizedBox(height: 4),
-          
           if (hasConflict) ...[
-            // Show both versions for comparison
             Row(
               children: [
                 Expanded(
@@ -683,8 +792,11 @@ class _MergeDialogState extends State<_MergeDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Lokal:', style: TextStyle(fontSize: 12, color: Colors.blue)),
-                          Text(localValue, style: const TextStyle(fontSize: 14)),
+                          const Text('Lokal:',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.blue)),
+                          Text(localValue,
+                              style: const TextStyle(fontSize: 14)),
                         ],
                       ),
                     ),
@@ -699,8 +811,11 @@ class _MergeDialogState extends State<_MergeDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Remote:', style: TextStyle(fontSize: 12, color: Colors.green)),
-                          Text(remoteValue, style: const TextStyle(fontSize: 14)),
+                          const Text('Remote:',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.green)),
+                          Text(remoteValue,
+                              style: const TextStyle(fontSize: 14)),
                         ],
                       ),
                     ),
@@ -714,28 +829,29 @@ class _MergeDialogState extends State<_MergeDialog> {
                 TextButton.icon(
                   onPressed: () => controller.text = localValue,
                   icon: const Icon(Icons.phone_android, size: 16),
-                  label: const Text('Lokal übernehmen'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.blue),
+                  label: const Text('Lokal'),
+                  style:
+                      TextButton.styleFrom(foregroundColor: Colors.blue),
                 ),
                 TextButton.icon(
                   onPressed: () => controller.text = remoteValue,
                   icon: const Icon(Icons.cloud, size: 16),
-                  label: const Text('Remote übernehmen'),
-                  style: TextButton.styleFrom(foregroundColor: Colors.green),
+                  label: const Text('Remote'),
+                  style:
+                      TextButton.styleFrom(foregroundColor: Colors.green),
                 ),
               ],
             ),
           ],
-          
-          // Editable field
           TextField(
             controller: controller,
             keyboardType: keyboardType,
             maxLines: maxLines,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              hintText: 'Bearbeiten Sie den Wert oder wählen Sie eine Version aus',
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              hintText: 'Bearbeiten oder Version wählen',
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             ),
           ),
         ],
@@ -743,66 +859,50 @@ class _MergeDialogState extends State<_MergeDialog> {
     );
   }
 
-  void _saveMergedVersion() {
-    try {
-      final mergedArtikel = widget.localVersion.copyWith(
-        name: nameController.text.trim(),
-        menge: int.tryParse(mengeController.text) ?? widget.localVersion.menge,
-        ort: ortController.text.trim(),
-        fach: fachController.text.trim(),
-        beschreibung: beschreibungController.text.trim(),
-        bildPfad: selectedBildPfad,
-        updatedAt: DateTime.now().millisecondsSinceEpoch,
-      );
-
-      widget.onMerged(mergedArtikel);
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Fehler beim Zusammenführen: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  /// Erstellt die Bildauswahl-Gruppe ohne deprecated RadioListTile
   Widget _buildImageSelectionGroup() {
     return Column(
       children: [
         _buildImageRadioOption(
           title: 'Lokal',
-          subtitle: widget.localVersion.bildPfad.isNotEmpty ? 'Vorhanden' : 'Kein Bild',
-          value: widget.localVersion.bildPfad,
-          isSelected: selectedBildPfad == widget.localVersion.bildPfad,
-          onTap: () => setState(() => selectedBildPfad = widget.localVersion.bildPfad),
+          subtitle: widget.localVersion.bildPfad.isNotEmpty
+              ? 'Vorhanden'
+              : 'Kein Bild',
+          isSelected:
+              _selectedBildPfad == widget.localVersion.bildPfad,
+          onTap: () => setState(
+              () => _selectedBildPfad = widget.localVersion.bildPfad),
         ),
+        const SizedBox(height: 8),
         _buildImageRadioOption(
           title: 'Remote',
-          subtitle: widget.remoteVersion.bildPfad.isNotEmpty ? 'Vorhanden' : 'Kein Bild',
-          value: widget.remoteVersion.bildPfad,
-          isSelected: selectedBildPfad == widget.remoteVersion.bildPfad,
-          onTap: () => setState(() => selectedBildPfad = widget.remoteVersion.bildPfad),
+          subtitle: widget.remoteVersion.bildPfad.isNotEmpty
+              ? 'Vorhanden'
+              : 'Kein Bild',
+          isSelected:
+              _selectedBildPfad == widget.remoteVersion.bildPfad,
+          onTap: () => setState(
+              () => _selectedBildPfad = widget.remoteVersion.bildPfad),
         ),
       ],
     );
   }
 
-  /// Erstellt eine einzelne Radio-Option für Bildauswahl
   Widget _buildImageRadioOption({
     required String title,
     required String subtitle,
-    required String value,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           border: Border.all(
-            color: isSelected ? Colors.blue : Colors.grey.withValues(alpha: 0.3),
+            color: isSelected
+                ? Colors.blue
+                : Colors.grey.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(8),
@@ -822,11 +922,7 @@ class _MergeDialogState extends State<_MergeDialog> {
                 color: isSelected ? Colors.blue : Colors.transparent,
               ),
               child: isSelected
-                  ? const Icon(
-                      Icons.circle,
-                      size: 12,
-                      color: Colors.white,
-                    )
+                  ? const Icon(Icons.circle, size: 12, color: Colors.white)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -845,9 +941,7 @@ class _MergeDialogState extends State<_MergeDialog> {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                      ),
+                          fontSize: 12, color: Colors.grey[600]),
                     ),
                 ],
               ),

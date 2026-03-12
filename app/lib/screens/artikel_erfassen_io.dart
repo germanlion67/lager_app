@@ -3,6 +3,7 @@
 
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show debugPrint; // ← FIX
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
@@ -22,7 +23,7 @@ String _slug(String input) {
   return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
 }
 
-/// Kopiert das Bild ins lokale App-Verzeichnis
+/// Kopiert das Bild ins lokale App-Verzeichnis.
 Future<String?> copyImageToLocalDirectory({
   Uint8List? bildBytes,
   String? bildPfad,
@@ -41,8 +42,7 @@ Future<String?> copyImageToLocalDirectory({
     final localImagePath = p.join(imagesDir.path, fileName);
 
     if (bildBytes != null) {
-      final file = File(localImagePath);
-      await file.writeAsBytes(bildBytes);
+      await File(localImagePath).writeAsBytes(bildBytes);
     } else if (bildPfad != null) {
       final sourceFile = File(bildPfad);
       if (await sourceFile.exists()) {
@@ -53,8 +53,8 @@ Future<String?> copyImageToLocalDirectory({
     }
 
     return localImagePath;
-  } catch (e) {
+  } catch (e, st) {
+    debugPrint('[copyImageToLocalDirectory] Fehler: $e\n$st');
     return null;
   }
 }
-

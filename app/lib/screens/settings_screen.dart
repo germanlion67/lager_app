@@ -1,10 +1,11 @@
 // lib/screens/settings_screen.dart
 
-import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/pocketbase_service.dart';
+
 import '../services/artikel_db_service.dart';
+import '../services/pocketbase_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -18,6 +19,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final _artikelNummerController = TextEditingController();
   final _pocketBaseUrlController = TextEditingController();
 
+  // FIX: Einmalige Instanzerstellung — nicht bei jedem Aufruf neu
+  late final PocketBaseService _pbService;
+  late final ArtikelDbService _db;
+
   bool _isDatabaseEmpty = true;
   bool _isCheckingConnection = false;
   bool? _pbConnectionOk;
@@ -25,6 +30,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    // FIX: Instanzen einmal erstellen
+    _pbService = PocketBaseService();
+    _db = ArtikelDbService();
+
     _loadSettings();
     if (!kIsWeb) {
       _checkDatabaseStatus();
@@ -38,24 +47,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadSettings() async {
-    final prefs = await SharedPreferences.getInstance();
-    final pbService = PocketBaseService();
-    if (!pbService.isInitialized) {
-      await pbService.initialize();
-    }
+  // ==================== LADEN ====================
 
-    setState(() {
-      _artikelNummerController.text =
-          (prefs.getInt('artikel_start_nummer') ?? 1000).toString();
-      _pocketBaseUrlController.text = pbService.url;
-    });
+  Future<void> _loadSettings() async {
+    // FIX: try/catch ergänzt — Exception crasht sonst die App
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!_pbService.isInitialized) {
+        await _pbService.initialize();
+      }
+      // FIX: mounted-Guard nach await
+      if (!mounted) return;
+      setState(() {
+        _artikelNummerController.text =
+            (prefs.getInt('artikel_start_nummer') ?? 1000).toString();
+        _pocketBaseUrlController.text = _pbService.url;
+      });
+    } catch (e, st) {
+      debugPrint('[Settings] Laden fehlgeschlagen: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Einstellungen konnten nicht geladen werden: $e')),
+      );
+    }
   }
 
   Future<void> _checkDatabaseStatus() async {
     if (kIsWeb) return;
-    final isEmpty = await ArtikelDbService().isDatabaseEmpty();
-    setState(() => _isDatabaseEmpty = isEmpty);
+    // FIX: try/catch + mounted-Guard ergänzt
+    try {
+      final isEmpty = await _db.isDatabaseEmpty();
+      if (!mounted) return;
+      setState(() => _isDatabaseEmpty = isEmpty);
+    } catch (e, st) {
+      debugPrint('[Settings] DB-Status prüfen fehlgeschlagen: $e\n$st');
+    }
   }
 
   // ==================== POCKETBASE ====================
@@ -67,39 +93,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     try {
-      final pbService = PocketBaseService();
-
-      // Temporär URL aktualisieren für den Test
+      // FIX: Gespeicherte _pbService-Instanz verwenden
       final testUrl = _pocketBaseUrlController.text.trim();
-      if (testUrl.isNotEmpty && testUrl != pbService.url) {
-        await pbService.updateUrl(testUrl);
+      if (testUrl.isNotEmpty && testUrl != _pbService.url) {
+        await _pbService.updateUrl(testUrl);
       }
 
-      final ok = await pbService.checkHealth();
+      final ok = await _pbService.checkHealth();
+
+      // FIX: mounted-Guard vor setState nach await
+      if (!mounted) return;
       setState(() => _pbConnectionOk = ok);
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ok
-                ? '✅ Verbindung zu PocketBase erfolgreich!'
-                : '❌ PocketBase nicht erreichbar'),
-            backgroundColor: ok ? Colors.green : Colors.red,
-          ),
-        );
-      }
-    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ok
+              ? '✅ Verbindung zu PocketBase erfolgreich!'
+              : '❌ PocketBase nicht erreichbar'),
+          backgroundColor: ok ? Colors.green : Colors.red,
+        ),
+      );
+    } catch (e, st) {
+      // FIX: StackTrace mitloggen
+      debugPrint('[Settings] PocketBase-Test fehlgeschlagen: $e\n$st');
+      if (!mounted) return;
       setState(() => _pbConnectionOk = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Verbindungsfehler: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Verbindungsfehler: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     } finally {
-      setState(() => _isCheckingConnection = false);
+      // FIX: mounted-Guard in finally
+      if (mounted) setState(() => _isCheckingConnection = false);
     }
   }
 
@@ -125,19 +152,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
+    // FIX: mounted-Guard nach showDialog (async-Gap)
+    if (!mounted) return;
+
     if (confirm == true) {
-      await PocketBaseService().resetToDefault();
-      setState(() {
-        _pocketBaseUrlController.text = PocketBaseService.defaultUrl;
-        _pbConnectionOk = null;
-      });
+      try {
+        // FIX: Gespeicherte _pbService-Instanz verwenden
+        await _pbService.resetToDefault();
+        if (!mounted) return;
+        setState(() {
+          _pocketBaseUrlController.text = PocketBaseService.defaultUrl;
+          _pbConnectionOk = null;
+        });
+      } catch (e, st) {
+        debugPrint('[Settings] URL-Reset fehlgeschlagen: $e\n$st');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Zurücksetzen: $e')),
+        );
+      }
     }
   }
 
   // ==================== DATENBANK ====================
 
   Future<void> _deleteDatabase() async {
-    if (kIsWeb) return; // Im Web keine lokale DB
+    if (kIsWeb) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -146,7 +186,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: const Text(
           'Möchten Sie die komplette lokale Datenbank löschen? '
           'Alle lokal gespeicherten Artikel gehen verloren!\n\n'
-          'Daten in PocketBase bleiben erhalten und können neu synchronisiert werden.',
+          'Daten in PocketBase bleiben erhalten und können neu '
+          'synchronisiert werden.',
         ),
         actions: [
           TextButton(
@@ -162,25 +203,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
+    // FIX: mounted-Guard nach showDialog (async-Gap)
+    if (!mounted) return;
+
     if (confirm == true) {
       try {
-        await ArtikelDbService().resetDatabase();
+        // FIX: Gespeicherte _db-Instanz verwenden
+        await _db.resetDatabase();
         await _checkDatabaseStatus();
         await _loadSettings();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Lokale Datenbank gelöscht – '
-                  'Sie können jetzt eine neue Start-Artikelnummer festlegen'),
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Lokale Datenbank gelöscht – '
+              'Sie können jetzt eine neue Start-Artikelnummer festlegen',
             ),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Fehler beim Löschen: $e')),
-          );
-        }
+          ),
+        );
+      } catch (e, st) {
+        // FIX: StackTrace mitloggen
+        debugPrint('[Settings] DB-Löschen fehlgeschlagen: $e\n$st');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Fehler beim Löschen: $e')),
+        );
       }
     }
   }
@@ -188,26 +235,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== SPEICHERN ====================
 
   Future<void> _saveSettings() async {
-    if (!_formKey.currentState!.validate()) return;
+    // FIX: Null-sicherer Zugriff statt Force-Unwrap
+    if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final prefs = await SharedPreferences.getInstance();
+    try {
+      final prefs = await SharedPreferences.getInstance();
 
-    // PocketBase URL speichern
-    final newUrl = _pocketBaseUrlController.text.trim();
-    if (newUrl.isNotEmpty) {
-      await PocketBaseService().updateUrl(newUrl);
-    }
+      // FIX: Gespeicherte _pbService-Instanz verwenden
+      final newUrl = _pocketBaseUrlController.text.trim();
+      if (newUrl.isNotEmpty) {
+        await _pbService.updateUrl(newUrl);
+      }
 
-    // Artikelnummer nur bei leerer DB (und nur auf Mobile)
-    if (!kIsWeb && _isDatabaseEmpty) {
-      final artikelNummer =
-          int.tryParse(_artikelNummerController.text.trim()) ?? 1000;
-      await prefs.setInt('artikel_start_nummer', artikelNummer);
-    }
+      // Artikelnummer nur bei leerer DB (und nur auf Mobile)
+      if (!kIsWeb && _isDatabaseEmpty) {
+        final artikelNummer =
+            int.tryParse(_artikelNummerController.text.trim()) ?? 1000;
+        await prefs.setInt('artikel_start_nummer', artikelNummer);
+      }
 
-    if (mounted) {
+      // FIX: mounted-Guard nach await
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Einstellungen gespeichert')),
+      );
+    } catch (e, st) {
+      // FIX: StackTrace mitloggen
+      debugPrint('[Settings] Speichern fehlgeschlagen: $e\n$st');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Fehler beim Speichern: $e')),
       );
     }
   }
@@ -228,29 +285,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ============================================================
-              // PocketBase Konfiguration
-              // ============================================================
               _buildPocketBaseCard(),
-
               const SizedBox(height: 16),
-
-              // ============================================================
-              // Artikelnummer-Einstellungen (nur Mobile/Desktop)
-              // ============================================================
               if (!kIsWeb) _buildArtikelNummerCard(),
-
               const SizedBox(height: 16),
-
-              // ============================================================
-              // App-Info
-              // ============================================================
               _buildInfoCard(),
             ],
           ),
@@ -277,7 +321,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
-                // Verbindungsstatus-Icon
                 if (_pbConnectionOk != null)
                   Icon(
                     _pbConnectionOk! ? Icons.check_circle : Icons.error,
@@ -303,25 +346,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
               keyboardType: TextInputType.url,
+              autocorrect: false,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Bitte eine URL eingeben';
                 }
                 final url = value.trim();
-                if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                if (!url.startsWith('http://') &&
+                    !url.startsWith('https://')) {
                   return 'URL muss mit http:// oder https:// beginnen';
                 }
                 return null;
               },
             ),
-
             const SizedBox(height: 12),
 
-            // Verbindung testen Button
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: _isCheckingConnection ? null : _testPocketBaseConnection,
+                onPressed:
+                    _isCheckingConnection ? null : _testPocketBaseConnection,
                 icon: _isCheckingConnection
                     ? const SizedBox(
                         width: 16,
@@ -330,12 +374,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       )
                     : const Icon(Icons.wifi_find),
                 label: Text(
-                  _isCheckingConnection ? 'Prüfe Verbindung...' : 'Verbindung testen',
+                  _isCheckingConnection
+                      ? 'Prüfe Verbindung...'
+                      : 'Verbindung testen',
                 ),
               ),
             ),
 
-            // Verbindungsergebnis
             if (_pbConnectionOk != null) ...[
               const SizedBox(height: 8),
               Container(
@@ -435,8 +480,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ? 'Neue Artikel erhalten eine ID ab dieser Nummer'
                     : 'Kann nur bei leerer Datenbank geändert werden',
                 border: const OutlineInputBorder(),
-                suffixIcon:
-                    _isDatabaseEmpty ? null : const Icon(Icons.lock, color: Colors.grey),
+                suffixIcon: _isDatabaseEmpty
+                    ? null
+                    : const Icon(Icons.lock, color: Colors.grey),
               ),
               keyboardType: TextInputType.number,
               validator: (value) {
@@ -466,9 +512,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Die Start-Artikelnummer kann nur geändert werden, wenn die '
-                        'lokale Datenbank leer ist. Daten in PocketBase bleiben erhalten.',
-                        style: TextStyle(fontSize: 13, color: Colors.orange.shade800),
+                        'Die Start-Artikelnummer kann nur geändert werden, '
+                        'wenn die lokale Datenbank leer ist. '
+                        'Daten in PocketBase bleiben erhalten.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade800,
+                        ),
                       ),
                     ),
                   ],
@@ -494,6 +544,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== INFO CARD ====================
 
   Widget _buildInfoCard() {
+    // FIX: _pbService-Instanz verwenden — kein neues Objekt im build
+    final pbUrl = _pbService.url;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -507,8 +560,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 12),
             _infoRow('Version', '1.5.0'),
             _infoRow('Plattform', kIsWeb ? 'Web' : 'Mobile/Desktop'),
-            _infoRow('Datenbank', kIsWeb ? 'PocketBase (direkt)' : 'SQLite (lokal) + PocketBase Sync'),
-            _infoRow('PocketBase URL', PocketBaseService().url),
+            _infoRow(
+              'Datenbank',
+              kIsWeb
+                  ? 'PocketBase (direkt)'
+                  : 'SQLite (lokal) + PocketBase Sync',
+            ),
+            // FIX: Gecachte URL — kein PocketBaseService() im build
+            _infoRow('PocketBase URL', pbUrl),
           ],
         ),
       ),
@@ -523,7 +582,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
           ),
           Expanded(
             child: Text(value, style: const TextStyle(color: Colors.grey)),

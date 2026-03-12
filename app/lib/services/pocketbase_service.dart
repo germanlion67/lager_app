@@ -1,11 +1,12 @@
 // lib/services/pocketbase_service.dart
 
-import 'package:pocketbase/pocketbase.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:developer' as developer;
 
+import 'package:pocketbase/pocketbase.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 /// Zentraler PocketBase-Service.
-/// 
+///
 /// URL-Priorität:
 /// 1. Gespeicherte URL aus Einstellungen (SharedPreferences)
 /// 2. Build-Argument (--dart-define=PB_URL=...)
@@ -39,10 +40,10 @@ class PocketBaseService {
     return _client!;
   }
 
-  /// Aktuelle PocketBase-URL
+  /// Aktuelle PocketBase-URL.
   String get url => _currentUrl;
 
-  /// Prüft ob der Service initialisiert ist
+  /// Prüft ob der Service initialisiert ist.
   bool get isInitialized => _client != null;
 
   /// Initialisiert den Service.
@@ -56,27 +57,53 @@ class PocketBaseService {
 
       if (savedUrl != null && savedUrl.isNotEmpty) {
         _currentUrl = savedUrl;
-        developer.log('PocketBase URL aus Einstellungen: $_currentUrl', name: 'pb');
+        developer.log(
+          'PocketBase URL aus Einstellungen: $_currentUrl',
+          name: 'pb',
+        );
       } else {
         _currentUrl = _defaultUrl;
-        developer.log('PocketBase URL (Default): $_currentUrl', name: 'pb');
+        developer.log(
+          'PocketBase URL (Default): $_currentUrl',
+          name: 'pb',
+        );
       }
-    } catch (e) {
+    } catch (e, st) {
+      // FIX: Stack-Trace mitloggen
       _currentUrl = _defaultUrl;
-      developer.log('SharedPreferences Fehler, nutze Default: $e', name: 'pb');
+      developer.log(
+        'SharedPreferences Fehler, nutze Default: $e',
+        name: 'pb',
+        error: e,
+        stackTrace: st,
+      );
     }
 
     _client = PocketBase(_currentUrl);
-    developer.log('PocketBase Client initialisiert: $_currentUrl', name: 'pb');
+    developer.log(
+      'PocketBase Client initialisiert: $_currentUrl',
+      name: 'pb',
+    );
   }
 
   /// Ändert die PocketBase-URL und erstellt einen neuen Client.
   /// Speichert die URL persistent in SharedPreferences.
   Future<void> updateUrl(String newUrl) async {
+    // FIX: URL-Validierung vor Übernahme
+    final trimmed = newUrl.trim();
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
+      developer.log(
+        'PocketBase URL ungültig, wird ignoriert: $trimmed',
+        name: 'pb',
+      );
+      return;
+    }
+
     // URL normalisieren (trailing slash entfernen)
-    final normalized = newUrl.endsWith('/')
-        ? newUrl.substring(0, newUrl.length - 1)
-        : newUrl;
+    final normalized = trimmed.endsWith('/')
+        ? trimmed.substring(0, trimmed.length - 1)
+        : trimmed;
 
     _currentUrl = normalized;
     _client = PocketBase(normalized);
@@ -85,21 +112,36 @@ class PocketBaseService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, normalized);
       developer.log('PocketBase URL aktualisiert: $normalized', name: 'pb');
-    } catch (e) {
-      developer.log('Fehler beim Speichern der URL: $e', name: 'pb');
+    } catch (e, st) {
+      // FIX: Stack-Trace mitloggen
+      developer.log(
+        'Fehler beim Speichern der URL: $e',
+        name: 'pb',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
   /// Prüft ob PocketBase erreichbar ist.
   /// Gibt `true` zurück wenn der Health-Endpoint antwortet.
   Future<bool> checkHealth() async {
-    if (_client == null) return false;
+    // FIX: Lokale Kopie statt doppeltem Null-Check + Force-Unwrap
+    final activeClient = _client;
+    if (activeClient == null) return false;
+
     try {
-      await _client!.health.check();
+      await activeClient.health.check();
       developer.log('PocketBase Health-Check OK', name: 'pb');
       return true;
-    } catch (e) {
-      developer.log('PocketBase Health-Check fehlgeschlagen: $e', name: 'pb');
+    } catch (e, st) {
+      // FIX: Stack-Trace mitloggen
+      developer.log(
+        'PocketBase Health-Check fehlgeschlagen: $e',
+        name: 'pb',
+        error: e,
+        stackTrace: st,
+      );
       return false;
     }
   }

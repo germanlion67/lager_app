@@ -31,6 +31,14 @@ class ArtikelExportService {
     return _prettyJsonEncoder.convert(jsonList);
   }
 
+  Future<Uint8List> exportAllArtikelAsCsvBytes() async {
+    // FIX #3: Gibt Bytes zurück inkl. UTF-8 BOM für Excel-Kompatibilität
+    final csvString = await exportAllArtikelAsCsv();
+    final bom = Uint8List.fromList([0xEF, 0xBB, 0xBF]);
+    final csvBytes = Uint8List.fromList(utf8.encode(csvString));
+    return Uint8List.fromList([...bom, ...csvBytes]);
+  }
+
   Future<String> exportAllArtikelAsCsv() async {
     final artikelList = await _loadArtikel();
     if (artikelList.isEmpty) return '';
@@ -43,18 +51,34 @@ class ArtikelExportService {
     final List<List<String>> rows = [header];
     for (final artikel in artikelList) {
       final map = artikel.toMap();
-      rows.add(header.map((h) => map[h]?.toString() ?? '').toList());
+      rows.add(
+        header
+            .map((h) => _sanitizeCsvValue(map[h]?.toString() ?? ''))
+            .toList(),
+      );
     }
 
     return const ListToCsvConverter().convert(rows);
+  }
+
+  String _sanitizeCsvValue(String v) {
+    // Verhindert CSV-Injection durch führende Formel-Zeichen
+    if (v.startsWith(RegExp(r'[=+\-@]'))) {
+      v = "'$v";
+    }
+    // Felder mit Sonderzeichen in Anführungszeichen einschließen
+    if (v.contains(';') || v.contains('"') || v.contains('\n')) {
+      v = '"${v.replaceAll('"', '""')}"';
+    }
+    return v;
   }
 
   /// Lädt Artikel plattformabhängig
   Future<List<dynamic>> _loadArtikel() async {
     if (kIsWeb) {
       final pb = PocketBaseService().client;
-      final records = await pb.collection('artikel').getFullList(sort: '-created');
-      // Rückgabe als Maps, damit toMap() nicht nötig ist
+      final records =
+          await pb.collection('artikel').getFullList(sort: '-created');
       return records.map((r) => _recordToArtikelMap(r)).toList();
     } else {
       return await ArtikelDbService().getAlleArtikel();
@@ -92,28 +116,35 @@ class ArtikelExportService {
 
       if (exportType == null) return;
 
-      String exportData;
+      // FIX #3: CSV-Export verwendet BOM-fähige Bytes-Methode
+      Uint8List bytes;
       if (exportType == 'json') {
-        exportData = await exportAllArtikelAsJson();
+        final exportData = await exportAllArtikelAsJson();
+        if (exportData.isEmpty || exportData == '[]') {
+          if (!context.mounted) return;
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
+          );
+          return;
+        }
+        bytes = Uint8List.fromList(utf8.encode(exportData));
       } else {
-        exportData = await exportAllArtikelAsCsv();
-      }
-
-      if (exportData.isEmpty) {
-        if (!context.mounted) return;
-        messenger.showSnackBar( 
-          const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
-        );
-        return;
+        // CSV: mit UTF-8 BOM für Excel-Kompatibilität
+        bytes = await exportAllArtikelAsCsvBytes();
+        if (bytes.length <= 3) {
+          // Nur BOM, kein Inhalt
+          if (!context.mounted) return;
+          messenger.showSnackBar(
+            const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
+          );
+          return;
+        }
       }
 
       final fileName =
           'artikel_export_${DateTime.now().toIso8601String().replaceAll(':', '-')}.$exportType';
-      final bytes = Uint8List.fromList(utf8.encode(exportData));
 
       await AppLogService().log('Export gestartet ($exportType)');
-
-      
 
       final savedPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Exportiere Artikeldaten',
@@ -135,7 +166,10 @@ class ArtikelExportService {
       await AppLogService().logError('Fehler beim Export: $e', stack);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler beim Export: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Fehler beim Export: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -144,10 +178,8 @@ class ArtikelExportService {
 
   Future<String?> backupToZipFile(BuildContext context) async {
     if (kIsWeb) {
-      // Web: ZIP mit Daten aus PocketBase (ohne lokale Bilder)
       return await _backupToZipWeb(context);
     } else {
-      // Mobile: ZIP mit lokalen Daten + Bildern
       return await _backupToZipMobile(context);
     }
   }
@@ -161,8 +193,9 @@ class ArtikelExportService {
       final jsonString = await exportAllArtikelAsJson();
       if (jsonString == '[]') {
         if (context.mounted) {
-          messenger2.showSnackBar(                           
-            const SnackBar(content: Text('Keine Artikel für Backup vorhanden')),
+          messenger2.showSnackBar(
+            const SnackBar(
+                content: Text('Keine Artikel für Backup vorhanden')),
           );
         }
         return null;
@@ -178,7 +211,6 @@ class ArtikelExportService {
       final zipData = ZipEncoder().encode(archive);
       final filename = _buildBackupFilename();
 
-      
       final result = await FilePicker.platform.saveFile(
         dialogTitle: 'Backup als ZIP speichern',
         fileName: filename,
@@ -188,20 +220,25 @@ class ArtikelExportService {
       );
 
       if (result != null) {
-        await AppLogService().log('ZIP-Backup (Web) gespeichert: $filename');
+        await AppLogService()
+            .log('ZIP-Backup (Web) gespeichert: $filename');
         if (context.mounted) {
           messenger2.showSnackBar(
-            const SnackBar(content: Text('ZIP-Backup erfolgreich gespeichert')),
+            const SnackBar(
+                content: Text('ZIP-Backup erfolgreich gespeichert')),
           );
         }
       }
 
       return result;
     } catch (e, stack) {
-      await AppLogService().logError('ZIP-Backup (Web) Fehler: $e', stack);
+      await AppLogService()
+          .logError('ZIP-Backup (Web) Fehler: $e', stack);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Fehler: $e'),
+              backgroundColor: Colors.red),
         );
       }
       return null;
@@ -217,7 +254,8 @@ class ArtikelExportService {
       if (artikelList.isEmpty) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Keine Artikel für Backup vorhanden')),
+            const SnackBar(
+                content: Text('Keine Artikel für Backup vorhanden')),
           );
         }
         return null;
@@ -236,11 +274,29 @@ class ArtikelExportService {
       // Bilder hinzufügen (nur Mobile)
       for (final artikel in artikelList) {
         if (artikel.bildPfad.isNotEmpty) {
-          final imageBytes = await platform.readFileBytesIfExists(artikel.bildPfad);
-          if (imageBytes != null) {
-            final fileName =
-                'images/${artikel.id}_${_slug(artikel.name)}.jpg';
-            archive.addFile(ArchiveFile(fileName, imageBytes.length, imageBytes));
+          try {
+            final imageBytes =
+                await platform.readFileBytesIfExists(artikel.bildPfad);
+            if (imageBytes != null) {
+              final fileName =
+                  'images/${artikel.id}_${_slug(artikel.name)}.jpg';
+              archive.addFile(
+                  ArchiveFile(fileName, imageBytes.length, imageBytes));
+            }
+          } catch (e, stack) {
+            await AppLogService().logError(
+              'Fehler beim Lesen des Bildes für Artikel '
+              '${artikel.id} (${artikel.name}): $e',
+              stack,
+            );
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Fehler beim Lesen eines Bildes: $e'),
+                  backgroundColor: Colors.orange,
+                ),
+              );
+            }
           }
         }
       }
@@ -248,29 +304,49 @@ class ArtikelExportService {
       final zipData = ZipEncoder().encode(archive);
       final filename = _buildBackupFilename();
 
-      final result = await FilePicker.platform.saveFile(
-        dialogTitle: 'Backup als ZIP speichern',
-        fileName: filename,
-        type: FileType.custom,
-        allowedExtensions: ['zip'],
-        bytes: Uint8List.fromList(zipData),
-      );
+      try {
+        final result = await FilePicker.platform.saveFile(
+          dialogTitle: 'Backup als ZIP speichern',
+          fileName: filename,
+          type: FileType.custom,
+          allowedExtensions: ['zip'],
+          bytes: Uint8List.fromList(zipData),
+        );
 
-      if (result != null) {
-        await AppLogService().log('ZIP-Backup gespeichert: $filename');
+        if (result != null) {
+          await AppLogService().log('ZIP-Backup gespeichert: $filename');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text('ZIP-Backup erfolgreich gespeichert')),
+            );
+          }
+        }
+        return result;
+      } catch (e, stack) {
+        await AppLogService().logError(
+          'Fehler beim Speichern der ZIP-Backup-Datei: $e',
+          stack,
+        );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('ZIP-Backup erfolgreich gespeichert')),
+            SnackBar(
+              content: Text('Fehler beim Speichern des ZIP-Backups: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
+        return null;
       }
-
-      return result;
     } catch (e, stack) {
-      await AppLogService().logError('ZIP-Backup Fehler: $e', stack);
+      await AppLogService()
+          .logError('Fehler während des ZIP-Backup-Prozesses: $e', stack);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Fehler während des ZIP-Backup-Prozesses: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
       return null;
@@ -280,15 +356,59 @@ class ArtikelExportService {
   // ==================== NEXTCLOUD BACKUP ====================
 
   /// ZIP-Backup zu Nextcloud hochladen (nur Mobile)
-  Future<void> backupZipToNextcloud(String zipFilePath, {BuildContext? context}) async {
-    if (kIsWeb) return; // Im Web nicht verfügbar
-    await nextcloud.uploadZipToNextcloud(zipFilePath, context: context);
+  Future<void> backupZipToNextcloud(
+    String zipFilePath, {
+    BuildContext? context,
+  }) async {
+    if (kIsWeb) return;
+    try {
+      await nextcloud.uploadZipToNextcloud(zipFilePath, context: context);
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'ZIP-Backup erfolgreich zu Nextcloud hochgeladen')),
+        );
+      }
+    } catch (e, stack) {
+      await AppLogService().logError(
+          'Fehler beim Hochladen des ZIP-Backups zu Nextcloud: $e', stack);
+      if (context != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim Hochladen zu Nextcloud: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   /// Vollständiges Backup mit Bildern zu Nextcloud (nur Mobile)
   Future<void> backupWithImagesToNextcloud(BuildContext context) async {
     if (kIsWeb) return;
-    await nextcloud.backupWithImagesToNextcloud(context);
+    try {
+      await nextcloud.backupWithImagesToNextcloud(context);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Backup mit Bildern erfolgreich zu Nextcloud hochgeladen')),
+        );
+      }
+    } catch (e, stack) {
+      await AppLogService().logError(
+          'Fehler beim Hochladen des Backups mit Bildern zu Nextcloud: $e',
+          stack);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim Hochladen zu Nextcloud: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // ==================== HELPER ====================

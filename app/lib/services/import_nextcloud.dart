@@ -63,15 +63,23 @@ Future<void> importZipBackupAuto(
             };
           }
         }
-      } catch (e) {
-        await AppLogService().logError('Ordner "$folder" lesen: $e');
+      } catch (e, stack) {
+        // FIX: StackTrace ergänzt
+        await AppLogService().logError(
+          'Ordner "$folder" lesen: $e',
+          stack,
+        );
       }
     }
-  } catch (e) {
-    await AppLogService().logError('Dateien auflisten: $e');
+  } catch (e, stack) {
+    // FIX: StackTrace ergänzt
+    await AppLogService().logError('Dateien auflisten: $e', stack);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Fehler: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
     return;
@@ -109,7 +117,10 @@ Future<void> importZipBackupAuto(
               leading: const Icon(Icons.archive),
               title: Text(entry.key),
               subtitle: Text('Größe: ${_formatSize(size)}'),
-              onTap: () => Navigator.pop(ctx, entry.value['path'] as String),
+              onTap: () => Navigator.pop(
+                ctx,
+                entry.value['path'] as String,
+              ),
             );
           },
         ),
@@ -130,7 +141,8 @@ Future<void> importZipBackupAuto(
     final zipBytes = await webdavClient.downloadBytes(
       remoteRelativePath: selected,
     );
-    final (success, errors) = await ArtikelImportService.importZipBytesService(
+    final (success, errors) =
+        await ArtikelImportService.importZipBytesService(
       zipBytes,
       reloadArtikel,
       setzePlatzhalter,
@@ -139,16 +151,23 @@ Future<void> importZipBackupAuto(
     if (!context.mounted) return;
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('ZIP-Backup erfolgreich importiert!')),
+        const SnackBar(
+          content: Text('ZIP-Backup erfolgreich importiert!'),
+        ),
       );
     }
     if (errors.isNotEmpty) {
       ArtikelImportService.showImportErrors(context, errors);
     }
-  } catch (e) {
+  } catch (e, stack) {
+    // FIX: StackTrace ergänzt
+    await AppLogService().logError('Download-Fehler: $e', stack);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Download-Fehler: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Download-Fehler: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     }
   }
@@ -165,7 +184,9 @@ String _cleanName(String fileName) {
 
 String _formatSize(int bytes) {
   if (bytes < 1024) return '$bytes B';
-  if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  if (bytes < 1024 * 1024) {
+    return '${(bytes / 1024).toStringAsFixed(1)} KB';
+  }
   if (bytes < 1024 * 1024 * 1024) {
     return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }

@@ -1,15 +1,16 @@
 // lib/main.dart
 
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/artikel_list_screen.dart';
 import 'screens/settings_screen.dart';
-import 'services/pocketbase_service.dart';
 import 'services/artikel_db_service.dart';
+import 'services/pocketbase_service.dart';
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
 
@@ -25,11 +26,16 @@ void main() async {
   await PocketBaseService().initialize();
 
   if (!kIsWeb) {
-    PocketBaseService().checkHealth().then((ok) {
-      debugPrint(ok
-          ? '[Main] ✅ PocketBase erreichbar'
-          : '[Main] ⚠️ PocketBase nicht erreichbar beim Start');
-    });
+    // Bewusst fire-and-forget — blockiert den App-Start nicht
+    unawaited(
+      PocketBaseService().checkHealth().then((ok) {
+        debugPrint(
+          ok
+              ? '[Main] ✅ PocketBase erreichbar'
+              : '[Main] ⚠️ PocketBase nicht erreichbar beim Start',
+        );
+      }),
+    );
   }
 
   runApp(const MyApp());
@@ -45,20 +51,23 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _wifiOnlySync = true;
   Timer? _syncTimer;
-  final int _syncIntervalMinutes = 15;
 
-  // ✅ Fix Bug 2: Alle Instanzen einmal erstellen und speichern
+  // FIX: static const statt final int — Wert ist kompilierzeitkonstant
+  static const int _syncIntervalMinutes = 15;
+
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
   late final PocketBaseSyncService _pocketSync;
   late final SyncOrchestrator _orchestrator;
+
+  // FIX: Guard gegen doppeltes Cleanup (paused + detached)
+  bool _cleanupDone = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // ✅ Fix Bug 1 + 2: Instanzen einmal erstellen, dann injizieren
     _db = ArtikelDbService();
     _pbService = PocketBaseService();
     _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
@@ -86,15 +95,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugPrint('[Sync] Initialer Sync startet...');
       await _orchestrator.runOnce();
       debugPrint('[Sync] Initialer Sync abgeschlossen');
-    } catch (e) {
-      debugPrint('[Sync] Initialer Sync fehlgeschlagen: $e');
+    } catch (e, st) {
+      // FIX: Stack-Trace mitloggen
+      debugPrint('[Sync] Initialer Sync fehlgeschlagen: $e\n$st');
     }
   }
 
   void _startPeriodicSync() {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(
-      Duration(minutes: _syncIntervalMinutes),
+      const Duration(minutes: _syncIntervalMinutes),
       (_) => _syncIfConnected(),
     );
   }
@@ -114,8 +124,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugPrint('[Sync] Periodischer Sync startet um ${DateTime.now()}');
       await _orchestrator.runOnce();
       debugPrint('[Sync] Periodischer Sync beendet um ${DateTime.now()}');
-    } catch (e) {
-      debugPrint('[Sync] Fehler beim periodischen Sync: $e');
+    } catch (e, st) {
+      // FIX: Stack-Trace mitloggen
+      debugPrint('[Sync] Fehler beim periodischen Sync: $e\n$st');
     }
   }
 
@@ -123,7 +134,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _syncTimer?.cancel();
-    _orchestrator.dispose(); // ✅ Fix Bug 3: StreamController sauber schließen
+    _orchestrator.dispose();
     super.dispose();
   }
 
@@ -134,13 +145,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         if (!kIsWeb) {
           unawaited(_syncIfConnected());
         }
-        break;
       case AppLifecycleState.paused:
-        unawaited(_cleanupResources());
-        break;
       case AppLifecycleState.detached:
+        // FIX: paused + detached zusammengefasst — kein doppeltes Cleanup
         unawaited(_cleanupResources());
-        break;
       default:
         break;
     }
@@ -148,10 +156,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _cleanupResources() async {
     if (kIsWeb) return;
+
+    // FIX: Guard gegen doppeltes Schließen der DB
+    if (_cleanupDone) return;
+    _cleanupDone = true;
+
     try {
-      await _db.closeDatabase(); // ✅ Fix Bug 2: korrekte Instanz
-    } catch (e) {
-      debugPrint('Cleanup error: $e');
+      await _db.closeDatabase();
+    } catch (e, st) {
+      // FIX: Stack-Trace mitloggen
+      debugPrint('Cleanup error: $e\n$st');
     }
   }
 
@@ -159,8 +173,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Elektronik Verwaltung',
+      // FIX: colorScheme statt deprecated primarySwatch
       theme: ThemeData(
-        primarySwatch: Colors.blue,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         inputDecorationTheme: const InputDecorationTheme(
           labelStyle: TextStyle(color: Colors.black),
         ),
