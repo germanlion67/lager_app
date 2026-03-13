@@ -4,7 +4,7 @@ services:
   # ============================================================
   # PocketBase Backend
   # ============================================================
-  server:
+  pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
     command:
       - serve
@@ -42,7 +42,7 @@ services:
     ports:
       - "${WEB_PORT:-8081}:80"
     depends_on:
-      server:
+      pocketbase:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
