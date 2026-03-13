@@ -1,11 +1,14 @@
 # 📦 Elektronik Lagerverwaltung
 
-Eine plattformübergreifende Lagerverwaltungs-App für Elektronikbauteile, gebaut mit **Flutter** und **PocketBase**. Verfügbar als mobile App (Android/iOS) und als Web-App im Docker-Container.
+Eine plattformübergreifende Lagerverwaltungs-App für Elektronikbauteile, gebaut mit **Flutter** und **PocketBase**. Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
 ![PocketBase](https://img.shields.io/badge/PocketBase-0.22+-green?logo=pocketbase)
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
+![Test Status](https://img.shields.io/badge/Tests-⚠️%20ungetestet-orange)
+
+> ⚠️ **Teststatus**: Stand März 2026 – alle Features implementiert, aber noch kein manuelles Testing durchgeführt. Nicht für Produktionseinsatz empfohlen.
 
 ---
 
@@ -18,7 +21,7 @@ Eine plattformübergreifende Lagerverwaltungs-App für Elektronikbauteile, gebau
 - [Installation](#installation)
   - [Docker (Web)](#docker-web)
   - [Local Development](#local-development)
-  - [Mobile (Android/iOS)](#mobile-androidios)
+  - [Mobile (Android)](#mobile-android)
 - [Configuration](#configuration)
   - [PocketBase Setup](#pocketbase-setup)
   - [Environment Variables](#environment-variables)
@@ -48,7 +51,8 @@ Die **Elektronik Lagerverwaltung** ist eine Offline-First-Anwendung zur Verwaltu
 
 | Plattform | Datenbank | Bilder | Sync |
 |-----------|-----------|--------|------|
-| 📱 **Mobile/Desktop** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
+| 📱 **Mobile (Android)** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
+| 🖥️ **Desktop (Linux)** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
 | 🌐 **Web (Docker)** | PocketBase (direkt) | PocketBase File Storage | Kein Sync nötig (immer online) |
 
 ```
@@ -71,6 +75,7 @@ Die **Elektronik Lagerverwaltung** ist eine Offline-First-Anwendung zur Verwaltu
 - Mengensteuerung (erhöhen/verringern)
 - Suche nach Name und Beschreibung
 - Filter nach Lagerort
+- Tag-Verwaltung
 
 ### 📷 Scanner
 - QR-Code / Barcode Scanner (nur Mobile)
@@ -81,14 +86,14 @@ Die **Elektronik Lagerverwaltung** ist eine Offline-First-Anwendung zur Verwaltu
 - **Background-Sync**: Automatische Synchronisation alle 15 Minuten
 - **WiFi-Only Option**: Sync nur im WLAN
 - **Sync bei App-Resume**: Automatischer Sync wenn App in den Vordergrund kommt
-- **Konfliktlösung**: Server gewinnt (Last-Write-Wins)
+- **Konfliktlösung**: Manuelle Konfliktauflösung über eigenen Screen
 
 ### 📄 Export & Backup
 - JSON-Export / -Import
 - CSV-Export / -Import
 - ZIP-Backup (Daten + Bilder)
 - PDF-Berichte (Artikelliste, Einzelartikel) — nur Mobile/Desktop
-- Nextcloud ZIP-Backup (optional)
+- Nextcloud ZIP-Backup (optional, ungetestet)
 
 ### 🌐 Web-Version
 - Identische UI wie Mobile
@@ -96,7 +101,7 @@ Die **Elektronik Lagerverwaltung** ist eine Offline-First-Anwendung zur Verwaltu
 - PocketBase Admin-UI über gleichen Port erreichbar
 - Kein lokaler Speicher nötig
 
-### ☁️ Nextcloud Integration (Optional)
+### ☁️ Nextcloud Integration (Optional, ungetestet)
 - ZIP-Backup zu Nextcloud
 - Dokumenten-Ablage pro Artikel
 - Verbindungsstatus-Anzeige
@@ -116,24 +121,35 @@ lib/
 │   ├── artikel_list_screen.dart       # Hauptliste mit Suche & Filter
 │   ├── artikel_detail_screen.dart     # Detailansicht & Bearbeitung
 │   ├── artikel_erfassen_screen.dart   # Neuen Artikel anlegen
+│   ├── conflict_resolution_screen.dart # Sync-Konfliktlösung
 │   ├── settings_screen.dart           # PocketBase-URL & Einstellungen
-│   ├── *_io.dart                      # Plattform-spezifisch (Mobile)
+│   ├── sync_management_screen.dart    # Sync-Verwaltung
+│   ├── nextcloud_settings_screen.dart # Nextcloud (optional)
+│   ├── qr_scan_screen_mobile_scanner.dart # QR/Barcode Scanner
+│   ├── *_io.dart                      # Plattform-spezifisch (Mobile/Desktop)
 │   └── *_stub.dart                    # Web-Stubs
 ├── services/
-│   ├── pocketbase_service.dart        # PocketBase Client (konfigurierbar)
-│   ├── artikel_db_service.dart        # Lokale SQLite DB (nur Mobile)
+│   ├── pocketbase_service.dart        # PocketBase Client (Singleton)
+│   ├── artikel_db_service.dart        # Lokale SQLite DB (nur Mobile/Desktop)
 │   ├── pocketbase_sync_service.dart   # Push/Pull Sync
-│   ├── sync_orchestrator.dart         # PocketBase vs. Nextcloud
+│   ├── sync_orchestrator.dart         # Sync-Koordination
 │   ├── artikel_export_service.dart    # JSON/CSV/ZIP Export
 │   ├── artikel_import_service.dart    # JSON/CSV/ZIP Import
-│   ├── app_log_service.dart           # Logging (Datei + In-Memory)
-│   ├── pdf_service.dart               # PDF-Generierung (nur Mobile)
+│   ├── pdf_service.dart               # PDF-Generierung (nur Mobile/Desktop)
 │   ├── scan_service.dart              # QR/Barcode Scanner (nur Mobile)
-│   ├── image_picker.dart              # Bildauswahl
-│   ├── export_nextcloud.dart          # Nextcloud Backup-Logik
-│   └── nextcloud_*.dart               # Nextcloud Client & Credentials
+│   ├── tag_service.dart               # Tag-Verwaltung
+│   ├── nextcloud_sync_service.dart    # Nextcloud Sync (optional)
+│   └── nextcloud_client.dart          # Nextcloud WebDAV Client
+├── utils/
+│   ├── dokumente_utils.dart           # Datei-Hilfsfunktionen
+│   ├── image_processing_utils.dart    # Bildverarbeitung
+│   └── uuid_generator.dart           # UUID Generierung
 ├── widgets/
-│   └── article_icons.dart             # Custom Icons
+│   ├── article_icons.dart             # Custom Icons
+│   ├── image_crop_dialog.dart         # Bild-Zuschnitt Dialog
+│   ├── sync_conflict_handler.dart     # Konflikt-Handler Widget
+│   ├── sync_error_widgets.dart        # Fehler-Anzeige Widgets
+│   └── sync_progress_widgets.dart     # Sync-Fortschritt Widgets
 └── docker/
     ├── Dockerfile                     # Multi-Stage Flutter Web Build
     ├── docker-compose.yml             # Web + PocketBase
@@ -156,7 +172,8 @@ lib/
 
 ### Für Mobile-Build
 - Android SDK >= 21 (Android 5.0+)
-- Xcode >= 15 (für iOS, nur macOS)
+
+> ℹ️ **iOS**: Nicht aktiv unterstützt. iOS-Build ist theoretisch möglich, wurde aber nicht getestet.
 
 ---
 
@@ -182,6 +199,9 @@ docker compose up -d --build
 #    Admin: http://localhost:8081/_/
 ```
 
+> ⚠️ **Wichtig**: Nach dem ersten Start muss die PocketBase Collection `artikel` manuell angelegt werden.  
+> Siehe [PocketBase Setup](#pocketbase-setup).
+
 ### Local Development
 
 ```bash
@@ -202,22 +222,18 @@ cd ../app
 # Web:
 flutter run -d chrome --dart-define=PB_URL=http://localhost:8090
 
-# Desktop (Linux/macOS/Windows):
+# Desktop (Linux):
 flutter run -d linux --dart-define=PB_URL=http://localhost:8090
 
 # Mobile (Emulator/Gerät):
 flutter run --dart-define=PB_URL=http://192.168.1.100:8090
 ```
 
-### Mobile (Android/iOS)
+### Mobile (Android)
 
 ```bash
 # Android APK bauen
 flutter build apk --release \
-  --dart-define=PB_URL=http://dein-server:8090
-
-# iOS (nur macOS)
-flutter build ios --release \
   --dart-define=PB_URL=http://dein-server:8090
 ```
 
@@ -255,12 +271,14 @@ Beim ersten Start muss PocketBase konfiguriert werden:
 | `device_id` | Text | — |
 
 4. **API Rules konfigurieren** (für Collection `artikel`):
-   - List/Search: `@request.auth.id != ""`  (oder leer für öffentlich)
+   - List/Search: `@request.auth.id != ""` (oder leer für öffentlich)
    - View/Create/Update/Delete: nach Bedarf
+
+> 💡 **Tipp**: Ein PocketBase-Migrations-Script (`pb_migrations/`) ist geplant, um diesen Schritt zu automatisieren.
 
 ### Environment Variables
 
-Erstelle eine `.env`-Datei im Projekt-Root:
+Erstelle eine `.env`-Datei im Projekt-Root (Vorlage: `.env.example`):
 
 ```env
 # Port für die Web-App (Frontend + API über nginx)
@@ -281,13 +299,11 @@ In der App unter **Einstellungen** konfigurierbar:
 
 ### Nextcloud (Optional)
 
-Nextcloud kann als zusätzliches Backup-Ziel konfiguriert werden:
+> ⚠️ **Hinweis**: Nextcloud-Integration ist implementiert aber **ungetestet**. Nur auf Mobile/Desktop verfügbar.
 
 1. In der App: **Menü → Nextcloud-Einstellungen**
 2. Server-URL, Benutzername und App-Passwort eingeben
 3. Basis-Ordner für Backups festlegen
-
-> **Hinweis**: Nextcloud ist optional und nur auf Mobile/Desktop verfügbar. PocketBase ist das primäre Backend.
 
 ---
 
@@ -398,8 +414,8 @@ cat .dockerignore
 # Nur Frontend neu bauen (ohne PocketBase)
 docker compose up -d --build app
 
-# Build-Cache nutzen
-docker compose build --no-cache app  # Nur wenn nötig!
+# Build-Cache nutzen (--no-cache nur wenn wirklich nötig!)
+docker compose build app
 ```
 
 ### 🟡 "Port bereits belegt"
@@ -426,11 +442,8 @@ elektronik-lagerverwaltung/
 ├── app/                        # Flutter App
 │   ├── lib/                    # Dart Source Code
 │   ├── android/                # Android-spezifisch
-│   ├── ios/                    # iOS-spezifisch
 │   ├── web/                    # Web-spezifisch
 │   ├── linux/                  # Linux Desktop
-│   ├── macos/                  # macOS Desktop
-│   ├── windows/                # Windows Desktop
 │   ├── pubspec.yaml            # Dependencies
 │   ├── Dockerfile              # Web Build
 │   └── nginx.conf              # Reverse Proxy Config
@@ -438,7 +451,7 @@ elektronik-lagerverwaltung/
 │   ├── pb_data/                # PocketBase Datenbank (gitignored)
 │   └── pb_public/              # Öffentliche Dateien
 ├── docker-compose.yml
-├── .env                        # Environment Variables
+├── .env                        # Environment Variables (gitignored)
 ├── .env.example                # Template
 ├── .dockerignore
 ├── .gitignore
@@ -483,7 +496,7 @@ if (kIsWeb) {
 
 ### Adding Features
 
-1. **Neues Model-Feld**: 
+1. **Neues Model-Feld**:
    - `artikel_model.dart` → `toMap()`, `fromMap()`, `copyWith()` erweitern
    - DB-Version in `artikel_db_service.dart` erhöhen + Migration schreiben
    - PocketBase Collection Schema aktualisieren
@@ -498,6 +511,19 @@ if (kIsWeb) {
    - Bei `dart:io`-Nutzung: Conditional Import Pattern verwenden
 
 ### Testing
+
+> ⚠️ **Teststatus**: Noch kein manuelles Testing durchgeführt.
+
+#### Test-Prioritäten
+
+| Priorität | Bereich |
+|-----------|---------|
+| 🔴 Kritisch | Artikel anlegen / bearbeiten / löschen |
+| 🔴 Kritisch | PocketBase Sync Push/Pull |
+| 🔴 Kritisch | Konfliktlösung bei Sync |
+| 🟡 Wichtig | CSV/JSON Import & Export |
+| 🟡 Wichtig | Bildverwaltung |
+| 🟢 Nice-to-have | PDF Export, QR Scanner, Nextcloud |
 
 ```bash
 # Unit Tests
