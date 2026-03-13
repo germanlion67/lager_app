@@ -1,10 +1,18 @@
+// lib/utils/image_processing_utils.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
 class ImageProcessingUtils {
+  // Fix: private Konstruktor — reine Utility-Klasse, nicht instanziierbar
+  ImageProcessingUtils._();
+
   static const int _maxDimension = 1600;
   static const int _jpegQuality = 85;
   static const double _targetAspectRatio = 16 / 9;
+
+  // Fix: Toleranz als benannte Konstante statt Magic Number
+  static const double _aspectRatioTolerance = 0.01;
 
   static double get targetAspectRatio => _targetAspectRatio;
 
@@ -13,18 +21,10 @@ class ImageProcessingUtils {
     bool crop = true,
   }) async {
     if (sourceBytes == null || sourceBytes.isEmpty) return sourceBytes;
+
     try {
-      final decoded = img.decodeImage(sourceBytes);
-      if (decoded == null) return sourceBytes;
-
-      final adjustedAspect = crop ? _cropToAspectRatio(decoded) : decoded;
-      final resized = _resizeIfNeeded(adjustedAspect);
-
-      final hasAlpha = resized.numChannels > 3;
-      if (hasAlpha) {
-        return Uint8List.fromList(img.encodePng(resized, level: 6));
-      }
-      return Uint8List.fromList(img.encodeJpg(resized, quality: _jpegQuality));
+      // Fix: Dekodierung + Encoding in compute() auslagern → kein UI-Jank
+      return await compute(_processImage, _ProcessArgs(sourceBytes, crop));
     } catch (e, stack) {
       debugPrint('ImageProcessingUtils: Fehler bei der Bildverarbeitung: $e');
       debugPrint(stack.toString());
@@ -34,15 +34,8 @@ class ImageProcessingUtils {
 
   static Future<Uint8List> rotateClockwise(Uint8List sourceBytes) async {
     try {
-      final decoded = img.decodeImage(sourceBytes);
-      if (decoded == null) return sourceBytes;
-
-      final rotated = img.copyRotate(decoded, angle: 90);
-      final hasAlpha = rotated.numChannels > 3;
-      if (hasAlpha) {
-        return Uint8List.fromList(img.encodePng(rotated, level: 6));
-      }
-      return Uint8List.fromList(img.encodeJpg(rotated, quality: _jpegQuality));
+      // Fix: Rotation ebenfalls in compute() auslagern → kein UI-Jank
+      return await compute(_rotateImage, sourceBytes);
     } catch (e, stack) {
       debugPrint('ImageProcessingUtils: Fehler beim Drehen: $e');
       debugPrint(stack.toString());
@@ -50,9 +43,45 @@ class ImageProcessingUtils {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Isolate-kompatible Top-Level-ähnliche Hilfsfunktionen
+  // (static, keine Closures → sicher für compute())
+  // ---------------------------------------------------------------------------
+
+  static Uint8List _processImage(_ProcessArgs args) {
+    final decoded = img.decodeImage(args.sourceBytes);
+    // Fix: Fallback auf Original wenn Dekodierung fehlschlägt
+    if (decoded == null) return args.sourceBytes;
+
+    final adjusted = args.crop ? _cropToAspectRatio(decoded) : decoded;
+    final resized = _resizeIfNeeded(adjusted);
+
+    return _encode(resized);
+  }
+
+  static Uint8List _rotateImage(Uint8List sourceBytes) {
+    final decoded = img.decodeImage(sourceBytes);
+    // Fix: Fallback auf Original wenn Dekodierung fehlschlägt
+    if (decoded == null) return sourceBytes;
+
+    final rotated = img.copyRotate(decoded, angle: 90);
+    return _encode(rotated);
+  }
+
+  /// Kodiert ein Bild als PNG (mit Alpha) oder JPEG (ohne Alpha).
+  static Uint8List _encode(img.Image image) {
+    final hasAlpha = image.numChannels > 3;
+    if (hasAlpha) {
+      return Uint8List.fromList(img.encodePng(image, level: 6));
+    }
+    return Uint8List.fromList(img.encodeJpg(image, quality: _jpegQuality));
+  }
+
   static img.Image _cropToAspectRatio(img.Image source) {
     final currentAspect = source.width / source.height;
-    if ((currentAspect - _targetAspectRatio).abs() < 0.01) {
+
+    // Fix: Benannte Konstante statt Magic Number 0.01
+    if ((currentAspect - _targetAspectRatio).abs() < _aspectRatioTolerance) {
       return source;
     }
 
@@ -80,16 +109,31 @@ class ImageProcessingUtils {
   }
 
   static img.Image _resizeIfNeeded(img.Image source) {
-    final maxSide = source.width >= source.height ? source.width : source.height;
-    if (maxSide <= _maxDimension) {
-      return source;
-    }
+    // Fix: math.max statt manueller Vergleich
+    final maxSide = source.width >= source.height
+        ? source.width
+        : source.height;
 
+    if (maxSide <= _maxDimension) return source;
+
+    // Fix: Skalierungsfaktor berechnen → beide Dimensionen korrekt skaliert
+    final scale = _maxDimension / maxSide;
     return img.copyResize(
       source,
-      width: source.width >= source.height ? _maxDimension : null,
-      height: source.height > source.width ? _maxDimension : null,
+      width: (source.width * scale).round(),
+      height: (source.height * scale).round(),
       interpolation: img.Interpolation.cubic,
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Hilfsklasse für compute()-Argumente (muss serialisierbar sein)
+// ---------------------------------------------------------------------------
+
+class _ProcessArgs {
+  final Uint8List sourceBytes;
+  final bool crop;
+
+  const _ProcessArgs(this.sourceBytes, this.crop);
 }

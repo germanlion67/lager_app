@@ -2,17 +2,17 @@
 
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 String _slug(String input) {
-  final s = input.toLowerCase();
-  final replaced = s.replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+  final replaced = input.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
   return replaced.replaceAll(RegExp(r'^-+|-+$'), '');
 }
 
-/// Speichert ein Bild lokal im App-Verzeichnis
+/// Speichert ein Bild lokal im App-Verzeichnis.
 Future<String?> persistSelectedImage({
   Uint8List? bildBytes,
   String? bildPfad,
@@ -43,17 +43,13 @@ Future<String?> persistSelectedImage({
   return null;
 }
 
-/// Liest Bytes einer lokalen Datei
-Future<Uint8List> readFileBytes(String path) async {
-  return await File(path).readAsBytes();
-}
+/// Liest Bytes einer lokalen Datei.
+Future<Uint8List> readFileBytes(String path) => File(path).readAsBytes();
 
-/// Prüft ob eine lokale Datei existiert
-bool fileExists(String path) {
-  return File(path).existsSync();
-}
+/// Prüft ob eine lokale Datei existiert.
+bool fileExists(String path) => File(path).existsSync();
 
-/// Baut ein Image.file Widget
+/// Baut ein Image.file Widget.
 Widget buildFileImage(
   String path, {
   double? height,
@@ -65,5 +61,12 @@ Widget buildFileImage(
     height: height,
     width: width,
     fit: fit,
+    // Fix: errorBuilder — Placeholder statt roter Fehler-Box bei defekten Dateien
+    errorBuilder: (_, __, ___) => Container(
+      height: height,
+      width: width,
+      color: Colors.grey[200],
+      child: const Icon(Icons.image_not_supported, color: Colors.grey),
+    ),
   );
 }

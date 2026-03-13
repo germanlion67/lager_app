@@ -12,7 +12,7 @@ class SyncOrchestrator {
   final Logger _logger = Logger();
 
   bool _isSyncing = false;
-  bool _isDisposed = false; // ✅ Fix Bug 1: disposed-Flag
+  bool _isDisposed = false;
 
   Timer? _syncTimer;
 
@@ -27,7 +27,6 @@ class SyncOrchestrator {
   SyncOrchestrator({required PocketBaseSyncService pocketBaseSync})
       : _pocketBaseSync = pocketBaseSync;
 
-  // ✅ Fix Bug 1: Sicherer Emit – kein Add auf geschlossenem Stream
   void _emit(SyncStatus status) {
     if (!_isDisposed && !_syncStatusController.isClosed) {
       _syncStatusController.add(status);
@@ -40,7 +39,6 @@ class SyncOrchestrator {
       return;
     }
 
-    // ✅ Fix Bug 1: Nach dispose() keinen Sync mehr starten
     if (_isDisposed) {
       _logger.w('SyncOrchestrator: bereits disposed – überspringe');
       return;
@@ -52,24 +50,23 @@ class SyncOrchestrator {
     }
 
     _isSyncing = true;
-    _emit(SyncStatus.running); // ✅ Sicherer Emit
+    _emit(SyncStatus.running);
 
     _logger.i('SyncOrchestrator: start');
 
     try {
       await _pocketBaseSync.syncOnce();
       _lastSyncTime = DateTime.now();
-      _emit(SyncStatus.success); // ✅ Sicherer Emit
+      _emit(SyncStatus.success);
       _logger.i('SyncOrchestrator: end (success) – $_lastSyncTime');
     } catch (e, st) {
-      _emit(SyncStatus.error); // ✅ Sicherer Emit
+      _emit(SyncStatus.error);
       _logger.e('SyncOrchestrator: sync failed', error: e, stackTrace: st);
     } finally {
       _isSyncing = false;
     }
   }
 
-  // ✅ Fix Bug 2: runImmediately-Parameter statt hartem sofort-Sync
   void startPeriodicSync({
     Duration interval = const Duration(minutes: 5),
     bool runImmediately = false,
@@ -80,7 +77,7 @@ class SyncOrchestrator {
       'SyncOrchestrator: Starte periodischen Sync '
       '(alle ${interval.inMinutes} min)',
     );
-    if (runImmediately) runOnce(); // ✅ Nur wenn explizit gewünscht
+    if (runImmediately) runOnce(); // ignore: discarded_futures
     _syncTimer = Timer.periodic(interval, (_) => runOnce());
   }
 
@@ -93,7 +90,8 @@ class SyncOrchestrator {
   }
 
   void dispose() {
-    _isDisposed = true; // ✅ Fix Bug 1: Erst Flag, dann cleanup
+    _isDisposed = true;
+    _isSyncing = false; // defensiv
     stopPeriodicSync();
     _syncStatusController.close();
     _logger.i('SyncOrchestrator: disposed');

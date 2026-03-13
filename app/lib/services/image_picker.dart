@@ -26,36 +26,70 @@ class PickedImage {
   final Uint8List? bytes;
   final String? dateiname;
 
-  PickedImage({this.pfad, this.bytes, this.dateiname});
+  const PickedImage({this.pfad, this.bytes, this.dateiname});
+
+  // Fix: Konstanter leerer Zustand — kein unnötiges Objekt pro Abbruch
+  static const PickedImage empty = PickedImage();
 
   /// True wenn ein Bild gewählt wurde (bytes vorhanden).
   bool get hasImage => bytes != null && bytes!.isNotEmpty;
 }
 
 class ImagePickerService {
+  // Fix: Maximale Dateigröße (10 MB) — verhindert OOM bei riesigen Bildern
+  static const int _maxFileSizeBytes = 10 * 1024 * 1024;
+
   /// Wählt ein Bild aus einer Datei.
   /// Funktioniert auf allen Plattformen (Web, Mobile, Desktop).
   ///
   /// Im Web ist [PickedImage.pfad] immer null – verwende [PickedImage.bytes].
+  /// Gibt [PickedImage.empty] zurück wenn kein Bild gewählt wurde oder
+  /// ein Fehler aufgetreten ist.
   static Future<PickedImage> pickImageFile(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      type: FileType.image,
-      withData: true, // Wichtig für Web: liefert bytes
-    );
+    final FilePickerResult? result;
 
-    if (result == null || result.files.isEmpty) return PickedImage();
+    // Fix: FilePicker-Fehler abfangen statt unkontrolliert werfen
+    try {
+      result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.image,
+        withData: true, // Wichtig für Web: liefert bytes
+      );
+    } catch (e) {
+      debugPrint('ImagePickerService.pickImageFile: FilePicker Fehler: $e');
+      return PickedImage.empty;
+    }
+
+    if (result == null || result.files.isEmpty) return PickedImage.empty;
 
     final file = result.files.single;
-    if (!context.mounted) return PickedImage();
+
+    // Fix: Dateigröße prüfen vor Verarbeitung
+    if (file.bytes != null && file.bytes!.length > _maxFileSizeBytes) {
+      debugPrint(
+        'ImagePickerService.pickImageFile: Datei zu groß '
+        '(${file.bytes!.length} Bytes, max $_maxFileSizeBytes Bytes)',
+      );
+      return PickedImage.empty;
+    }
+
+    if (!context.mounted) return PickedImage.empty;
 
     final cropResult = await _openCropDialog(context, file.bytes);
-    if (cropResult == null) return PickedImage();
+    if (cropResult == null) return PickedImage.empty;
 
-    final processedBytes = await ImageProcessingUtils.ensureTargetFormat(
-      cropResult.bytes,
-      crop: cropResult.cropped,
-    );
+    // Fix: ImageProcessingUtils-Fehler abfangen
+    final Uint8List? processedBytes;
+    try {
+      processedBytes = await ImageProcessingUtils.ensureTargetFormat(
+        cropResult.bytes,
+        crop: cropResult.cropped,
+      );
+    } catch (e) {
+      debugPrint(
+          'ImagePickerService.pickImageFile: Bildverarbeitung Fehler: $e',);
+      return PickedImage.empty;
+    }
 
     return PickedImage(
       // Im Web ist file.path null → das ist OK, bytes sind vorhanden
@@ -68,32 +102,66 @@ class ImagePickerService {
   /// Nimmt ein Bild mit der Kamera auf.
   ///
   /// ⚠️ Nur auf Mobile/Desktop verfügbar.
-  /// Im Web wird null zurückgegeben (Kamera nicht zuverlässig unterstützt).
-  /// Aufrufer sollten im Web den Kamera-Button ausblenden.
+  /// Im Web wird [PickedImage.empty] zurückgegeben
+  /// (Kamera nicht zuverlässig unterstützt).
+  /// Aufrufer sollten im Web den Kamera-Button ausblenden
+  /// (siehe [isCameraAvailable]).
   static Future<PickedImage> pickImageCamera(BuildContext context) async {
     // Kamera ist im Web nicht zuverlässig verfügbar
-    if (kIsWeb) {
-      return PickedImage();
-    }
+    if (kIsWeb) return PickedImage.empty;
 
     final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 90,
-    );
+    final XFile? pickedFile;
 
-    if (pickedFile == null) return PickedImage();
+    // Fix: ImagePicker-Fehler abfangen (z.B. Kamera-Permission verweigert)
+    try {
+      pickedFile = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 90,
+      );
+    } catch (e) {
+      debugPrint('ImagePickerService.pickImageCamera: Kamera Fehler: $e');
+      return PickedImage.empty;
+    }
 
-    final bytes = await pickedFile.readAsBytes();
-    if (!context.mounted) return PickedImage();
+    if (pickedFile == null) return PickedImage.empty;
+
+    // Fix: readAsBytes-Fehler abfangen
+    final Uint8List bytes;
+    try {
+      bytes = await pickedFile.readAsBytes();
+    } catch (e) {
+      debugPrint(
+          'ImagePickerService.pickImageCamera: readAsBytes Fehler: $e',);
+      return PickedImage.empty;
+    }
+
+    // Fix: Dateigröße prüfen nach readAsBytes
+    if (bytes.length > _maxFileSizeBytes) {
+      debugPrint(
+        'ImagePickerService.pickImageCamera: Bild zu groß '
+        '(${bytes.length} Bytes, max $_maxFileSizeBytes Bytes)',
+      );
+      return PickedImage.empty;
+    }
+
+    if (!context.mounted) return PickedImage.empty;
 
     final cropResult = await _openCropDialog(context, bytes);
-    if (cropResult == null) return PickedImage();
+    if (cropResult == null) return PickedImage.empty;
 
-    final processedBytes = await ImageProcessingUtils.ensureTargetFormat(
-      cropResult.bytes,
-      crop: cropResult.cropped,
-    );
+    // Fix: ImageProcessingUtils-Fehler abfangen
+    final Uint8List? processedBytes;
+    try {
+      processedBytes = await ImageProcessingUtils.ensureTargetFormat(
+        cropResult.bytes,
+        crop: cropResult.cropped,
+      );
+    } catch (e) {
+      debugPrint(
+          'ImagePickerService.pickImageCamera: Bildverarbeitung Fehler: $e',);
+      return PickedImage.empty;
+    }
 
     return PickedImage(
       pfad: pickedFile.path,

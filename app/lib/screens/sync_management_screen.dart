@@ -1,10 +1,12 @@
 // lib/screens/sync_management_screen.dart
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+
 import '../services/sync_service.dart';
 import '../widgets/sync_conflict_handler.dart';
 
-/// Screen für die erweiterte Synchronisationsverwaltung
+/// Screen für die erweiterte Synchronisationsverwaltung.
 class SyncManagementScreen extends StatefulWidget {
   final SyncService syncService;
 
@@ -17,9 +19,9 @@ class SyncManagementScreen extends StatefulWidget {
   State<SyncManagementScreen> createState() => _SyncManagementScreenState();
 }
 
-class _SyncManagementScreenState extends State<SyncManagementScreen> 
+class _SyncManagementScreenState extends State<SyncManagementScreen>
     with SyncCapable {
-  
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -56,18 +58,29 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
                     const SizedBox(height: 12),
                     buildSyncStatusWidget(),
                     const SizedBox(height: 16),
-                    
+
                     // Sync Button
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: isSyncing ? null : () => performSync(widget.syncService),
-                        icon: Icon(isSyncing ? Icons.hourglass_empty : Icons.sync),
-                        label: Text(isSyncing ? 'Synchronisiere...' : 'Jetzt synchronisieren'),
+                        onPressed: isSyncing
+                            ? null
+                            : () => performSync(widget.syncService),
+                        icon: Icon(
+                          isSyncing
+                              ? Icons.hourglass_empty
+                              : Icons.sync,
+                        ),
+                        label: Text(
+                          isSyncing
+                              ? 'Synchronisiere...'
+                              : 'Jetzt synchronisieren',
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          padding:
+                              const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
                     ),
@@ -94,7 +107,8 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Bei Synchronisationskonflikten wird eine interaktive Auflösung angeboten:',
+                      'Bei Synchronisationskonflikten wird eine interaktive '
+                      'Auflösung angeboten:',
                     ),
                     const SizedBox(height: 8),
                     _buildFeatureList([
@@ -105,6 +119,8 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
                     ]),
                     const SizedBox(height: 16),
                     OutlinedButton.icon(
+                      // Fix: async void → _checkForConflicts als Future<void>
+                      // und hier mit unawaited-Semantik aufgerufen
                       onPressed: _checkForConflicts,
                       icon: const Icon(Icons.search),
                       label: const Text('Nach Konflikten suchen'),
@@ -131,29 +147,33 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
                       ),
                     ),
                     const SizedBox(height: 12),
-                    
+
                     ListTile(
                       leading: const Icon(Icons.upload),
                       title: const Text('Alle lokalen Änderungen hochladen'),
-                      subtitle: const Text('Forciert Upload aller lokalen Artikel'),
+                      subtitle: const Text(
+                          'Forciert Upload aller lokalen Artikel',),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _forceUploadAll,
                     ),
-                    
+
                     const Divider(),
-                    
+
                     ListTile(
                       leading: const Icon(Icons.download),
-                      title: const Text('Alle Remote-Änderungen herunterladen'),
-                      subtitle: const Text('Überschreibt lokale Änderungen'),
+                      title:
+                          const Text('Alle Remote-Änderungen herunterladen'),
+                      subtitle:
+                          const Text('Überschreibt lokale Änderungen'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _forceDownloadAll,
                     ),
-                    
+
                     const Divider(),
-                    
+
                     ListTile(
-                      leading: const Icon(Icons.refresh, color: Colors.orange),
+                      leading:
+                          const Icon(Icons.refresh, color: Colors.orange),
                       title: const Text('Sync-Status zurücksetzen'),
                       subtitle: const Text('Setzt alle ETags zurück'),
                       trailing: const Icon(Icons.chevron_right),
@@ -166,8 +186,9 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
 
             const SizedBox(height: 16),
 
-            // Debug Informationen
-            if (Theme.of(context).brightness == Brightness.dark) // Nur im Debug Mode
+            // Fix: kDebugMode statt Theme.brightness — zeigt Debug-Info
+            // korrekt nur im Debug-Build, nicht im Dark Mode
+            if (kDebugMode)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
@@ -196,17 +217,26 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
 
   Widget _buildFeatureList(List<String> features) {
     return Column(
-      children: features.map((feature) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(Icons.check, size: 16, color: Colors.green),
-            const SizedBox(width: 8),
-            Expanded(child: Text(feature, style: const TextStyle(fontSize: 14))),
-          ],
-        ),
-      )).toList(),
+      children: features
+          .map(
+            (feature) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check, size: 16, color: Colors.green),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      feature,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -226,179 +256,212 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
     );
   }
 
-  void _checkForConflicts() async {
+  // Fix: void → Future<void> — async-Methode muss Future zurückgeben
+  Future<void> _checkForConflicts() async {
+    // Fix: Navigator-Referenz vor dem ersten await cachen
+    final nav = Navigator.of(context);
+    // Fix: messenger vor dem ersten await cachen
+    final messenger = ScaffoldMessenger.of(context);
+
     try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Dialog(
-          child: Padding(
-            padding: EdgeInsets.all(24),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: 16),
-                Text('Suche nach Konflikten...'),
-              ],
+      // Fix: showDialog-Future nicht awaiten — Dialog wird durch nav.pop()
+      // geschlossen, nicht durch den Rückgabewert
+      await nav.push(
+        DialogRoute<void>(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const Dialog(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 16),
+                  Text('Suche nach Konflikten...'),
+                ],
+              ),
             ),
           ),
         ),
       );
 
       final conflicts = await widget.syncService.detectConflicts();
-      
-      if (mounted) {
-        Navigator.of(context).pop(); // Schließe Loading Dialog
-        
-        if (conflicts.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Keine Konflikte gefunden'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        } else {
-          final result = await showDialog<bool>(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text('${conflicts.length} Konflikte gefunden'),
-              content: Text(
-                'Es wurden ${conflicts.length} Synchronisationskonflikte gefunden. '
-                'Möchten Sie diese jetzt auflösen?'
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(false),
-                  child: const Text('Später'),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(true),
-                  child: const Text('Jetzt auflösen'),
-                ),
-              ],
-            ),
-          );
-          
-          if (result == true && mounted) {
-            await SyncConflictHandler.handleSyncWithConflicts(context, widget.syncService);
-          }
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        Navigator.of(context).pop(); // Schließe Loading Dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Suchen nach Konflikten: $e'),
-            backgroundColor: Colors.red,
+
+      // Fix: einzelner mounted-Guard nach dem await
+      if (!mounted) return;
+      nav.pop(); // Schließe Loading Dialog
+
+      if (conflicts.isEmpty) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text('Keine Konflikte gefunden'),
+            backgroundColor: Colors.green,
           ),
         );
+      } else {
+        final result = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: Text('${conflicts.length} Konflikte gefunden'),
+            content: Text(
+              'Es wurden ${conflicts.length} Synchronisationskonflikte '
+              'gefunden. Möchten Sie diese jetzt auflösen?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Später'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Jetzt auflösen'),
+              ),
+            ],
+          ),
+        );
+
+        // Fix: mounted-Guard nach showDialog-await
+        if (result == true && mounted) {
+          await SyncConflictHandler.handleSyncWithConflicts(
+            context,
+            widget.syncService,
+          );
+        }
       }
+    } catch (e, st) {
+      // Fix: Stack-Trace mitloggen
+      debugPrint('[SyncManagement] Konflikt-Suche fehlgeschlagen: $e\n$st');
+      if (!mounted) return;
+      nav.pop(); // Schließe Loading Dialog
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Fehler beim Suchen nach Konflikten: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
-  void _forceUploadAll() {
-    showDialog(
+  // Fix: void → Future<void> + await auf showDialog — Rückgabewert wird genutzt
+  Future<void> _forceUploadAll() async {
+    // Fix: messenger vor dem await cachen
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Alle lokalen Änderungen hochladen?'),
         content: const Text(
           'Dies wird alle lokalen Artikel zum Server hochladen und '
-          'eventuell Remote-Änderungen überschreiben. Sind Sie sicher?'
+          'eventuell Remote-Änderungen überschreiben. Sind Sie sicher?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Abbrechen'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Implementierung für Force Upload
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Force Upload wird implementiert...')),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             child: const Text('Upload erzwingen'),
           ),
         ],
       ),
     );
+
+    // Fix: mounted-Guard nach showDialog-await
+    if (confirm == true && mounted) {
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Force Upload wird implementiert...'),),
+      );
+    }
   }
 
-  void _forceDownloadAll() {
-    showDialog(
+  // Fix: void → Future<void> + await auf showDialog — Rückgabewert wird genutzt
+  Future<void> _forceDownloadAll() async {
+    // Fix: messenger vor dem await cachen
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Alle Remote-Änderungen herunterladen?'),
         content: const Text(
           'Dies wird alle Server-Artikel herunterladen und '
-          'lokale Änderungen überschreiben. Sind Sie sicher?'
+          'lokale Änderungen überschreiben. Sind Sie sicher?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Abbrechen'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Implementierung für Force Download
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Force Download wird implementiert...')),
-              );
-            },
+            onPressed: () => Navigator.of(ctx).pop(true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Download erzwingen'),
           ),
         ],
       ),
     );
+
+    // Fix: mounted-Guard nach showDialog-await
+    if (confirm == true && mounted) {
+      messenger.showSnackBar(
+        const SnackBar(
+            content: Text('Force Download wird implementiert...'),),
+      );
+    }
   }
 
-  void _resetSyncStatus() {
-    showDialog(
+  // Fix: void → Future<void> + await auf showDialog — Rückgabewert wird genutzt
+  Future<void> _resetSyncStatus() async {
+    // Fix: messenger vor dem await cachen
+    final messenger = ScaffoldMessenger.of(context);
+
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Sync-Status zurücksetzen?'),
         content: const Text(
           'Dies setzt alle ETags zurück und führt bei der nächsten '
-          'Synchronisation zu einer vollständigen Überprüfung aller Artikel.'
+          'Synchronisation zu einer vollständigen Überprüfung aller Artikel.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Abbrechen'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              // Implementierung für Reset
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sync-Status zurückgesetzt')),
-              );
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.orange),
             child: const Text('Zurücksetzen'),
           ),
         ],
       ),
     );
+
+    // Fix: mounted-Guard nach showDialog-await
+    if (confirm == true && mounted) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Sync-Status zurückgesetzt')),
+      );
+    }
   }
 
   void _showSyncLogs() {
-    // Implementierung für Sync-Logs
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Sync-Logs werden implementiert...')),
     );
   }
 
-  void _showSyncHelp() {
-    showDialog(
+  Future<void> _showSyncHelp() async {
+    await showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Synchronisation Hilfe'),
         content: const SingleChildScrollView(
           child: Column(
@@ -407,33 +470,45 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
             children: [
               Text(
                 'Synchronisation',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16,),
               ),
               SizedBox(height: 8),
-              Text('Die Synchronisation gleicht Ihre lokalen Artikel mit dem Nextcloud-Server ab.'),
+              Text(
+                'Die Synchronisation gleicht Ihre lokalen Artikel mit '
+                'dem Nextcloud-Server ab.',
+              ),
               SizedBox(height: 16),
               Text(
                 'Konflikte',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16,),
               ),
               SizedBox(height: 8),
-              Text('Konflikte entstehen, wenn derselbe Artikel auf verschiedenen Geräten gleichzeitig bearbeitet wurde.'),
+              Text(
+                'Konflikte entstehen, wenn derselbe Artikel auf '
+                'verschiedenen Geräten gleichzeitig bearbeitet wurde.',
+              ),
               SizedBox(height: 16),
               Text(
                 'Auflösung',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16,),
               ),
               SizedBox(height: 8),
-              Text('• Lokale Version: Behält Ihre Änderungen\n'
-                   '• Remote Version: Übernimmt Server-Version\n'
-                   '• Zusammenführen: Kombiniert beide Versionen\n'
-                   '• Überspringen: Konflikt für später aufheben'),
+              Text(
+                '• Lokale Version: Behält Ihre Änderungen\n'
+                '• Remote Version: Übernimmt Server-Version\n'
+                '• Zusammenführen: Kombiniert beide Versionen\n'
+                '• Überspringen: Konflikt für später aufheben',
+              ),
             ],
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Verstanden'),
           ),
         ],

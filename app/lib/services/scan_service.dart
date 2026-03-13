@@ -1,63 +1,75 @@
 // lib/services/scan_service.dart
 //
-// QR-Code Scanner Service.
-// ⚠️ NUR für Mobile/Desktop – im Web nicht verfügbar.
-//
-// Verwendet Conditional Import, damit der QR-Scanner-Screen
-// im Web nicht importiert wird (würde sonst nicht kompilieren).
+// Conditional Import: automatische Plattform-Auswahl.
+// Mobile/Desktop → scan_service_io.dart
+// Web            → scan_service_stub.dart
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+
+import 'scan_result.dart';
 import '../models/artikel_model.dart';
 
-// Conditional Import: QR-Scanner nur auf Mobile/Desktop
 import 'scan_service_io.dart'
-    if (dart.library.html) 'scan_service_stub.dart' as scanner;
+    if (dart.library.html) 'scan_service_stub.dart' as platform;
 
 class ScanService {
-  /// Prüft ob der QR-Scanner auf dieser Plattform verfügbar ist.
-  /// Kann im UI verwendet werden um den Scan-Button ein-/auszublenden.
-  static bool get isAvailable => !kIsWeb;
+  /// True auf Mobile/Desktop, false im Web.
+  static bool get isAvailable => !const bool.fromEnvironment('dart.library.html');
 
   /// Öffnet den QR-Scanner und verarbeitet das Ergebnis.
   ///
-  /// [artikelListe] – Die aktuelle Liste der Artikel (wird ggf. aktualisiert).
-  /// [reloadArtikel] – Callback zum Neuladen der gesamten Liste.
-  /// [setState] – setState-Funktion des aufrufenden Widgets.
+  /// Parameter spiegeln den bisherigen Aufruf in artikel_list_screen.dart:
+  ///   ScanService.scanArtikel(context, _artikelListe, _ladeArtikel, setState)
   ///
-  /// ⚠️ Nur auf Mobile/Desktop aufrufen. Im Web ist dies ein no-op.
+  /// [artikelListe]  — aktuelle Liste (wird für Snackbar-Feedback genutzt)
+  /// [onRefresh]     — wird nach erfolgreichem Scan aufgerufen
+  /// [setStateCallback] — wird nach erfolgreichem Scan aufgerufen
   static Future<void> scanArtikel(
     BuildContext context,
     List<Artikel> artikelListe,
-    Future<void> Function() reloadArtikel,
-    void Function(void Function()) setState,
+    Future<void> Function() onRefresh,
+    void Function(void Function()) setStateCallback,
   ) async {
-    // Web: QR-Scanner nicht verfügbar
-    if (kIsWeb) {
-      debugPrint('[ScanService] QR-Scanner im Web nicht verfügbar');
-      return;
-    }
+    final Object? raw = await platform.openQrScanner(context);
 
-    final result = await scanner.openQrScanner(context);
     if (!context.mounted) return;
 
-    if (result is Artikel) {
-      // Artikel wurde gescannt und gefunden/bearbeitet
-      setState(() {
-        final index = artikelListe.indexWhere((a) => a.uuid == result.uuid);
-        if (index != -1) {
-          artikelListe[index] = result;
-        } else {
-          // Neuer Artikel – zur Liste hinzufügen
-          artikelListe.insert(0, result);
-        }
-      });
-    } else if (result == 'deleted') {
-      // Artikel wurde im Scanner-Screen gelöscht → Liste neu laden
-      await reloadArtikel();
-    } else if (result != null) {
-      // Unbekanntes Ergebnis → sicherheitshalber neu laden
-      await reloadArtikel();
+    switch (raw) {
+      case ScanResultArtikel(:final artikel):
+        // Artikel wurde bearbeitet → Liste neu laden
+        await onRefresh();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Artikel aktualisiert: ${artikel.name}')),
+        );
+
+      case ScanResultDeleted(:final uuid):
+        // Artikel wurde gelöscht → aus lokaler Liste entfernen + neu laden
+        await onRefresh();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Artikel gelöscht (UUID: $uuid)')),
+        );
+
+      case ScanResultCancelled():
+        // Kein Feedback nötig — Nutzer hat abgebrochen
+        break;
+
+      case ScanResultError(:final message):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Scanner-Fehler: $message'),
+            backgroundColor: Colors.red,
+          ),
+        );
+
+      case null:
+        // Web-Stub oder unerwartetes null — kein Feedback
+        break;
+
+      default:
+        // Unbekanntes Ergebnis — defensiv ignorieren
+        break;
     }
   }
 }

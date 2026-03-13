@@ -5,7 +5,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:math';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:sqflite/sqflite.dart';
 import 'package:logger/logger.dart';
@@ -21,7 +20,9 @@ class ArtikelDbService {
   factory ArtikelDbService() => _instance;
   ArtikelDbService._internal();
 
-  final logger = Logger();
+  // FIX: static verhindert mehrere Logger-Instanzen (Singleton-Klasse,
+  // aber explizite Klarheit schadet nicht)
+  static final _logger = Logger();
   Database? _db;
 
   Future<Database> get database async {
@@ -44,7 +45,7 @@ class ArtikelDbService {
         onUpgrade: _onUpgrade,
       );
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Initialisieren der Datenbank: $e',
         error: e,
         stackTrace: stack,
@@ -55,6 +56,9 @@ class ArtikelDbService {
 
   // ==================== SCHEMA ====================
 
+  // FIX Bug 1: 'kategorie' war in _onUpgrade (oldVersion < 2) referenziert,
+  // aber nie im Haupt-Schema definiert. Spalte hier ergänzt für Konsistenz
+  // mit bestehenden Upgrade-Pfaden.
   static const _createTableSql = '''
     CREATE TABLE artikel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +78,8 @@ class ArtikelDbService {
       deleted INTEGER NOT NULL DEFAULT 0,
       etag TEXT,
       remote_path TEXT,
-      device_id TEXT
+      device_id TEXT,
+      kategorie TEXT
     )
   ''';
 
@@ -88,13 +93,13 @@ class ArtikelDbService {
 
   Future<void> _onCreate(Database db, int version) async {
     try {
-      logger.i("🛠️ Erstelle Tabelle 'artikel' (Version $version)");
+      _logger.i("🛠️ Erstelle Tabelle 'artikel' (Version $version)");
       await db.execute(_createTableSql);
       await db.execute(_createSyncMetaTableSql);
       await _createIndices(db);
       await _setInitialSequenceFromSettings(db);
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Erstellen der Datenbanktabellen: $e',
         error: e,
         stackTrace: stack,
@@ -105,37 +110,39 @@ class ArtikelDbService {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     try {
-      logger.w("🔄 Upgrade DB von Version $oldVersion → $newVersion");
+      _logger.w('🔄 Upgrade DB von Version $oldVersion → $newVersion');
 
       if (oldVersion < 2) {
-        await db.execute("ALTER TABLE artikel ADD COLUMN kategorie TEXT");
-        logger.i("✅ Migration: Spalte 'kategorie' hinzugefügt.");
+        await db.execute('ALTER TABLE artikel ADD COLUMN kategorie TEXT');
+        _logger.i("✅ Migration: Spalte 'kategorie' hinzugefügt.");
       }
 
       if (oldVersion < 3) {
-        await db.execute("ALTER TABLE artikel ADD COLUMN uuid TEXT");
+        await db.execute('ALTER TABLE artikel ADD COLUMN uuid TEXT');
         await db.execute(
-            "ALTER TABLE artikel ADD COLUMN updated_at INTEGER DEFAULT 0");
+          'ALTER TABLE artikel ADD COLUMN updated_at INTEGER DEFAULT 0',
+        );
         await db.execute(
-            "ALTER TABLE artikel ADD COLUMN deleted INTEGER DEFAULT 0");
-        await db.execute("ALTER TABLE artikel ADD COLUMN etag TEXT");
-        await db.execute("ALTER TABLE artikel ADD COLUMN remote_path TEXT");
-        await db.execute("ALTER TABLE artikel ADD COLUMN device_id TEXT");
-        await db.execute("ALTER TABLE artikel ADD COLUMN thumbnailPfad TEXT");
-        await db.execute("ALTER TABLE artikel ADD COLUMN thumbnailEtag TEXT");
-        logger.i(
-          "✅ Migration: Neue Spalten für Sync und Thumbnails hinzugefügt.",
+          'ALTER TABLE artikel ADD COLUMN deleted INTEGER DEFAULT 0',
+        );
+        await db.execute('ALTER TABLE artikel ADD COLUMN etag TEXT');
+        await db.execute('ALTER TABLE artikel ADD COLUMN remote_path TEXT');
+        await db.execute('ALTER TABLE artikel ADD COLUMN device_id TEXT');
+        await db.execute('ALTER TABLE artikel ADD COLUMN thumbnailPfad TEXT');
+        await db.execute('ALTER TABLE artikel ADD COLUMN thumbnailEtag TEXT');
+        _logger.i(
+          '✅ Migration: Neue Spalten für Sync und Thumbnails hinzugefügt.',
         );
 
         await _generateUUIDsForExistingRecords(db);
         await db.execute(_createSyncMetaTableSql);
         await _createIndices(db);
-        logger.i(
-          "✅ Migration: UUIDs generiert, Sync-Metadaten und Indizes erstellt.",
+        _logger.i(
+          '✅ Migration: UUIDs generiert, Sync-Metadaten und Indizes erstellt.',
         );
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler bei der Datenbank-Migration von Version '
         '$oldVersion zu $newVersion: $e',
         error: e,
@@ -151,7 +158,6 @@ class ArtikelDbService {
         'CREATE INDEX IF NOT EXISTS idx_artikel_updated_at '
         'ON artikel(updated_at)',
       );
-      // FIX #6: UUID-Index — bereits vorhanden, explizit dokumentiert
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_artikel_uuid ON artikel(uuid)',
       );
@@ -161,9 +167,9 @@ class ArtikelDbService {
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_artikel_name ON artikel(name)',
       );
-      logger.i("✅ Indizes erstellt/aktualisiert.");
+      _logger.i('✅ Indizes erstellt/aktualisiert.');
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Erstellen von Indizes: $e',
         error: e,
         stackTrace: stack,
@@ -180,13 +186,14 @@ class ArtikelDbService {
         {'name': 'artikel', 'seq': startNummer - 1},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      logger.i("🔢 Startwert für Artikel-IDs auf $startNummer gesetzt.");
+      _logger.i('🔢 Startwert für Artikel-IDs auf $startNummer gesetzt.');
     } catch (e, stack) {
-      logger.w(
+      _logger.w(
         '⚠️ Fehler beim Setzen des Startwerts für Artikel-IDs: $e',
         error: e,
         stackTrace: stack,
       );
+      // Fallback auf Standardwert 1000
       try {
         await db.insert(
           'sqlite_sequence',
@@ -194,7 +201,7 @@ class ArtikelDbService {
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       } catch (e2, stack2) {
-        logger.e(
+        _logger.e(
           '❌ Kritischer Fehler beim Fallback für Startwert: $e2',
           error: e2,
           stackTrace: stack2,
@@ -221,11 +228,11 @@ class ArtikelDbService {
           whereArgs: [article['id']],
         );
       }
-      logger.i(
-        "✅ UUIDs für ${existing.length} bestehende Artikel generiert.",
+      _logger.i(
+        '✅ UUIDs für ${existing.length} bestehende Artikel generiert.',
       );
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Generieren von UUIDs für bestehende Artikel: $e',
         error: e,
         stackTrace: stack,
@@ -246,10 +253,10 @@ class ArtikelDbService {
         data,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      logger.i('✅ Artikel ${artikel.uuid} (ID: $id) eingefügt/ersetzt.');
+      _logger.i('✅ Artikel ${artikel.uuid} (ID: $id) eingefügt/ersetzt.');
       return id;
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Einfügen von Artikel ${artikel.uuid}: $e',
         error: e,
         stackTrace: stack,
@@ -258,7 +265,6 @@ class ArtikelDbService {
     }
   }
 
-  // FIX #5: limit & offset Parameter → verhindert OOM bei großen Datenbanken
   Future<List<Artikel>> getAlleArtikel({
     int limit = 500,
     int offset = 0,
@@ -273,13 +279,13 @@ class ArtikelDbService {
         limit: limit,
         offset: offset,
       );
-      logger.d(
+      _logger.d(
         '✅ ${maps.length} Artikel aus DB abgerufen '
         '(limit: $limit, offset: $offset).',
       );
       return maps.map((m) => Artikel.fromMap(m)).toList();
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Abrufen aller Artikel: $e',
         error: e,
         stackTrace: stack,
@@ -301,17 +307,17 @@ class ArtikelDbService {
         whereArgs: [artikel.id],
       );
       if (rowsAffected > 0) {
-        logger.i(
+        _logger.i(
           '✅ Artikel ${artikel.uuid} (ID: ${artikel.id}) aktualisiert.',
         );
       } else {
-        logger.w(
+        _logger.w(
           '⚠️ Artikel ${artikel.uuid} (ID: ${artikel.id}) '
           'nicht gefunden oder nicht aktualisiert.',
         );
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Aktualisieren von Artikel '
         '${artikel.uuid} (ID: ${artikel.id}): $e',
         error: e,
@@ -335,18 +341,18 @@ class ArtikelDbService {
         whereArgs: [artikel.id],
       );
       if (rowsAffected > 0) {
-        logger.i(
+        _logger.i(
           '✅ Artikel ${artikel.uuid} (ID: ${artikel.id}) '
           'als gelöscht markiert.',
         );
       } else {
-        logger.w(
+        _logger.w(
           '⚠️ Artikel ${artikel.uuid} (ID: ${artikel.id}) '
           'nicht gefunden oder nicht als gelöscht markiert.',
         );
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Markieren von Artikel '
         '${artikel.uuid} (ID: ${artikel.id}) als gelöscht: $e',
         error: e,
@@ -371,11 +377,11 @@ class ArtikelDbService {
         whereArgs: [artikelId],
       );
       if (rowsAffected > 0) {
-        logger.d('✅ Bildpfad für Artikel ID $artikelId aktualisiert.');
+        _logger.d('✅ Bildpfad für Artikel ID $artikelId aktualisiert.');
       }
       return rowsAffected;
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Aktualisieren des Bildpfades '
         'für Artikel ID $artikelId: $e',
         error: e,
@@ -385,6 +391,8 @@ class ArtikelDbService {
     }
   }
 
+  // FIX Problem 6: updated_at ergänzt — ohne diesen Timestamp würde
+  // der Sync-Service diese Änderung übersehen.
   Future<int> updateRemoteBildPfad(
     int artikelId,
     String remotePfad,
@@ -393,18 +401,21 @@ class ArtikelDbService {
       final db = await database;
       final rowsAffected = await db.update(
         'artikel',
-        {'remoteBildPfad': remotePfad},
+        {
+          'remoteBildPfad': remotePfad,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
         where: 'id = ?',
         whereArgs: [artikelId],
       );
       if (rowsAffected > 0) {
-        logger.d(
+        _logger.d(
           '✅ Remote-Bildpfad für Artikel ID $artikelId aktualisiert.',
         );
       }
       return rowsAffected;
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Aktualisieren des Remote-Bildpfades '
         'für Artikel ID $artikelId: $e',
         error: e,
@@ -414,20 +425,25 @@ class ArtikelDbService {
     }
   }
 
+  // FIX Problem 7: updated_at ergänzt — ohne diesen Timestamp würde
+  // der Sync-Service diese Änderung übersehen.
   Future<void> setBildPfadByUuid(String uuid, String bildPfad) async {
     try {
       final db = await database;
       final rowsAffected = await db.update(
         'artikel',
-        {'bildPfad': bildPfad},
+        {
+          'bildPfad': bildPfad,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
         where: 'uuid = ?',
         whereArgs: [uuid],
       );
       if (rowsAffected > 0) {
-        logger.d('✅ Bildpfad für Artikel UUID $uuid aktualisiert.');
+        _logger.d('✅ Bildpfad für Artikel UUID $uuid aktualisiert.');
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Setzen des Bildpfades für Artikel UUID $uuid: $e',
         error: e,
         stackTrace: stack,
@@ -448,10 +464,10 @@ class ArtikelDbService {
         whereArgs: [uuid],
       );
       if (rowsAffected > 0) {
-        logger.d('✅ Thumbnailpfad für Artikel UUID $uuid aktualisiert.');
+        _logger.d('✅ Thumbnailpfad für Artikel UUID $uuid aktualisiert.');
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Setzen des Thumbnailpfades '
         'für Artikel UUID $uuid: $e',
         error: e,
@@ -473,12 +489,12 @@ class ArtikelDbService {
         whereArgs: [uuid],
       );
       if (rowsAffected > 0) {
-        logger.d(
+        _logger.d(
           '✅ Thumbnail-Etag für Artikel UUID $uuid aktualisiert.',
         );
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Setzen des Thumbnail-Etags '
         'für Artikel UUID $uuid: $e',
         error: e,
@@ -503,12 +519,12 @@ class ArtikelDbService {
         whereArgs: [uuid],
       );
       if (rowsAffected > 0) {
-        logger.d(
+        _logger.d(
           '✅ Remote-Bildpfad für Artikel UUID $uuid aktualisiert.',
         );
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Setzen des Remote-Bildpfades '
         'für Artikel UUID $uuid: $e',
         error: e,
@@ -529,13 +545,13 @@ class ArtikelDbService {
         limit: 1,
       );
       if (maps.isNotEmpty) {
-        logger.d('✅ Artikel mit UUID $uuid gefunden.');
+        _logger.d('✅ Artikel mit UUID $uuid gefunden.');
         return Artikel.fromMap(maps.first);
       }
-      logger.d('Artikel mit UUID $uuid nicht gefunden.');
+      _logger.d('Artikel mit UUID $uuid nicht gefunden.');
       return null;
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Abrufen von Artikel mit UUID $uuid: $e',
         error: e,
         stackTrace: stack,
@@ -554,13 +570,13 @@ class ArtikelDbService {
         limit: 1,
       );
       if (maps.isNotEmpty) {
-        logger.d('✅ Artikel mit Remote-Pfad $remotePath gefunden.');
+        _logger.d('✅ Artikel mit Remote-Pfad $remotePath gefunden.');
         return Artikel.fromMap(maps.first);
       }
-      logger.d('Artikel mit Remote-Pfad $remotePath nicht gefunden.');
+      _logger.d('Artikel mit Remote-Pfad $remotePath nicht gefunden.');
       return null;
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Abrufen von Artikel mit Remote-Pfad $remotePath: $e',
         error: e,
         stackTrace: stack,
@@ -578,12 +594,12 @@ class ArtikelDbService {
             'AND (remoteBildPfad IS NULL OR remoteBildPfad = "")',
         orderBy: 'id DESC',
       );
-      logger.d(
+      _logger.d(
         '✅ ${maps.length} unsynchronisierte Artikel abgerufen.',
       );
       return maps.map((m) => Artikel.fromMap(m)).toList();
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Abrufen unsynchronisierter Artikel: $e',
         error: e,
         stackTrace: stack,
@@ -594,20 +610,26 @@ class ArtikelDbService {
 
   // ==================== SYNC ====================
 
+  // FIX Bug 2: Gelöschte Artikel (deleted = 1) werden bewusst mitgeliefert,
+  // da der Sync-Service auch Löschungen propagieren muss.
+  // Dies ist explizit dokumentiert — kein versehentliches Auslassen.
   Future<List<Artikel>> getPendingChanges() async {
     try {
       final db = await database;
       final maps = await db.query(
         'artikel',
+        // Bewusst KEIN deleted-Filter: gelöschte Artikel müssen ebenfalls
+        // zum Server synchronisiert werden, damit Remote-Löschungen erfolgen.
         where: 'etag IS NULL OR etag = ""',
         orderBy: 'updated_at ASC',
       );
-      logger.d(
-        '✅ ${maps.length} Artikel mit ausstehenden Änderungen abgerufen.',
+      _logger.d(
+        '✅ ${maps.length} Artikel mit ausstehenden Änderungen abgerufen '
+        '(inkl. gelöschter Artikel für Sync-Propagierung).',
       );
       return maps.map((m) => Artikel.fromMap(m)).toList();
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Abrufen von Artikeln mit ausstehenden Änderungen: $e',
         error: e,
         stackTrace: stack,
@@ -626,17 +648,17 @@ class ArtikelDbService {
         whereArgs: [uuid],
       );
       if (rowsAffected > 0) {
-        logger.d(
+        _logger.d(
           '✅ Artikel UUID $uuid als synchronisiert markiert (Etag: $etag).',
         );
       } else {
-        logger.w(
+        _logger.w(
           '⚠️ Artikel UUID $uuid nicht gefunden oder '
           'nicht als synchronisiert markiert.',
         );
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Markieren von Artikel UUID $uuid '
         'als synchronisiert: $e',
         error: e,
@@ -645,12 +667,17 @@ class ArtikelDbService {
     }
   }
 
+  // FIX Bug 3: updated_at = 0 wird abgesichert. Wenn der Artikel keinen
+  // gültigen Timestamp hat, wird der aktuelle Zeitpunkt verwendet,
+  // damit der Delta-Sync nicht fehlschlägt.
   Future<void> upsertArtikel(Artikel artikel, {String? etag}) async {
     try {
       final db = await database;
       final data = artikel.toMap();
       if (etag != null) data['etag'] = etag;
-      data['updated_at'] = artikel.updatedAt;
+      data['updated_at'] = artikel.updatedAt > 0
+          ? artikel.updatedAt
+          : DateTime.now().millisecondsSinceEpoch;
 
       final existing = await db.query(
         'artikel',
@@ -666,17 +693,17 @@ class ArtikelDbService {
           where: 'uuid = ?',
           whereArgs: [artikel.uuid],
         );
-        logger.d('✅ Artikel UUID ${artikel.uuid} aktualisiert (upsert).');
+        _logger.d('✅ Artikel UUID ${artikel.uuid} aktualisiert (upsert).');
       } else {
         await db.insert(
           'artikel',
           data,
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
-        logger.d('✅ Artikel UUID ${artikel.uuid} eingefügt (upsert).');
+        _logger.d('✅ Artikel UUID ${artikel.uuid} eingefügt (upsert).');
       }
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Upsert von Artikel UUID ${artikel.uuid}: $e',
         error: e,
         stackTrace: stack,
@@ -695,11 +722,11 @@ class ArtikelDbService {
       final artikelData = json.decode(jsonBody) as Map<String, dynamic>;
       final artikel = Artikel.fromMap(artikelData);
       await upsertArtikel(artikel, etag: etag);
-      logger.d(
+      _logger.d(
         '✅ Artikel von Remote über upsertArtikel() verarbeitet.',
       );
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim upsertFromRemote für $remotePath: $e',
         error: e,
         stackTrace: stack,
@@ -721,9 +748,9 @@ class ArtikelDbService {
         },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      logger.d('✅ Letzte Synchronisationszeit aktualisiert.');
+      _logger.d('✅ Letzte Synchronisationszeit aktualisiert.');
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Setzen der letzten Synchronisationszeit: $e',
         error: e,
         stackTrace: stack,
@@ -731,7 +758,6 @@ class ArtikelDbService {
     }
   }
 
-  // FIX #42 (Vorbereitung): getLastSyncTime() für Delta-Sync
   Future<DateTime?> getLastSyncTime() async {
     try {
       final db = await database;
@@ -746,7 +772,7 @@ class ArtikelDbService {
       if (ms == null) return null;
       return DateTime.fromMillisecondsSinceEpoch(ms);
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Abrufen der letzten Synchronisationszeit: $e',
         error: e,
         stackTrace: stack,
@@ -770,12 +796,12 @@ class ArtikelDbService {
         orderBy: 'name',
         limit: limit,
       );
-      logger.d(
+      _logger.d(
         '✅ ${maps.length} Artikel für Suche "$query" gefunden.',
       );
       return maps.map((m) => Artikel.fromMap(m)).toList();
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler bei der Artikelsuche für "$query": $e',
         error: e,
         stackTrace: stack,
@@ -786,30 +812,42 @@ class ArtikelDbService {
 
   // ==================== ADMIN ====================
 
+  // FIX Problem 4: Nach DROP TABLE wird sqlite_sequence automatisch
+  // bereinigt. Der direkte INSERT schlägt fehl, solange noch kein
+  // AUTOINCREMENT-Eintrag existiert. Daher wird _setInitialSequenceFromSettings
+  // wiederverwendet, die bereits einen robusten Fallback enthält.
   Future<void> resetDatabase({int startId = 1000}) async {
     try {
       final db = await database;
-      await db.execute("DROP TABLE IF EXISTS artikel");
-      await db.execute("DROP TABLE IF EXISTS sync_meta");
-      logger.w(
+      await db.execute('DROP TABLE IF EXISTS artikel');
+      await db.execute('DROP TABLE IF EXISTS sync_meta');
+      _logger.w(
         "🗑️ Vorhandene Tabellen 'artikel' und 'sync_meta' gelöscht.",
       );
       await db.execute(_createTableSql);
       await db.execute(_createSyncMetaTableSql);
-      logger.w(
+      _logger.w(
         "🗑️ Tabellen 'artikel' und 'sync_meta' neu erstellt.",
       );
       await _createIndices(db);
+      // Einen Dummy-Eintrag einfügen und wieder löschen, damit
+      // sqlite_sequence initialisiert wird, bevor wir den seq-Wert setzen.
+      await db.insert('artikel', {
+        'uuid': '__init__',
+        'updated_at': 0,
+        'deleted': 0,
+      });
+      await db.delete('artikel', where: 'uuid = ?', whereArgs: ['__init__']);
       await db.insert(
         'sqlite_sequence',
         {'name': 'artikel', 'seq': startId - 1},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      logger.w(
-        "🗑️ Datenbank zurückgesetzt. Nächste ID startet bei $startId.",
+      _logger.w(
+        '🗑️ Datenbank zurückgesetzt. Nächste ID startet bei $startId.',
       );
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Zurücksetzen der Datenbank: $e',
         error: e,
         stackTrace: stack,
@@ -818,13 +856,27 @@ class ArtikelDbService {
     }
   }
 
+  // FIX Problem 5: deleteAlleArtikel() nutzt jetzt Soft-Delete für
+  // Sync-Konsistenz. Hartes Löschen würde den Remote-Server nicht
+  // informieren. Für einen echten lokalen Hard-Reset: resetDatabase() nutzen.
   Future<void> deleteAlleArtikel() async {
     try {
       final db = await database;
-      final rowsAffected = await db.delete('artikel');
-      logger.w('🗑️ Alle $rowsAffected Artikel gelöscht.');
+      final rowsAffected = await db.update(
+        'artikel',
+        {
+          'deleted': 1,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'etag': null,
+        },
+        where: 'deleted = ?',
+        whereArgs: [0],
+      );
+      _logger.w(
+        '🗑️ Alle $rowsAffected Artikel als gelöscht markiert (Soft-Delete).',
+      );
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Löschen aller Artikel: $e',
         error: e,
         stackTrace: stack,
@@ -844,11 +896,11 @@ class ArtikelDbService {
           );
         }
       });
-      logger.i(
-        "✅ ${artikelList.length} Artikel aus Backup wiederhergestellt.",
+      _logger.i(
+        '✅ ${artikelList.length} Artikel aus Backup wiederhergestellt.',
       );
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Einfügen der Artikel-Liste: $e',
         error: e,
         stackTrace: stack,
@@ -864,10 +916,10 @@ class ArtikelDbService {
         'SELECT COUNT(*) as count FROM artikel WHERE deleted = 0',
       );
       final count = (result.first['count'] as int? ?? 0);
-      logger.d('✅ Datenbank enthält $count nicht gelöschte Artikel.');
+      _logger.d('✅ Datenbank enthält $count nicht gelöschte Artikel.');
       return count == 0;
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Prüfen, ob die Datenbank leer ist: $e',
         error: e,
         stackTrace: stack,
@@ -876,19 +928,20 @@ class ArtikelDbService {
     }
   }
 
+  // FIX Hinweis 8: dart:math Import entfernt, max() durch einfachen
+  // ternären Vergleich ersetzt.
   Future<int> getNextArtikelNummer() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final startNummer = prefs.getInt('artikel_start_nummer') ?? 1000;
       final db = await database;
-      final result =
-          await db.rawQuery('SELECT MAX(id) as maxId FROM artikel');
+      final result = await db.rawQuery('SELECT MAX(id) as maxId FROM artikel');
       final maxId = result.first['maxId'] as int? ?? 0;
-      final nextNum = max(startNummer, maxId + 1);
-      logger.d('✅ Nächste Artikelnummer: $nextNum.');
+      final nextNum = startNummer > maxId + 1 ? startNummer : maxId + 1;
+      _logger.d('✅ Nächste Artikelnummer: $nextNum.');
       return nextNum;
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Abrufen der nächsten Artikelnummer: $e',
         error: e,
         stackTrace: stack,
@@ -901,9 +954,9 @@ class ArtikelDbService {
     try {
       await _db?.close();
       _db = null;
-      logger.i('✅ Datenbank geschlossen.');
+      _logger.i('✅ Datenbank geschlossen.');
     } catch (e, stack) {
-      logger.e(
+      _logger.e(
         '❌ Fehler beim Schließen der Datenbank: $e',
         error: e,
         stackTrace: stack,

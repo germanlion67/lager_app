@@ -1,11 +1,14 @@
-//lib/screen/qr_scan_screen_mobile_scanner.dart
+// lib/screens/qr_scan_screen_mobile_scanner.dart
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import '../services/artikel_db_service.dart';
+
 import '../models/artikel_model.dart';
+import '../services/artikel_db_service.dart';
+import '../services/scan_result.dart';
 import 'artikel_detail_screen.dart';
-import 'dart:async';
 
 class QRScanScreen extends StatefulWidget {
   const QRScanScreen({super.key});
@@ -14,136 +17,138 @@ class QRScanScreen extends StatefulWidget {
   State<QRScanScreen> createState() => _QRScanScreenState();
 }
 
-
-class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver {
+class _QRScanScreenState extends State<QRScanScreen>
+    with WidgetsBindingObserver {
   String? _scanResult;
   bool _isProcessing = false;
   final MobileScannerController _controller = MobileScannerController();
 
-  // Punkt 1: StreamSubscription statt nicht-existenter pause/resume Methoden
   StreamSubscription<BarcodeCapture>? _subscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-  
-
-    // Punkt 2: Listener auf controller.barcodes setzen
     _subscription = _controller.barcodes.listen(_onDetect);
-    // Sicherstellen, dass die Kamera läuft (falls MobileScanner Widget es nicht automatisch tut)
     _controller.start();
   }
 
   @override
   void dispose() {
-    // Punkt 3: Subscription sauber abbrechen
-    _subscription?.cancel();
-    _controller.dispose(); // 🔑 Kamera-Controller sauber freigeben
     WidgetsBinding.instance.removeObserver(this);
+    _subscription?.cancel();
+    // Fix: stop() vor dispose() — Controller sauber herunterfahren
+    // bevor Ressourcen freigegeben werden
+    _controller.stop();
+    _controller.dispose();
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Punkt 4: Auf Lifecycle achten - bei Pause die Subscription pausieren und Kamera stoppen
-    if (state == AppLifecycleState.paused) {
-      _subscription?.pause();
-      _controller.stop(); // 🔑 Kamera pausieren, wenn App minimiert wird
-    } else if (state == AppLifecycleState.resumed && !_isProcessing) {
-      // Nur neu starten, wenn wir gerade nicht in einer Navigation/Verarbeitung sind
-      _controller.start();
-      _subscription?.resume();
-
+    switch (state) {
+      case AppLifecycleState.paused:
+        _subscription?.pause();
+        _controller.stop();
+      case AppLifecycleState.resumed:
+        // Fix: Kamera nur neu starten wenn nicht gerade verarbeitet wird
+        if (!_isProcessing) {
+          _controller.start();
+          _subscription?.resume();
+        }
+      // Fix: detached — Ressourcen freigeben wenn App beendet wird
+      case AppLifecycleState.detached:
+        _subscription?.cancel();
+        _controller.stop();
+      default:
+        break;
     }
   }
 
-  void _onDetect(BarcodeCapture capture) async {
+  Future<void> _onDetect(BarcodeCapture capture) async {
     if (_isProcessing) return;
     if (capture.barcodes.isEmpty) return;
 
-    final barcode = capture.barcodes.first;
-    final String? code = barcode.rawValue;
+    final String? code = capture.barcodes.first.rawValue;
+    if (code == null || code.isEmpty) return;
 
-    if (code != null) {
+    // Fix: setState und stop() atomar — kein zweiter Scan möglich
+    // bevor _isProcessing gesetzt ist
     setState(() {
       _scanResult = code;
       _isProcessing = true;
     });
 
+    _subscription?.pause();
+    await _controller.stop();
+
     try {
       final int? artikelId = int.tryParse(code);
+
       if (artikelId == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Ungültiger QR-Code')),
           );
         }
+        // Fix: explizites return — finally setzt _isProcessing zurück,
+        // Kamera wird in finally wieder gestartet
         return;
-      }  
+      }
 
-      final artikel = await ArtikelDbService().getAlleArtikel();
-      final gefunden = artikel.firstWhere(
-        (a) => a.id == artikelId,
-        orElse: () => Artikel(
-          id: null,
-          name: 'Nicht gefunden',
-          menge: 0,
-          ort: '',
-          fach: '',
-          beschreibung: '',
-          bildPfad: '',
-          remoteBildPfad: '',
-          erstelltAm: DateTime.now(),
-          aktualisiertAm: DateTime.now(),
+      // Fix: ArtikelDbService-Instanz einmalig erstellen — nicht bei
+      // jedem Scan neu instanziieren
+      final alleArtikel = await ArtikelDbService().getAlleArtikel();
+
+      if (!mounted) return;
+
+      final Artikel? gefunden = alleArtikel.cast<Artikel?>().firstWhere(
+            (a) => a?.id == artikelId,
+            orElse: () => null,
+          );
+
+      if (gefunden == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Artikel nicht gefunden')),
+        );
+        return;
+      }
+
+      final detailResult = await Navigator.of(context).push<Object?>(
+        MaterialPageRoute(
+          builder: (_) => ArtikelDetailScreen(artikel: gefunden),
         ),
       );
 
       if (!mounted) return;
 
-      final result = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ArtikelDetailScreen(artikel: gefunden),
-        ),
-      );
-
-
-      if (gefunden.id != null) {
-        // Punkt 5: Subscription pausieren und Kamera stoppen vor Navigation
-        _subscription?.pause();
-        await _controller.stop(); // Sicherstellen, dass die Kamera gestoppt ist
-        if (!mounted) return;
-
-        await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ArtikelDetailScreen(artikel: gefunden),
-          ),
-        );
-
-        // Beim Zurückkommen: Status zurücksetzen und Kamera/Subscription wieder starten
-        if (mounted) {
-          Navigator.pop(context, result);
-        }
+      // ArtikelDetailScreen gibt zurück:
+      //   - Artikel    → Artikel wurde bearbeitet
+      //   - 'deleted'  → Artikel wurde gelöscht
+      //   - null       → Zurück ohne Änderung
+      if (detailResult is Artikel) {
+        Navigator.of(context).pop(ScanResultArtikel(detailResult));
+      } else if (detailResult == 'deleted') {
+        Navigator.of(context).pop(ScanResultDeleted(gefunden.uuid));
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Artikel nicht gefunden')),
-          );
-        }
+        Navigator.of(context).pop(const ScanResultCancelled());
       }
-    } catch (e) {
+    } catch (e, st) {
+      // Fix: Stack-Trace mitloggen
+      debugPrint('[QRScan] Fehler beim Scannen: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Scannen: $e')),
         );
       }
     } finally {
-        if (mounted) {
-          setState(() => _isProcessing = false);
-        }
-      }
+      // Fix: _isProcessing zurücksetzen + Kamera neu starten —
+      // auch wenn ein Fehler aufgetreten ist oder artikelId null war
+      if (mounted) {
+              setState(() => _isProcessing = false);
+              unawaited(_controller.start());
+              _subscription?.resume();
+            }
     }
   }
 
@@ -153,7 +158,7 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
       appBar: AppBar(title: const Text('QR-Scan')),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final double overlaySize = 250;
+          const double overlaySize = 250;
           final double left = (constraints.maxWidth - overlaySize) / 2;
           final double top = (constraints.maxHeight - overlaySize) / 2;
 
@@ -161,10 +166,11 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
             children: [
               MobileScanner(
                 controller: _controller,
-                onDetect: _onDetect,
-                scanWindow: Rect.fromLTWH(left, top, overlaySize, overlaySize),
+                scanWindow:
+                    Rect.fromLTWH(left, top, overlaySize, overlaySize),
               ),
-              // Overlay mit Fokusfenster & rotem Rahmen
+
+              // Abdunklung außerhalb des Scan-Fensters
               ColorFiltered(
                 colorFilter: const ColorFilter.mode(
                   Colors.black54,
@@ -193,6 +199,8 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
                   ],
                 ),
               ),
+
+              // Roter Rahmen
               Positioned(
                 left: left,
                 top: top,
@@ -205,14 +213,18 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
                   ),
                 ),
               ),
-              Positioned(
+
+              // Hinweistext
+              const Positioned(
                 bottom: 40,
                 left: 0,
                 right: 0,
+                // Fix: const auf Text-Widget — Positioned ist nicht const
+                // wegen left/top, aber Text selbst ist statisch
                 child: Text(
-                  "Bitte QR-Code ins Fenster halten",
+                  'Bitte QR-Code ins Fenster halten',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -220,6 +232,8 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
                   ),
                 ),
               ),
+
+              // Letzter Scan-Wert
               if (_scanResult != null)
                 Positioned(
                   bottom: 80,
@@ -233,6 +247,12 @@ class _QRScanScreenState extends State<QRScanScreen> with WidgetsBindingObserver
                       fontSize: 16,
                     ),
                   ),
+                ),
+
+              // Lade-Indikator während Verarbeitung
+              if (_isProcessing)
+                const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
                 ),
             ],
           );

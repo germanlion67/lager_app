@@ -1,24 +1,22 @@
 // lib/services/pocketbase_service.dart
+//
+// Zentraler PocketBase-Service.
+//
+// URL-Priorität (kombiniert AppConfig + SharedPreferences):
+// 1. Gespeicherte URL aus Einstellungen (SharedPreferences) — Laufzeit
+// 2. --dart-define=POCKETBASE_URL=...                       — Build-Zeit
+// 3. Plattform-Fallback aus AppConfig                       — Compile-Zeit
 
-import 'dart:developer' as developer;
-
+import 'dart:async';
 import 'package:pocketbase/pocketbase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:logger/logger.dart';
+import '../config/app_config.dart';
 
-/// Zentraler PocketBase-Service.
-///
-/// URL-Priorität:
-/// 1. Gespeicherte URL aus Einstellungen (SharedPreferences)
-/// 2. Build-Argument (--dart-define=PB_URL=...)
-/// 3. Fallback: http://127.0.0.1:8090
 class PocketBaseService {
-  // Build-Zeit Default (kann per --dart-define überschrieben werden)
-  static const String _defaultUrl = String.fromEnvironment(
-    'PB_URL',
-    defaultValue: 'http://127.0.0.1:8090',
-  );
-
   static const String _prefsKey = 'pocketbase_url';
+
+  static final _logger = Logger();
 
   // Singleton
   static PocketBaseService? _instance;
@@ -26,7 +24,11 @@ class PocketBaseService {
   PocketBaseService._();
 
   PocketBase? _client;
-  String _currentUrl = _defaultUrl;
+  String _currentUrl = AppConfig.pocketBaseUrl;
+
+  // FIX Bug 1: Completer als Init-Lock verhindert Race Condition bei
+  // parallelen initialize()-Aufrufen (z.B. mehrere Widgets beim App-Start).
+  Completer<void>? _initCompleter;
 
   /// Der aktive PocketBase-Client.
   /// Muss vorher mit [initialize] initialisiert werden.
@@ -47,9 +49,23 @@ class PocketBaseService {
   bool get isInitialized => _client != null;
 
   /// Initialisiert den Service.
-  /// Lädt die gespeicherte URL aus SharedPreferences oder nutzt den Default.
+  ///
+  /// Lädt die gespeicherte URL aus SharedPreferences.
+  /// Fällt auf [AppConfig.pocketBaseUrl] zurück wenn keine gespeicherte
+  /// URL vorhanden ist.
+  ///
+  /// Mehrfache parallele Aufrufe sind sicher — nur eine Initialisierung
+  /// wird durchgeführt.
   Future<void> initialize() async {
-    if (_client != null) return; // Bereits initialisiert
+    // Bereits vollständig initialisiert
+    if (_client != null) return;
+
+    // FIX Bug 1: Läuft bereits — auf denselben Completer warten
+    if (_initCompleter != null) {
+      return _initCompleter!.future;
+    }
+
+    _initCompleter = Completer<void>();
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -57,50 +73,56 @@ class PocketBaseService {
 
       if (savedUrl != null && savedUrl.isNotEmpty) {
         _currentUrl = savedUrl;
-        developer.log(
-          'PocketBase URL aus Einstellungen: $_currentUrl',
-          name: 'pb',
-        );
+        _logger.i('🌐 PocketBase URL aus Einstellungen: $_currentUrl');
       } else {
-        _currentUrl = _defaultUrl;
-        developer.log(
-          'PocketBase URL (Default): $_currentUrl',
-          name: 'pb',
+        _currentUrl = AppConfig.pocketBaseUrl;
+        _logger.i('🌐 PocketBase URL (AppConfig): $_currentUrl');
+      }
+
+      // Warnung wenn Placeholder noch aktiv
+      if (AppConfig.hasPlaceholderUrl) {
+        _logger.w(
+          '⚠️ PocketBase URL enthält noch einen Placeholder! '
+          'Bitte in app_config.dart oder per --dart-define anpassen.',
         );
       }
-    } catch (e, st) {
-      // FIX: Stack-Trace mitloggen
-      _currentUrl = _defaultUrl;
-      developer.log(
-        'SharedPreferences Fehler, nutze Default: $e',
-        name: 'pb',
-        error: e,
-        stackTrace: st,
-      );
-    }
 
-    _client = PocketBase(_currentUrl);
-    developer.log(
-      'PocketBase Client initialisiert: $_currentUrl',
-      name: 'pb',
-    );
+      _client = PocketBase(_currentUrl);
+      _logger.i('✅ PocketBase Client initialisiert: $_currentUrl');
+      _initCompleter!.complete();
+    } catch (e, stack) {
+      // Fallback auf AppConfig-Default
+      _currentUrl = AppConfig.pocketBaseUrl;
+      _client = PocketBase(_currentUrl);
+      _logger.e(
+        '❌ Fehler bei Initialisierung, nutze AppConfig-Default: $e',
+        error: e,
+        stackTrace: stack,
+      );
+      // Completer abschließen — Service ist mit Fallback-URL nutzbar
+      _initCompleter!.complete();
+    }
   }
 
   /// Ändert die PocketBase-URL und erstellt einen neuen Client.
   /// Speichert die URL persistent in SharedPreferences.
   Future<void> updateUrl(String newUrl) async {
-    // FIX: URL-Validierung vor Übernahme
     final trimmed = newUrl.trim();
     final uri = Uri.tryParse(trimmed);
-    if (uri == null || !uri.hasScheme || !uri.hasAuthority) {
-      developer.log(
-        'PocketBase URL ungültig, wird ignoriert: $trimmed',
-        name: 'pb',
+
+    // FIX Bug 2: Nur http/https erlaubt — andere Schemas (ftp, ws, mailto)
+    // sind für PocketBase nicht gültig.
+    if (uri == null ||
+        !uri.hasAuthority ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      _logger.w(
+        '⚠️ PocketBase URL ungültig oder Schema nicht erlaubt '
+        '(nur http/https): $trimmed',
       );
       return;
     }
 
-    // URL normalisieren (trailing slash entfernen)
+    // URL normalisieren: trailing slash entfernen
     final normalized = trimmed.endsWith('/')
         ? trimmed.substring(0, trimmed.length - 1)
         : trimmed;
@@ -111,14 +133,12 @@ class PocketBaseService {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_prefsKey, normalized);
-      developer.log('PocketBase URL aktualisiert: $normalized', name: 'pb');
-    } catch (e, st) {
-      // FIX: Stack-Trace mitloggen
-      developer.log(
-        'Fehler beim Speichern der URL: $e',
-        name: 'pb',
+      _logger.i('✅ PocketBase URL aktualisiert: $normalized');
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Speichern der URL: $e',
         error: e,
-        stackTrace: st,
+        stackTrace: stack,
       );
     }
   }
@@ -126,31 +146,67 @@ class PocketBaseService {
   /// Prüft ob PocketBase erreichbar ist.
   /// Gibt `true` zurück wenn der Health-Endpoint antwortet.
   Future<bool> checkHealth() async {
-    // FIX: Lokale Kopie statt doppeltem Null-Check + Force-Unwrap
     final activeClient = _client;
     if (activeClient == null) return false;
 
     try {
       await activeClient.health.check();
-      developer.log('PocketBase Health-Check OK', name: 'pb');
+      _logger.d('✅ PocketBase Health-Check OK: $_currentUrl');
       return true;
-    } catch (e, st) {
-      // FIX: Stack-Trace mitloggen
-      developer.log(
-        'PocketBase Health-Check fehlgeschlagen: $e',
-        name: 'pb',
+    } catch (e, stack) {
+      _logger.w(
+        '⚠️ PocketBase Health-Check fehlgeschlagen: $e',
         error: e,
-        stackTrace: st,
+        stackTrace: stack,
       );
       return false;
     }
   }
 
-  /// Setzt die URL auf den Default zurück.
+  /// Setzt die URL auf den AppConfig-Default zurück und löscht den
+  /// gespeicherten Wert aus SharedPreferences.
+  ///
+  /// Beim nächsten Start greift wieder der aktuelle Build-Default
+  /// aus AppConfig (z.B. nach --dart-define-Änderung).
   Future<void> resetToDefault() async {
-    await updateUrl(_defaultUrl);
+    _currentUrl = AppConfig.pocketBaseUrl;
+    _client = PocketBase(_currentUrl);
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Explizites Löschen statt Speichern des Defaults —
+      // so greift beim nächsten Start immer der aktuelle AppConfig-Wert.
+      await prefs.remove(_prefsKey);
+      _logger.i(
+        '✅ PocketBase URL auf AppConfig-Default zurückgesetzt: '
+        '$_currentUrl',
+      );
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Zurücksetzen der URL: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
   }
 
-  /// Gibt die Default-URL zurück (aus Build-Argumenten).
-  static String get defaultUrl => _defaultUrl;
+  /// Gibt die Default-URL aus AppConfig zurück.
+  static String get defaultUrl => AppConfig.pocketBaseUrl;
+
+  // FIX Problem 3: Testing-Override — ermöglicht Mocking in Unit-Tests.
+  // Nur in Tests aufrufen, nie in Produktionscode.
+  // ignore: use_setters_to_change_properties
+  static void overrideForTesting(PocketBase mock) {
+    _instance ??= PocketBaseService._();
+    _instance!._client = mock;
+  }
+
+  // FIX Hinweis 6: dispose() für sauberes Teardown in Tests und
+  // bei App-Neustart-Szenarien.
+  static void dispose() {
+    _instance?._client = null;
+    _instance?._initCompleter = null;
+    _instance?._currentUrl = AppConfig.pocketBaseUrl;
+    _instance = null;
+  }
 }

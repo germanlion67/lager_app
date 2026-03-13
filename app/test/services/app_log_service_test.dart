@@ -49,7 +49,7 @@ void main() {
               break;
             }
             // kurze Pause vor erneutem Versuch
-            await Future.delayed(const Duration(milliseconds: 200));
+            await Future<void>.delayed(const Duration(milliseconds: 200));
           }
         }
       }

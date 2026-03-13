@@ -1,5 +1,7 @@
 // lib/screens/artikel_list_screen.dart
 
+import 'dart:async';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
@@ -14,9 +16,8 @@ import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
 import 'artikel_detail_screen.dart';
 import 'artikel_erfassen_screen.dart';
-import 'settings_screen.dart';
-import 'dart:async'; // ← FIX: TimeoutException
 import 'nextcloud_settings_screen.dart';
+import 'settings_screen.dart';
 
 import 'list_screen_io.dart'
     if (dart.library.html) 'list_screen_stub.dart' as platform;
@@ -60,7 +61,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     } else {
       _checkPocketBaseConnection();
 
-      // FIX 8: try/catch um startPeriodicCheck — Fehler crasht sonst initState
       try {
         _nextcloudService = NextcloudConnectionService();
         _nextcloudService!.startPeriodicCheck();
@@ -79,10 +79,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== DATEN LADEN ====================
 
   Future<void> _ladeArtikel() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
+
     try {
       if (kIsWeb) {
-        // FIX 10: Timeout für PocketBase-Anfrage
         final records = await _pbService.client
             .collection('artikel')
             .getFullList(sort: '-created')
@@ -92,7 +93,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   throw TimeoutException('PocketBase antwortet nicht'),
             );
 
-        // FIX 1: Sicheres Lesen von created/updated mit Fallback
         _artikelListe = records.map((r) {
           final created = r.data['created'] as String? ?? '';
           final updated = r.data['updated'] as String? ?? '';
@@ -123,7 +123,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   // ==================== VERBINDUNG ====================
 
-  // FIX 6: mounted-Guard bereits vorhanden — Timeout ergänzt
   Future<void> _checkPocketBaseConnection() async {
     try {
       final ok = await _pbService
@@ -143,8 +142,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       final passtName = artikel.name.toLowerCase().contains(suchLower);
       final passtBeschreibung =
           artikel.beschreibung.toLowerCase().contains(suchLower);
-
-      // FIX 4: Defensiver Vergleich — trim() schützt vor Whitespace-Artefakten
       final passtOrt =
           _filterOrt.isEmpty || artikel.ort.trim() == _filterOrt.trim();
 
@@ -265,11 +262,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         recordId.isNotEmpty &&
         bildField != null &&
         bildField.isNotEmpty) {
-      // FIX 2: Führender Slash stellt sicher, dass resolve() immer
-      // vom Root der Base-URL auflöst — unabhängig vom Trailing-Slash
       final baseUri = Uri.parse(_pbService.url);
       final url = baseUri
-          .resolve('/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}')
+          .resolve(
+            '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}',
+          )
           .toString();
 
       return ClipRRect(
@@ -279,6 +276,23 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           width: 50,
           height: 50,
           fit: BoxFit.cover,
+          // Fix: loadingBuilder — Spinner statt leerer Fläche während Laden
+          loadingBuilder: (_, child, progress) {
+            if (progress == null) return child;
+            return SizedBox(
+              width: 50,
+              height: 50,
+              child: Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  value: progress.expectedTotalBytes != null
+                      ? progress.cumulativeBytesLoaded /
+                          progress.expectedTotalBytes!
+                      : null,
+                ),
+              ),
+            );
+          },
           errorBuilder: (_, __, ___) => _buildBildPlaceholder(),
         ),
       );
@@ -354,10 +368,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     .map((a) => a.ort.trim())
                     .where((ort) => ort.isNotEmpty)
                     .toSet()
-                    .map((ort) => DropdownMenuItem<String>(
-                          value: ort,
-                          child: Text(ort),
-                        )),
+                    .map(
+                      (ort) => DropdownMenuItem<String>(
+                        value: ort,
+                        child: Text(ort),
+                      ),
+                    ),
               ],
               onChanged: (value) => setState(() => _filterOrt = value ?? ''),
             ),
@@ -429,7 +445,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          // FIX 5: Keine redundante String-Interpolation
           Text(
             artikel.menge.toString(),
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
@@ -440,9 +455,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(artikel.beschreibung,
-              maxLines: 2, overflow: TextOverflow.ellipsis),
+              maxLines: 2, overflow: TextOverflow.ellipsis,),
           Text(
-            // FIX 4: trim() für Ort und Fach
             '${artikel.ort.trim()} • ${artikel.fach.trim()}',
             style: const TextStyle(
               color: Colors.grey,
@@ -477,7 +491,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('PDF-Export ist im Web nicht verfügbar')),
+                content: Text('PDF-Export ist im Web nicht verfügbar'),),
           );
         } else {
           await _showPdfReportsDialog();
@@ -488,7 +502,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('ZIP-Backup ist im Web nicht verfügbar')),
+                content: Text('ZIP-Backup ist im Web nicht verfügbar'),),
           );
         } else {
           await mobile_actions.showZipBackupDialog(context, _ladeArtikel);
@@ -501,12 +515,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         await AppLogService.showLogDialog(context);
 
       case _MenuAction.nextcloudSettings:
-        // FIX: NextcloudSettingsScreen direkt mit gespeichertem Service aufrufen
-        // statt NextcloudConnectionService.showSettingsScreen()
         if (!kIsWeb && _nextcloudService != null) {
-          await Navigator.push(
+          await Navigator.push<void>(
             context,
-            MaterialPageRoute(
+            MaterialPageRoute<void>(
               builder: (_) => NextcloudSettingsScreen(
                 connectionService: _nextcloudService!,
               ),
@@ -515,12 +527,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         }
 
       case _MenuAction.settings:
-        await Navigator.push(
+        await Navigator.push<void>(
           context,
-          MaterialPageRoute(builder: (_) => const SettingsScreen()),
+          MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
         );
         if (!mounted) return;
-        _checkPocketBaseConnection();
+        unawaited(_checkPocketBaseConnection());
     }
   }
 
@@ -529,7 +541,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Datenbank-Reset ist im Web nicht verfügbar')),
+            content: Text('Datenbank-Reset ist im Web nicht verfügbar'),),
       );
       return;
     }
@@ -617,7 +629,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           dense: true,
         ),
       ),
-      // FIX 7: Divider nur rendern wenn nachfolgender Eintrag auch erscheint
       if (!kIsWeb) ...[
         const PopupMenuDivider(),
         const PopupMenuItem(
@@ -646,7 +657,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== DIALOGE ====================
 
   Future<void> _importExportDialog() async {
-    await showDialog(
+    await showDialog<void>(
       context: context,
       builder: (ctx) {
         return SimpleDialog(
@@ -655,19 +666,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
-                // FIX 3: mounted-Guard VOR dem await — Widget könnte
-                // zwischen pop() und dem async-Aufruf disposed werden
                 if (!mounted) return;
                 await ArtikelImportService.importArtikel(
-                    context, _ladeArtikel);
-                // FIX 3: Zweiter Guard NACH dem await
+                    context, _ladeArtikel,);
                 if (!mounted) return;
               },
               child: const Row(children: [
                 Icon(Icons.file_upload, color: Colors.blue),
                 SizedBox(width: 8),
                 Expanded(child: Text('Artikel importieren (JSON/CSV)')),
-              ]),
+              ],),
             ),
             SimpleDialogOption(
               onPressed: () async {
@@ -680,7 +688,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Icon(Icons.file_download, color: Colors.green),
                 SizedBox(width: 8),
                 Expanded(child: Text('Artikel exportieren (JSON/CSV)')),
-              ]),
+              ],),
             ),
           ],
         );
@@ -689,7 +697,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   Future<void> _showPdfReportsDialog() async {
-    await showDialog(
+    await showDialog<void>(
       context: context,
       builder: (ctx) {
         return SimpleDialog(
@@ -700,28 +708,28 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 await mobile_actions.generateArtikelListePdf(
-                    context, _artikelListe);
+                    context, _artikelListe,);
                 if (!mounted) return;
               },
               child: const Row(children: [
                 Icon(Icons.list_alt, color: Colors.red),
                 SizedBox(width: 8),
                 Expanded(child: Text('Komplette Artikelliste als PDF')),
-              ]),
+              ],),
             ),
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 await mobile_actions.generateFilteredArtikelListePdf(
-                    context, _gefilterteArtikel());
+                    context, _gefilterteArtikel(),);
                 if (!mounted) return;
               },
               child: const Row(children: [
                 Icon(Icons.filter_list, color: Colors.orange),
                 SizedBox(width: 8),
                 Expanded(child: Text('Gefilterte Artikelliste als PDF')),
-              ]),
+              ],),
             ),
           ],
         );

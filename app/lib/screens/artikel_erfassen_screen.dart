@@ -136,10 +136,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   // ==================== SPEICHERN ====================
 
   Future<void> _save() async {
+    print('DEBUG: _save() gestartet.'); // <-- DEBUG-PRINT
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final menge = int.tryParse(_mengeCtrl.text.trim()) ?? 0;
     setState(() => _isSaving = true);
+    print('DEBUG: _isSaving auf true gesetzt.'); // <-- DEBUG-PRINT
 
     try {
       final artikel = Artikel(
@@ -154,10 +156,13 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         aktualisiertAm: DateTime.now(),
       );
 
+      print('DEBUG: Artikel-Objekt erstellt. kIsWeb: $kIsWeb'); // <-- DEBUG-PRINT
       if (kIsWeb) {
         await _saveWeb(artikel);
+        print('DEBUG: _saveWeb() abgeschlossen.'); // <-- DEBUG-PRINT
       } else {
         await _saveMobile(artikel);
+        print('DEBUG: _saveMobile() abgeschlossen.'); // <-- DEBUG-PRINT
       }
     } catch (e, st) {
       // FIX 7: StackTrace mitloggen
@@ -169,10 +174,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
+      print('DEBUG: _isSaving auf false gesetzt. _save() beendet.'); // <-- DEBUG-PRINT
     }
   }
 
   Future<void> _saveWeb(Artikel artikel) async {
+    print('DEBUG: _saveWeb() gestartet.'); // <-- DEBUG-PRINT
     final pb = _pbService.client;
     final body = artikel.toPocketBaseMap();
 
@@ -181,14 +188,17 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       files.add(http.MultipartFile.fromBytes(
         'bild',
         _bildBytes!,
-        filename: _bildDateiname!,
-      ));
+        filename: _bildDateiname,
+      ),);
+      print('DEBUG: Bilddatei für Upload hinzugefügt: $_bildDateiname'); // <-- DEBUG-PRINT
     }
 
     final record = await pb.collection('artikel').create(
       body: body,
       files: files,
+      
     );
+    print('DEBUG: PocketBase create-Request abgeschlossen. Record ID: ${record.id}'); // <--- DEBUG-PRINT
 
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
@@ -196,7 +206,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       Navigator.of(context).pop(artikel.copyWith(
         remotePath: record.id,
         remoteBildPfad: record.data['bild'] as String? ?? '',
-      ));
+      ),);
+      print('DEBUG: Navigator.pop() aufgerufen.'); // <--- DEBUG-PRINT
     }
   }
 
@@ -224,7 +235,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         bildBytes: _bildBytes,
         bildDateiname: _bildDateiname,
         localImagePath: localImagePath,
-      ));
+      ),);
     }
 
     if (mounted) {
@@ -233,7 +244,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         id: artikelId,
         bildPfad: localImagePath ?? '',
         uuid: artikel.uuid,
-      ));
+      ),);
     }
   }
 
@@ -420,7 +431,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2),
+                                    strokeWidth: 2,),
                               )
                             : const Icon(Icons.save),
                         label: const Text('Speichern'),

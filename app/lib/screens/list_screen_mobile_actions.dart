@@ -1,30 +1,29 @@
 // lib/screens/list_screen_mobile_actions.dart
-//
-// Mobile/Desktop-spezifische Aktionen für den ArtikelListScreen.
-// Enthält PDF-Generierung und ZIP-Backup – beides nur auf Mobile/Desktop.
 
 import 'package:flutter/material.dart';
-import '../services/pdf_service.dart';
+
+import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/artikel_import_service.dart';
-import '../models/artikel_model.dart';
+import '../services/pdf_service.dart';
 
 /// Generiert eine PDF-Datei mit allen Artikeln und zeigt das Ergebnis an.
 Future<void> generateArtikelListePdf(
   BuildContext context,
   List<Artikel> artikelListe,
 ) async {
+  // Fix: messenger vor dem ersten await holen — context nach await evtl. ungültig
+  final messenger = ScaffoldMessenger.of(context);
+
   try {
-    final messenger = ScaffoldMessenger.of(context);  // ← HIERHER verschoben
     await AppLogService().log('PDF-Export gestartet: Komplette Artikelliste');
-    final pdfService = PdfService();
     final alleArtikel = await ArtikelDbService().getAlleArtikel();
 
     if (alleArtikel.isEmpty) {
       if (!context.mounted) return;
-      messenger.showSnackBar( 
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Keine Artikel für PDF-Export vorhanden.'),
           backgroundColor: Colors.orange,
@@ -33,29 +32,28 @@ Future<void> generateArtikelListePdf(
       return;
     }
 
-    final pdfFile = await pdfService.generateArtikelListePdf(alleArtikel);
+    final pdfFile =
+        await PdfService().generateArtikelListePdf(alleArtikel);
 
-    if (pdfFile != null) {
-      await AppLogService().log('PDF erstellt: ${pdfFile.path}');
-      if (context.mounted) {                           // ← eigener if-Block
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
-            duration: const Duration(seconds: 5),
-            action: SnackBarAction(
-              label: 'Öffnen',
-              onPressed: () async {
-                final success = await PdfService.openPdf(pdfFile.path);
-                if (!success && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('PDF konnte nicht geöffnet werden')),
-                  );
-                }
-              },
-            ),
+    if (pdfFile != null && context.mounted) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
+          duration: const Duration(seconds: 5),
+          action: SnackBarAction(
+            label: 'Öffnen',
+            onPressed: () async {
+              final success = await PdfService.openPdf(pdfFile.path);
+              if (!success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('PDF konnte nicht geöffnet werden'),),
+                );
+              }
+            },
           ),
-        );
-      }
+        ),
+      );
     }
   } catch (e, stack) {
     await AppLogService().logError('PDF-Export Fehler: $e', stack);
@@ -72,10 +70,12 @@ Future<void> generateFilteredArtikelListePdf(
   BuildContext context,
   List<Artikel> gefilterteArtikel,
 ) async {
+  final messenger = ScaffoldMessenger.of(context);
+
   try {
     if (gefilterteArtikel.isEmpty) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         const SnackBar(
           content: Text('Keine gefilterten Artikel vorhanden.'),
           backgroundColor: Colors.orange,
@@ -88,14 +88,22 @@ Future<void> generateFilteredArtikelListePdf(
         await PdfService().generateArtikelListePdf(gefilterteArtikel);
 
     if (pdfFile != null && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(
-          content: Text('PDF erstellt! (${gefilterteArtikel.length} Artikel)'),
+          content:
+              Text('PDF erstellt! (${gefilterteArtikel.length} Artikel)'),
           duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'Öffnen',
             onPressed: () async {
-              await PdfService.openPdf(pdfFile.path);
+              final success = await PdfService.openPdf(pdfFile.path);
+              // Fix: mounted-Guard + Fehler-Feedback beim Öffnen
+              if (!success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('PDF konnte nicht geöffnet werden'),),
+                );
+              }
             },
           ),
         ),
@@ -116,7 +124,7 @@ Future<void> showZipBackupDialog(
   BuildContext context,
   Future<void> Function() reloadArtikel,
 ) async {
-  await showDialog(
+  await showDialog<void>(
     context: context,
     builder: (ctx) {
       return SimpleDialog(
@@ -129,7 +137,8 @@ Future<void> showZipBackupDialog(
                   await ArtikelExportService().backupToZipFile(context);
               if (zipPath != null && context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('ZIP-Backup lokal gespeichert')),
+                  const SnackBar(
+                      content: Text('ZIP-Backup lokal gespeichert'),),
                 );
               }
             },
@@ -137,7 +146,7 @@ Future<void> showZipBackupDialog(
               Icon(Icons.archive, color: Colors.blue),
               SizedBox(width: 8),
               Expanded(child: Text('ZIP-Backup lokal exportieren')),
-            ]),
+            ],),
           ),
           SimpleDialogOption(
             onPressed: () async {
@@ -149,7 +158,8 @@ Future<void> showZipBackupDialog(
                 if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text('ZIP-Backup zu Nextcloud exportiert')),
+                      content:
+                          Text('ZIP-Backup zu Nextcloud exportiert'),),
                 );
               }
             },
@@ -157,7 +167,7 @@ Future<void> showZipBackupDialog(
               Icon(Icons.cloud_upload, color: Colors.green),
               SizedBox(width: 8),
               Expanded(child: Text('ZIP-Backup zu Nextcloud exportieren')),
-            ]),
+            ],),
           ),
           const Divider(),
           SimpleDialogOption(
@@ -165,20 +175,21 @@ Future<void> showZipBackupDialog(
               Navigator.pop(ctx);
               final (success, errors) =
                   await ArtikelImportService.importBackupFromZipService(
-                      reloadArtikel: reloadArtikel);
+                      reloadArtikel: reloadArtikel,);
               if (!context.mounted) return;
               if (success) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                      content: Text('ZIP-Backup erfolgreich importiert!')),
+                      content:
+                          Text('ZIP-Backup erfolgreich importiert!'),),
                 );
               } else {
-                showDialog(
+                await showDialog<void>(
                   context: context,
                   builder: (ctx2) => AlertDialog(
                     title: const Text('Fehler beim ZIP-Import'),
                     content: SingleChildScrollView(
-                        child: Text(errors.join('\n'))),
+                        child: Text(errors.join('\n')),),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx2),
@@ -193,19 +204,19 @@ Future<void> showZipBackupDialog(
               Icon(Icons.archive, color: Colors.orange),
               SizedBox(width: 8),
               Expanded(child: Text('ZIP-Backup lokal importieren')),
-            ]),
+            ],),
           ),
           SimpleDialogOption(
             onPressed: () async {
               Navigator.pop(ctx);
               await ArtikelImportService.importZipBackupAuto(
-                  context, reloadArtikel);
+                  context, reloadArtikel,);
             },
             child: const Row(children: [
               Icon(Icons.cloud_download, color: Colors.purple),
               SizedBox(width: 8),
               Expanded(child: Text('ZIP-Backup von Nextcloud importieren')),
-            ]),
+            ],),
           ),
         ],
       );

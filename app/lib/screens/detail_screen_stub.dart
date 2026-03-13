@@ -1,6 +1,7 @@
 // lib/screens/detail_screen_stub.dart
 
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 Future<String?> persistSelectedImage({
@@ -8,23 +9,18 @@ Future<String?> persistSelectedImage({
   String? bildPfad,
   required int artikelId,
   required String artikelName,
-}) async {
-  return null; // Im Web nicht nötig
-}
+}) async =>
+    null; // Im Web nicht nötig
 
-Future<Uint8List> readFileBytes(String path) async {
-  throw UnsupportedError('readFileBytes ist im Web nicht verfügbar');
-}
+Future<Uint8List> readFileBytes(String path) async =>
+    throw UnsupportedError('readFileBytes ist im Web nicht verfügbar');
 
-bool fileExists(String path) {
-  return false; // Im Web gibt es keine lokalen Dateien
-}
+bool fileExists(String path) => false;
 
 Widget buildFileImage(
   String path, {
   double? height,
   double? width,
   BoxFit? fit,
-}) {
-  return const SizedBox.shrink(); // Im Web nicht verwendet
-}
+}) =>
+    const SizedBox.shrink();

@@ -1,10 +1,10 @@
 // lib/widgets/sync_progress_widgets.dart
 
 import 'package:flutter/material.dart';
+
 import '../services/sync_progress_service.dart';
 
-
-/// Kompakte Fortschrittsanzeige für die AppBar
+/// Kompakte Fortschrittsanzeige für die AppBar.
 class SyncProgressIndicator extends StatelessWidget {
   final SyncOperation? operation;
   final SyncStats stats;
@@ -19,18 +19,21 @@ class SyncProgressIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (operation == null || !operation!.isActive) {
-      return const SizedBox.shrink();
-    }
+    // Fix: früher return — kein Zugriff auf operation! nötig
+    final op = operation;
+    if (op == null || !op.isActive) return const SizedBox.shrink();
+
+    final color = _getStatusColor(op);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: _getStatusColor().withValues(alpha: 0.2),
+          color: color.withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _getStatusColor(), width: 1),
+          border: Border.all(color: color, width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -39,17 +42,17 @@ class SyncProgressIndicator extends StatelessWidget {
               width: 16,
               height: 16,
               child: CircularProgressIndicator(
-                value: operation!.progress,
+                value: op.progress,
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(_getStatusColor()),
-                backgroundColor: _getStatusColor().withValues(alpha: 0.3),
+                valueColor: AlwaysStoppedAnimation(color),
+                backgroundColor: color.withValues(alpha: 0.3),
               ),
             ),
             const SizedBox(width: 8),
             Text(
-              '${(operation!.progress * 100).toInt()}%',
+              '${(op.progress * 100).toInt()}%',
               style: TextStyle(
-                color: _getStatusColor(),
+                color: color,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -60,21 +63,18 @@ class SyncProgressIndicator extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor() {
-    switch (operation!.status) {
-      case SyncStatus.error:
-        return Colors.red;
-      case SyncStatus.completed:
-        return Colors.green;
-      case SyncStatus.connecting:
-        return Colors.orange;
-      default:
-        return Colors.blue;
-    }
+  // Fix: operation als Parameter — kein operation!-Zugriff auf nullable field
+  Color _getStatusColor(SyncOperation op) {
+    return switch (op.status) {
+      SyncStatus.error      => Colors.red,
+      SyncStatus.completed  => Colors.green,
+      SyncStatus.connecting => Colors.orange,
+      _                     => Colors.blue,
+    };
   }
 }
 
-/// Detaillierte Fortschrittsanzeige als Card
+/// Detaillierte Fortschrittsanzeige als Card.
 class DetailedSyncProgressCard extends StatelessWidget {
   final SyncOperation? operation;
   final SyncStats stats;
@@ -91,9 +91,11 @@ class DetailedSyncProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (operation == null) {
-      return const SizedBox.shrink();
-    }
+    // Fix: lokale Variable — kein wiederholtes operation! im build-Tree
+    final op = operation;
+    if (op == null) return const SizedBox.shrink();
+
+    final statusColor = _getStatusColor(op);
 
     return Card(
       margin: const EdgeInsets.all(16),
@@ -102,12 +104,11 @@ class DetailedSyncProgressCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header mit Status
             Row(
               children: [
                 Icon(
-                  _getStatusIcon(),
-                  color: _getStatusColor(),
+                  _getStatusIcon(op),
+                  color: statusColor,
                   size: 24,
                 ),
                 const SizedBox(width: 8),
@@ -116,14 +117,14 @@ class DetailedSyncProgressCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        operation!.name,
+                        op.name,
                         style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
-                        operation!.statusText,
+                        op.statusText,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.grey[600],
@@ -132,7 +133,7 @@ class DetailedSyncProgressCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (operation!.isActive && onCancel != null)
+                if (op.isActive && onCancel != null)
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: onCancel,
@@ -143,16 +144,14 @@ class DetailedSyncProgressCard extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Progress Bar
             LinearProgressIndicator(
-              value: operation!.progress,
+              value: op.progress,
               backgroundColor: Colors.grey[300],
-              valueColor: AlwaysStoppedAnimation(_getStatusColor()),
+              valueColor: AlwaysStoppedAnimation(statusColor),
             ),
 
             const SizedBox(height: 8),
 
-            // Progress Text
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -161,7 +160,7 @@ class DetailedSyncProgressCard extends StatelessWidget {
                   style: const TextStyle(fontSize: 12),
                 ),
                 Text(
-                  '${(operation!.progress * 100).toInt()}%',
+                  '${(op.progress * 100).toInt()}%',
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -170,10 +169,10 @@ class DetailedSyncProgressCard extends StatelessWidget {
               ],
             ),
 
-            if (operation!.currentItem != null) ...[
+            if (op.currentItem != null) ...[
               const SizedBox(height: 8),
               Text(
-                'Aktuell: ${operation!.currentItem}',
+                'Aktuell: ${op.currentItem}',
                 style: TextStyle(
                   fontSize: 12,
                   color: Colors.grey[600],
@@ -183,14 +182,12 @@ class DetailedSyncProgressCard extends StatelessWidget {
               ),
             ],
 
-            // Statistiken
             if (stats.totalItems > 0) ...[
               const SizedBox(height: 16),
               _buildStatsRow(),
             ],
 
-            // Aktionen
-            if (!operation!.isActive) ...[
+            if (!op.isActive) ...[
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
@@ -255,7 +252,8 @@ class DetailedSyncProgressCard extends StatelessWidget {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
@@ -279,52 +277,38 @@ class DetailedSyncProgressCard extends StatelessWidget {
     );
   }
 
-  IconData _getStatusIcon() {
-    switch (operation!.status) {
-      case SyncStatus.idle:
-        return Icons.pause_circle;
-      case SyncStatus.initializing:
-        return Icons.settings;
-      case SyncStatus.connecting:
-        return Icons.wifi;
-      case SyncStatus.analyzing:
-        return Icons.analytics;
-      case SyncStatus.downloading:
-        return Icons.download;
-      case SyncStatus.uploading:
-        return Icons.upload;
-      case SyncStatus.processing:
-        return Icons.settings;
-      case SyncStatus.resolving:
-        return Icons.merge_type;
-      case SyncStatus.finalizing:
-        return Icons.check_circle_outline;
-      case SyncStatus.completed:
-        return Icons.check_circle;
-      case SyncStatus.error:
-        return Icons.error;
-      case SyncStatus.cancelled:
-        return Icons.cancel;
-    }
+  // Fix: operation als Parameter + Dart 3 switch-expression —
+  // exhaustive, kein default nötig
+  IconData _getStatusIcon(SyncOperation op) {
+    return switch (op.status) {
+      SyncStatus.idle         => Icons.pause_circle,
+      SyncStatus.initializing => Icons.settings,
+      SyncStatus.connecting   => Icons.wifi,
+      SyncStatus.analyzing    => Icons.analytics,
+      SyncStatus.downloading  => Icons.download,
+      SyncStatus.uploading    => Icons.upload,
+      SyncStatus.processing   => Icons.settings,
+      SyncStatus.resolving    => Icons.merge_type,
+      SyncStatus.finalizing   => Icons.check_circle_outline,
+      SyncStatus.completed    => Icons.check_circle,
+      SyncStatus.error        => Icons.error,
+      SyncStatus.cancelled    => Icons.cancel,
+    };
   }
 
-  Color _getStatusColor() {
-    switch (operation!.status) {
-      case SyncStatus.error:
-        return Colors.red;
-      case SyncStatus.completed:
-        return Colors.green;
-      case SyncStatus.cancelled:
-        return Colors.grey;
-      case SyncStatus.connecting:
-        return Colors.orange;
-      default:
-        return Colors.blue;
-    }
+  // Fix: operation als Parameter — kein operation!-Zugriff auf nullable field
+  Color _getStatusColor(SyncOperation op) {
+    return switch (op.status) {
+      SyncStatus.error      => Colors.red,
+      SyncStatus.completed  => Colors.green,
+      SyncStatus.cancelled  => Colors.grey,
+      SyncStatus.connecting => Colors.orange,
+      _                     => Colors.blue,
+    };
   }
 }
 
-/// Modal Progress Dialog für Sync-Operationen
+/// Modal Progress Dialog für Sync-Operationen.
 class SyncProgressDialog extends StatefulWidget {
   final SyncProgressService progressService;
   final String title;
@@ -340,9 +324,10 @@ class SyncProgressDialog extends StatefulWidget {
   });
 
   @override
-  State<SyncProgressDialog> createState() => _SyncProgressDialogState();
+  State<SyncProgressDialog> createState() =>
+      _SyncProgressDialogState();
 
-  /// Zeigt den Progress Dialog an
+  /// Zeigt den Progress Dialog an.
   static Future<T?> show<T>({
     required BuildContext context,
     required SyncProgressService progressService,
@@ -353,7 +338,8 @@ class SyncProgressDialog extends StatefulWidget {
     return showDialog<T>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => SyncProgressDialog(
+      // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
+      builder: (ctx) => SyncProgressDialog(
         progressService: progressService,
         title: title,
         cancellable: cancellable,
@@ -364,14 +350,16 @@ class SyncProgressDialog extends StatefulWidget {
 }
 
 class _SyncProgressDialogState extends State<SyncProgressDialog> {
-  late SyncOperation? currentOperation;
-  late SyncStats currentStats;
+  // Fix: SyncOperation? statt late SyncOperation? —
+  // late auf nullable ist sinnlos, direkt nullable initialisieren
+  SyncOperation? _currentOperation;
+  late SyncStats _currentStats;
 
   @override
   void initState() {
     super.initState();
-    currentOperation = widget.progressService.currentOperation;
-    currentStats = widget.progressService.stats;
+    _currentOperation = widget.progressService.currentOperation;
+    _currentStats = widget.progressService.stats;
     widget.progressService.addListener(_onProgressUpdate);
   }
 
@@ -382,38 +370,40 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
   }
 
   void _onProgressUpdate() {
-    if (mounted) {
-      setState(() {
-        currentOperation = widget.progressService.currentOperation;
-        currentStats = widget.progressService.stats;
-      });
+    if (!mounted) return;
 
-      // Auto-close bei Completion oder Error
-      if (currentOperation != null && 
-          (currentOperation!.isCompleted || currentOperation!.isError)) {
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-        });
-      }
+    setState(() {
+      _currentOperation = widget.progressService.currentOperation;
+      _currentStats = widget.progressService.stats;
+    });
+
+    final op = _currentOperation;
+    if (op != null && (op.isCompleted || op.isError)) {
+      Future.delayed(const Duration(seconds: 2), () {
+        // Fix: mounted-Guard nach Future.delayed
+        if (mounted) Navigator.of(context).pop();
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Fix: lokale Variable — kein wiederholtes _currentOperation! im build-Tree
+    final op = _currentOperation;
+
     return AlertDialog(
       title: Row(
         children: [
-          if (currentOperation?.isActive == true)
+          if (op?.isActive == true)
             const SizedBox(
               width: 20,
               height: 20,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          else if (currentOperation?.isCompleted == true)
-            const Icon(Icons.check_circle, color: Colors.green, size: 20)
-          else if (currentOperation?.isError == true)
+          else if (op?.isCompleted == true)
+            const Icon(Icons.check_circle,
+                color: Colors.green, size: 20,)
+          else if (op?.isError == true)
             const Icon(Icons.error, color: Colors.red, size: 20),
           const SizedBox(width: 8),
           Expanded(child: Text(widget.title)),
@@ -425,39 +415,34 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (currentOperation != null) ...[
+            if (op != null) ...[
               Text(
-                currentOperation!.statusText,
+                op.statusText,
                 style: const TextStyle(fontSize: 16),
               ),
               const SizedBox(height: 16),
-              
-              // Progress Bar
               LinearProgressIndicator(
-                value: currentOperation!.progress,
+                value: op.progress,
                 backgroundColor: Colors.grey[300],
               ),
               const SizedBox(height: 8),
-              
-              // Progress Text
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    '${currentStats.processedItems}/${currentStats.totalItems}',
+                    '${_currentStats.processedItems}/${_currentStats.totalItems}',
                     style: const TextStyle(fontSize: 12),
                   ),
                   Text(
-                    '${(currentOperation!.progress * 100).toInt()}%',
+                    '${(op.progress * 100).toInt()}%',
                     style: const TextStyle(fontSize: 12),
                   ),
                 ],
               ),
-              
-              if (currentOperation!.currentItem != null) ...[
+              if (op.currentItem != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  currentOperation!.currentItem!,
+                  op.currentItem!,
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -466,14 +451,15 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
-              
-              if (currentOperation!.message != null) ...[
+              if (op.message != null) ...[
                 const SizedBox(height: 8),
                 Text(
-                  currentOperation!.message!,
+                  op.message!,
                   style: TextStyle(
                     fontSize: 12,
-                    color: currentOperation!.isError ? Colors.red : Colors.grey[600],
+                    color: op.isError
+                        ? Colors.red
+                        : Colors.grey[600],
                   ),
                 ),
               ],
@@ -484,7 +470,7 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
         ),
       ),
       actions: [
-        if (widget.cancellable && currentOperation?.isActive == true)
+        if (widget.cancellable && op?.isActive == true)
           TextButton(
             onPressed: () {
               widget.onCancel?.call();
@@ -492,7 +478,7 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
             },
             child: const Text('Abbrechen'),
           ),
-        if (currentOperation?.isCompleted == true || currentOperation?.isError == true)
+        if (op?.isCompleted == true || op?.isError == true)
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('OK'),
@@ -502,7 +488,7 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
   }
 }
 
-/// Floating Action Button mit Progress Indicator
+/// Floating Action Button mit Progress Indicator.
 class SyncProgressFab extends StatelessWidget {
   final SyncOperation? operation;
   final VoidCallback? onPressed;
@@ -517,8 +503,10 @@ class SyncProgressFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isActive = operation?.isActive == true;
-    
+    // Fix: lokale Variable — kein wiederholtes operation?. im build-Tree
+    final op = operation;
+    final isActive = op?.isActive == true;
+
     return FloatingActionButton(
       onPressed: isActive ? null : onPressed,
       tooltip: tooltip,
@@ -531,10 +519,13 @@ class SyncProgressFab extends StatelessWidget {
               width: 32,
               height: 32,
               child: CircularProgressIndicator(
-                value: operation!.progress,
+                // Fix: op statt operation! — kein Bang-Operator nötig
+                value: op!.progress,
                 strokeWidth: 3,
-                valueColor: const AlwaysStoppedAnimation(Colors.white),
-                backgroundColor: Colors.white.withValues(alpha: 0.3),
+                valueColor:
+                    const AlwaysStoppedAnimation(Colors.white),
+                backgroundColor:
+                    Colors.white.withValues(alpha: 0.3),
               ),
             ),
           Icon(
@@ -547,7 +538,7 @@ class SyncProgressFab extends StatelessWidget {
   }
 }
 
-/// Bottom Sheet für detaillierte Sync-Informationen
+/// Bottom Sheet für detaillierte Sync-Informationen.
 class SyncProgressBottomSheet extends StatefulWidget {
   final SyncProgressService progressService;
 
@@ -557,90 +548,99 @@ class SyncProgressBottomSheet extends StatefulWidget {
   });
 
   @override
-  State<SyncProgressBottomSheet> createState() => _SyncProgressBottomSheetState();
+  State<SyncProgressBottomSheet> createState() =>
+      _SyncProgressBottomSheetState();
 
   static Future<void> show(
     BuildContext context,
     SyncProgressService progressService,
   ) {
-    return showModalBottomSheet(
+    return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => SyncProgressBottomSheet(
+      // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
+      builder: (ctx) => SyncProgressBottomSheet(
         progressService: progressService,
       ),
     );
   }
 }
 
-class _SyncProgressBottomSheetState extends State<SyncProgressBottomSheet> {
+class _SyncProgressBottomSheetState
+    extends State<SyncProgressBottomSheet> {
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
+      // Fix: Container → SizedBox — kein Styling nötig, nur Größe
       height: MediaQuery.of(context).size.height * 0.7,
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              const Icon(Icons.sync_alt, size: 24),
-              const SizedBox(width: 8),
-              const Text(
-                'Synchronisationsdetails',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ],
-          ),
-          const Divider(),
-
-          // Aktueller Progress
-          ListenableBuilder(
-            listenable: widget.progressService,
-            builder: (context, child) {
-              final operation = widget.progressService.currentOperation;
-              final stats = widget.progressService.stats;
-
-              return Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      if (operation != null)
-                        DetailedSyncProgressCard(
-                          operation: operation,
-                          stats: stats,
-                        ),
-                      
-                      const SizedBox(height: 16),
-                      
-                      // Operation History
-                      if (widget.progressService.operationHistory.isNotEmpty) ...[
-                        const Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            'Verlauf',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        ...widget.progressService.operationHistory
-                            .reversed
-                            .take(5)
-                            .map((op) => _buildHistoryItem(op)),
-                      ],
-                    ],
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.sync_alt, size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  'Synchronisationsdetails',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-              );
-            },
-          ),
-        ],
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const Divider(),
+
+            ListenableBuilder(
+              listenable: widget.progressService,
+              builder: (context, _) {
+                final operation =
+                    widget.progressService.currentOperation;
+                final stats = widget.progressService.stats;
+
+                return Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
+                        if (operation != null)
+                          DetailedSyncProgressCard(
+                            operation: operation,
+                            stats: stats,
+                          ),
+                        const SizedBox(height: 16),
+                        if (widget.progressService.operationHistory
+                            .isNotEmpty) ...[
+                          const Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Verlauf',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          ...widget
+                              .progressService.operationHistory.reversed
+                              .take(5)
+                              .map(_buildHistoryItem),
+                        ],
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -665,8 +665,7 @@ class _SyncProgressBottomSheetState extends State<SyncProgressBottomSheet> {
   String _formatDuration(Duration duration) {
     if (duration.inMinutes > 0) {
       return '${duration.inMinutes}m ${duration.inSeconds % 60}s';
-    } else {
-      return '${duration.inSeconds}s';
     }
+    return '${duration.inSeconds}s';
   }
 }

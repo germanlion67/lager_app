@@ -159,7 +159,7 @@ class NextcloudConnectionService {
     NextcloudConnectionService connectionService,
   ) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
+      MaterialPageRoute<void>(
         builder: (_) => NextcloudSettingsScreen(
           connectionService: connectionService, // FIX 1
         ),

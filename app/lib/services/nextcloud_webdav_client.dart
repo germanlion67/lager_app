@@ -250,7 +250,7 @@ class NextcloudWebDavClient {
             'NextcloudWebDavClient.listFiles server error '
             '${response.statusCode} - retrying in ${backoffMs}ms',
           );
-          await Future.delayed(Duration(milliseconds: backoffMs));
+          await Future<void>.delayed(Duration(milliseconds: backoffMs));
           continue;
         } else {
           throw WebDavException(
@@ -265,7 +265,7 @@ class NextcloudWebDavClient {
             'NextcloudWebDavClient.listFiles error: $e - '
             'retrying in ${backoffMs}ms',
           );
-          await Future.delayed(Duration(milliseconds: backoffMs));
+          await Future<void>.delayed(Duration(milliseconds: backoffMs));
           continue;
         }
         throw WebDavException('Network error listing files: $e');
@@ -314,15 +314,15 @@ class NextcloudWebDavClient {
     if (response.statusCode == 201 || response.statusCode == 204) return;
 
     if (response.statusCode == 401) {
-      throw WebDavException(
+      throw const WebDavException(
         'Unauthorized (401): Bitte App-Passwort prüfen.',
       );
     } else if (response.statusCode == 507) {
-      throw WebDavException(
+      throw const WebDavException(
         'Insufficient Storage (507): Kein Speicherplatz auf Nextcloud.',
       );
     } else if (response.statusCode == 423) {
-      throw WebDavException('Locked (423): Zieldatei gesperrt.');
+      throw const WebDavException('Locked (423): Zieldatei gesperrt.');
     }
 
     throw WebDavException(
@@ -359,7 +359,7 @@ class NextcloudWebDavClient {
     }
 
     if (response.statusCode == 401) {
-      throw WebDavException(
+      throw const WebDavException(
         'Unauthorized (401): Bitte App-Passwort prüfen.',
       );
     } else if (response.statusCode == 404) {

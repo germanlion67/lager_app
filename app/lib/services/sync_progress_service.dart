@@ -78,7 +78,8 @@ class SyncOperation {
 
   bool get isCompleted => status == SyncStatus.completed;
   bool get isError => status == SyncStatus.error;
-  bool get isActive => !isCompleted && !isError && status != SyncStatus.cancelled;
+  bool get isActive =>
+      !isCompleted && !isError && status != SyncStatus.cancelled;
 
   String get statusText {
     switch (status) {
@@ -173,16 +174,31 @@ class SyncProgressService extends ChangeNotifier {
   SyncOperation? _currentOperation;
   final List<SyncOperation> _operationHistory = [];
   SyncStats _stats = SyncStats();
-  final StreamController<SyncOperation> _operationController = StreamController.broadcast();
-  final StreamController<SyncStats> _statsController = StreamController.broadcast();
+  final StreamController<SyncOperation> _operationController =
+      StreamController.broadcast();
+  final StreamController<SyncStats> _statsController =
+      StreamController.broadcast();
+
+  // Fix: Maximale History-Größe um unbegrenztes Wachstum zu verhindern
+  static const int _maxHistorySize = 100;
 
   SyncOperation? get currentOperation => _currentOperation;
   SyncStats get stats => _stats;
-  List<SyncOperation> get operationHistory => List.unmodifiable(_operationHistory);
+  List<SyncOperation> get operationHistory =>
+      List.unmodifiable(_operationHistory);
   Stream<SyncOperation> get operationStream => _operationController.stream;
   Stream<SyncStats> get statsStream => _statsController.stream;
 
   bool get isSyncing => _currentOperation?.isActive == true;
+
+  /// Fügt eine Operation zur History hinzu (mit automatischem Size-Limit)
+  void _addToHistory(SyncOperation operation) {
+    _operationHistory.add(operation);
+    // Fix: Ältesten Eintrag entfernen wenn Limit erreicht
+    if (_operationHistory.length > _maxHistorySize) {
+      _operationHistory.removeAt(0);
+    }
+  }
 
   /// Startet eine neue Sync-Operation
   String startOperation(String name) {
@@ -192,12 +208,12 @@ class SyncProgressService extends ChangeNotifier {
       name: name,
       status: SyncStatus.initializing,
     );
-    
+
     _stats = SyncStats();
     _operationController.add(_currentOperation!);
     _statsController.add(_stats);
     notifyListeners();
-    
+
     return id;
   }
 
@@ -223,6 +239,8 @@ class SyncProgressService extends ChangeNotifier {
 
   /// Setzt die Gesamtanzahl der zu verarbeitenden Items
   void setTotalItems(int totalItems) {
+    // Fix: Negative Werte abfangen
+    if (totalItems < 0) return;
     _stats = _stats.copyWith(totalItems: totalItems);
     _statsController.add(_stats);
     notifyListeners();
@@ -255,7 +273,8 @@ class SyncProgressService extends ChangeNotifier {
 
     // Aktualisiere auch den Progress der Operation
     if (_currentOperation != null && _stats.totalItems > 0) {
-      final progress = (_stats.processedItems / _stats.totalItems).clamp(0.0, 1.0);
+      final progress =
+          (_stats.processedItems / _stats.totalItems).clamp(0.0, 1.0);
       _currentOperation = _currentOperation!.copyWith(progress: progress);
       _operationController.add(_currentOperation!);
     }
@@ -285,6 +304,9 @@ class SyncProgressService extends ChangeNotifier {
       case 'skipped':
         updateStats(skippedItems: _stats.skippedItems + 1);
         break;
+      // Fix: Unbekannte Typen werden geloggt statt still ignoriert
+      default:
+        assert(false, 'incrementStat: Unbekannter Typ "$type"');
     }
   }
 
@@ -321,6 +343,9 @@ class SyncProgressService extends ChangeNotifier {
           updateStats(skippedItems: _stats.skippedItems - 1);
         }
         break;
+      // Fix: Unbekannte Typen werden geloggt statt still ignoriert
+      default:
+        assert(false, 'decrementStat: Unbekannter Typ "$type"');
     }
   }
 
@@ -339,12 +364,12 @@ class SyncProgressService extends ChangeNotifier {
       totalDuration: _currentOperation!.duration,
     );
 
-    _operationHistory.add(_currentOperation!);
+    // Fix: _addToHistory statt direktem add (Size-Limit)
+    _addToHistory(_currentOperation!);
     _operationController.add(_currentOperation!);
     _statsController.add(_stats);
     notifyListeners();
 
-    // Reset für nächste Operation
     _currentOperation = null;
   }
 
@@ -365,12 +390,12 @@ class SyncProgressService extends ChangeNotifier {
       errors: [..._stats.errors, error.toString()],
     );
 
-    _operationHistory.add(_currentOperation!);
+    // Fix: _addToHistory statt direktem add (Size-Limit)
+    _addToHistory(_currentOperation!);
     _operationController.add(_currentOperation!);
     _statsController.add(_stats);
     notifyListeners();
 
-    // Reset für nächste Operation
     _currentOperation = null;
   }
 
@@ -384,11 +409,11 @@ class SyncProgressService extends ChangeNotifier {
       endTime: DateTime.now(),
     );
 
-    _operationHistory.add(_currentOperation!);
+    // Fix: _addToHistory statt direktem add (Size-Limit)
+    _addToHistory(_currentOperation!);
     _operationController.add(_currentOperation!);
     notifyListeners();
 
-    // Reset für nächste Operation
     _currentOperation = null;
   }
 
@@ -403,6 +428,21 @@ class SyncProgressService extends ChangeNotifier {
     if (_operationHistory.isEmpty) return {};
 
     final lastOp = _operationHistory.last;
+
+    // Fix: Division durch 0 absichern bei successRate
+    final successRate = _stats.totalItems > 0
+        ? ((_stats.processedItems - _stats.errorItems).clamp(0, _stats.totalItems) /
+                _stats.totalItems *
+                100)
+            .toStringAsFixed(1)
+        : '0';
+
+    // Fix: Division durch 0 absichern bei itemsPerSecond
+    final itemsPerSecond = _stats.totalDuration.inSeconds > 0
+        ? (_stats.processedItems / _stats.totalDuration.inSeconds)
+            .toStringAsFixed(2)
+        : '0';
+
     return {
       'operation': {
         'id': lastOp.id,
@@ -421,16 +461,12 @@ class SyncProgressService extends ChangeNotifier {
         'conflictItems': _stats.conflictItems,
         'errorItems': _stats.errorItems,
         'skippedItems': _stats.skippedItems,
-        'successRate': _stats.totalItems > 0 
-          ? '${((_stats.processedItems - _stats.errorItems) / _stats.totalItems * 100).toStringAsFixed(1)}%'
-          : '0%',
+        'successRate': '$successRate%',
         'errors': _stats.errors,
       },
       'performance': {
         'totalDuration': _formatDuration(_stats.totalDuration),
-        'itemsPerSecond': _stats.totalDuration.inSeconds > 0 
-          ? (_stats.processedItems / _stats.totalDuration.inSeconds).toStringAsFixed(2)
-          : '0',
+        'itemsPerSecond': itemsPerSecond,
       },
     };
   }

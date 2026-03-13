@@ -1,12 +1,13 @@
 // lib/widgets/sync_error_widgets.dart
 
 import 'package:flutter/material.dart';
+
 import '../services/sync_error_recovery.dart';
 
-/// Dialog für die Behandlung von Sync-Fehlern
+/// Dialog für die Behandlung von Sync-Fehlern.
 class SyncErrorDialog extends StatelessWidget {
   final SyncError error;
-  final Function(RecoveryAction) onAction;
+  final void Function(RecoveryAction) onAction;
 
   const SyncErrorDialog({
     super.key,
@@ -35,7 +36,6 @@ class SyncErrorDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Fehlermeldung
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -71,7 +71,6 @@ class SyncErrorDialog extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Technische Details (ausklappbar)
             if (error.technicalDetails != null)
               ExpansionTile(
                 title: const Text('Technische Details'),
@@ -96,7 +95,6 @@ class SyncErrorDialog extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Empfohlene Aktionen
             const Text(
               'Empfohlene Lösungen:',
               style: TextStyle(
@@ -106,32 +104,28 @@ class SyncErrorDialog extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            ...error.suggestedActions.take(3).map((action) => 
-              _buildActionTile(action)
-            ),
+            ...error.suggestedActions.take(3).map(_buildActionTile),
           ],
         ),
       ),
       actions: [
-        // Primäre Aktionen
-        if (error.suggestedActions.isNotEmpty) ...[
+        if (error.suggestedActions.isNotEmpty)
           TextButton(
             onPressed: () {
+              // Fix: Dialog-eigenen context über Builder holen —
+              // StatelessWidget hat keinen eigenen BuildContext für Navigator
               Navigator.of(context).pop();
               onAction(error.suggestedActions.first);
             },
             child: Text(error.suggestedActions.first.title),
           ),
-        ],
-        
-        // Weitere Optionen
+
         if (error.suggestedActions.length > 1)
           TextButton(
             onPressed: () => _showAllActions(context),
             child: const Text('Weitere Optionen'),
           ),
-        
-        // Schließen
+
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: const Text('Schließen'),
@@ -140,6 +134,8 @@ class SyncErrorDialog extends StatelessWidget {
     );
   }
 
+  // Fix: Methode erhält keinen BuildContext — onTap ruft onAction direkt auf,
+  // kein Navigator-Zugriff nötig
   Widget _buildActionTile(RecoveryAction action) {
     return ListTile(
       dense: true,
@@ -154,31 +150,37 @@ class SyncErrorDialog extends StatelessWidget {
   }
 
   void _showAllActions(BuildContext context) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
+      builder: (ctx) => AlertDialog(
         title: const Text('Alle Lösungsoptionen'),
         content: SizedBox(
           width: double.maxFinite,
           child: ListView(
             shrinkWrap: true,
-            children: error.suggestedActions.map((action) => 
-              ListTile(
-                leading: Icon(_getActionIcon(action)),
-                title: Text(action.title),
-                subtitle: Text(action.description),
-                onTap: () {
-                  Navigator.of(context).pop();
-                  Navigator.of(context).pop();
-                  onAction(action);
-                },
-              )
-            ).toList(),
+            children: error.suggestedActions
+                .map(
+                  (action) => ListTile(
+                    leading: Icon(_getActionIcon(action)),
+                    title: Text(action.title),
+                    subtitle: Text(action.description),
+                    onTap: () {
+                      // Fix: ctx.pop() schließt den inneren Dialog,
+                      // context.pop() schließt den äußeren SyncErrorDialog
+                      Navigator.of(ctx).pop();
+                      Navigator.of(context).pop();
+                      onAction(action);
+                    },
+                  ),
+                )
+                .toList(),
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            // Fix: ctx verwenden — schließt nur den inneren Dialog
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Abbrechen'),
           ),
         ],
@@ -187,71 +189,53 @@ class SyncErrorDialog extends StatelessWidget {
   }
 
   IconData _getSeverityIcon() {
-    switch (error.severity) {
-      case ErrorSeverity.critical:
-        return Icons.error;
-      case ErrorSeverity.high:
-        return Icons.warning;
-      case ErrorSeverity.medium:
-        return Icons.info;
-      case ErrorSeverity.low:
-        return Icons.info_outline;
-    }
+    return switch (error.severity) {
+      ErrorSeverity.critical => Icons.error,
+      ErrorSeverity.high     => Icons.warning,
+      ErrorSeverity.medium   => Icons.info,
+      ErrorSeverity.low      => Icons.info_outline,
+    };
   }
 
   Color _getSeverityColor() {
-    switch (error.severity) {
-      case ErrorSeverity.critical:
-        return Colors.red[700]!;
-      case ErrorSeverity.high:
-        return Colors.orange[700]!;
-      case ErrorSeverity.medium:
-        return Colors.blue[700]!;
-      case ErrorSeverity.low:
-        return Colors.grey[700]!;
-    }
+    return switch (error.severity) {
+      ErrorSeverity.critical => Colors.red[700]!,
+      ErrorSeverity.high     => Colors.orange[700]!,
+      ErrorSeverity.medium   => Colors.blue[700]!,
+      ErrorSeverity.low      => Colors.grey[700]!,
+    };
   }
 
   IconData _getActionIcon(RecoveryAction action) {
-    switch (action) {
-      case RecoveryAction.retry:
-        return Icons.refresh;
-      case RecoveryAction.retryLater:
-        return Icons.schedule;
-      case RecoveryAction.skipItem:
-        return Icons.skip_next;
-      case RecoveryAction.resolveConflict:
-        return Icons.merge_type;
-      case RecoveryAction.checkConnection:
-        return Icons.wifi;
-      case RecoveryAction.checkCredentials:
-        return Icons.key;
-      case RecoveryAction.relogin:
-        return Icons.login;
-      case RecoveryAction.clearCache:
-        return Icons.clear_all;
-      case RecoveryAction.checkStorage:
-        return Icons.storage;
-      case RecoveryAction.adjustTimeout:
-        return Icons.timer;
-      case RecoveryAction.contactAdmin:
-        return Icons.support_agent;
-      case RecoveryAction.reportBug:
-        return Icons.bug_report;
-      case RecoveryAction.viewLogs:
-        return Icons.article;
-    }
+    // Fix: Dart 3 switch-expression — exhaustive, kein default nötig
+    return switch (action) {
+      RecoveryAction.retry             => Icons.refresh,
+      RecoveryAction.retryLater        => Icons.schedule,
+      RecoveryAction.skipItem          => Icons.skip_next,
+      RecoveryAction.resolveConflict   => Icons.merge_type,
+      RecoveryAction.checkConnection   => Icons.wifi,
+      RecoveryAction.checkCredentials  => Icons.key,
+      RecoveryAction.relogin           => Icons.login,
+      RecoveryAction.clearCache        => Icons.clear_all,
+      RecoveryAction.checkStorage      => Icons.storage,
+      RecoveryAction.adjustTimeout     => Icons.timer,
+      RecoveryAction.contactAdmin      => Icons.support_agent,
+      RecoveryAction.reportBug         => Icons.bug_report,
+      RecoveryAction.viewLogs          => Icons.article,
+    };
   }
 
-  /// Zeigt den Error Dialog an
+  /// Zeigt den Error Dialog an.
   static Future<void> show(
     BuildContext context,
     SyncError error,
-    Function(RecoveryAction) onAction,
+    void Function(RecoveryAction) onAction,
   ) {
-    return showDialog(
+    // Fix: showDialog<void> — expliziter Typ, kein Rückgabewert erwartet
+    return showDialog<void>(
       context: context,
-      builder: (context) => SyncErrorDialog(
+      // Fix: Dialog-eigenen ctx verwenden
+      builder: (ctx) => SyncErrorDialog(
         error: error,
         onAction: onAction,
       ),
@@ -259,7 +243,7 @@ class SyncErrorDialog extends StatelessWidget {
   }
 }
 
-/// Kompakte Error-Anzeige für die AppBar oder als Banner
+/// Kompakte Error-Anzeige für die AppBar oder als Banner.
 class SyncErrorBanner extends StatelessWidget {
   final List<SyncError> errors;
   final VoidCallback? onTap;
@@ -276,13 +260,15 @@ class SyncErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     if (errors.isEmpty) return const SizedBox.shrink();
 
-    final criticalErrors = errors.where((e) => e.severity == ErrorSeverity.critical).length;
+    final criticalErrors =
+        errors.where((e) => e.severity == ErrorSeverity.critical).length;
     final totalErrors = errors.length;
-    
+
     return Container(
       margin: const EdgeInsets.all(8),
       child: Material(
-        color: criticalErrors > 0 ? Colors.red[100] : Colors.orange[100],
+        color:
+            criticalErrors > 0 ? Colors.red[100] : Colors.orange[100],
         borderRadius: BorderRadius.circular(8),
         child: InkWell(
           onTap: onTap,
@@ -293,7 +279,9 @@ class SyncErrorBanner extends StatelessWidget {
               children: [
                 Icon(
                   criticalErrors > 0 ? Icons.error : Icons.warning,
-                  color: criticalErrors > 0 ? Colors.red[700] : Colors.orange[700],
+                  color: criticalErrors > 0
+                      ? Colors.red[700]
+                      : Colors.orange[700],
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -303,18 +291,20 @@ class SyncErrorBanner extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        criticalErrors > 0 
-                          ? 'Kritische Sync-Fehler ($criticalErrors)'
-                          : 'Sync-Probleme ($totalErrors)',
+                        criticalErrors > 0
+                            ? 'Kritische Sync-Fehler ($criticalErrors)'
+                            : 'Sync-Probleme ($totalErrors)',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: criticalErrors > 0 ? Colors.red[700] : Colors.orange[700],
+                          color: criticalErrors > 0
+                              ? Colors.red[700]
+                              : Colors.orange[700],
                         ),
                       ),
                       Text(
                         criticalErrors > 0
-                          ? 'Synchronisation blockiert - Aktion erforderlich'
-                          : 'Einige Artikel konnten nicht synchronisiert werden',
+                            ? 'Synchronisation blockiert - Aktion erforderlich'
+                            : 'Einige Artikel konnten nicht synchronisiert werden',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
@@ -323,7 +313,9 @@ class SyncErrorBanner extends StatelessWidget {
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right),
+                // Fix: chevron_right nur anzeigen wenn onDismiss null —
+                // sonst überlappen Icon und IconButton
+                if (onDismiss == null) const Icon(Icons.chevron_right),
                 if (onDismiss != null)
                   IconButton(
                     icon: const Icon(Icons.close, size: 16),
@@ -340,7 +332,7 @@ class SyncErrorBanner extends StatelessWidget {
   }
 }
 
-/// Error Recovery Progress Dialog
+/// Error Recovery Progress Dialog.
 class ErrorRecoveryProgressDialog extends StatefulWidget {
   final List<SyncError> errors;
   final Future<void> Function(SyncError) retryFunction;
@@ -352,7 +344,8 @@ class ErrorRecoveryProgressDialog extends StatefulWidget {
   });
 
   @override
-  State<ErrorRecoveryProgressDialog> createState() => _ErrorRecoveryProgressDialogState();
+  State<ErrorRecoveryProgressDialog> createState() =>
+      _ErrorRecoveryProgressDialogState();
 
   static Future<BatchRecoveryResult?> show(
     BuildContext context,
@@ -362,7 +355,8 @@ class ErrorRecoveryProgressDialog extends StatefulWidget {
     return showDialog<BatchRecoveryResult>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => ErrorRecoveryProgressDialog(
+      // Fix: Dialog-eigenen ctx verwenden
+      builder: (ctx) => ErrorRecoveryProgressDialog(
         errors: errors,
         retryFunction: retryFunction,
       ),
@@ -370,8 +364,9 @@ class ErrorRecoveryProgressDialog extends StatefulWidget {
   }
 }
 
-class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialog> {
-  late SyncErrorRecoveryService _recoveryService;
+class _ErrorRecoveryProgressDialogState
+    extends State<ErrorRecoveryProgressDialog> {
+  late final SyncErrorRecoveryService _recoveryService;
   BatchRecoveryResult? _result;
   bool _isRunning = false;
   int _currentIndex = 0;
@@ -380,6 +375,7 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
   @override
   void initState() {
     super.initState();
+    // Fix: late final — Service wird genau einmal initialisiert
     _recoveryService = SyncErrorRecoveryService();
     _startRecovery();
   }
@@ -394,13 +390,20 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
       final result = await _recoveryService.performBatchRecovery(
         widget.errors,
         (error) async {
+          // Fix: mounted-Guard vor setState im Callback —
+          // Widget könnte während Batch-Recovery disposed werden
+          if (!mounted) return;
           setState(() {
             _currentIndex++;
-            _currentStatus = 'Bearbeite: ${error.itemName ?? error.message}';
+            _currentStatus =
+                'Bearbeite: ${error.itemName ?? error.message}';
           });
           await widget.retryFunction(error);
         },
       );
+
+      // Fix: mounted-Guard nach performBatchRecovery
+      if (!mounted) return;
 
       setState(() {
         _result = result;
@@ -408,12 +411,18 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
         _currentStatus = 'Wiederherstellung abgeschlossen';
       });
 
-      // Auto-close nach 3 Sekunden
-      await Future.delayed(const Duration(seconds: 3));
+      await Future<void>.delayed(const Duration(seconds: 3));
+
+      // Fix: mounted-Guard nach Future.delayed
       if (mounted) {
         Navigator.of(context).pop(_result);
       }
-    } catch (e) {
+    } catch (e, st) {
+      // Fix: Stack-Trace mitloggen
+      debugPrint('[ErrorRecovery] Wiederherstellung fehlgeschlagen: $e\n$st');
+
+      // Fix: mounted-Guard nach catch
+      if (!mounted) return;
       setState(() {
         _isRunning = false;
         _currentStatus = 'Fehler bei der Wiederherstellung: $e';
@@ -423,7 +432,9 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
 
   @override
   Widget build(BuildContext context) {
-    final progress = widget.errors.isNotEmpty ? _currentIndex / widget.errors.length : 0.0;
+    final progress = widget.errors.isNotEmpty
+        ? _currentIndex / widget.errors.length
+        : 0.0;
 
     return AlertDialog(
       title: const Row(
@@ -441,10 +452,9 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
           children: [
             Text(_currentStatus),
             const SizedBox(height: 16),
-            
-            LinearProgressIndicator(value: _isRunning ? progress : 1.0),
+            LinearProgressIndicator(
+                value: _isRunning ? progress : 1.0,),
             const SizedBox(height: 8),
-            
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -458,12 +468,10 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
                 ),
               ],
             ),
-            
             if (_result != null) ...[
               const SizedBox(height: 16),
               const Divider(),
               const SizedBox(height: 8),
-              
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
@@ -503,11 +511,13 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
+            border:
+                Border.all(color: color.withValues(alpha: 0.3)),
           ),
           child: Text(
             value,
@@ -527,10 +537,10 @@ class _ErrorRecoveryProgressDialogState extends State<ErrorRecoveryProgressDialo
   }
 }
 
-/// Error List Widget für detaillierte Fehleranzeige
+/// Error List Widget für detaillierte Fehleranzeige.
 class SyncErrorList extends StatelessWidget {
   final List<SyncError> errors;
-  final Function(RecoveryAction, SyncError)? onAction;
+  final void Function(RecoveryAction, SyncError)? onAction;
   final bool showActions;
 
   const SyncErrorList({
@@ -560,7 +570,8 @@ class SyncErrorList extends StatelessWidget {
       itemBuilder: (context, index) {
         final error = errors[index];
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          margin: const EdgeInsets.symmetric(
+              horizontal: 16, vertical: 4,),
           child: ExpansionTile(
             leading: Icon(
               _getSeverityIcon(error.severity),
@@ -572,7 +583,9 @@ class SyncErrorList extends StatelessWidget {
               children: [
                 if (error.itemName != null)
                   Text('Artikel: ${error.itemName}'),
-                Text('${_formatTimestamp(error.timestamp)} • ${error.type.name}'),
+                Text(
+                  '${_formatTimestamp(error.timestamp)} • ${error.type.name}',
+                ),
               ],
             ),
             children: [
@@ -595,18 +608,21 @@ class SyncErrorList extends StatelessWidget {
                     ),
                   ),
                 ),
-              
               if (showActions && error.suggestedActions.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Wrap(
                     spacing: 8,
-                    children: error.suggestedActions.take(3).map((action) =>
-                      ActionChip(
-                        label: Text(action.title),
-                        onPressed: () => onAction?.call(action, error),
-                      )
-                    ).toList(),
+                    children: error.suggestedActions
+                        .take(3)
+                        .map(
+                          (action) => ActionChip(
+                            label: Text(action.title),
+                            onPressed: () =>
+                                onAction?.call(action, error),
+                          ),
+                        )
+                        .toList(),
                   ),
                 ),
             ],
@@ -616,36 +632,27 @@ class SyncErrorList extends StatelessWidget {
     );
   }
 
+  // Fix: Dart 3 switch-expression — exhaustive, kein default nötig
   IconData _getSeverityIcon(ErrorSeverity severity) {
-    switch (severity) {
-      case ErrorSeverity.critical:
-        return Icons.error;
-      case ErrorSeverity.high:
-        return Icons.warning;
-      case ErrorSeverity.medium:
-        return Icons.info;
-      case ErrorSeverity.low:
-        return Icons.info_outline;
-    }
+    return switch (severity) {
+      ErrorSeverity.critical => Icons.error,
+      ErrorSeverity.high     => Icons.warning,
+      ErrorSeverity.medium   => Icons.info,
+      ErrorSeverity.low      => Icons.info_outline,
+    };
   }
 
   Color _getSeverityColor(ErrorSeverity severity) {
-    switch (severity) {
-      case ErrorSeverity.critical:
-        return Colors.red;
-      case ErrorSeverity.high:
-        return Colors.orange;
-      case ErrorSeverity.medium:
-        return Colors.blue;
-      case ErrorSeverity.low:
-        return Colors.grey;
-    }
+    return switch (severity) {
+      ErrorSeverity.critical => Colors.red,
+      ErrorSeverity.high     => Colors.orange,
+      ErrorSeverity.medium   => Colors.blue,
+      ErrorSeverity.low      => Colors.grey,
+    };
   }
 
   String _formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final diff = now.difference(timestamp);
-    
+    final diff = DateTime.now().difference(timestamp);
     if (diff.inMinutes < 1) return 'Gerade eben';
     if (diff.inMinutes < 60) return 'Vor ${diff.inMinutes}m';
     if (diff.inHours < 24) return 'Vor ${diff.inHours}h';

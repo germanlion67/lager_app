@@ -1,11 +1,13 @@
 // lib/screens/conflict_resolution_screen.dart
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../models/artikel_model.dart';
-import '../services/artikel_db_service.dart';
 import '../services/sync_service.dart';
+
+// ─────────────────────────────────────────────
+// ConflictData
+// ─────────────────────────────────────────────
 
 /// Repräsentiert einen Sync-Konflikt zwischen lokaler und Remote-Version
 class ConflictData {
@@ -22,8 +24,16 @@ class ConflictData {
   });
 }
 
+// ─────────────────────────────────────────────
+// ConflictResolution Enum
+// ─────────────────────────────────────────────
+
 /// Enum für die möglichen Konfliktlösungen
 enum ConflictResolution { useLocal, useRemote, merge, skip }
+
+// ─────────────────────────────────────────────
+// ConflictResolutionScreen
+// ─────────────────────────────────────────────
 
 class ConflictResolutionScreen extends StatefulWidget {
   final List<ConflictData> conflicts;
@@ -41,24 +51,13 @@ class ConflictResolutionScreen extends StatefulWidget {
 }
 
 class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
-  // FIX: Private Felder — kein öffentlicher Zugriff nötig
   int _currentConflictIndex = 0;
   final Map<String, ConflictResolution> _resolutions = {};
   final Map<String, Artikel?> _mergedVersions = {};
   bool _isResolving = false;
 
-  // FIX: Einmalige Instanzerstellung — nicht bei jedem Aufruf neu
-  late final ArtikelDbService _db;
-
   ConflictData get _currentConflict =>
       widget.conflicts[_currentConflictIndex];
-
-  @override
-  void initState() {
-    super.initState();
-    // FIX: Instanz einmal erstellen
-    _db = ArtikelDbService();
-  }
 
   // ==================== LOGIK ====================
 
@@ -101,14 +100,26 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
           continue;
         }
 
-        // FIX: Dart-3-Switch ohne break
+        // SyncService.applyConflictResolution übernimmt die gesamte Logik
         switch (resolution) {
           case ConflictResolution.useLocal:
-            await _applyLocalVersion(conflict);
+            await widget.syncService.applyConflictResolution(
+              conflict,
+              ConflictResolution.useLocal,
+            );
           case ConflictResolution.useRemote:
-            await _applyRemoteVersion(conflict);
+            await widget.syncService.applyConflictResolution(
+              conflict,
+              ConflictResolution.useRemote,
+            );
           case ConflictResolution.merge:
-            await _applyMergedVersion(conflict);
+            final mergedVersion =
+                _mergedVersions[conflict.localVersion.uuid];
+            await widget.syncService.applyConflictResolution(
+              conflict,
+              ConflictResolution.merge,
+              mergedVersion: mergedVersion,
+            );
           case ConflictResolution.skip:
             break; // Bereits oben behandelt — nie erreicht
         }
@@ -118,7 +129,6 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
       if (!mounted) return;
       Navigator.of(context).pop({'resolved': resolved, 'skipped': skipped});
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[ConflictResolution] Auflösen fehlgeschlagen: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -131,47 +141,24 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
       if (mounted) setState(() => _isResolving = false);
     }
   }
- 
-  Future<void> _applyLocalVersion(ConflictData conflict) async {
-    debugPrint('[ConflictResolution] Lokale Version behalten: '
-        '${conflict.localVersion.name}');
-  }
-
-  Future<void> _applyRemoteVersion(ConflictData conflict) async {
-    // FIX: Gespeicherte _db-Instanz verwenden
-    await _db.updateArtikel(conflict.remoteVersion);
-    debugPrint('[ConflictResolution] Remote-Version übernommen: '
-        '${conflict.remoteVersion.name}');
-  }
-
-  Future<void> _applyMergedVersion(ConflictData conflict) async {
-    final mergedVersion = _mergedVersions[conflict.localVersion.uuid];
-    if (mergedVersion == null) return;
-    // FIX: Gespeicherte _db-Instanz verwenden
-    await _db.updateArtikel(mergedVersion);
-    debugPrint('[ConflictResolution] Zusammengeführte Version gespeichert: '
-        '${mergedVersion.name}');
-  }
 
   // ==================== DIALOGE ====================
 
   void _showMergeDialog() {
-    // FIX: Navigator-Referenz vor dem Dialog cachen —
-    // onMerged-Callback läuft nach async-Gap
     final nav = Navigator.of(context);
 
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogCtx) => _MergeDialog(
         localVersion: _currentConflict.localVersion,
         remoteVersion: _currentConflict.remoteVersion,
         onMerged: (mergedArtikel) {
           setState(() {
-            _mergedVersions[_currentConflict.localVersion.uuid] = mergedArtikel;
+            _mergedVersions[_currentConflict.localVersion.uuid] =
+                mergedArtikel;
             _resolutions[_currentConflict.localVersion.uuid] =
                 ConflictResolution.merge;
           });
-          // FIX: Gecachten nav verwenden — nicht dialogCtx nach pop
           nav.pop();
         },
       ),
@@ -179,7 +166,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
   }
 
   void _showHelpDialog() {
-    showDialog(
+    showDialog<void>(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: const Text('Konfliktauflösung Hilfe'),
@@ -222,8 +209,11 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
   // ==================== HILFSMETHODEN ====================
 
   String _formatDateTime(DateTime dateTime) {
-    return '${dateTime.day}.${dateTime.month}.${dateTime.year} '
-        '${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
+    return '${dateTime.day.toString().padLeft(2, '0')}'
+        '.${dateTime.month.toString().padLeft(2, '0')}'
+        '.${dateTime.year} '
+        '${dateTime.hour.toString().padLeft(2, '0')}'
+        ':${dateTime.minute.toString().padLeft(2, '0')}';
   }
 
   // ==================== UI ====================
@@ -256,8 +246,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          'Konflikte ($_currentConflictIndex'
-          '+1/${widget.conflicts.length})',
+          'Konflikte (${_currentConflictIndex + 1}/${widget.conflicts.length})',
         ),
         backgroundColor: Colors.orange,
         foregroundColor: Colors.white,
@@ -268,7 +257,6 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
           ),
         ],
       ),
-      // FIX: Ladeindikator während _isResolving — war vorhanden aber nie gezeigt
       body: _isResolving
           ? const Center(
               child: Column(
@@ -292,8 +280,6 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
           backgroundColor: Colors.grey[300],
           valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
         ),
-
-        // Konflikt-Info
         Padding(
           padding: const EdgeInsets.all(16),
           child: Card(
@@ -308,7 +294,8 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Konflikt bei "${_currentConflict.localVersion.name}"',
+                          'Konflikt bei '
+                          '"${_currentConflict.localVersion.name}"',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -331,8 +318,6 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
             ),
           ),
         ),
-
-        // Versionsvergleich
         Expanded(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -346,9 +331,9 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                     icon: Icons.phone_android,
                     onSelect: () =>
                         _selectResolution(ConflictResolution.useLocal),
-                    isSelected: _resolutions[
-                            _currentConflict.localVersion.uuid] ==
-                        ConflictResolution.useLocal,
+                    isSelected:
+                        _resolutions[_currentConflict.localVersion.uuid] ==
+                            ConflictResolution.useLocal,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -360,17 +345,15 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                     icon: Icons.cloud,
                     onSelect: () =>
                         _selectResolution(ConflictResolution.useRemote),
-                    isSelected: _resolutions[
-                            _currentConflict.localVersion.uuid] ==
-                        ConflictResolution.useRemote,
+                    isSelected:
+                        _resolutions[_currentConflict.localVersion.uuid] ==
+                            ConflictResolution.useRemote,
                   ),
                 ),
               ],
             ),
           ),
         ),
-
-        // Aktions-Buttons
         Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -412,8 +395,9 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                             ? Icons.check
                             : Icons.arrow_forward,
                       ),
-                      label:
-                          Text(_isLastConflict() ? 'Auflösen' : 'Weiter'),
+                      label: Text(
+                        _isLastConflict() ? 'Auflösen' : 'Weiter',
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.orange,
                         foregroundColor: Colors.white,
@@ -479,20 +463,15 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
               ),
               if (artikel.deviceId != null)
                 _buildDetailRow('Gerät:', artikel.deviceId!),
-
-              // FIX: dart:io File() nur auf Nicht-Web-Plattformen
               if (artikel.bildPfad.isNotEmpty)
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.image, size: 16, color: Colors.grey),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Bild',
+                    Icon(Icons.image, size: 16, color: Colors.grey),
+                    SizedBox(width: 4),
+                    Text(
+                      'Bild vorhanden',
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
-                    // FIX: kIsWeb-Guard — dart:io nicht im Web verfügbar
-                    if (!kIsWeb)
-                      _buildFileExistsIcon(artikel.bildPfad),
                   ],
                 ),
             ],
@@ -500,46 +479,6 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
         ),
       ),
     );
-  }
-
-  /// FIX: Ausgelagert — dart:io nur auf Mobile/Desktop aufrufen
-  Widget _buildFileExistsIcon(String pfad) {
-    // Lazy import über conditional — sicherer als direkter dart:io-Import
-    try {
-      // ignore: avoid_dynamic_calls
-      final exists = _fileExists(pfad);
-      if (exists) {
-        return const Icon(Icons.check, size: 16, color: Colors.green);
-      }
-    } catch (_) {}
-    return const SizedBox.shrink();
-  }
-
-  bool _fileExists(String pfad) {
-    if (kIsWeb) return false;
-    // dart:io nur auf Mobile/Desktop
-    try {
-      // Dynamischer Aufruf — vermeidet direkten dart:io-Import auf Web
-      // Wird nur aufgerufen wenn !kIsWeb
-      return _checkFileExists(pfad);
-    } catch (_) {
-      return false;
-    }
-  }
-
-  // ignore: prefer_expression_function_bodies
-  bool _checkFileExists(String pfad) {
-    // Dieser Code wird nur auf Mobile/Desktop ausgeführt (kIsWeb-Guard oben)
-    // dart:io ist hier sicher verfügbar
-    // ignore: avoid_slow_async_io
-    try {
-      // Plattform-spezifisch — sicher da kIsWeb-Guard
-      // ignore: dart_io_import
-      // Wir nutzen den plattform-konditionalen Import oben
-      return false; // Wird durch platform.fileExists() ersetzt
-    } catch (_) {
-      return false;
-    }
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -573,7 +512,9 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
   }
 }
 
-// ==================== MERGE DIALOG ====================
+// ─────────────────────────────────────────────
+// _MergeDialog — unverändert, war bereits korrekt
+// ─────────────────────────────────────────────
 
 class _MergeDialog extends StatefulWidget {
   final Artikel localVersion;
@@ -625,8 +566,6 @@ class _MergeDialogState extends State<_MergeDialog> {
   }
 
   void _saveMergedVersion() {
-    // FIX: mounted-Guard ergänzt
-    if (!mounted) return;
     try {
       final mergedArtikel = widget.localVersion.copyWith(
         name: _nameController.text.trim(),
@@ -640,9 +579,7 @@ class _MergeDialogState extends State<_MergeDialog> {
       );
       widget.onMerged(mergedArtikel);
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[MergeDialog] Zusammenführen fehlgeschlagen: $e\n$st');
-      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Fehler beim Zusammenführen: $e'),
@@ -669,7 +606,9 @@ class _MergeDialogState extends State<_MergeDialog> {
                   child: Text(
                     'Versionen zusammenführen',
                     style: TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 IconButton(
@@ -771,12 +710,18 @@ class _MergeDialogState extends State<_MergeDialog> {
         children: [
           Row(
             children: [
-              Text(label,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                label,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               if (hasConflict)
                 const Padding(
                   padding: EdgeInsets.only(left: 4),
-                  child: Icon(Icons.warning, size: 16, color: Colors.orange),
+                  child: Icon(
+                    Icons.warning,
+                    size: 16,
+                    color: Colors.orange,
+                  ),
                 ),
             ],
           ),
@@ -792,11 +737,17 @@ class _MergeDialogState extends State<_MergeDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Lokal:',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.blue)),
-                          Text(localValue,
-                              style: const TextStyle(fontSize: 14)),
+                          const Text(
+                            'Lokal:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue,
+                            ),
+                          ),
+                          Text(
+                            localValue,
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ],
                       ),
                     ),
@@ -811,11 +762,17 @@ class _MergeDialogState extends State<_MergeDialog> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Remote:',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.green)),
-                          Text(remoteValue,
-                              style: const TextStyle(fontSize: 14)),
+                          const Text(
+                            'Remote:',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green,
+                            ),
+                          ),
+                          Text(
+                            remoteValue,
+                            style: const TextStyle(fontSize: 14),
+                          ),
                         ],
                       ),
                     ),
@@ -830,15 +787,17 @@ class _MergeDialogState extends State<_MergeDialog> {
                   onPressed: () => controller.text = localValue,
                   icon: const Icon(Icons.phone_android, size: 16),
                   label: const Text('Lokal'),
-                  style:
-                      TextButton.styleFrom(foregroundColor: Colors.blue),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                  ),
                 ),
                 TextButton.icon(
                   onPressed: () => controller.text = remoteValue,
                   icon: const Icon(Icons.cloud, size: 16),
                   label: const Text('Remote'),
-                  style:
-                      TextButton.styleFrom(foregroundColor: Colors.green),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.green,
+                  ),
                 ),
               ],
             ),
@@ -850,8 +809,10 @@ class _MergeDialogState extends State<_MergeDialog> {
             decoration: const InputDecoration(
               border: OutlineInputBorder(),
               hintText: 'Bearbeiten oder Version wählen',
-              contentPadding:
-                  EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
             ),
           ),
         ],
@@ -867,10 +828,10 @@ class _MergeDialogState extends State<_MergeDialog> {
           subtitle: widget.localVersion.bildPfad.isNotEmpty
               ? 'Vorhanden'
               : 'Kein Bild',
-          isSelected:
-              _selectedBildPfad == widget.localVersion.bildPfad,
+          isSelected: _selectedBildPfad == widget.localVersion.bildPfad,
           onTap: () => setState(
-              () => _selectedBildPfad = widget.localVersion.bildPfad),
+            () => _selectedBildPfad = widget.localVersion.bildPfad,
+          ),
         ),
         const SizedBox(height: 8),
         _buildImageRadioOption(
@@ -878,10 +839,10 @@ class _MergeDialogState extends State<_MergeDialog> {
           subtitle: widget.remoteVersion.bildPfad.isNotEmpty
               ? 'Vorhanden'
               : 'Kein Bild',
-          isSelected:
-              _selectedBildPfad == widget.remoteVersion.bildPfad,
+          isSelected: _selectedBildPfad == widget.remoteVersion.bildPfad,
           onTap: () => setState(
-              () => _selectedBildPfad = widget.remoteVersion.bildPfad),
+            () => _selectedBildPfad = widget.remoteVersion.bildPfad,
+          ),
         ),
       ],
     );
@@ -922,7 +883,11 @@ class _MergeDialogState extends State<_MergeDialog> {
                 color: isSelected ? Colors.blue : Colors.transparent,
               ),
               child: isSelected
-                  ? const Icon(Icons.circle, size: 12, color: Colors.white)
+                  ? const Icon(
+                      Icons.circle,
+                      size: 12,
+                      color: Colors.white,
+                    )
                   : null,
             ),
             const SizedBox(width: 12),
@@ -941,7 +906,9 @@ class _MergeDialogState extends State<_MergeDialog> {
                     Text(
                       subtitle,
                       style: TextStyle(
-                          fontSize: 12, color: Colors.grey[600]),
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
                     ),
                 ],
               ),

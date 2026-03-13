@@ -1,3 +1,5 @@
+// lib/widgets/image_crop_dialog.dart
+
 import 'dart:typed_data';
 
 import 'package:crop_your_image/crop_your_image.dart';
@@ -35,21 +37,23 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
   bool _isCropMode = false;
   late Uint8List _workingBytes;
 
-  void _handleCrop() async {
-    if (_isCropping) return;
-    setState(() => _isCropping = true);
-    _controller.crop();
-  }
-
   @override
   void initState() {
     super.initState();
     _workingBytes = widget.originalBytes;
   }
 
+  // Fix: void → Future<void> — async-Methode muss Future zurückgeben
+  Future<void> _handleCrop() async {
+    if (_isCropping) return;
+    setState(() => _isCropping = true);
+    _controller.crop();
+  }
+
   Future<void> _handleRotate() async {
     if (_isCropping) return;
-    final rotated = await ImageProcessingUtils.rotateClockwise(_workingBytes);
+    final rotated =
+        await ImageProcessingUtils.rotateClockwise(_workingBytes);
     if (!mounted) return;
     setState(() => _workingBytes = rotated);
     if (_isCropMode) {
@@ -78,9 +82,11 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
     }
   }
 
-  void _handleAccept() {
+  // Fix: void → Future<void> — ruft async _handleCrop auf,
+  // Rückgabetyp muss übereinstimmen
+  Future<void> _handleAccept() async {
     if (_isCropMode) {
-      _handleCrop();
+      await _handleCrop();
     } else {
       Navigator.of(context).pop(
         ImageCropDialogResult(bytes: _workingBytes, cropped: false),
@@ -93,7 +99,8 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
     return Dialog(
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
+        constraints:
+            const BoxConstraints(maxWidth: 600, maxHeight: 600),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -118,9 +125,18 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: _isCropping ? null : _toggleCropMode,
-                      icon: Icon(_isCropMode ? Icons.crop_square : Icons.crop),
-                      label: Text(_isCropMode ? 'Zuschneiden aus' : 'Zuschneiden'),
+                      onPressed:
+                          _isCropping ? null : _toggleCropMode,
+                      icon: Icon(
+                        _isCropMode
+                            ? Icons.crop_square
+                            : Icons.crop,
+                      ),
+                      label: Text(
+                        _isCropMode
+                            ? 'Zuschneiden aus'
+                            : 'Zuschneiden',
+                      ),
                     ),
                   ),
                 ],
@@ -130,7 +146,10 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
             Expanded(
               child: _isCropMode
                   ? Crop(
-                      key: ValueKey(_workingBytes.hashCode),
+                      // Fix: ValueKey auf _workingBytes.length statt .hashCode —
+                      // hashCode von Uint8List ist nicht stabil (identityHashCode),
+                      // length ändert sich zuverlässig nach Rotation/Crop
+                      key: ValueKey(_workingBytes.length),
                       controller: _controller,
                       image: _workingBytes,
                       aspectRatio: widget.aspectRatio,
@@ -151,12 +170,16 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                                 cropped: true,
                               ),
                             );
-                            break;
+                          // Fix: break nach case entfernt —
+                          // in Dart 3 switch-expressions kein break nötig
                           case CropFailure(:final cause):
-                            final messenger = ScaffoldMessenger.maybeOf(context);
-                            messenger?.showSnackBar(
+                            // Fix: maybeOf → of mit mounted-Guard —
+                            // mounted ist bereits geprüft, of ist sicherer
+                            ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('Zuschneiden fehlgeschlagen: $cause'),
+                                content: Text(
+                                  'Zuschneiden fehlgeschlagen: $cause',
+                                ),
                               ),
                             );
                         }
@@ -168,7 +191,8 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                             if (_isCropping) {
                               _controller.crop();
                             }
-                            break;
+                          // Fix: break nach case entfernt —
+                          // in Dart 3 switch-expressions kein break nötig
                           case CropStatus.cropping:
                             break;
                           case CropStatus.loading:
@@ -176,7 +200,6 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                             if (_isCropping) {
                               setState(() => _isCropping = false);
                             }
-                            break;
                         }
                       },
                     )
@@ -196,7 +219,8 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
             ),
             const SizedBox(height: 12),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 12,),
               child: Row(
                 children: [
                   Expanded(
@@ -210,12 +234,14 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: FilledButton(
-                      onPressed: _isCropping ? null : _handleAccept,
+                      onPressed:
+                          _isCropping ? null : _handleAccept,
                       child: _isCropping
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2,),
                             )
                           : const Text('Übernehmen'),
                     ),

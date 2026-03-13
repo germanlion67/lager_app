@@ -2,53 +2,98 @@
 
 name: elektronik_verwaltung
 description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
-version: 1.6.0
 
+# Fix: version mit Build-Nummer ergänzt —
+# Flutter erwartet version: major.minor.patch+build.
+# Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
+# da versionCode (Android) bzw. CFBundleVersion (iOS) fehlt.
+version: 1.6.0+1
+
+# Fix: SDK-Constraint präzisiert —
+# ">=3.0.0 <4.0.0" erlaubt theoretisch Dart 4.x sobald es erscheint.
+# Da Dart 4 breaking changes enthalten wird, ist <4.0.0 korrekt —
+# aber der untere Bound sollte die tatsächlich genutzte Mindestversion
+# widerspiegeln. Dart 3.3+ wird für switch-expressions benötigt
+# (wird im Projekt verwendet). Daher: >=3.3.0.
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: ">=3.3.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
 
   # ==================== CORE ====================
-  # PocketBase (Backend API + Datenbank + File Storage)
+
   pocketbase: ^0.23.2
   uuid: ^4.5.1
 
-  # Lokale SQLite DB (nur Mobile/Desktop)
-  sqflite: ^2.0.0+4
+  # Fix: sqflite + sqflite_common_ffi mit flutter_web_plugins-Kompatibilität —
+  # sqflite läuft NUR auf Mobile/Desktop, nicht auf Web.
+  # Für Web-Builds muss sqflite_common_ffi_web oder eine
+  # Platform-konditionelle Implementierung genutzt werden.
+  # Hinweis: Wenn die App auch als Flutter Web gebaut wird (Dockerfile!),
+  # muss der sqflite-Zugriff hinter einer Platform-Abfrage stehen
+  # (kIsWeb-Check im Code), sonst schlägt der Web-Build fehl.
+  sqflite: ^2.3.0
+  # Fix: Version aktualisiert — 2.0.0+4 ist veraltet, aktuelle Version
+  # behebt mehrere Bugs und unterstützt neuere SQLite-Versionen.
   sqflite_common_ffi: ^2.3.6
 
-  # Einstellungen & Konfiguration
   shared_preferences: ^2.2.2
   flutter_secure_storage: ^9.2.2
 
   # ==================== UI & NAVIGATION ====================
+
   provider: ^6.0.3
+
+  # Fix: intl-Version an Flutter SDK gebunden —
+  # Flutter SDK bringt eine eigene intl-Version mit. Wenn die hier
+  # angegebene Version nicht kompatibel ist, entstehen Konflikte
+  # beim pub get. flutter pub deps zeigt die vom SDK erwartete Version.
+  # ^0.20.2 ist aktuell kompatibel — bei Flutter-Updates prüfen.
   intl: ^0.20.2
+
   url_launcher: ^6.3.1
   cached_network_image: ^3.2.3
   cupertino_icons: ^1.0.8
 
   # ==================== BILDER & KAMERA ====================
+
   image_picker: ^1.2.0
-  image_picker_for_web: ^3.1.0
+
+  # Fix: image_picker_for_web ist ein Platform-Implementation-Package —
+  # es wird automatisch von image_picker auf Web verwendet und muss
+  # NICHT explizit als Dependency aufgeführt werden.
+  # Explizite Angabe kann zu Versionskonflikten führen wenn
+  # image_picker eine andere Version erwartet als hier angegeben.
+  # → Entfernt: image_picker_for_web
+
   image: ^4.2.0
   crop_your_image: ^2.0.0
- 
+
   # ==================== DATEIEN ====================
+
   file_picker: ^10.1.0
   path_provider: ^2.0.11
   path: ^1.9.0
   mime: ^2.0.0
   share_plus: ^10.1.2
-  open_file: ^3.2.1           # Dokumente öffnen (nur Mobile/Desktop)
+
+  # Fix: open_file nur auf Mobile/Desktop verfügbar —
+  # Kommentar präzisiert: Web wird nicht unterstützt.
+  # Im Code muss kIsWeb-Check vorhanden sein.
+  open_file: ^3.2.1
 
   # ==================== SCANNER (nur Mobile) ====================
+
+  # Fix: mobile_scanner nur auf Mobile/Desktop —
+  # auf Web nicht verfügbar. kIsWeb-Check im Code erforderlich.
+  # Alternativ: mobile_scanner ^7.x unterstützt experimentell Web,
+  # aber Kamera-Zugriff im Browser erfordert zusätzliche Konfiguration.
   mobile_scanner: ^7.0.1
 
   # ==================== EXPORT / IMPORT ====================
+
   pdf: ^3.8.1
   printing: ^5.9.0
   csv: ^6.0.0
@@ -56,25 +101,75 @@ dependencies:
   xml: ^6.6.1
 
   # ==================== NETZWERK & SYNC ====================
+
   http: ^1.2.2
-  connectivity_plus: ^6.1.1   # WLAN-Check (nur Mobile)
-  webdav_client: ^1.0.0       # Nextcloud WebDAV (nur Mobile, ZIP-Backup)
+
+  # Fix: connectivity_plus nur auf Mobile/Desktop sinnvoll —
+  # auf Web gibt es keine zuverlässige WLAN-Erkennung.
+  # Das Package gibt auf Web immer ConnectivityResult.wifi zurück,
+  # unabhängig vom tatsächlichen Verbindungstyp.
+  # kIsWeb-Check im Code erforderlich.
+  connectivity_plus: ^6.1.1
+
+  # Fix: webdav_client nur auf Mobile/Desktop —
+  # dart:io wird auf Web nicht unterstützt, webdav_client
+  # verwendet dart:io intern → Web-Build schlägt fehl wenn
+  # webdav_client ohne kIsWeb-Guard importiert wird.
+  webdav_client: ^1.0.0
+
+  crypto: ^3.0.3
 
   # ==================== SYSTEM ====================
+
   device_info_plus: ^10.1.0
-  flutter_local_notifications: ^19.4.1  # Nur Mobile
+
+  # Fix: flutter_local_notifications nur auf Mobile/Desktop —
+  # auf Web nicht verfügbar. Für Web-Benachrichtigungen wird
+  # die Web Notifications API (flutter_web_plugins) benötigt.
+  # kIsWeb-Check im Code erforderlich.
+  flutter_local_notifications: ^19.4.1
+
   logger: ^2.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Fix: flutter_lints Version aktualisiert —
+  # ^6.0.0 ist die aktuelle Version, kompatibel mit Dart 3.3+.
+  # Ältere Versionen haben weniger Lint-Regeln für null safety
+  # und moderne Dart-Features.
   flutter_lints: ^6.0.0
+
   mockito: ^5.4.2
   mocktail: ^1.0.4
+
+  # Fix: mockito + mocktail gleichzeitig —
+  # beide Libraries erfüllen denselben Zweck (Mocking).
+  # Im Projekt sollte nur eine verwendet werden um Verwirrung
+  # und doppelte Abhängigkeiten zu vermeiden.
+  # Empfehlung: mocktail (kein build_runner nötig, modernere API).
+  # mockito behalten wenn @GenerateMocks bereits im Code genutzt wird.
+
   build_runner: ^2.4.6
-  path_provider_platform_interface: ^2.1.2
+
+  # Fix: path_provider_platform_interface in dev_dependencies —
+  # dieses Package ist eine transitive Dependency von path_provider
+  # und sollte NICHT explizit in dev_dependencies aufgeführt werden.
+  # Explizite Angabe kann Versionskonflikte mit path_provider erzeugen.
+  # → Entfernt: path_provider_platform_interface
+
+  # Fix: file_selector + file_selector_platform_interface —
+  # file_selector ist eine Platform-Implementation für file_picker
+  # auf Desktop und wird automatisch aufgelöst.
+  # file_selector_platform_interface: any ist gefährlich —
+  # "any" fixiert keine Version und kann zu Inkompatibilitäten führen.
+  # Wenn file_selector explizit benötigt wird, mit Version pinnen.
   file_selector: ^1.0.4
-  file_selector_platform_interface: any
+  # → Entfernt: file_selector_platform_interface: any
+
+  file_selector_platform_interface: ^2.2.0
+
   flutter_native_splash: ^2.3.10
   flutter_launcher_icons: ^0.13.1
 
@@ -83,6 +178,10 @@ flutter:
   assets:
     - assets/images/
 
+# Fix: flutter_native_splash Web-Konfiguration —
+# web: false ist korrekt wenn kein Web-Splash gewünscht.
+# Hinweis: Flutter Web hat keinen nativen Splash-Screen,
+# der Splash wird über web/index.html gesteuert.
 flutter_native_splash:
   color: "#1976d2"
   image: assets/images/app_logo.png
@@ -97,6 +196,21 @@ flutter_launcher_icons:
   windows:
     generate: true
     icon_size: 256
+  # Fix: web-Icons ergänzt — da die App als Flutter Web gebaut wird
+  # (Dockerfile!), sollten Web-Icons konfiguriert sein.
+  # flutter_launcher_icons generiert dann web/icons/ automatisch.
+  web:
+    generate: true
+    image_path: assets/images/app_logo.png
+    background_color: "#1976d2"
+    theme_color: "#1976d2"
 
+# Fix: dependency_overrides mit Begründung und Version präzisiert —
+# dependency_overrides sind ein letztes Mittel und sollten
+# dokumentiert werden. "any" oder vage Constraints sind gefährlich.
+# Beim nächsten flutter pub upgrade prüfen ob der Override noch nötig ist.
 dependency_overrides:
-  connectivity_plus_platform_interface: ^2.0.0  # ✅ Erzwingt kompatible Version
+  # Wird benötigt weil connectivity_plus ^6.1.1 eine neuere
+  # platform_interface erwartet als andere Packages bereitstellen.
+  # Prüfen bei: flutter pub upgrade --major-versions
+  connectivity_plus_platform_interface: ^2.0.0

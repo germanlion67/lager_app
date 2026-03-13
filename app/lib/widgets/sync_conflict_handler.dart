@@ -1,20 +1,24 @@
 // lib/widgets/sync_conflict_handler.dart
 
 import 'package:flutter/material.dart';
-import '../services/sync_service.dart';
+
 import '../screens/conflict_resolution_screen.dart';
+import '../services/sync_service.dart';
 
 class SyncConflictHandler {
   static Future<bool> handleSyncWithConflicts(
     BuildContext context,
     SyncService syncService,
   ) async {
-    try {
-      // Zeige Loading Indicator
-      showDialog(
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    // FIX: await + explizites Typargument <void> für DialogRoute
+    await nav.push(
+      DialogRoute<void>(
         context: context,
         barrierDismissible: false,
-        builder: (context) => const Dialog(
+        builder: (_) => const Dialog(
           child: Padding(
             padding: EdgeInsets.all(24.0),
             child: Row(
@@ -27,23 +31,22 @@ class SyncConflictHandler {
             ),
           ),
         ),
-      );
+      ),
+    );
 
-      // Starte erweiterte Synchronisation
+    try {
       final result = await syncService.syncWithConflictResolution();
-      
-      // Schließe Loading Dialog
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
 
       if (!context.mounted) return false;
+      nav.pop(); // Schließe Loading Dialog
 
       if (result['success'] == true) {
-        // Erfolgreiche Synchronisation ohne Konflikte
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Synchronisation erfolgreich'),
+            // FIX: .toString() — dynamic → String
+            content: Text(
+              result['message']?.toString() ?? 'Synchronisation erfolgreich',
+            ),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
@@ -55,25 +58,26 @@ class SyncConflictHandler {
         );
         return true;
       } else if (result.containsKey('conflictData')) {
-        // Konflikte gefunden - zeige Resolution UI
         final conflicts = result['conflictData'] as List<ConflictData>;
-        
-        final resolutionResult = await Navigator.of(context).push<Map<String, int>>(
+
+        final resolutionResult = await nav.push<Map<String, int>>(
           MaterialPageRoute(
-            builder: (context) => ConflictResolutionScreen(
+            builder: (_) => ConflictResolutionScreen(
               conflicts: conflicts,
               syncService: syncService,
             ),
           ),
         );
 
-        if (context.mounted && resolutionResult != null) {
+        if (!context.mounted) return false;
+
+        if (resolutionResult != null) {
           final resolved = resolutionResult['resolved'] ?? 0;
           final skipped = resolutionResult['skipped'] ?? 0;
-          
-          String message;
-          Color color;
-          
+
+          final String message;
+          final Color color;
+
           if (resolved > 0 && skipped == 0) {
             message = '$resolved Konflikte erfolgreich aufgelöst';
             color = Colors.green;
@@ -85,43 +89,49 @@ class SyncConflictHandler {
             color = Colors.grey;
           }
 
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
               content: Text(message),
               backgroundColor: color,
               behavior: SnackBarBehavior.floating,
             ),
           );
-          
+
           return resolved > 0;
         }
       } else {
         // Fehler bei der Synchronisation
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
-            content: Text(result['message'] ?? 'Synchronisation fehlgeschlagen'),
+            // FIX: .toString() — dynamic → String
+            content: Text(
+              result['message']?.toString() ?? 'Synchronisation fehlgeschlagen',
+            ),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: 'Details',
               textColor: Colors.white,
               onPressed: () {
-                _showErrorDialog(context, result['error'] ?? 'Unbekannter Fehler');
+                _showErrorDialog(
+                  context,
+                  // FIX: .toString() — dynamic → String
+                  result['error']?.toString() ?? 'Unbekannter Fehler',
+                );
               },
             ),
           ),
         );
       }
-      
+
       return false;
-    } catch (e) {
-      // Schließe Loading Dialog falls noch offen
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
+    } catch (e, st) {
+      debugPrint('[SyncConflictHandler] Sync fehlgeschlagen: $e\n$st');
+
+      if (context.mounted) nav.pop();
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Synchronisation fehlgeschlagen: $e'),
             backgroundColor: Colors.red,
@@ -129,15 +139,15 @@ class SyncConflictHandler {
           ),
         );
       }
-      
+
       return false;
     }
   }
 
   static void _showErrorDialog(BuildContext context, String error) {
-    showDialog(
+    showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Row(
           children: [
             Icon(Icons.error_outline, color: Colors.red),
@@ -164,7 +174,10 @@ class SyncConflictHandler {
                 ),
                 child: Text(
                   error,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -181,7 +194,7 @@ class SyncConflictHandler {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('OK'),
           ),
         ],
@@ -189,8 +202,11 @@ class SyncConflictHandler {
     );
   }
 
-  /// Widget für Sync-Button mit Konfliktbehandlung
-  static Widget buildSyncButton(BuildContext context, SyncService syncService) {
+  /// Widget für Sync-Button mit Konfliktbehandlung.
+  static Widget buildSyncButton(
+    BuildContext context,
+    SyncService syncService,
+  ) {
     return FloatingActionButton.extended(
       onPressed: () => handleSyncWithConflicts(context, syncService),
       icon: const Icon(Icons.sync),
@@ -200,10 +216,10 @@ class SyncConflictHandler {
     );
   }
 
-  /// Widget für Sync-Status Anzeige
+  /// Widget für Sync-Status Anzeige.
   static Widget buildSyncStatus(
-    bool isSyncing, 
-    DateTime? lastSync, 
+    bool isSyncing,
+    DateTime? lastSync,
     int? conflictCount,
   ) {
     if (isSyncing) {
@@ -225,12 +241,17 @@ class SyncConflictHandler {
       );
     }
 
-    Color statusColor = Colors.grey;
-    String statusText = 'Noch nicht synchronisiert';
-    IconData statusIcon = Icons.sync_disabled;
+    final Color statusColor;
+    final String statusText;
+    final IconData statusIcon;
 
-    if (lastSync != null) {
+    if (lastSync == null) {
+      statusColor = Colors.grey;
+      statusText = 'Noch nicht synchronisiert';
+      statusIcon = Icons.sync_disabled;
+    } else {
       final timeDiff = DateTime.now().difference(lastSync);
+
       if (conflictCount != null && conflictCount > 0) {
         statusColor = Colors.orange;
         statusText = '$conflictCount Konflikte';
@@ -268,7 +289,7 @@ class SyncConflictHandler {
   }
 }
 
-/// Mixin für Screens die Sync-Funktionalität benötigen
+/// Mixin für Screens die Sync-Funktionalität benötigen.
 mixin SyncCapable<T extends StatefulWidget> on State<T> {
   bool _isSyncing = false;
   DateTime? _lastSync;
@@ -279,15 +300,17 @@ mixin SyncCapable<T extends StatefulWidget> on State<T> {
   int? get conflictCount => _conflictCount;
 
   Future<void> performSync(SyncService syncService) async {
-    setState(() {
-      _isSyncing = true;
-    });
+    if (_isSyncing) return;
+
+    setState(() => _isSyncing = true);
 
     try {
       final success = await SyncConflictHandler.handleSyncWithConflicts(
         context,
         syncService,
       );
+
+      if (!mounted) return;
 
       if (success) {
         setState(() {
@@ -297,18 +320,17 @@ mixin SyncCapable<T extends StatefulWidget> on State<T> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isSyncing = false;
-        });
+        setState(() => _isSyncing = false);
       }
     }
   }
 
-  Widget buildSyncFab(SyncService syncService) {
-    return SyncConflictHandler.buildSyncButton(context, syncService);
-  }
+  Widget buildSyncFab(SyncService syncService) =>
+      SyncConflictHandler.buildSyncButton(context, syncService);
 
-  Widget buildSyncStatusWidget() {
-    return SyncConflictHandler.buildSyncStatus(_isSyncing, _lastSync, _conflictCount);
-  }
+  Widget buildSyncStatusWidget() => SyncConflictHandler.buildSyncStatus(
+        _isSyncing,
+        _lastSync,
+        _conflictCount,
+      );
 }

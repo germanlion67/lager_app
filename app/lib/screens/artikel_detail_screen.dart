@@ -1,5 +1,6 @@
 // lib/screens/artikel_detail_screen.dart
 
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -41,15 +42,16 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   Uint8List? _bildBytes;
   String? _remoteBildUrl;
 
-  // FIX: Einmalige Instanzerstellung — nicht bei jedem Aufruf neu
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
+
+  // Fix: Lade-Zustand für Remote-Bild — Spinner statt leere Fläche
+  bool _isLoadingRemoteBild = false;
 
   @override
   void initState() {
     super.initState();
 
-    // FIX: Instanzen einmal erstellen
     _db = ArtikelDbService();
     _pbService = PocketBaseService();
 
@@ -70,6 +72,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   }
 
   Future<void> _loadRemoteBildUrl() async {
+    // Fix: Lade-Zustand setzen
+    if (mounted) setState(() => _isLoadingRemoteBild = true);
+
     try {
       final filter = 'uuid = "${widget.artikel.uuid}"';
       final list = await _pbService.client
@@ -87,8 +92,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         }
       }
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[Detail] Bild-URL laden fehlgeschlagen: $e\n$st');
+    } finally {
+      // Fix: Lade-Zustand immer zurücksetzen — auch bei Exception
+      if (mounted) setState(() => _isLoadingRemoteBild = false);
     }
   }
 
@@ -150,15 +157,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Artikel nicht in PocketBase gefunden')),
+                content: Text('Artikel nicht in PocketBase gefunden'),),
           );
         }
         return;
       }
 
       final recordId = list.items.first.id;
-
-      // FIX: Einmaligen Zeitstempel verwenden — kein Drift zwischen den Feldern
       final now = DateTime.now().toUtc();
 
       final body = <String, dynamic>{
@@ -176,7 +181,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           'bild',
           _bildBytes!,
           filename: 'bild_${widget.artikel.uuid}.jpg',
-        ));
+        ),);
       }
 
       await _pbService.client
@@ -199,11 +204,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         _bildBytes = null;
       });
 
-      // FIX: Navigator.pop VOR _loadRemoteBildUrl —
-      // Widget wird verlassen, Bild-URL wird nicht mehr benötigt
       Navigator.pop(context, gespeicherterArtikel);
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[Detail] Speichern (Web) fehlgeschlagen: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -235,7 +237,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Bild konnte nicht gespeichert werden')),
+              content: Text('Bild konnte nicht gespeichert werden'),),
         );
         return;
       }
@@ -251,18 +253,18 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     );
 
     try {
-      // FIX: Gespeicherte _db-Instanz verwenden
       await _db.updateArtikel(artikelMitAenderungen);
 
       if (hasNewImage) {
-        // Bewusst fire-and-forget — Upload läuft im Hintergrund
-        // Fehler werden intern geloggt
-        _uploadImageToPocketBase(
-          uuid: widget.artikel.uuid,
-          localImagePath: localImagePath,
-          bildBytes: _bildBytes,
-        );
-      }
+              // Bewusst fire-and-forget — Upload läuft im Hintergrund
+              unawaited(
+                _uploadImageToPocketBase(
+                  uuid: widget.artikel.uuid,
+                  localImagePath: localImagePath,
+                  bildBytes: _bildBytes,
+                ),
+              );
+            }
 
       if (!mounted) return;
       setState(() {
@@ -276,7 +278,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       Navigator.pop(context, artikelMitAenderungen);
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[Detail] Speichern (Mobile) fehlgeschlagen: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -315,16 +316,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       await _pbService.client.collection('artikel').update(
         recordId,
         files: [
-          http.MultipartFile.fromBytes('bild', bytes, filename: filename)
+          http.MultipartFile.fromBytes('bild', bytes, filename: filename),
         ],
       );
 
-      // FIX: Gespeicherte _db-Instanz verwenden
       await _db.markSynced(uuid, recordId);
-
       debugPrint('[Upload] Bild zu PocketBase hochgeladen: $filename');
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[Upload] PocketBase Bild-Upload fehlgeschlagen: $e\n$st');
     }
   }
@@ -353,8 +351,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     );
 
     if (confirm != true) return;
-
-    // FIX: mounted-Guard nach showDialog (async gap)
     if (!mounted) return;
 
     try {
@@ -369,14 +365,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               .delete(list.items.first.id);
         }
       } else {
-        // FIX: Gespeicherte _db-Instanz verwenden
         await _db.deleteArtikel(widget.artikel);
       }
 
       if (!mounted) return;
       Navigator.pop(context, null);
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[Detail] Löschen fehlgeschlagen: $e\n$st');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -393,7 +387,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('PDF-Export ist im Web noch nicht verfügbar')),
+              content: Text('PDF-Export ist im Web noch nicht verfügbar'),),
         );
       }
       return;
@@ -417,13 +411,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           await pdfService.generateArtikelDetailPdf(aktuellerArtikel);
 
       if (pdfFile != null) {
-        await AppLogService()
-            .log('Artikel-PDF erstellt: ${pdfFile.path}');
+        await AppLogService().log('Artikel-PDF erstellt: ${pdfFile.path}');
         if (!mounted) return;
 
-        // FIX: ScaffoldMessenger vor dem async-Gap im SnackBarAction cachen
         final messenger = ScaffoldMessenger.of(context);
-
         messenger.showSnackBar(
           SnackBar(
             content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
@@ -433,7 +424,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               onPressed: () async {
                 final success = await PdfService.openPdf(pdfFile.path);
                 if (!success) {
-                  // FIX: Gecachter messenger — kein context-Zugriff nach async-Gap
                   messenger.showSnackBar(
                     const SnackBar(
                       content: Text('PDF konnte nicht geöffnet werden'),
@@ -495,10 +485,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       return;
     }
 
-    showDialog(
+    showDialog<void>(
       context: context,
       barrierColor: Colors.black,
-      // FIX: Dialog-eigenen context verwenden — nicht äußeren context
       builder: (dialogCtx) => GestureDetector(
         onTap: () => Navigator.pop(dialogCtx),
         child: Container(
@@ -529,6 +518,20 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
 
     if (kIsWeb) {
+      // Fix: Spinner während Remote-Bild geladen wird
+      if (_isLoadingRemoteBild) {
+        return Container(
+          height: 200,
+          width: double.infinity,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.grey[200],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const CircularProgressIndicator(),
+        );
+      }
+
       if (_remoteBildUrl != null) {
         return GestureDetector(
           onTap: _zeigeBildVollbild,
@@ -539,6 +542,22 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               height: 200,
               width: double.infinity,
               fit: BoxFit.cover,
+              // Fix: loadingBuilder — Fortschrittsanzeige beim Netzwerk-Laden
+              loadingBuilder: (_, child, progress) {
+                if (progress == null) return child;
+                return SizedBox(
+                  height: 200,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      value: progress.expectedTotalBytes != null
+                          ? progress.cumulativeBytesLoaded /
+                              progress.expectedTotalBytes!
+                          : null,
+                    ),
+                  ),
+                );
+              },
               errorBuilder: (_, __, ___) => _buildPlaceholder(),
             ),
           ),
@@ -575,7 +594,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Icon(
-          Icons.image_not_supported, size: 48, color: Colors.grey),
+          Icons.image_not_supported, size: 48, color: Colors.grey,),
     );
   }
 
@@ -591,7 +610,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         if (!mounted) return;
         if (didPop) return;
 
-        // FIX: Navigator vor dem async-Gap cachen
         final nav = Navigator.of(context);
 
         final discard = await showDialog<bool>(
@@ -614,8 +632,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         );
 
         if (discard != true) return;
-
-        // FIX: Gecachter nav — kein context-Zugriff nach async-Gap
         nav.pop();
       },
       child: Scaffold(
@@ -629,7 +645,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.delete),
-              onPressed: _loeschen,
+              // Fix: Löschen während Bearbeitung deaktivieren —
+              // verhindert Datenverlust bei ungespeicherten Änderungen
+              onPressed: _isEditing ? null : _loeschen,
+              tooltip: _isEditing
+                  ? 'Erst speichern oder Bearbeitung abbrechen'
+                  : 'Artikel löschen',
             ),
           ],
         ),

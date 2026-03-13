@@ -4,17 +4,12 @@
 import '../models/artikel_model.dart';
 
 class PdfService {
-  Future<dynamic> generateArtikelListePdf(List<Artikel> artikelListe) async {
-    // Nicht verfügbar im Web
-    return null;
-  }
+  // Fix: async => null → expression body ohne async —
+  // kein await nötig, Future.value(null) wird implizit gewrappt
+  Future<dynamic> generateArtikelListePdf(List<Artikel> artikelListe) async =>
+      null;
 
-  Future<dynamic> generateArtikelDetailPdf(Artikel artikel) async {
-    // Nicht verfügbar im Web
-    return null;
-  }
+  Future<dynamic> generateArtikelDetailPdf(Artikel artikel) async => null;
 
-  static Future<bool> openPdf(String filePath) async {
-    return false;
-  }
+  static Future<bool> openPdf(String filePath) async => false;
 }

@@ -1,0 +1,501 @@
+name,menge,ort,fach,beschreibung,bildPfad,erstelltAm,aktualisiertAm,deleted
+Stecker 001,78,Lager A,A1,Stecker – 78 Packung auf Lager. Artikel-Nr: ART-00001,images/artikel_001.jpg,2025-07-27T10:16:37.299337Z,2025-07-27T17:16:37.299337Z,false
+Sensoren 002,461,Büro,C1,Sensoren – 461 Stück auf Lager. Artikel-Nr: ART-00002,images/artikel_002.jpg,2025-09-30T10:16:37.311963Z,2025-09-30T21:16:37.311963Z,false
+LEDs 003,192,Werkstatt,A1,LEDs – 192 Meter auf Lager. Artikel-Nr: ART-00003,images/artikel_003.jpg,2025-04-25T10:16:37.312794Z,2025-04-27T22:16:37.312794Z,false
+Kondensatoren 004,289,Regal 1,B2,Kondensatoren – 289 Packung auf Lager. Artikel-Nr: ART-00004,images/artikel_004.jpg,2025-03-16T10:16:37.313436Z,2025-03-17T10:16:37.313436Z,false
+Sensoren 005,204,Regal 1,F1,Sensoren – 204 Meter auf Lager. Artikel-Nr: ART-00005,images/artikel_005.jpg,2026-02-17T10:16:37.313938Z,2026-02-19T16:16:37.313938Z,false
+Kabel 006,100,Lager A,B2,Kabel – 100 Stück auf Lager. Artikel-Nr: ART-00006,images/artikel_006.jpg,2025-10-07T10:16:37.314558Z,2025-10-09T08:16:37.314558Z,false
+LEDs 007,465,Keller,C1,LEDs – 465 Rolle auf Lager. Artikel-Nr: ART-00007,images/artikel_007.jpg,2025-07-16T10:16:37.315017Z,2025-07-16T17:16:37.315017Z,false
+LEDs 008,168,Lager B,C1,LEDs – 168 Meter auf Lager. Artikel-Nr: ART-00008,images/artikel_008.jpg,2025-05-12T10:16:37.315414Z,2025-05-14T21:16:37.315414Z,false
+Widerstände 009,216,Lager B,B2,Widerstände – 216 Packung auf Lager. Artikel-Nr: ART-00009,images/artikel_009.jpg,2025-03-23T10:16:37.315804Z,2025-03-26T03:16:37.315804Z,false
+Schalter 010,358,Lager C,F1,Schalter – 358 Meter auf Lager. Artikel-Nr: ART-00010,images/artikel_010.jpg,2025-12-07T10:16:37.316165Z,2025-12-07T12:16:37.316165Z,false
+Schalter 011,226,Lager C,B1,Schalter – 226 Set auf Lager. Artikel-Nr: ART-00011,images/artikel_011.jpg,2025-12-31T10:16:37.316492Z,2026-01-02T06:16:37.316492Z,false
+Relais 012,269,Regal 3,F3,Relais – 269 Rolle auf Lager. Artikel-Nr: ART-00012,images/artikel_012.jpg,2026-03-01T10:16:37.316778Z,2026-03-02T21:16:37.316778Z,false
+Widerstände 013,383,Lager B,F3,Widerstände – 383 Meter auf Lager. Artikel-Nr: ART-00013,images/artikel_013.jpg,2025-06-29T10:16:37.317249Z,2025-06-30T17:16:37.317249Z,false
+Widerstände 014,177,Büro,F2,Widerstände – 177 Stück auf Lager. Artikel-Nr: ART-00014,images/artikel_014.jpg,2025-12-22T10:16:37.317711Z,2025-12-23T23:16:37.317711Z,false
+Schalter 015,174,Regal 1,F5,Schalter – 174 Rolle auf Lager. Artikel-Nr: ART-00015,images/artikel_015.jpg,2025-11-04T10:16:37.318077Z,2025-11-06T10:16:37.318077Z,false
+Widerstände 016,449,Keller,F4,Widerstände – 449 Stück auf Lager. Artikel-Nr: ART-00016,images/artikel_016.jpg,2025-10-08T10:16:37.318414Z,2025-10-09T23:16:37.318414Z,false
+Transistoren 017,294,Regal 2,F5,Transistoren – 294 Rolle auf Lager. Artikel-Nr: ART-00017,images/artikel_017.jpg,2025-06-21T10:16:37.318928Z,2025-06-24T08:16:37.318928Z,false
+Schalter 018,261,Werkstatt,F5,Schalter – 261 Packung auf Lager. Artikel-Nr: ART-00018,images/artikel_018.jpg,2026-02-17T10:16:37.319522Z,2026-02-19T23:16:37.319522Z,false
+Netzteile 019,48,Büro,B2,Netzteile – 48 Meter auf Lager. Artikel-Nr: ART-00019,images/artikel_019.jpg,2025-09-03T10:16:37.320028Z,2025-09-04T07:16:37.320028Z,false
+Sensoren 020,129,Regal 3,F5,Sensoren – 129 Stück auf Lager. Artikel-Nr: ART-00020,images/artikel_020.jpg,2025-04-22T10:16:37.320516Z,2025-04-23T18:16:37.320516Z,false
+Netzteile 021,313,Keller,C1,Netzteile – 313 Stück auf Lager. Artikel-Nr: ART-00021,images/artikel_021.jpg,2025-05-25T10:16:37.321065Z,2025-05-26T04:16:37.321065Z,false
+Kondensatoren 022,288,Lager C,F1,Kondensatoren – 288 Set auf Lager. Artikel-Nr: ART-00022,images/artikel_022.jpg,2025-07-20T10:16:37.321565Z,2025-07-23T09:16:37.321565Z,false
+Kabel 023,114,Regal 2,A2,Kabel – 114 Set auf Lager. Artikel-Nr: ART-00023,images/artikel_023.jpg,2025-05-20T10:16:37.322017Z,2025-05-22T17:16:37.322017Z,false
+Schalter 024,284,Werkstatt,C1,Schalter – 284 Meter auf Lager. Artikel-Nr: ART-00024,images/artikel_024.jpg,2026-03-05T10:16:37.322530Z,2026-03-06T16:16:37.322530Z,false
+Dioden 025,38,Lager B,F3,Dioden – 38 Rolle auf Lager. Artikel-Nr: ART-00025,images/artikel_025.jpg,2025-10-12T10:16:37.323046Z,2025-10-13T06:16:37.323046Z,false
+Kondensatoren 026,14,Büro,F5,Kondensatoren – 14 Set auf Lager. Artikel-Nr: ART-00026,images/artikel_026.jpg,2026-02-15T10:16:37.323648Z,2026-02-15T15:16:37.323648Z,false
+Transistoren 027,125,Regal 2,B2,Transistoren – 125 Rolle auf Lager. Artikel-Nr: ART-00027,images/artikel_027.jpg,2026-03-11T10:16:37.324129Z,2026-03-11T15:16:37.324129Z,false
+Sensoren 028,117,Lager B,A1,Sensoren – 117 Set auf Lager. Artikel-Nr: ART-00028,images/artikel_028.jpg,2025-11-13T10:16:37.324593Z,2025-11-15T21:16:37.324593Z,false
+Relais 029,87,Regal 3,C1,Relais – 87 Packung auf Lager. Artikel-Nr: ART-00029,images/artikel_029.jpg,2026-02-01T10:16:37.324978Z,2026-02-01T21:16:37.324978Z,false
+Kondensatoren 030,151,Keller,A2,Kondensatoren – 151 Packung auf Lager. Artikel-Nr: ART-00030,images/artikel_030.jpg,2025-05-14T10:16:37.325442Z,2025-05-14T15:16:37.325442Z,false
+Relais 031,434,Lager A,F4,Relais – 434 Rolle auf Lager. Artikel-Nr: ART-00031,images/artikel_031.jpg,2025-09-13T10:16:37.325932Z,2025-09-16T09:16:37.325932Z,false
+Motoren 032,95,Lager C,A2,Motoren – 95 Rolle auf Lager. Artikel-Nr: ART-00032,images/artikel_032.jpg,2025-04-20T10:16:37.326427Z,2025-04-20T11:16:37.326427Z,false
+Relais 033,10,Regal 2,F5,Relais – 10 Stück auf Lager. Artikel-Nr: ART-00033,images/artikel_033.jpg,2025-07-07T10:16:37.326909Z,2025-07-08T01:16:37.326909Z,false
+ICs 034,243,Lager A,C1,ICs – 243 Rolle auf Lager. Artikel-Nr: ART-00034,images/artikel_034.jpg,2025-05-30T10:16:37.327312Z,2025-05-30T19:16:37.327312Z,false
+Schalter 035,402,Lager B,F3,Schalter – 402 Set auf Lager. Artikel-Nr: ART-00035,images/artikel_035.jpg,2025-10-07T10:16:37.327666Z,2025-10-09T06:16:37.327666Z,false
+ICs 036,114,Lager A,C1,ICs – 114 Meter auf Lager. Artikel-Nr: ART-00036,images/artikel_036.jpg,2025-10-26T10:16:37.328045Z,2025-10-28T04:16:37.328045Z,false
+Dioden 037,162,Regal 2,F2,Dioden – 162 Rolle auf Lager. Artikel-Nr: ART-00037,images/artikel_037.jpg,2025-11-17T10:16:37.328352Z,2025-11-19T05:16:37.328352Z,false
+ICs 038,418,Lager A,B2,ICs – 418 Stück auf Lager. Artikel-Nr: ART-00038,images/artikel_038.jpg,2025-05-10T10:16:37.328779Z,2025-05-12T18:16:37.328779Z,false
+ICs 039,89,Keller,C1,ICs – 89 Meter auf Lager. Artikel-Nr: ART-00039,images/artikel_039.jpg,2025-09-19T10:16:37.329175Z,2025-09-20T02:16:37.329175Z,false
+LEDs 040,71,Regal 1,C1,LEDs – 71 Set auf Lager. Artikel-Nr: ART-00040,images/artikel_040.jpg,2025-03-26T10:16:37.329551Z,2025-03-27T01:16:37.329551Z,false
+Netzteile 041,37,Lager C,C1,Netzteile – 37 Rolle auf Lager. Artikel-Nr: ART-00041,images/artikel_041.jpg,2025-10-18T10:16:37.329941Z,2025-10-19T11:16:37.329941Z,false
+LEDs 042,285,Regal 3,F4,LEDs – 285 Rolle auf Lager. Artikel-Nr: ART-00042,images/artikel_042.jpg,2025-04-24T10:16:37.330246Z,2025-04-25T23:16:37.330246Z,false
+Schalter 043,352,Lager A,A2,Schalter – 352 Packung auf Lager. Artikel-Nr: ART-00043,images/artikel_043.jpg,2025-12-29T10:16:37.330532Z,2025-12-29T18:16:37.330532Z,false
+Kabel 044,7,Büro,F5,Kabel – 7 Stück auf Lager. Artikel-Nr: ART-00044,images/artikel_044.jpg,2025-09-27T10:16:37.330943Z,2025-09-29T09:16:37.330943Z,false
+LEDs 045,69,Regal 2,F4,LEDs – 69 Stück auf Lager. Artikel-Nr: ART-00045,images/artikel_045.jpg,2025-05-23T10:16:37.331247Z,2025-05-23T19:16:37.331247Z,false
+Dioden 046,280,Lager B,B2,Dioden – 280 Stück auf Lager. Artikel-Nr: ART-00046,images/artikel_046.jpg,2025-09-12T10:16:37.331568Z,2025-09-12T13:16:37.331568Z,false
+Sensoren 047,4,Lager A,F1,Sensoren – 4 Packung auf Lager. Artikel-Nr: ART-00047,images/artikel_047.jpg,2025-06-28T10:16:37.331964Z,2025-06-29T06:16:37.331964Z,false
+Dioden 048,184,Keller,B2,Dioden – 184 Stück auf Lager. Artikel-Nr: ART-00048,images/artikel_048.jpg,2026-02-20T10:16:37.332268Z,2026-02-20T23:16:37.332268Z,false
+LEDs 049,424,Lager C,F3,LEDs – 424 Set auf Lager. Artikel-Nr: ART-00049,images/artikel_049.jpg,2026-02-05T10:16:37.332556Z,2026-02-07T23:16:37.332556Z,false
+Kondensatoren 050,63,Regal 1,C1,Kondensatoren – 63 Meter auf Lager. Artikel-Nr: ART-00050,images/artikel_050.jpg,2025-11-26T10:16:37.332858Z,2025-11-27T23:16:37.332858Z,false
+Kabel 051,130,Büro,C1,Kabel – 130 Rolle auf Lager. Artikel-Nr: ART-00051,images/artikel_051.jpg,2025-07-10T10:16:37.333179Z,2025-07-12T07:16:37.333179Z,false
+Kondensatoren 052,441,Regal 2,F2,Kondensatoren – 441 Meter auf Lager. Artikel-Nr: ART-00052,images/artikel_052.jpg,2025-06-30T10:16:37.333533Z,2025-07-01T03:16:37.333533Z,false
+Schalter 053,153,Regal 1,F4,Schalter – 153 Set auf Lager. Artikel-Nr: ART-00053,images/artikel_053.jpg,2025-08-27T10:16:37.333919Z,2025-08-28T10:16:37.333919Z,false
+Transistoren 054,117,Lager B,F4,Transistoren – 117 Packung auf Lager. Artikel-Nr: ART-00054,images/artikel_054.jpg,2025-03-31T10:16:37.334348Z,2025-04-01T02:16:37.334348Z,false
+Widerstände 055,473,Lager C,B1,Widerstände – 473 Set auf Lager. Artikel-Nr: ART-00055,images/artikel_055.jpg,2025-06-30T10:16:37.334866Z,2025-06-30T19:16:37.334866Z,false
+ICs 056,40,Regal 1,F1,ICs – 40 Meter auf Lager. Artikel-Nr: ART-00056,images/artikel_056.jpg,2026-01-01T10:16:37.335275Z,2026-01-02T23:16:37.335275Z,false
+Sensoren 057,114,Lager C,A2,Sensoren – 114 Set auf Lager. Artikel-Nr: ART-00057,images/artikel_057.jpg,2025-08-04T10:16:37.335655Z,2025-08-04T20:16:37.335655Z,false
+Relais 058,183,Keller,B1,Relais – 183 Stück auf Lager. Artikel-Nr: ART-00058,images/artikel_058.jpg,2025-10-09T10:16:37.336145Z,2025-10-11T22:16:37.336145Z,false
+Kabel 059,277,Regal 1,F5,Kabel – 277 Stück auf Lager. Artikel-Nr: ART-00059,images/artikel_059.jpg,2025-04-17T10:16:37.336571Z,2025-04-18T04:16:37.336571Z,false
+Motoren 060,340,Keller,A1,Motoren – 340 Stück auf Lager. Artikel-Nr: ART-00060,images/artikel_060.jpg,2025-10-01T10:16:37.337025Z,2025-10-03T17:16:37.337025Z,false
+LEDs 061,100,Regal 3,F5,LEDs – 100 Packung auf Lager. Artikel-Nr: ART-00061,images/artikel_061.jpg,2025-07-20T10:16:37.337455Z,2025-07-22T17:16:37.337455Z,false
+Widerstände 062,215,Lager C,A2,Widerstände – 215 Meter auf Lager. Artikel-Nr: ART-00062,images/artikel_062.jpg,2025-10-13T10:16:37.337934Z,2025-10-16T05:16:37.337934Z,false
+ICs 063,156,Büro,F3,ICs – 156 Stück auf Lager. Artikel-Nr: ART-00063,images/artikel_063.jpg,2025-08-22T10:16:37.338381Z,2025-08-24T00:16:37.338381Z,false
+Widerstände 064,84,Büro,B2,Widerstände – 84 Set auf Lager. Artikel-Nr: ART-00064,images/artikel_064.jpg,2025-04-16T10:16:37.338813Z,2025-04-18T02:16:37.338813Z,false
+Transistoren 065,3,Regal 3,C1,Transistoren – 3 Stück auf Lager. Artikel-Nr: ART-00065,images/artikel_065.jpg,2026-02-27T10:16:37.339291Z,2026-02-28T11:16:37.339291Z,false
+Schalter 066,112,Regal 2,B2,Schalter – 112 Rolle auf Lager. Artikel-Nr: ART-00066,images/artikel_066.jpg,2025-03-27T10:16:37.339692Z,2025-03-29T03:16:37.339692Z,false
+Relais 067,262,Lager C,A2,Relais – 262 Set auf Lager. Artikel-Nr: ART-00067,images/artikel_067.jpg,2025-06-04T10:16:37.340088Z,2025-06-06T00:16:37.340088Z,false
+Transistoren 068,453,Büro,A1,Transistoren – 453 Set auf Lager. Artikel-Nr: ART-00068,images/artikel_068.jpg,2025-04-15T10:16:37.340467Z,2025-04-16T09:16:37.340467Z,false
+Sensoren 069,222,Regal 1,B1,Sensoren – 222 Set auf Lager. Artikel-Nr: ART-00069,images/artikel_069.jpg,2026-02-27T10:16:37.340910Z,2026-03-01T23:16:37.340910Z,false
+Motoren 070,318,Büro,F5,Motoren – 318 Stück auf Lager. Artikel-Nr: ART-00070,images/artikel_070.jpg,2026-02-22T10:16:37.341358Z,2026-02-22T11:16:37.341358Z,false
+LEDs 071,357,Keller,F2,LEDs – 357 Stück auf Lager. Artikel-Nr: ART-00071,images/artikel_071.jpg,2026-01-10T10:16:37.341757Z,2026-01-10T23:16:37.341757Z,false
+Stecker 072,27,Büro,C1,Stecker – 27 Meter auf Lager. Artikel-Nr: ART-00072,images/artikel_072.jpg,2025-11-10T10:16:37.342135Z,2025-11-11T12:16:37.342135Z,false
+Schalter 073,40,Regal 1,B1,Schalter – 40 Meter auf Lager. Artikel-Nr: ART-00073,images/artikel_073.jpg,2025-04-23T10:16:37.342522Z,2025-04-23T21:16:37.342522Z,false
+Netzteile 074,381,Büro,F4,Netzteile – 381 Stück auf Lager. Artikel-Nr: ART-00074,images/artikel_074.jpg,2025-08-24T10:16:37.342967Z,2025-08-26T15:16:37.342967Z,false
+Kondensatoren 075,402,Werkstatt,F2,Kondensatoren – 402 Rolle auf Lager. Artikel-Nr: ART-00075,images/artikel_075.jpg,2025-09-09T10:16:37.343431Z,2025-09-11T01:16:37.343431Z,false
+Kabel 076,292,Regal 1,F4,Kabel – 292 Packung auf Lager. Artikel-Nr: ART-00076,images/artikel_076.jpg,2025-11-15T10:16:37.343855Z,2025-11-16T21:16:37.343855Z,false
+LEDs 077,457,Keller,F2,LEDs – 457 Set auf Lager. Artikel-Nr: ART-00077,images/artikel_077.jpg,2025-04-20T10:16:37.344221Z,2025-04-20T14:16:37.344221Z,false
+Schalter 078,36,Lager C,F3,Schalter – 36 Stück auf Lager. Artikel-Nr: ART-00078,images/artikel_078.jpg,2025-04-30T10:16:37.344585Z,2025-05-01T03:16:37.344585Z,false
+Stecker 079,33,Regal 3,F4,Stecker – 33 Stück auf Lager. Artikel-Nr: ART-00079,images/artikel_079.jpg,2025-10-21T10:16:37.345010Z,2025-10-24T03:16:37.345010Z,false
+ICs 080,470,Keller,F5,ICs – 470 Stück auf Lager. Artikel-Nr: ART-00080,images/artikel_080.jpg,2026-02-28T10:16:37.345477Z,2026-03-01T06:16:37.345477Z,false
+LEDs 081,269,Keller,F5,LEDs – 269 Rolle auf Lager. Artikel-Nr: ART-00081,images/artikel_081.jpg,2025-07-12T10:16:37.345871Z,2025-07-13T18:16:37.345871Z,false
+Relais 082,295,Regal 1,B2,Relais – 295 Set auf Lager. Artikel-Nr: ART-00082,images/artikel_082.jpg,2025-11-06T10:16:37.346223Z,2025-11-07T00:16:37.346223Z,false
+Schalter 083,66,Regal 1,B2,Schalter – 66 Packung auf Lager. Artikel-Nr: ART-00083,images/artikel_083.jpg,2026-01-14T10:16:37.346570Z,2026-01-15T19:16:37.346570Z,false
+Kabel 084,265,Lager C,F5,Kabel – 265 Set auf Lager. Artikel-Nr: ART-00084,images/artikel_084.jpg,2025-07-17T10:16:37.346966Z,2025-07-20T07:16:37.346966Z,false
+Stecker 085,341,Lager A,F4,Stecker – 341 Stück auf Lager. Artikel-Nr: ART-00085,images/artikel_085.jpg,2026-01-12T10:16:37.347438Z,2026-01-14T08:16:37.347438Z,false
+Schalter 086,460,Lager A,A2,Schalter – 460 Rolle auf Lager. Artikel-Nr: ART-00086,images/artikel_086.jpg,2025-09-15T10:16:37.347797Z,2025-09-17T05:16:37.347797Z,false
+Transistoren 087,425,Werkstatt,B1,Transistoren – 425 Rolle auf Lager. Artikel-Nr: ART-00087,images/artikel_087.jpg,2025-04-20T10:16:37.348146Z,2025-04-22T07:16:37.348146Z,false
+Sensoren 088,79,Lager A,A1,Sensoren – 79 Set auf Lager. Artikel-Nr: ART-00088,images/artikel_088.jpg,2025-12-12T10:16:37.348559Z,2025-12-12T11:16:37.348559Z,false
+LEDs 089,199,Regal 1,F5,LEDs – 199 Stück auf Lager. Artikel-Nr: ART-00089,images/artikel_089.jpg,2026-01-27T10:16:37.348885Z,2026-01-28T14:16:37.348885Z,false
+Sensoren 090,172,Keller,F4,Sensoren – 172 Packung auf Lager. Artikel-Nr: ART-00090,images/artikel_090.jpg,2025-11-15T10:16:37.349350Z,2025-11-15T21:16:37.349350Z,false
+Dioden 091,238,Regal 3,B1,Dioden – 238 Stück auf Lager. Artikel-Nr: ART-00091,images/artikel_091.jpg,2025-04-25T10:16:37.349693Z,2025-04-27T22:16:37.349693Z,false
+Transistoren 092,84,Lager A,A2,Transistoren – 84 Rolle auf Lager. Artikel-Nr: ART-00092,images/artikel_092.jpg,2025-04-04T10:16:37.350079Z,2025-04-06T01:16:37.350079Z,false
+ICs 093,29,Lager C,C1,ICs – 29 Meter auf Lager. Artikel-Nr: ART-00093,images/artikel_093.jpg,2025-06-26T10:16:37.350517Z,2025-06-29T06:16:37.350517Z,false
+Transistoren 094,161,Regal 2,F5,Transistoren – 161 Meter auf Lager. Artikel-Nr: ART-00094,images/artikel_094.jpg,2025-09-04T10:16:37.350936Z,2025-09-05T12:16:37.350936Z,false
+Widerstände 095,55,Regal 2,B2,Widerstände – 55 Stück auf Lager. Artikel-Nr: ART-00095,images/artikel_095.jpg,2025-04-30T10:16:37.351373Z,2025-05-02T04:16:37.351373Z,false
+Widerstände 096,230,Lager B,F4,Widerstände – 230 Set auf Lager. Artikel-Nr: ART-00096,images/artikel_096.jpg,2025-03-22T10:16:37.351882Z,2025-03-25T09:16:37.351882Z,false
+Dioden 097,278,Regal 1,F4,Dioden – 278 Stück auf Lager. Artikel-Nr: ART-00097,images/artikel_097.jpg,2025-05-03T10:16:37.352353Z,2025-05-03T13:16:37.352353Z,false
+Netzteile 098,54,Keller,F4,Netzteile – 54 Set auf Lager. Artikel-Nr: ART-00098,images/artikel_098.jpg,2025-07-25T10:16:37.352795Z,2025-07-28T08:16:37.352795Z,false
+Schalter 099,113,Regal 3,F3,Schalter – 113 Stück auf Lager. Artikel-Nr: ART-00099,images/artikel_099.jpg,2026-02-27T10:16:37.353238Z,2026-02-27T17:16:37.353238Z,false
+Widerstände 100,28,Regal 3,B2,Widerstände – 28 Packung auf Lager. Artikel-Nr: ART-00100,images/artikel_100.jpg,2025-06-10T10:16:37.353761Z,2025-06-12T06:16:37.353761Z,false
+Schalter 101,454,Lager A,B2,Schalter – 454 Meter auf Lager. Artikel-Nr: ART-00101,images/artikel_101.jpg,2026-01-14T10:16:37.354123Z,2026-01-17T05:16:37.354123Z,false
+Kondensatoren 102,312,Büro,C1,Kondensatoren – 312 Meter auf Lager. Artikel-Nr: ART-00102,images/artikel_102.jpg,2025-09-19T10:16:37.354560Z,2025-09-19T18:16:37.354560Z,false
+ICs 103,231,Lager C,A1,ICs – 231 Set auf Lager. Artikel-Nr: ART-00103,images/artikel_103.jpg,2026-01-04T10:16:37.354969Z,2026-01-05T11:16:37.354969Z,false
+Schalter 104,279,Büro,F1,Schalter – 279 Set auf Lager. Artikel-Nr: ART-00104,images/artikel_104.jpg,2025-11-24T10:16:37.355328Z,2025-11-25T13:16:37.355328Z,false
+Relais 105,126,Werkstatt,C1,Relais – 126 Packung auf Lager. Artikel-Nr: ART-00105,images/artikel_105.jpg,2025-12-25T10:16:37.355759Z,2025-12-25T14:16:37.355759Z,false
+Kondensatoren 106,349,Lager B,A2,Kondensatoren – 349 Stück auf Lager. Artikel-Nr: ART-00106,images/artikel_106.jpg,2025-06-28T10:16:37.356255Z,2025-06-29T16:16:37.356255Z,false
+Stecker 107,216,Regal 1,B2,Stecker – 216 Meter auf Lager. Artikel-Nr: ART-00107,images/artikel_107.jpg,2025-07-31T10:16:37.356645Z,2025-08-03T05:16:37.356645Z,false
+Relais 108,175,Regal 1,C1,Relais – 175 Stück auf Lager. Artikel-Nr: ART-00108,images/artikel_108.jpg,2026-01-13T10:16:37.357129Z,2026-01-13T18:16:37.357129Z,false
+Widerstände 109,82,Keller,A1,Widerstände – 82 Stück auf Lager. Artikel-Nr: ART-00109,images/artikel_109.jpg,2026-01-28T10:16:37.357490Z,2026-01-29T18:16:37.357490Z,false
+Schalter 110,394,Regal 3,A1,Schalter – 394 Stück auf Lager. Artikel-Nr: ART-00110,images/artikel_110.jpg,2025-12-01T10:16:37.357843Z,2025-12-02T17:16:37.357843Z,false
+Kabel 111,139,Regal 1,B2,Kabel – 139 Packung auf Lager. Artikel-Nr: ART-00111,images/artikel_111.jpg,2025-10-17T10:16:37.358220Z,2025-10-17T15:16:37.358220Z,false
+Kondensatoren 112,428,Regal 3,F4,Kondensatoren – 428 Stück auf Lager. Artikel-Nr: ART-00112,images/artikel_112.jpg,2025-10-30T10:16:37.358631Z,2025-10-31T06:16:37.358631Z,false
+Sensoren 113,110,Regal 1,B1,Sensoren – 110 Packung auf Lager. Artikel-Nr: ART-00113,images/artikel_113.jpg,2026-02-06T10:16:37.359056Z,2026-02-08T23:16:37.359056Z,false
+Motoren 114,86,Büro,F1,Motoren – 86 Rolle auf Lager. Artikel-Nr: ART-00114,images/artikel_114.jpg,2025-09-02T10:16:37.359441Z,2025-09-03T17:16:37.359441Z,false
+Transistoren 115,298,Werkstatt,F5,Transistoren – 298 Rolle auf Lager. Artikel-Nr: ART-00115,images/artikel_115.jpg,2025-08-13T10:16:37.359829Z,2025-08-13T20:16:37.359829Z,false
+ICs 116,93,Werkstatt,F5,ICs – 93 Packung auf Lager. Artikel-Nr: ART-00116,images/artikel_116.jpg,2025-05-15T10:16:37.360188Z,2025-05-16T04:16:37.360188Z,false
+Dioden 117,111,Keller,B1,Dioden – 111 Rolle auf Lager. Artikel-Nr: ART-00117,images/artikel_117.jpg,2025-08-28T10:16:37.360473Z,2025-08-28T14:16:37.360473Z,false
+ICs 118,142,Werkstatt,C1,ICs – 142 Packung auf Lager. Artikel-Nr: ART-00118,images/artikel_118.jpg,2025-11-20T10:16:37.360848Z,2025-11-22T09:16:37.360848Z,false
+Stecker 119,138,Lager B,B2,Stecker – 138 Rolle auf Lager. Artikel-Nr: ART-00119,images/artikel_119.jpg,2026-01-02T10:16:37.361292Z,2026-01-05T03:16:37.361292Z,false
+Kabel 120,69,Lager B,F2,Kabel – 69 Meter auf Lager. Artikel-Nr: ART-00120,images/artikel_120.jpg,2026-03-05T10:16:37.361716Z,2026-03-06T07:16:37.361716Z,false
+Dioden 121,239,Lager A,A1,Dioden – 239 Rolle auf Lager. Artikel-Nr: ART-00121,images/artikel_121.jpg,2025-12-11T10:16:37.362088Z,2025-12-12T06:16:37.362088Z,false
+Schalter 122,122,Lager C,F5,Schalter – 122 Packung auf Lager. Artikel-Nr: ART-00122,images/artikel_122.jpg,2026-02-18T10:16:37.362435Z,2026-02-20T12:16:37.362435Z,false
+Kabel 123,86,Werkstatt,F3,Kabel – 86 Set auf Lager. Artikel-Nr: ART-00123,images/artikel_123.jpg,2025-08-27T10:16:37.362819Z,2025-08-29T06:16:37.362819Z,false
+Kabel 124,490,Werkstatt,F3,Kabel – 490 Stück auf Lager. Artikel-Nr: ART-00124,images/artikel_124.jpg,2026-02-22T10:16:37.363245Z,2026-02-24T23:16:37.363245Z,false
+Relais 125,116,Büro,B2,Relais – 116 Rolle auf Lager. Artikel-Nr: ART-00125,images/artikel_125.jpg,2025-10-26T10:16:37.363724Z,2025-10-26T19:16:37.363724Z,false
+Transistoren 126,254,Büro,C1,Transistoren – 254 Packung auf Lager. Artikel-Nr: ART-00126,images/artikel_126.jpg,2025-10-31T10:16:37.364458Z,2025-11-02T11:16:37.364458Z,false
+LEDs 127,279,Lager B,A2,LEDs – 279 Packung auf Lager. Artikel-Nr: ART-00127,images/artikel_127.jpg,2025-05-13T10:16:37.365022Z,2025-05-14T00:16:37.365022Z,false
+LEDs 128,352,Büro,F5,LEDs – 352 Set auf Lager. Artikel-Nr: ART-00128,images/artikel_128.jpg,2025-04-06T10:16:37.365522Z,2025-04-08T10:16:37.365522Z,false
+ICs 129,429,Regal 2,F3,ICs – 429 Set auf Lager. Artikel-Nr: ART-00129,images/artikel_129.jpg,2026-01-24T10:16:37.365991Z,2026-01-26T10:16:37.365991Z,false
+Stecker 130,25,Büro,A2,Stecker – 25 Rolle auf Lager. Artikel-Nr: ART-00130,images/artikel_130.jpg,2026-02-12T10:16:37.366380Z,2026-02-14T07:16:37.366380Z,false
+Transistoren 131,487,Werkstatt,F3,Transistoren – 487 Packung auf Lager. Artikel-Nr: ART-00131,images/artikel_131.jpg,2025-11-05T10:16:37.366807Z,2025-11-07T08:16:37.366807Z,false
+Netzteile 132,143,Lager A,F1,Netzteile – 143 Stück auf Lager. Artikel-Nr: ART-00132,images/artikel_132.jpg,2025-07-29T10:16:37.367715Z,2025-07-30T17:16:37.367715Z,false
+Motoren 133,153,Keller,F1,Motoren – 153 Packung auf Lager. Artikel-Nr: ART-00133,images/artikel_133.jpg,2025-12-12T10:16:37.368049Z,2025-12-13T04:16:37.368049Z,false
+Motoren 134,258,Regal 1,C1,Motoren – 258 Stück auf Lager. Artikel-Nr: ART-00134,images/artikel_134.jpg,2025-05-02T10:16:37.368407Z,2025-05-04T19:16:37.368407Z,false
+Dioden 135,108,Lager B,F1,Dioden – 108 Meter auf Lager. Artikel-Nr: ART-00135,images/artikel_135.jpg,2025-07-12T10:16:37.368810Z,2025-07-14T02:16:37.368810Z,false
+Relais 136,93,Regal 2,A1,Relais – 93 Meter auf Lager. Artikel-Nr: ART-00136,images/artikel_136.jpg,2025-05-19T10:16:37.369238Z,2025-05-20T14:16:37.369238Z,false
+Motoren 137,388,Büro,B2,Motoren – 388 Rolle auf Lager. Artikel-Nr: ART-00137,images/artikel_137.jpg,2025-12-04T10:16:37.369602Z,2025-12-04T22:16:37.369602Z,false
+LEDs 138,496,Regal 1,F1,LEDs – 496 Stück auf Lager. Artikel-Nr: ART-00138,images/artikel_138.jpg,2025-04-18T10:16:37.369968Z,2025-04-19T16:16:37.369968Z,false
+Kabel 139,411,Büro,F1,Kabel – 411 Rolle auf Lager. Artikel-Nr: ART-00139,images/artikel_139.jpg,2025-11-02T10:16:37.370301Z,2025-11-03T13:16:37.370301Z,false
+ICs 140,384,Lager A,A1,ICs – 384 Meter auf Lager. Artikel-Nr: ART-00140,images/artikel_140.jpg,2025-05-24T10:16:37.370672Z,2025-05-24T17:16:37.370672Z,false
+Transistoren 141,169,Werkstatt,A2,Transistoren – 169 Stück auf Lager. Artikel-Nr: ART-00141,images/artikel_141.jpg,2025-05-24T10:16:37.371016Z,2025-05-26T15:16:37.371016Z,false
+Dioden 142,229,Regal 1,F4,Dioden – 229 Packung auf Lager. Artikel-Nr: ART-00142,images/artikel_142.jpg,2025-11-19T10:16:37.371384Z,2025-11-21T02:16:37.371384Z,false
+Kondensatoren 143,409,Lager C,A1,Kondensatoren – 409 Meter auf Lager. Artikel-Nr: ART-00143,images/artikel_143.jpg,2025-08-21T10:16:37.371727Z,2025-08-23T03:16:37.371727Z,false
+Kabel 144,405,Lager C,C1,Kabel – 405 Stück auf Lager. Artikel-Nr: ART-00144,images/artikel_144.jpg,2026-01-27T10:16:37.372106Z,2026-01-29T01:16:37.372106Z,false
+Schalter 145,164,Lager B,F5,Schalter – 164 Rolle auf Lager. Artikel-Nr: ART-00145,images/artikel_145.jpg,2025-07-27T10:16:37.372427Z,2025-07-29T22:16:37.372427Z,false
+Widerstände 146,367,Regal 1,A2,Widerstände – 367 Stück auf Lager. Artikel-Nr: ART-00146,images/artikel_146.jpg,2026-01-28T10:16:37.372853Z,2026-01-29T15:16:37.372853Z,false
+LEDs 147,387,Regal 2,A2,LEDs – 387 Set auf Lager. Artikel-Nr: ART-00147,images/artikel_147.jpg,2025-04-25T10:16:37.373362Z,2025-04-28T08:16:37.373362Z,false
+Kabel 148,440,Regal 2,F2,Kabel – 440 Meter auf Lager. Artikel-Nr: ART-00148,images/artikel_148.jpg,2025-11-01T10:16:37.373749Z,2025-11-02T03:16:37.373749Z,false
+Schalter 149,225,Lager C,F5,Schalter – 225 Set auf Lager. Artikel-Nr: ART-00149,images/artikel_149.jpg,2025-12-21T10:16:37.374139Z,2025-12-22T21:16:37.374139Z,false
+Sensoren 150,342,Werkstatt,A1,Sensoren – 342 Stück auf Lager. Artikel-Nr: ART-00150,images/artikel_150.jpg,2025-03-28T10:16:37.374551Z,2025-03-29T17:16:37.374551Z,false
+ICs 151,277,Regal 3,B2,ICs – 277 Meter auf Lager. Artikel-Nr: ART-00151,images/artikel_151.jpg,2025-10-03T10:16:37.375022Z,2025-10-05T17:16:37.375022Z,false
+Transistoren 152,175,Werkstatt,A1,Transistoren – 175 Rolle auf Lager. Artikel-Nr: ART-00152,images/artikel_152.jpg,2025-04-14T10:16:37.375429Z,2025-04-14T16:16:37.375429Z,false
+ICs 153,499,Werkstatt,A2,ICs – 499 Stück auf Lager. Artikel-Nr: ART-00153,images/artikel_153.jpg,2025-09-06T10:16:37.375872Z,2025-09-08T22:16:37.375872Z,false
+Motoren 154,52,Lager A,F3,Motoren – 52 Rolle auf Lager. Artikel-Nr: ART-00154,images/artikel_154.jpg,2026-01-25T10:16:37.376318Z,2026-01-25T20:16:37.376318Z,false
+Relais 155,181,Regal 2,A1,Relais – 181 Rolle auf Lager. Artikel-Nr: ART-00155,images/artikel_155.jpg,2025-06-30T10:16:37.376725Z,2025-07-01T19:16:37.376725Z,false
+Kabel 156,281,Keller,A1,Kabel – 281 Meter auf Lager. Artikel-Nr: ART-00156,images/artikel_156.jpg,2025-03-25T10:16:37.377128Z,2025-03-26T23:16:37.377128Z,false
+Stecker 157,89,Regal 3,F5,Stecker – 89 Set auf Lager. Artikel-Nr: ART-00157,images/artikel_157.jpg,2025-11-25T10:16:37.377620Z,2025-11-26T11:16:37.377620Z,false
+Stecker 158,206,Büro,F2,Stecker – 206 Packung auf Lager. Artikel-Nr: ART-00158,images/artikel_158.jpg,2025-10-11T10:16:37.378022Z,2025-10-12T20:16:37.378022Z,false
+Kabel 159,21,Lager C,A2,Kabel – 21 Rolle auf Lager. Artikel-Nr: ART-00159,images/artikel_159.jpg,2025-08-28T10:16:37.378399Z,2025-08-28T11:16:37.378399Z,false
+LEDs 160,17,Büro,F1,LEDs – 17 Stück auf Lager. Artikel-Nr: ART-00160,images/artikel_160.jpg,2025-09-03T10:16:37.378777Z,2025-09-04T00:16:37.378777Z,false
+Widerstände 161,28,Lager A,F5,Widerstände – 28 Stück auf Lager. Artikel-Nr: ART-00161,images/artikel_161.jpg,2026-03-10T10:16:37.379147Z,2026-03-11T13:16:37.379147Z,false
+Widerstände 162,436,Lager C,C1,Widerstände – 436 Meter auf Lager. Artikel-Nr: ART-00162,images/artikel_162.jpg,2025-04-11T10:16:37.379514Z,2025-04-14T09:16:37.379514Z,false
+Kabel 163,360,Lager B,C1,Kabel – 360 Meter auf Lager. Artikel-Nr: ART-00163,images/artikel_163.jpg,2025-12-19T10:16:37.379905Z,2025-12-20T05:16:37.379905Z,false
+Sensoren 164,493,Keller,C1,Sensoren – 493 Set auf Lager. Artikel-Nr: ART-00164,images/artikel_164.jpg,2025-11-01T10:16:37.380282Z,2025-11-02T22:16:37.380282Z,false
+Widerstände 165,217,Keller,B1,Widerstände – 217 Stück auf Lager. Artikel-Nr: ART-00165,images/artikel_165.jpg,2025-11-26T10:16:37.380695Z,2025-11-27T02:16:37.380695Z,false
+Transistoren 166,63,Lager A,C1,Transistoren – 63 Packung auf Lager. Artikel-Nr: ART-00166,images/artikel_166.jpg,2025-06-04T10:16:37.381047Z,2025-06-04T19:16:37.381047Z,false
+Sensoren 167,480,Büro,B2,Sensoren – 480 Rolle auf Lager. Artikel-Nr: ART-00167,images/artikel_167.jpg,2025-11-16T10:16:37.381335Z,2025-11-19T07:16:37.381335Z,false
+Kondensatoren 168,435,Werkstatt,F5,Kondensatoren – 435 Rolle auf Lager. Artikel-Nr: ART-00168,images/artikel_168.jpg,2025-05-28T10:16:37.381666Z,2025-05-28T12:16:37.381666Z,false
+Widerstände 169,379,Regal 2,C1,Widerstände – 379 Set auf Lager. Artikel-Nr: ART-00169,images/artikel_169.jpg,2025-09-18T10:16:37.381969Z,2025-09-19T13:16:37.381969Z,false
+Dioden 170,224,Lager C,B1,Dioden – 224 Rolle auf Lager. Artikel-Nr: ART-00170,images/artikel_170.jpg,2025-06-04T10:16:37.382301Z,2025-06-07T06:16:37.382301Z,false
+Schalter 171,427,Lager C,B1,Schalter – 427 Rolle auf Lager. Artikel-Nr: ART-00171,images/artikel_171.jpg,2025-08-27T10:16:37.385602Z,2025-08-28T13:16:37.385602Z,false
+Stecker 172,395,Büro,F5,Stecker – 395 Meter auf Lager. Artikel-Nr: ART-00172,images/artikel_172.jpg,2025-09-01T10:16:37.386075Z,2025-09-04T04:16:37.386075Z,false
+Transistoren 173,99,Lager A,B1,Transistoren – 99 Rolle auf Lager. Artikel-Nr: ART-00173,images/artikel_173.jpg,2025-06-11T10:16:37.386480Z,2025-06-14T00:16:37.386480Z,false
+Dioden 174,98,Lager C,A2,Dioden – 98 Meter auf Lager. Artikel-Nr: ART-00174,images/artikel_174.jpg,2025-09-06T10:16:37.386928Z,2025-09-06T14:16:37.386928Z,false
+Dioden 175,284,Büro,A2,Dioden – 284 Rolle auf Lager. Artikel-Nr: ART-00175,images/artikel_175.jpg,2025-09-11T10:16:37.387438Z,2025-09-13T10:16:37.387438Z,false
+LEDs 176,134,Keller,F4,LEDs – 134 Set auf Lager. Artikel-Nr: ART-00176,images/artikel_176.jpg,2025-03-24T10:16:37.387841Z,2025-03-24T23:16:37.387841Z,false
+Motoren 177,92,Regal 3,B1,Motoren – 92 Rolle auf Lager. Artikel-Nr: ART-00177,images/artikel_177.jpg,2025-11-09T10:16:37.388193Z,2025-11-11T01:16:37.388193Z,false
+Schalter 178,149,Regal 3,F4,Schalter – 149 Stück auf Lager. Artikel-Nr: ART-00178,images/artikel_178.jpg,2025-10-22T10:16:37.388619Z,2025-10-23T00:16:37.388619Z,false
+Kabel 179,462,Werkstatt,F5,Kabel – 462 Meter auf Lager. Artikel-Nr: ART-00179,images/artikel_179.jpg,2025-07-30T10:16:37.389097Z,2025-08-01T02:16:37.389097Z,false
+Netzteile 180,201,Büro,B1,Netzteile – 201 Stück auf Lager. Artikel-Nr: ART-00180,images/artikel_180.jpg,2026-01-23T10:16:37.389491Z,2026-01-26T04:16:37.389491Z,false
+Transistoren 181,358,Büro,F1,Transistoren – 358 Rolle auf Lager. Artikel-Nr: ART-00181,images/artikel_181.jpg,2026-03-04T10:16:37.389907Z,2026-03-07T08:16:37.389907Z,false
+Sensoren 182,391,Lager A,A2,Sensoren – 391 Stück auf Lager. Artikel-Nr: ART-00182,images/artikel_182.jpg,2025-03-17T10:16:37.390250Z,2025-03-19T18:16:37.390250Z,false
+Netzteile 183,184,Keller,B2,Netzteile – 184 Set auf Lager. Artikel-Nr: ART-00183,images/artikel_183.jpg,2025-05-27T10:16:37.390580Z,2025-05-30T03:16:37.390580Z,false
+Netzteile 184,268,Keller,B1,Netzteile – 268 Meter auf Lager. Artikel-Nr: ART-00184,images/artikel_184.jpg,2025-09-24T10:16:37.391026Z,2025-09-24T21:16:37.391026Z,false
+ICs 185,17,Werkstatt,B1,ICs – 17 Packung auf Lager. Artikel-Nr: ART-00185,images/artikel_185.jpg,2026-03-04T10:16:37.391381Z,2026-03-05T08:16:37.391381Z,false
+Dioden 186,147,Regal 3,F1,Dioden – 147 Set auf Lager. Artikel-Nr: ART-00186,images/artikel_186.jpg,2025-09-03T10:16:37.391833Z,2025-09-05T03:16:37.391833Z,false
+LEDs 187,492,Lager A,F5,LEDs – 492 Set auf Lager. Artikel-Nr: ART-00187,images/artikel_187.jpg,2025-10-16T10:16:37.392236Z,2025-10-17T06:16:37.392236Z,false
+ICs 188,360,Keller,B2,ICs – 360 Packung auf Lager. Artikel-Nr: ART-00188,images/artikel_188.jpg,2025-12-25T10:16:37.392577Z,2025-12-26T17:16:37.392577Z,false
+Schalter 189,239,Regal 3,B1,Schalter – 239 Stück auf Lager. Artikel-Nr: ART-00189,images/artikel_189.jpg,2025-10-08T10:16:37.392924Z,2025-10-09T14:16:37.392924Z,false
+Kabel 190,340,Regal 1,A1,Kabel – 340 Rolle auf Lager. Artikel-Nr: ART-00190,images/artikel_190.jpg,2025-08-27T10:16:37.393252Z,2025-08-29T03:16:37.393252Z,false
+Dioden 191,369,Regal 2,B2,Dioden – 369 Meter auf Lager. Artikel-Nr: ART-00191,images/artikel_191.jpg,2025-04-11T10:16:37.393647Z,2025-04-11T12:16:37.393647Z,false
+ICs 192,314,Werkstatt,F1,ICs – 314 Packung auf Lager. Artikel-Nr: ART-00192,images/artikel_192.jpg,2025-04-11T10:16:37.394048Z,2025-04-12T00:16:37.394048Z,false
+Dioden 193,386,Regal 3,B2,Dioden – 386 Packung auf Lager. Artikel-Nr: ART-00193,images/artikel_193.jpg,2025-09-22T10:16:37.394513Z,2025-09-24T05:16:37.394513Z,false
+Dioden 194,432,Werkstatt,F5,Dioden – 432 Packung auf Lager. Artikel-Nr: ART-00194,images/artikel_194.jpg,2025-04-20T10:16:37.394959Z,2025-04-22T13:16:37.394959Z,false
+Widerstände 195,258,Werkstatt,F5,Widerstände – 258 Set auf Lager. Artikel-Nr: ART-00195,images/artikel_195.jpg,2025-04-02T10:16:37.395399Z,2025-04-04T07:16:37.395399Z,false
+Stecker 196,101,Keller,B1,Stecker – 101 Meter auf Lager. Artikel-Nr: ART-00196,images/artikel_196.jpg,2025-07-11T10:16:37.395788Z,2025-07-13T19:16:37.395788Z,false
+Netzteile 197,213,Werkstatt,F1,Netzteile – 213 Stück auf Lager. Artikel-Nr: ART-00197,images/artikel_197.jpg,2026-02-10T10:16:37.396125Z,2026-02-12T03:16:37.396125Z,false
+Transistoren 198,175,Werkstatt,F2,Transistoren – 175 Meter auf Lager. Artikel-Nr: ART-00198,images/artikel_198.jpg,2025-09-15T10:16:37.396481Z,2025-09-18T07:16:37.396481Z,false
+Widerstände 199,226,Büro,F3,Widerstände – 226 Stück auf Lager. Artikel-Nr: ART-00199,images/artikel_199.jpg,2025-06-04T10:16:37.396841Z,2025-06-05T09:16:37.396841Z,false
+Widerstände 200,157,Keller,F4,Widerstände – 157 Rolle auf Lager. Artikel-Nr: ART-00200,images/artikel_200.jpg,2026-01-28T10:16:37.397199Z,2026-01-29T14:16:37.397199Z,false
+Stecker 201,257,Regal 2,F4,Stecker – 257 Meter auf Lager. Artikel-Nr: ART-00201,images/artikel_201.jpg,2025-08-10T10:16:37.397605Z,2025-08-13T05:16:37.397605Z,false
+LEDs 202,40,Werkstatt,A1,LEDs – 40 Rolle auf Lager. Artikel-Nr: ART-00202,images/artikel_202.jpg,2025-07-29T10:16:37.398040Z,2025-08-01T01:16:37.398040Z,false
+Kabel 203,490,Regal 1,B1,Kabel – 490 Set auf Lager. Artikel-Nr: ART-00203,images/artikel_203.jpg,2025-12-15T10:16:37.398400Z,2025-12-16T01:16:37.398400Z,false
+Widerstände 204,309,Regal 1,F4,Widerstände – 309 Set auf Lager. Artikel-Nr: ART-00204,images/artikel_204.jpg,2025-10-16T10:16:37.398739Z,2025-10-19T03:16:37.398739Z,false
+Motoren 205,411,Büro,A2,Motoren – 411 Packung auf Lager. Artikel-Nr: ART-00205,images/artikel_205.jpg,2025-11-12T10:16:37.399058Z,2025-11-13T12:16:37.399058Z,false
+Schalter 206,436,Werkstatt,F4,Schalter – 436 Meter auf Lager. Artikel-Nr: ART-00206,images/artikel_206.jpg,2025-10-22T10:16:37.399423Z,2025-10-22T12:16:37.399423Z,false
+Schalter 207,103,Regal 3,C1,Schalter – 103 Rolle auf Lager. Artikel-Nr: ART-00207,images/artikel_207.jpg,2026-01-01T10:16:37.399831Z,2026-01-01T19:16:37.399831Z,false
+LEDs 208,112,Lager C,F3,LEDs – 112 Set auf Lager. Artikel-Nr: ART-00208,images/artikel_208.jpg,2026-02-25T10:16:37.400175Z,2026-02-28T08:16:37.400175Z,false
+Sensoren 209,396,Lager C,F1,Sensoren – 396 Stück auf Lager. Artikel-Nr: ART-00209,images/artikel_209.jpg,2025-04-12T10:16:37.400503Z,2025-04-13T06:16:37.400503Z,false
+Motoren 210,494,Lager B,B2,Motoren – 494 Set auf Lager. Artikel-Nr: ART-00210,images/artikel_210.jpg,2025-12-24T10:16:37.400897Z,2025-12-26T06:16:37.400897Z,false
+Netzteile 211,374,Regal 2,F4,Netzteile – 374 Set auf Lager. Artikel-Nr: ART-00211,images/artikel_211.jpg,2025-12-03T10:16:37.401253Z,2025-12-04T15:16:37.401253Z,false
+Stecker 212,40,Büro,F2,Stecker – 40 Stück auf Lager. Artikel-Nr: ART-00212,images/artikel_212.jpg,2026-01-06T10:16:37.401653Z,2026-01-07T02:16:37.401653Z,false
+LEDs 213,305,Regal 3,A2,LEDs – 305 Meter auf Lager. Artikel-Nr: ART-00213,images/artikel_213.jpg,2025-05-08T10:16:37.402086Z,2025-05-10T20:16:37.402086Z,false
+Netzteile 214,464,Keller,B2,Netzteile – 464 Packung auf Lager. Artikel-Nr: ART-00214,images/artikel_214.jpg,2025-09-24T10:16:37.402485Z,2025-09-26T14:16:37.402485Z,false
+Widerstände 215,480,Lager A,C1,Widerstände – 480 Rolle auf Lager. Artikel-Nr: ART-00215,images/artikel_215.jpg,2025-08-19T10:16:37.402888Z,2025-08-21T01:16:37.402888Z,false
+Schalter 216,160,Lager A,A2,Schalter – 160 Stück auf Lager. Artikel-Nr: ART-00216,images/artikel_216.jpg,2025-12-24T10:16:37.403317Z,2025-12-25T14:16:37.403317Z,false
+Kondensatoren 217,86,Regal 2,A2,Kondensatoren – 86 Rolle auf Lager. Artikel-Nr: ART-00217,images/artikel_217.jpg,2025-08-23T10:16:37.403683Z,2025-08-23T13:16:37.403683Z,false
+Stecker 218,220,Werkstatt,F4,Stecker – 220 Packung auf Lager. Artikel-Nr: ART-00218,images/artikel_218.jpg,2025-07-31T10:16:37.404167Z,2025-07-31T18:16:37.404167Z,false
+Relais 219,475,Regal 1,F1,Relais – 475 Stück auf Lager. Artikel-Nr: ART-00219,images/artikel_219.jpg,2025-06-13T10:16:37.404767Z,2025-06-16T06:16:37.404767Z,false
+Kondensatoren 220,430,Regal 2,F4,Kondensatoren – 430 Meter auf Lager. Artikel-Nr: ART-00220,images/artikel_220.jpg,2025-12-21T10:16:37.405191Z,2025-12-22T10:16:37.405191Z,false
+LEDs 221,51,Büro,F3,LEDs – 51 Set auf Lager. Artikel-Nr: ART-00221,images/artikel_221.jpg,2025-10-06T10:16:37.405537Z,2025-10-09T00:16:37.405537Z,false
+Dioden 222,397,Regal 3,F2,Dioden – 397 Stück auf Lager. Artikel-Nr: ART-00222,images/artikel_222.jpg,2025-09-16T10:16:37.405845Z,2025-09-18T11:16:37.405845Z,false
+Netzteile 223,366,Büro,B2,Netzteile – 366 Meter auf Lager. Artikel-Nr: ART-00223,images/artikel_223.jpg,2025-07-15T10:16:37.406248Z,2025-07-16T20:16:37.406248Z,false
+LEDs 224,473,Lager B,B2,LEDs – 473 Packung auf Lager. Artikel-Nr: ART-00224,images/artikel_224.jpg,2025-07-31T10:16:37.406624Z,2025-08-03T01:16:37.406624Z,false
+Dioden 225,104,Keller,F2,Dioden – 104 Rolle auf Lager. Artikel-Nr: ART-00225,images/artikel_225.jpg,2025-12-06T10:16:37.406983Z,2025-12-07T06:16:37.406983Z,false
+Sensoren 226,14,Keller,F5,Sensoren – 14 Set auf Lager. Artikel-Nr: ART-00226,images/artikel_226.jpg,2025-04-20T10:16:37.407467Z,2025-04-22T10:16:37.407467Z,false
+Kondensatoren 227,431,Werkstatt,F3,Kondensatoren – 431 Meter auf Lager. Artikel-Nr: ART-00227,images/artikel_227.jpg,2025-12-30T10:16:37.407848Z,2025-12-30T23:16:37.407848Z,false
+Kabel 228,406,Regal 2,F3,Kabel – 406 Stück auf Lager. Artikel-Nr: ART-00228,images/artikel_228.jpg,2025-11-13T10:16:37.408183Z,2025-11-15T13:16:37.408183Z,false
+Kabel 229,40,Werkstatt,A1,Kabel – 40 Rolle auf Lager. Artikel-Nr: ART-00229,images/artikel_229.jpg,2025-06-05T10:16:37.408620Z,2025-06-05T21:16:37.408620Z,false
+Transistoren 230,293,Werkstatt,F5,Transistoren – 293 Packung auf Lager. Artikel-Nr: ART-00230,images/artikel_230.jpg,2025-07-05T10:16:37.408984Z,2025-07-05T22:16:37.408984Z,false
+Widerstände 231,471,Regal 2,F2,Widerstände – 471 Stück auf Lager. Artikel-Nr: ART-00231,images/artikel_231.jpg,2026-01-21T10:16:37.409312Z,2026-01-23T05:16:37.409312Z,false
+Motoren 232,257,Büro,B2,Motoren – 257 Meter auf Lager. Artikel-Nr: ART-00232,images/artikel_232.jpg,2025-11-17T10:16:37.409671Z,2025-11-18T11:16:37.409671Z,false
+Netzteile 233,62,Keller,A2,Netzteile – 62 Set auf Lager. Artikel-Nr: ART-00233,images/artikel_233.jpg,2025-08-19T10:16:37.410065Z,2025-08-21T20:16:37.410065Z,false
+Relais 234,289,Lager A,B2,Relais – 289 Rolle auf Lager. Artikel-Nr: ART-00234,images/artikel_234.jpg,2026-01-15T10:16:37.410431Z,2026-01-16T15:16:37.410431Z,false
+Motoren 235,328,Regal 3,F4,Motoren – 328 Rolle auf Lager. Artikel-Nr: ART-00235,images/artikel_235.jpg,2025-12-09T10:16:37.410814Z,2025-12-09T17:16:37.410814Z,false
+Transistoren 236,430,Regal 3,A2,Transistoren – 430 Stück auf Lager. Artikel-Nr: ART-00236,images/artikel_236.jpg,2026-01-25T10:16:37.411214Z,2026-01-27T02:16:37.411214Z,false
+Transistoren 237,361,Werkstatt,F5,Transistoren – 361 Rolle auf Lager. Artikel-Nr: ART-00237,images/artikel_237.jpg,2025-10-18T10:16:37.411592Z,2025-10-20T08:16:37.411592Z,false
+Widerstände 238,365,Regal 2,F3,Widerstände – 365 Meter auf Lager. Artikel-Nr: ART-00238,images/artikel_238.jpg,2025-08-11T10:16:37.412017Z,2025-08-13T10:16:37.412017Z,false
+Transistoren 239,280,Regal 1,B2,Transistoren – 280 Packung auf Lager. Artikel-Nr: ART-00239,images/artikel_239.jpg,2026-03-07T10:16:37.412386Z,2026-03-08T23:16:37.412386Z,false
+Motoren 240,456,Lager B,B2,Motoren – 456 Set auf Lager. Artikel-Nr: ART-00240,images/artikel_240.jpg,2025-05-30T10:16:37.412748Z,2025-05-31T18:16:37.412748Z,false
+ICs 241,45,Lager C,C1,ICs – 45 Set auf Lager. Artikel-Nr: ART-00241,images/artikel_241.jpg,2025-04-20T10:16:37.413081Z,2025-04-22T03:16:37.413081Z,false
+Kabel 242,432,Regal 3,B2,Kabel – 432 Meter auf Lager. Artikel-Nr: ART-00242,images/artikel_242.jpg,2025-12-01T10:16:37.413484Z,2025-12-04T02:16:37.413484Z,false
+Stecker 243,204,Regal 1,F5,Stecker – 204 Meter auf Lager. Artikel-Nr: ART-00243,images/artikel_243.jpg,2025-07-28T10:16:37.413881Z,2025-07-30T17:16:37.413881Z,false
+Widerstände 244,469,Regal 2,F5,Widerstände – 469 Rolle auf Lager. Artikel-Nr: ART-00244,images/artikel_244.jpg,2026-01-19T10:16:37.414232Z,2026-01-19T11:16:37.414232Z,false
+Widerstände 245,420,Büro,F2,Widerstände – 420 Set auf Lager. Artikel-Nr: ART-00245,images/artikel_245.jpg,2025-06-23T10:16:37.414612Z,2025-06-23T15:16:37.414612Z,false
+Widerstände 246,303,Werkstatt,F3,Widerstände – 303 Meter auf Lager. Artikel-Nr: ART-00246,images/artikel_246.jpg,2026-01-14T10:16:37.414960Z,2026-01-15T23:16:37.414960Z,false
+Kondensatoren 247,472,Keller,F2,Kondensatoren – 472 Rolle auf Lager. Artikel-Nr: ART-00247,images/artikel_247.jpg,2025-03-17T10:16:37.415308Z,2025-03-19T13:16:37.415308Z,false
+Widerstände 248,191,Regal 2,B2,Widerstände – 191 Set auf Lager. Artikel-Nr: ART-00248,images/artikel_248.jpg,2026-02-05T10:16:37.415716Z,2026-02-05T16:16:37.415716Z,false
+Netzteile 249,379,Werkstatt,C1,Netzteile – 379 Set auf Lager. Artikel-Nr: ART-00249,images/artikel_249.jpg,2025-11-08T10:16:37.416043Z,2025-11-09T16:16:37.416043Z,false
+Stecker 250,234,Lager A,F1,Stecker – 234 Stück auf Lager. Artikel-Nr: ART-00250,images/artikel_250.jpg,2025-08-06T10:16:37.416361Z,2025-08-07T13:16:37.416361Z,false
+ICs 251,413,Lager C,A1,ICs – 413 Set auf Lager. Artikel-Nr: ART-00251,images/artikel_251.jpg,2025-07-21T10:16:37.416718Z,2025-07-23T23:16:37.416718Z,false
+Kabel 252,67,Lager B,B1,Kabel – 67 Stück auf Lager. Artikel-Nr: ART-00252,images/artikel_252.jpg,2025-12-19T10:16:37.417193Z,2025-12-21T18:16:37.417193Z,false
+Kondensatoren 253,76,Keller,B2,Kondensatoren – 76 Packung auf Lager. Artikel-Nr: ART-00253,images/artikel_253.jpg,2025-08-02T10:16:37.417675Z,2025-08-04T08:16:37.417675Z,false
+Relais 254,221,Lager C,B1,Relais – 221 Packung auf Lager. Artikel-Nr: ART-00254,images/artikel_254.jpg,2025-09-21T10:16:37.418082Z,2025-09-21T20:16:37.418082Z,false
+Kabel 255,180,Büro,F3,Kabel – 180 Set auf Lager. Artikel-Nr: ART-00255,images/artikel_255.jpg,2025-11-17T10:16:37.418436Z,2025-11-20T03:16:37.418436Z,false
+Stecker 256,43,Lager C,C1,Stecker – 43 Meter auf Lager. Artikel-Nr: ART-00256,images/artikel_256.jpg,2026-01-08T10:16:37.418819Z,2026-01-09T04:16:37.418819Z,false
+Dioden 257,342,Keller,F1,Dioden – 342 Meter auf Lager. Artikel-Nr: ART-00257,images/artikel_257.jpg,2025-12-30T10:16:37.419238Z,2026-01-01T04:16:37.419238Z,false
+Stecker 258,380,Lager C,C1,Stecker – 380 Meter auf Lager. Artikel-Nr: ART-00258,images/artikel_258.jpg,2025-08-27T10:16:37.419777Z,2025-08-28T22:16:37.419777Z,false
+Netzteile 259,91,Regal 1,F4,Netzteile – 91 Rolle auf Lager. Artikel-Nr: ART-00259,images/artikel_259.jpg,2025-11-24T10:16:37.420219Z,2025-11-26T00:16:37.420219Z,false
+Motoren 260,425,Regal 3,F1,Motoren – 425 Packung auf Lager. Artikel-Nr: ART-00260,images/artikel_260.jpg,2026-01-25T10:16:37.420578Z,2026-01-26T22:16:37.420578Z,false
+Transistoren 261,351,Büro,F3,Transistoren – 351 Packung auf Lager. Artikel-Nr: ART-00261,images/artikel_261.jpg,2025-07-15T10:16:37.420957Z,2025-07-15T11:16:37.420957Z,false
+Stecker 262,235,Regal 1,F2,Stecker – 235 Packung auf Lager. Artikel-Nr: ART-00262,images/artikel_262.jpg,2025-09-29T10:16:37.421296Z,2025-10-01T03:16:37.421296Z,false
+Sensoren 263,321,Regal 2,F1,Sensoren – 321 Stück auf Lager. Artikel-Nr: ART-00263,images/artikel_263.jpg,2025-07-18T10:16:37.421616Z,2025-07-18T13:16:37.421616Z,false
+Sensoren 264,475,Büro,F1,Sensoren – 475 Rolle auf Lager. Artikel-Nr: ART-00264,images/artikel_264.jpg,2025-10-07T10:16:37.421979Z,2025-10-07T11:16:37.421979Z,false
+Kondensatoren 265,329,Regal 2,F2,Kondensatoren – 329 Rolle auf Lager. Artikel-Nr: ART-00265,images/artikel_265.jpg,2025-09-14T10:16:37.422374Z,2025-09-16T19:16:37.422374Z,false
+Kondensatoren 266,108,Regal 2,A2,Kondensatoren – 108 Stück auf Lager. Artikel-Nr: ART-00266,images/artikel_266.jpg,2025-07-10T10:16:37.422718Z,2025-07-12T19:16:37.422718Z,false
+Kabel 267,343,Lager A,F2,Kabel – 343 Rolle auf Lager. Artikel-Nr: ART-00267,images/artikel_267.jpg,2025-07-19T10:16:37.423022Z,2025-07-22T00:16:37.423022Z,false
+Motoren 268,131,Regal 2,C1,Motoren – 131 Stück auf Lager. Artikel-Nr: ART-00268,images/artikel_268.jpg,2025-06-29T10:16:37.423391Z,2025-06-29T14:16:37.423391Z,false
+LEDs 269,366,Lager C,F4,LEDs – 366 Meter auf Lager. Artikel-Nr: ART-00269,images/artikel_269.jpg,2025-08-26T10:16:37.423861Z,2025-08-26T22:16:37.423861Z,false
+Stecker 270,483,Lager A,F5,Stecker – 483 Stück auf Lager. Artikel-Nr: ART-00270,images/artikel_270.jpg,2025-08-03T10:16:37.424331Z,2025-08-06T04:16:37.424331Z,false
+ICs 271,450,Büro,A1,ICs – 450 Set auf Lager. Artikel-Nr: ART-00271,images/artikel_271.jpg,2026-02-14T10:16:37.424686Z,2026-02-14T15:16:37.424686Z,false
+Motoren 272,456,Werkstatt,A1,Motoren – 456 Meter auf Lager. Artikel-Nr: ART-00272,images/artikel_272.jpg,2025-03-26T10:16:37.425047Z,2025-03-27T04:16:37.425047Z,false
+ICs 273,153,Büro,F5,ICs – 153 Packung auf Lager. Artikel-Nr: ART-00273,images/artikel_273.jpg,2025-04-23T10:16:37.425375Z,2025-04-23T12:16:37.425375Z,false
+Kabel 274,404,Regal 2,A1,Kabel – 404 Set auf Lager. Artikel-Nr: ART-00274,images/artikel_274.jpg,2025-12-17T10:16:37.425841Z,2025-12-18T12:16:37.425841Z,false
+Stecker 275,170,Lager C,F3,Stecker – 170 Meter auf Lager. Artikel-Nr: ART-00275,images/artikel_275.jpg,2025-10-20T10:16:37.426266Z,2025-10-21T10:16:37.426266Z,false
+LEDs 276,95,Keller,C1,LEDs – 95 Set auf Lager. Artikel-Nr: ART-00276,images/artikel_276.jpg,2025-05-06T10:16:37.426654Z,2025-05-08T20:16:37.426654Z,false
+Stecker 277,26,Regal 2,F5,Stecker – 26 Packung auf Lager. Artikel-Nr: ART-00277,images/artikel_277.jpg,2025-08-15T10:16:37.426986Z,2025-08-17T20:16:37.426986Z,false
+Sensoren 278,116,Regal 1,F1,Sensoren – 116 Meter auf Lager. Artikel-Nr: ART-00278,images/artikel_278.jpg,2026-02-20T10:16:37.427336Z,2026-02-22T18:16:37.427336Z,false
+LEDs 279,431,Büro,A2,LEDs – 431 Meter auf Lager. Artikel-Nr: ART-00279,images/artikel_279.jpg,2025-12-02T10:16:37.427692Z,2025-12-03T07:16:37.427692Z,false
+Dioden 280,117,Büro,B2,Dioden – 117 Set auf Lager. Artikel-Nr: ART-00280,images/artikel_280.jpg,2025-10-25T10:16:37.428093Z,2025-10-25T17:16:37.428093Z,false
+Netzteile 281,255,Lager B,F2,Netzteile – 255 Rolle auf Lager. Artikel-Nr: ART-00281,images/artikel_281.jpg,2025-11-12T10:16:37.428464Z,2025-11-14T01:16:37.428464Z,false
+ICs 282,124,Keller,B2,ICs – 124 Rolle auf Lager. Artikel-Nr: ART-00282,images/artikel_282.jpg,2025-11-10T10:16:37.428841Z,2025-11-12T03:16:37.428841Z,false
+LEDs 283,22,Lager B,F5,LEDs – 22 Stück auf Lager. Artikel-Nr: ART-00283,images/artikel_283.jpg,2025-07-03T10:16:37.429230Z,2025-07-04T11:16:37.429230Z,false
+Stecker 284,428,Werkstatt,C1,Stecker – 428 Stück auf Lager. Artikel-Nr: ART-00284,images/artikel_284.jpg,2025-05-10T10:16:37.429668Z,2025-05-11T09:16:37.429668Z,false
+Netzteile 285,398,Lager A,F3,Netzteile – 398 Set auf Lager. Artikel-Nr: ART-00285,images/artikel_285.jpg,2025-11-20T10:16:37.430214Z,2025-11-20T16:16:37.430214Z,false
+Dioden 286,474,Regal 2,F2,Dioden – 474 Packung auf Lager. Artikel-Nr: ART-00286,images/artikel_286.jpg,2025-03-24T10:16:37.430697Z,2025-03-25T03:16:37.430697Z,false
+Relais 287,125,Keller,F5,Relais – 125 Packung auf Lager. Artikel-Nr: ART-00287,images/artikel_287.jpg,2026-03-03T10:16:37.432207Z,2026-03-05T22:16:37.432207Z,false
+Stecker 288,465,Regal 2,F4,Stecker – 465 Set auf Lager. Artikel-Nr: ART-00288,images/artikel_288.jpg,2025-12-26T10:16:37.432710Z,2025-12-27T02:16:37.432710Z,false
+Transistoren 289,435,Keller,F5,Transistoren – 435 Meter auf Lager. Artikel-Nr: ART-00289,images/artikel_289.jpg,2025-05-28T10:16:37.433375Z,2025-05-28T16:16:37.433375Z,false
+ICs 290,379,Regal 3,F5,ICs – 379 Stück auf Lager. Artikel-Nr: ART-00290,images/artikel_290.jpg,2025-07-06T10:16:37.433893Z,2025-07-09T03:16:37.433893Z,false
+Relais 291,110,Werkstatt,A1,Relais – 110 Set auf Lager. Artikel-Nr: ART-00291,images/artikel_291.jpg,2025-04-19T10:16:37.434326Z,2025-04-20T15:16:37.434326Z,false
+Stecker 292,481,Regal 1,F5,Stecker – 481 Set auf Lager. Artikel-Nr: ART-00292,images/artikel_292.jpg,2025-05-13T10:16:37.434739Z,2025-05-13T13:16:37.434739Z,false
+Transistoren 293,411,Lager C,F4,Transistoren – 411 Stück auf Lager. Artikel-Nr: ART-00293,images/artikel_293.jpg,2026-03-08T10:16:37.435198Z,2026-03-09T16:16:37.435198Z,false
+Widerstände 294,439,Lager C,F1,Widerstände – 439 Meter auf Lager. Artikel-Nr: ART-00294,images/artikel_294.jpg,2026-01-20T10:16:37.435579Z,2026-01-23T03:16:37.435579Z,false
+ICs 295,387,Keller,F1,ICs – 387 Set auf Lager. Artikel-Nr: ART-00295,images/artikel_295.jpg,2025-04-24T10:16:37.436007Z,2025-04-25T02:16:37.436007Z,false
+Relais 296,469,Lager A,F4,Relais – 469 Meter auf Lager. Artikel-Nr: ART-00296,images/artikel_296.jpg,2025-04-18T10:16:37.436376Z,2025-04-19T04:16:37.436376Z,false
+ICs 297,269,Lager A,F5,ICs – 269 Meter auf Lager. Artikel-Nr: ART-00297,images/artikel_297.jpg,2025-03-25T10:16:37.436796Z,2025-03-26T01:16:37.436796Z,false
+Transistoren 298,131,Lager C,A1,Transistoren – 131 Meter auf Lager. Artikel-Nr: ART-00298,images/artikel_298.jpg,2025-05-08T10:16:37.437268Z,2025-05-08T23:16:37.437268Z,false
+Relais 299,300,Regal 3,B1,Relais – 300 Set auf Lager. Artikel-Nr: ART-00299,images/artikel_299.jpg,2025-05-07T10:16:37.437695Z,2025-05-08T11:16:37.437695Z,false
+Widerstände 300,309,Regal 1,B2,Widerstände – 309 Packung auf Lager. Artikel-Nr: ART-00300,images/artikel_300.jpg,2025-09-03T10:16:37.438123Z,2025-09-04T19:16:37.438123Z,false
+Dioden 301,152,Regal 1,F1,Dioden – 152 Stück auf Lager. Artikel-Nr: ART-00301,images/artikel_301.jpg,2025-08-21T10:16:37.438945Z,2025-08-22T00:16:37.438945Z,false
+Motoren 302,266,Lager A,A2,Motoren – 266 Set auf Lager. Artikel-Nr: ART-00302,images/artikel_302.jpg,2025-12-07T10:16:37.439441Z,2025-12-08T10:16:37.439441Z,false
+Netzteile 303,225,Büro,F3,Netzteile – 225 Packung auf Lager. Artikel-Nr: ART-00303,images/artikel_303.jpg,2025-11-20T10:16:37.439892Z,2025-11-20T19:16:37.439892Z,false
+Kabel 304,318,Regal 3,C1,Kabel – 318 Meter auf Lager. Artikel-Nr: ART-00304,images/artikel_304.jpg,2026-02-15T10:16:37.440433Z,2026-02-16T21:16:37.440433Z,false
+LEDs 305,200,Regal 1,F3,LEDs – 200 Packung auf Lager. Artikel-Nr: ART-00305,images/artikel_305.jpg,2025-10-18T10:16:37.441121Z,2025-10-19T20:16:37.441121Z,false
+Transistoren 306,89,Regal 1,F3,Transistoren – 89 Packung auf Lager. Artikel-Nr: ART-00306,images/artikel_306.jpg,2025-10-04T10:16:37.441716Z,2025-10-05T22:16:37.441716Z,false
+ICs 307,270,Werkstatt,A1,ICs – 270 Packung auf Lager. Artikel-Nr: ART-00307,images/artikel_307.jpg,2025-12-25T10:16:37.442427Z,2025-12-27T14:16:37.442427Z,false
+Motoren 308,34,Büro,A1,Motoren – 34 Set auf Lager. Artikel-Nr: ART-00308,images/artikel_308.jpg,2025-07-03T10:16:37.442896Z,2025-07-05T14:16:37.442896Z,false
+Schalter 309,339,Regal 2,B2,Schalter – 339 Packung auf Lager. Artikel-Nr: ART-00309,images/artikel_309.jpg,2025-05-12T10:16:37.443337Z,2025-05-14T22:16:37.443337Z,false
+Dioden 310,76,Werkstatt,B2,Dioden – 76 Packung auf Lager. Artikel-Nr: ART-00310,images/artikel_310.jpg,2025-08-17T10:16:37.443776Z,2025-08-18T16:16:37.443776Z,false
+Motoren 311,182,Büro,F2,Motoren – 182 Meter auf Lager. Artikel-Nr: ART-00311,images/artikel_311.jpg,2025-05-10T10:16:37.444233Z,2025-05-11T18:16:37.444233Z,false
+Netzteile 312,441,Büro,F5,Netzteile – 441 Set auf Lager. Artikel-Nr: ART-00312,images/artikel_312.jpg,2025-08-08T10:16:37.444641Z,2025-08-10T06:16:37.444641Z,false
+Widerstände 313,141,Büro,F4,Widerstände – 141 Packung auf Lager. Artikel-Nr: ART-00313,images/artikel_313.jpg,2025-06-09T10:16:37.445697Z,2025-06-10T15:16:37.445697Z,false
+Kabel 314,170,Werkstatt,F3,Kabel – 170 Meter auf Lager. Artikel-Nr: ART-00314,images/artikel_314.jpg,2025-09-09T10:16:37.446242Z,2025-09-09T15:16:37.446242Z,false
+Netzteile 315,434,Büro,B2,Netzteile – 434 Packung auf Lager. Artikel-Nr: ART-00315,images/artikel_315.jpg,2025-03-31T10:16:37.446681Z,2025-04-01T20:16:37.446681Z,false
+Kabel 316,157,Keller,F2,Kabel – 157 Rolle auf Lager. Artikel-Nr: ART-00316,images/artikel_316.jpg,2025-05-23T10:16:37.447169Z,2025-05-26T02:16:37.447169Z,false
+Netzteile 317,43,Regal 3,F1,Netzteile – 43 Packung auf Lager. Artikel-Nr: ART-00317,images/artikel_317.jpg,2026-03-08T10:16:37.447582Z,2026-03-08T22:16:37.447582Z,false
+Stecker 318,393,Regal 3,B1,Stecker – 393 Rolle auf Lager. Artikel-Nr: ART-00318,images/artikel_318.jpg,2025-04-07T10:16:37.448096Z,2025-04-08T23:16:37.448096Z,false
+Kondensatoren 319,384,Keller,C1,Kondensatoren – 384 Rolle auf Lager. Artikel-Nr: ART-00319,images/artikel_319.jpg,2025-09-13T10:16:37.448701Z,2025-09-14T23:16:37.448701Z,false
+Sensoren 320,183,Büro,A2,Sensoren – 183 Packung auf Lager. Artikel-Nr: ART-00320,images/artikel_320.jpg,2025-09-01T10:16:37.449154Z,2025-09-02T02:16:37.449154Z,false
+Kabel 321,429,Lager A,A1,Kabel – 429 Set auf Lager. Artikel-Nr: ART-00321,images/artikel_321.jpg,2025-06-21T10:16:37.449855Z,2025-06-23T11:16:37.449855Z,false
+LEDs 322,151,Regal 1,F2,LEDs – 151 Set auf Lager. Artikel-Nr: ART-00322,images/artikel_322.jpg,2025-12-07T10:16:37.450430Z,2025-12-07T16:16:37.450430Z,false
+LEDs 323,352,Regal 2,F1,LEDs – 352 Set auf Lager. Artikel-Nr: ART-00323,images/artikel_323.jpg,2025-10-11T10:16:37.450852Z,2025-10-13T02:16:37.450852Z,false
+Widerstände 324,42,Büro,B1,Widerstände – 42 Packung auf Lager. Artikel-Nr: ART-00324,images/artikel_324.jpg,2025-06-20T10:16:37.451316Z,2025-06-22T12:16:37.451316Z,false
+LEDs 325,291,Regal 2,B2,LEDs – 291 Packung auf Lager. Artikel-Nr: ART-00325,images/artikel_325.jpg,2025-12-30T10:16:37.451691Z,2026-01-01T09:16:37.451691Z,false
+Kabel 326,154,Regal 1,B2,Kabel – 154 Stück auf Lager. Artikel-Nr: ART-00326,images/artikel_326.jpg,2025-12-29T10:16:37.452158Z,2025-12-31T06:16:37.452158Z,false
+Dioden 327,433,Büro,F3,Dioden – 433 Rolle auf Lager. Artikel-Nr: ART-00327,images/artikel_327.jpg,2026-01-07T10:16:37.452620Z,2026-01-07T21:16:37.452620Z,false
+Sensoren 328,455,Keller,F4,Sensoren – 455 Set auf Lager. Artikel-Nr: ART-00328,images/artikel_328.jpg,2026-02-06T10:16:37.453154Z,2026-02-08T04:16:37.453154Z,false
+Stecker 329,354,Regal 1,F1,Stecker – 354 Rolle auf Lager. Artikel-Nr: ART-00329,images/artikel_329.jpg,2025-11-21T10:16:37.453760Z,2025-11-23T10:16:37.453760Z,false
+Netzteile 330,131,Regal 1,C1,Netzteile – 131 Stück auf Lager. Artikel-Nr: ART-00330,images/artikel_330.jpg,2025-09-12T10:16:37.454274Z,2025-09-15T02:16:37.454274Z,false
+Transistoren 331,324,Regal 1,A2,Transistoren – 324 Stück auf Lager. Artikel-Nr: ART-00331,images/artikel_331.jpg,2026-01-02T10:16:37.454886Z,2026-01-04T00:16:37.454886Z,false
+Kondensatoren 332,31,Keller,C1,Kondensatoren – 31 Meter auf Lager. Artikel-Nr: ART-00332,images/artikel_332.jpg,2025-03-30T10:16:37.455463Z,2025-03-31T18:16:37.455463Z,false
+LEDs 333,237,Werkstatt,F3,LEDs – 237 Rolle auf Lager. Artikel-Nr: ART-00333,images/artikel_333.jpg,2025-11-22T10:16:37.455889Z,2025-11-24T13:16:37.455889Z,false
+Netzteile 334,224,Regal 2,F2,Netzteile – 224 Set auf Lager. Artikel-Nr: ART-00334,images/artikel_334.jpg,2026-02-24T10:16:37.456334Z,2026-02-27T02:16:37.456334Z,false
+ICs 335,42,Lager B,C1,ICs – 42 Rolle auf Lager. Artikel-Nr: ART-00335,images/artikel_335.jpg,2026-01-18T10:16:37.456848Z,2026-01-21T05:16:37.456848Z,false
+Sensoren 336,216,Büro,A1,Sensoren – 216 Packung auf Lager. Artikel-Nr: ART-00336,images/artikel_336.jpg,2025-07-11T10:16:37.457304Z,2025-07-12T17:16:37.457304Z,false
+Motoren 337,296,Regal 3,B1,Motoren – 296 Stück auf Lager. Artikel-Nr: ART-00337,images/artikel_337.jpg,2025-06-21T10:16:37.457698Z,2025-06-24T09:16:37.457698Z,false
+Schalter 338,453,Lager C,B1,Schalter – 453 Set auf Lager. Artikel-Nr: ART-00338,images/artikel_338.jpg,2025-05-05T10:16:37.458152Z,2025-05-05T12:16:37.458152Z,false
+Kondensatoren 339,104,Keller,C1,Kondensatoren – 104 Rolle auf Lager. Artikel-Nr: ART-00339,images/artikel_339.jpg,2026-01-20T10:16:37.458575Z,2026-01-23T05:16:37.458575Z,false
+Schalter 340,217,Büro,A2,Schalter – 217 Meter auf Lager. Artikel-Nr: ART-00340,images/artikel_340.jpg,2025-09-29T10:16:37.459096Z,2025-09-29T20:16:37.459096Z,false
+LEDs 341,427,Lager A,B2,LEDs – 427 Meter auf Lager. Artikel-Nr: ART-00341,images/artikel_341.jpg,2025-07-03T10:16:37.459675Z,2025-07-06T04:16:37.459675Z,false
+Schalter 342,52,Lager C,B1,Schalter – 52 Set auf Lager. Artikel-Nr: ART-00342,images/artikel_342.jpg,2025-03-23T10:16:37.460325Z,2025-03-24T21:16:37.460325Z,false
+Kabel 343,257,Regal 3,B1,Kabel – 257 Meter auf Lager. Artikel-Nr: ART-00343,images/artikel_343.jpg,2025-10-03T10:16:37.460825Z,2025-10-06T08:16:37.460825Z,false
+Stecker 344,13,Lager A,A1,Stecker – 13 Meter auf Lager. Artikel-Nr: ART-00344,images/artikel_344.jpg,2025-12-09T10:16:37.461285Z,2025-12-10T01:16:37.461285Z,false
+Kondensatoren 345,164,Regal 2,F1,Kondensatoren – 164 Meter auf Lager. Artikel-Nr: ART-00345,images/artikel_345.jpg,2025-09-11T10:16:37.461670Z,2025-09-12T01:16:37.461670Z,false
+Kondensatoren 346,380,Lager C,A2,Kondensatoren – 380 Set auf Lager. Artikel-Nr: ART-00346,images/artikel_346.jpg,2025-12-17T10:16:37.462526Z,2025-12-18T16:16:37.462526Z,false
+Widerstände 347,423,Werkstatt,F5,Widerstände – 423 Rolle auf Lager. Artikel-Nr: ART-00347,images/artikel_347.jpg,2025-08-14T10:16:37.463013Z,2025-08-17T07:16:37.463013Z,false
+Kabel 348,84,Büro,F2,Kabel – 84 Rolle auf Lager. Artikel-Nr: ART-00348,images/artikel_348.jpg,2025-05-14T10:16:37.463560Z,2025-05-14T22:16:37.463560Z,false
+Dioden 349,422,Lager B,F5,Dioden – 422 Packung auf Lager. Artikel-Nr: ART-00349,images/artikel_349.jpg,2025-10-30T10:16:37.464074Z,2025-10-30T19:16:37.464074Z,false
+Widerstände 350,3,Regal 3,F1,Widerstände – 3 Meter auf Lager. Artikel-Nr: ART-00350,images/artikel_350.jpg,2025-07-05T10:16:37.464575Z,2025-07-07T13:16:37.464575Z,false
+Widerstände 351,155,Lager B,B1,Widerstände – 155 Packung auf Lager. Artikel-Nr: ART-00351,images/artikel_351.jpg,2025-06-27T10:16:37.465095Z,2025-06-28T19:16:37.465095Z,false
+Motoren 352,57,Lager B,F1,Motoren – 57 Packung auf Lager. Artikel-Nr: ART-00352,images/artikel_352.jpg,2025-08-15T10:16:37.465749Z,2025-08-18T01:16:37.465749Z,false
+Motoren 353,112,Regal 3,F5,Motoren – 112 Meter auf Lager. Artikel-Nr: ART-00353,images/artikel_353.jpg,2026-01-25T10:16:37.466273Z,2026-01-26T06:16:37.466273Z,false
+Sensoren 354,360,Regal 1,F4,Sensoren – 360 Rolle auf Lager. Artikel-Nr: ART-00354,images/artikel_354.jpg,2025-12-03T10:16:37.467013Z,2025-12-03T17:16:37.467013Z,false
+Relais 355,397,Werkstatt,F3,Relais – 397 Meter auf Lager. Artikel-Nr: ART-00355,images/artikel_355.jpg,2025-10-04T10:16:37.467516Z,2025-10-07T00:16:37.467516Z,false
+Netzteile 356,395,Werkstatt,F1,Netzteile – 395 Meter auf Lager. Artikel-Nr: ART-00356,images/artikel_356.jpg,2025-10-23T10:16:37.467985Z,2025-10-25T00:16:37.467985Z,false
+Kabel 357,468,Lager B,B1,Kabel – 468 Set auf Lager. Artikel-Nr: ART-00357,images/artikel_357.jpg,2025-06-02T10:16:37.468475Z,2025-06-03T01:16:37.468475Z,false
+LEDs 358,145,Keller,B2,LEDs – 145 Set auf Lager. Artikel-Nr: ART-00358,images/artikel_358.jpg,2025-09-16T10:16:37.468983Z,2025-09-17T10:16:37.468983Z,false
+ICs 359,148,Lager B,F4,ICs – 148 Set auf Lager. Artikel-Nr: ART-00359,images/artikel_359.jpg,2025-05-04T10:16:37.469437Z,2025-05-04T11:16:37.469437Z,false
+Schalter 360,320,Regal 2,C1,Schalter – 320 Meter auf Lager. Artikel-Nr: ART-00360,images/artikel_360.jpg,2025-12-26T10:16:37.469983Z,2025-12-28T01:16:37.469983Z,false
+Kabel 361,451,Keller,F3,Kabel – 451 Rolle auf Lager. Artikel-Nr: ART-00361,images/artikel_361.jpg,2025-11-03T10:16:37.470611Z,2025-11-04T03:16:37.470611Z,false
+Relais 362,173,Lager C,C1,Relais – 173 Packung auf Lager. Artikel-Nr: ART-00362,images/artikel_362.jpg,2025-06-11T10:16:37.471158Z,2025-06-12T13:16:37.471158Z,false
+Netzteile 363,436,Regal 3,F4,Netzteile – 436 Meter auf Lager. Artikel-Nr: ART-00363,images/artikel_363.jpg,2026-01-28T10:16:37.471686Z,2026-01-29T01:16:37.471686Z,false
+Kabel 364,157,Regal 1,A2,Kabel – 157 Stück auf Lager. Artikel-Nr: ART-00364,images/artikel_364.jpg,2025-12-22T10:16:37.472327Z,2025-12-24T15:16:37.472327Z,false
+Widerstände 365,167,Regal 2,C1,Widerstände – 167 Stück auf Lager. Artikel-Nr: ART-00365,images/artikel_365.jpg,2026-01-17T10:16:37.472845Z,2026-01-20T06:16:37.472845Z,false
+Relais 366,293,Keller,B2,Relais – 293 Rolle auf Lager. Artikel-Nr: ART-00366,images/artikel_366.jpg,2025-11-10T10:16:37.473541Z,2025-11-10T22:16:37.473541Z,false
+Motoren 367,237,Lager B,F4,Motoren – 237 Set auf Lager. Artikel-Nr: ART-00367,images/artikel_367.jpg,2026-01-29T10:16:37.474143Z,2026-01-29T22:16:37.474143Z,false
+Transistoren 368,164,Regal 2,B2,Transistoren – 164 Packung auf Lager. Artikel-Nr: ART-00368,images/artikel_368.jpg,2026-01-14T10:16:37.474886Z,2026-01-16T05:16:37.474886Z,false
+Widerstände 369,427,Lager A,F3,Widerstände – 427 Set auf Lager. Artikel-Nr: ART-00369,images/artikel_369.jpg,2025-03-14T10:16:37.475345Z,2025-03-15T10:16:37.475345Z,false
+Netzteile 370,263,Lager B,A1,Netzteile – 263 Rolle auf Lager. Artikel-Nr: ART-00370,images/artikel_370.jpg,2025-09-21T10:16:37.476024Z,2025-09-22T03:16:37.476024Z,false
+LEDs 371,2,Büro,F1,LEDs – 2 Rolle auf Lager. Artikel-Nr: ART-00371,images/artikel_371.jpg,2025-05-05T10:16:37.476784Z,2025-05-07T03:16:37.476784Z,false
+Netzteile 372,302,Regal 1,F3,Netzteile – 302 Rolle auf Lager. Artikel-Nr: ART-00372,images/artikel_372.jpg,2025-05-05T10:16:37.477396Z,2025-05-08T06:16:37.477396Z,false
+Relais 373,168,Lager C,B1,Relais – 168 Rolle auf Lager. Artikel-Nr: ART-00373,images/artikel_373.jpg,2025-12-02T10:16:37.478834Z,2025-12-05T00:16:37.478834Z,false
+Sensoren 374,89,Regal 1,C1,Sensoren – 89 Meter auf Lager. Artikel-Nr: ART-00374,images/artikel_374.jpg,2025-07-31T10:16:37.479661Z,2025-08-02T09:16:37.479661Z,false
+Schalter 375,325,Werkstatt,B1,Schalter – 325 Meter auf Lager. Artikel-Nr: ART-00375,images/artikel_375.jpg,2026-02-04T10:16:37.480193Z,2026-02-05T11:16:37.480193Z,false
+Stecker 376,438,Lager A,B2,Stecker – 438 Set auf Lager. Artikel-Nr: ART-00376,images/artikel_376.jpg,2025-07-14T10:16:37.480684Z,2025-07-15T13:16:37.480684Z,false
+Transistoren 377,350,Lager A,B1,Transistoren – 350 Set auf Lager. Artikel-Nr: ART-00377,images/artikel_377.jpg,2025-09-03T10:16:37.481292Z,2025-09-05T16:16:37.481292Z,false
+Widerstände 378,144,Lager C,F2,Widerstände – 144 Rolle auf Lager. Artikel-Nr: ART-00378,images/artikel_378.jpg,2025-12-03T10:16:37.481997Z,2025-12-04T10:16:37.481997Z,false
+LEDs 379,236,Regal 2,C1,LEDs – 236 Rolle auf Lager. Artikel-Nr: ART-00379,images/artikel_379.jpg,2025-10-18T10:16:37.482750Z,2025-10-19T19:16:37.482750Z,false
+ICs 380,138,Regal 3,F5,ICs – 138 Meter auf Lager. Artikel-Nr: ART-00380,images/artikel_380.jpg,2025-09-24T10:16:37.483336Z,2025-09-26T05:16:37.483336Z,false
+Netzteile 381,81,Werkstatt,B1,Netzteile – 81 Packung auf Lager. Artikel-Nr: ART-00381,images/artikel_381.jpg,2026-01-25T10:16:37.483753Z,2026-01-27T19:16:37.483753Z,false
+Sensoren 382,234,Keller,F3,Sensoren – 234 Stück auf Lager. Artikel-Nr: ART-00382,images/artikel_382.jpg,2026-01-01T10:16:37.484319Z,2026-01-04T08:16:37.484319Z,false
+Transistoren 383,11,Regal 3,C1,Transistoren – 11 Set auf Lager. Artikel-Nr: ART-00383,images/artikel_383.jpg,2025-05-14T10:16:37.484788Z,2025-05-14T21:16:37.484788Z,false
+Transistoren 384,230,Werkstatt,F4,Transistoren – 230 Stück auf Lager. Artikel-Nr: ART-00384,images/artikel_384.jpg,2025-03-15T10:16:37.485158Z,2025-03-16T01:16:37.485158Z,false
+LEDs 385,393,Büro,B2,LEDs – 393 Meter auf Lager. Artikel-Nr: ART-00385,images/artikel_385.jpg,2025-05-04T10:16:37.485548Z,2025-05-06T15:16:37.485548Z,false
+LEDs 386,66,Regal 1,F1,LEDs – 66 Meter auf Lager. Artikel-Nr: ART-00386,images/artikel_386.jpg,2025-08-13T10:16:37.485968Z,2025-08-13T21:16:37.485968Z,false
+Transistoren 387,40,Lager B,F2,Transistoren – 40 Meter auf Lager. Artikel-Nr: ART-00387,images/artikel_387.jpg,2026-02-16T10:16:37.486343Z,2026-02-16T21:16:37.486343Z,false
+Relais 388,430,Regal 1,C1,Relais – 430 Set auf Lager. Artikel-Nr: ART-00388,images/artikel_388.jpg,2025-04-07T10:16:37.486675Z,2025-04-08T00:16:37.486675Z,false
+Transistoren 389,195,Lager C,F2,Transistoren – 195 Stück auf Lager. Artikel-Nr: ART-00389,images/artikel_389.jpg,2025-06-24T10:16:37.487022Z,2025-06-25T19:16:37.487022Z,false
+Dioden 390,163,Regal 2,F4,Dioden – 163 Rolle auf Lager. Artikel-Nr: ART-00390,images/artikel_390.jpg,2025-12-06T10:16:37.487436Z,2025-12-08T13:16:37.487436Z,false
+Dioden 391,153,Werkstatt,F2,Dioden – 153 Packung auf Lager. Artikel-Nr: ART-00391,images/artikel_391.jpg,2025-11-11T10:16:37.487891Z,2025-11-12T03:16:37.487891Z,false
+Relais 392,149,Lager B,B1,Relais – 149 Rolle auf Lager. Artikel-Nr: ART-00392,images/artikel_392.jpg,2025-05-06T10:16:37.488263Z,2025-05-07T13:16:37.488263Z,false
+Dioden 393,53,Lager C,B2,Dioden – 53 Packung auf Lager. Artikel-Nr: ART-00393,images/artikel_393.jpg,2025-04-23T10:16:37.488638Z,2025-04-25T06:16:37.488638Z,false
+Schalter 394,484,Lager C,F2,Schalter – 484 Rolle auf Lager. Artikel-Nr: ART-00394,images/artikel_394.jpg,2025-08-15T10:16:37.489196Z,2025-08-16T17:16:37.489196Z,false
+Schalter 395,298,Regal 1,B1,Schalter – 298 Packung auf Lager. Artikel-Nr: ART-00395,images/artikel_395.jpg,2026-02-23T10:16:37.489625Z,2026-02-25T18:16:37.489625Z,false
+LEDs 396,135,Keller,B2,LEDs – 135 Meter auf Lager. Artikel-Nr: ART-00396,images/artikel_396.jpg,2025-03-26T10:16:37.490019Z,2025-03-26T13:16:37.490019Z,false
+Widerstände 397,118,Keller,C1,Widerstände – 118 Packung auf Lager. Artikel-Nr: ART-00397,images/artikel_397.jpg,2025-10-07T10:16:37.490370Z,2025-10-09T02:16:37.490370Z,false
+ICs 398,200,Keller,F3,ICs – 200 Set auf Lager. Artikel-Nr: ART-00398,images/artikel_398.jpg,2025-08-07T10:16:37.490689Z,2025-08-07T19:16:37.490689Z,false
+Schalter 399,228,Regal 1,F1,Schalter – 228 Packung auf Lager. Artikel-Nr: ART-00399,images/artikel_399.jpg,2025-09-16T10:16:37.491069Z,2025-09-16T21:16:37.491069Z,false
+Widerstände 400,437,Büro,F1,Widerstände – 437 Meter auf Lager. Artikel-Nr: ART-00400,images/artikel_400.jpg,2026-01-17T10:16:37.491397Z,2026-01-19T06:16:37.491397Z,false
+Relais 401,140,Lager A,A2,Relais – 140 Set auf Lager. Artikel-Nr: ART-00401,images/artikel_401.jpg,2025-08-22T10:16:37.491780Z,2025-08-23T07:16:37.491780Z,false
+LEDs 402,428,Werkstatt,B1,LEDs – 428 Packung auf Lager. Artikel-Nr: ART-00402,images/artikel_402.jpg,2025-04-18T10:16:37.492128Z,2025-04-19T08:16:37.492128Z,false
+Sensoren 403,232,Regal 2,B1,Sensoren – 232 Meter auf Lager. Artikel-Nr: ART-00403,images/artikel_403.jpg,2026-02-07T10:16:37.492478Z,2026-02-09T17:16:37.492478Z,false
+LEDs 404,11,Lager B,F4,LEDs – 11 Rolle auf Lager. Artikel-Nr: ART-00404,images/artikel_404.jpg,2025-10-14T10:16:37.492976Z,2025-10-16T18:16:37.492976Z,false
+Stecker 405,276,Büro,B1,Stecker – 276 Packung auf Lager. Artikel-Nr: ART-00405,images/artikel_405.jpg,2025-04-09T10:16:37.493383Z,2025-04-11T16:16:37.493383Z,false
+Stecker 406,499,Regal 2,A2,Stecker – 499 Rolle auf Lager. Artikel-Nr: ART-00406,images/artikel_406.jpg,2025-12-06T10:16:37.493805Z,2025-12-07T22:16:37.493805Z,false
+Dioden 407,99,Keller,A1,Dioden – 99 Rolle auf Lager. Artikel-Nr: ART-00407,images/artikel_407.jpg,2025-09-23T10:16:37.494147Z,2025-09-25T16:16:37.494147Z,false
+Relais 408,403,Büro,B2,Relais – 403 Rolle auf Lager. Artikel-Nr: ART-00408,images/artikel_408.jpg,2025-05-23T10:16:37.494511Z,2025-05-23T23:16:37.494511Z,false
+Transistoren 409,190,Lager B,B1,Transistoren – 190 Stück auf Lager. Artikel-Nr: ART-00409,images/artikel_409.jpg,2025-05-07T10:16:37.495064Z,2025-05-08T12:16:37.495064Z,false
+Motoren 410,305,Werkstatt,A2,Motoren – 305 Rolle auf Lager. Artikel-Nr: ART-00410,images/artikel_410.jpg,2025-07-24T10:16:37.495457Z,2025-07-27T02:16:37.495457Z,false
+LEDs 411,142,Regal 3,A1,LEDs – 142 Set auf Lager. Artikel-Nr: ART-00411,images/artikel_411.jpg,2026-02-25T10:16:37.495929Z,2026-02-25T19:16:37.495929Z,false
+Schalter 412,129,Büro,A2,Schalter – 129 Set auf Lager. Artikel-Nr: ART-00412,images/artikel_412.jpg,2025-11-13T10:16:37.496373Z,2025-11-15T06:16:37.496373Z,false
+Motoren 413,189,Lager A,F5,Motoren – 189 Stück auf Lager. Artikel-Nr: ART-00413,images/artikel_413.jpg,2026-01-08T10:16:37.496861Z,2026-01-10T14:16:37.496861Z,false
+Dioden 414,212,Lager A,A1,Dioden – 212 Packung auf Lager. Artikel-Nr: ART-00414,images/artikel_414.jpg,2026-03-06T10:16:37.497278Z,2026-03-08T03:16:37.497278Z,false
+Dioden 415,276,Regal 2,F3,Dioden – 276 Set auf Lager. Artikel-Nr: ART-00415,images/artikel_415.jpg,2025-10-15T10:16:37.497863Z,2025-10-17T08:16:37.497863Z,false
+Widerstände 416,116,Keller,A2,Widerstände – 116 Rolle auf Lager. Artikel-Nr: ART-00416,images/artikel_416.jpg,2025-05-07T10:16:37.498411Z,2025-05-07T21:16:37.498411Z,false
+Schalter 417,284,Werkstatt,F4,Schalter – 284 Rolle auf Lager. Artikel-Nr: ART-00417,images/artikel_417.jpg,2025-07-18T10:16:37.498880Z,2025-07-18T17:16:37.498880Z,false
+LEDs 418,143,Regal 1,F2,LEDs – 143 Rolle auf Lager. Artikel-Nr: ART-00418,images/artikel_418.jpg,2025-06-10T10:16:37.499347Z,2025-06-12T17:16:37.499347Z,false
+ICs 419,169,Lager A,F1,ICs – 169 Set auf Lager. Artikel-Nr: ART-00419,images/artikel_419.jpg,2025-12-25T10:16:37.499780Z,2025-12-26T09:16:37.499780Z,false
+Sensoren 420,43,Regal 3,F2,Sensoren – 43 Meter auf Lager. Artikel-Nr: ART-00420,images/artikel_420.jpg,2025-04-09T10:16:37.500193Z,2025-04-09T17:16:37.500193Z,false
+Transistoren 421,152,Regal 3,C1,Transistoren – 152 Packung auf Lager. Artikel-Nr: ART-00421,images/artikel_421.jpg,2025-12-14T10:16:37.500606Z,2025-12-17T07:16:37.500606Z,false
+Relais 422,95,Lager B,A2,Relais – 95 Rolle auf Lager. Artikel-Nr: ART-00422,images/artikel_422.jpg,2026-03-11T10:16:37.501076Z,2026-03-12T13:16:37.501076Z,false
+LEDs 423,460,Regal 2,F2,LEDs – 460 Meter auf Lager. Artikel-Nr: ART-00423,images/artikel_423.jpg,2025-10-27T10:16:37.501502Z,2025-10-29T04:16:37.501502Z,false
+Sensoren 424,30,Lager B,F4,Sensoren – 30 Meter auf Lager. Artikel-Nr: ART-00424,images/artikel_424.jpg,2025-08-02T10:16:37.502003Z,2025-08-04T04:16:37.502003Z,false
+Kondensatoren 425,87,Keller,F5,Kondensatoren – 87 Stück auf Lager. Artikel-Nr: ART-00425,images/artikel_425.jpg,2025-07-29T10:16:37.502439Z,2025-07-30T05:16:37.502439Z,false
+Dioden 426,265,Lager A,A1,Dioden – 265 Rolle auf Lager. Artikel-Nr: ART-00426,images/artikel_426.jpg,2025-09-19T10:16:37.502827Z,2025-09-21T02:16:37.502827Z,false
+ICs 427,115,Lager C,C1,ICs – 115 Stück auf Lager. Artikel-Nr: ART-00427,images/artikel_427.jpg,2025-12-09T10:16:37.503309Z,2025-12-10T03:16:37.503309Z,false
+Sensoren 428,95,Lager A,F1,Sensoren – 95 Stück auf Lager. Artikel-Nr: ART-00428,images/artikel_428.jpg,2025-11-19T10:16:37.503734Z,2025-11-21T16:16:37.503734Z,false
+Kondensatoren 429,241,Regal 1,F2,Kondensatoren – 241 Meter auf Lager. Artikel-Nr: ART-00429,images/artikel_429.jpg,2026-03-02T10:16:37.504110Z,2026-03-03T07:16:37.504110Z,false
+Schalter 430,323,Regal 2,F3,Schalter – 323 Rolle auf Lager. Artikel-Nr: ART-00430,images/artikel_430.jpg,2026-01-19T10:16:37.504820Z,2026-01-19T14:16:37.504820Z,false
+Schalter 431,24,Werkstatt,F3,Schalter – 24 Rolle auf Lager. Artikel-Nr: ART-00431,images/artikel_431.jpg,2025-11-01T10:16:37.505178Z,2025-11-03T15:16:37.505178Z,false
+Kabel 432,448,Lager A,F5,Kabel – 448 Stück auf Lager. Artikel-Nr: ART-00432,images/artikel_432.jpg,2025-12-05T10:16:37.505623Z,2025-12-06T18:16:37.505623Z,false
+Stecker 433,265,Regal 2,F2,Stecker – 265 Meter auf Lager. Artikel-Nr: ART-00433,images/artikel_433.jpg,2025-06-18T10:16:37.505998Z,2025-06-19T05:16:37.505998Z,false
+Motoren 434,19,Regal 1,F1,Motoren – 19 Set auf Lager. Artikel-Nr: ART-00434,images/artikel_434.jpg,2025-11-05T10:16:37.506400Z,2025-11-06T07:16:37.506400Z,false
+Widerstände 435,281,Keller,F5,Widerstände – 281 Packung auf Lager. Artikel-Nr: ART-00435,images/artikel_435.jpg,2025-03-23T10:16:37.506773Z,2025-03-24T14:16:37.506773Z,false
+Stecker 436,198,Lager B,B1,Stecker – 198 Rolle auf Lager. Artikel-Nr: ART-00436,images/artikel_436.jpg,2025-08-26T10:16:37.507198Z,2025-08-29T01:16:37.507198Z,false
+Sensoren 437,219,Keller,F3,Sensoren – 219 Meter auf Lager. Artikel-Nr: ART-00437,images/artikel_437.jpg,2025-10-23T10:16:37.507725Z,2025-10-26T02:16:37.507725Z,false
+Dioden 438,426,Regal 2,F1,Dioden – 426 Rolle auf Lager. Artikel-Nr: ART-00438,images/artikel_438.jpg,2025-07-08T10:16:37.508102Z,2025-07-11T06:16:37.508102Z,false
+Schalter 439,278,Lager B,F1,Schalter – 278 Rolle auf Lager. Artikel-Nr: ART-00439,images/artikel_439.jpg,2025-08-14T10:16:37.508525Z,2025-08-15T04:16:37.508525Z,false
+Dioden 440,24,Büro,F2,Dioden – 24 Set auf Lager. Artikel-Nr: ART-00440,images/artikel_440.jpg,2025-12-18T10:16:37.508911Z,2025-12-20T11:16:37.508911Z,false
+Sensoren 441,472,Regal 2,B1,Sensoren – 472 Stück auf Lager. Artikel-Nr: ART-00441,images/artikel_441.jpg,2026-01-02T10:16:37.509235Z,2026-01-05T00:16:37.509235Z,false
+Widerstände 442,326,Büro,B1,Widerstände – 326 Meter auf Lager. Artikel-Nr: ART-00442,images/artikel_442.jpg,2025-11-29T10:16:37.509571Z,2025-11-30T21:16:37.509571Z,false
+Kabel 443,425,Keller,F4,Kabel – 425 Meter auf Lager. Artikel-Nr: ART-00443,images/artikel_443.jpg,2025-10-28T10:16:37.509988Z,2025-10-29T17:16:37.509988Z,false
+Stecker 444,272,Regal 2,F1,Stecker – 272 Rolle auf Lager. Artikel-Nr: ART-00444,images/artikel_444.jpg,2025-11-12T10:16:37.510360Z,2025-11-12T19:16:37.510360Z,false
+Relais 445,227,Regal 3,A2,Relais – 227 Stück auf Lager. Artikel-Nr: ART-00445,images/artikel_445.jpg,2025-09-30T10:16:37.510727Z,2025-10-02T05:16:37.510727Z,false
+Schalter 446,76,Lager A,F1,Schalter – 76 Packung auf Lager. Artikel-Nr: ART-00446,images/artikel_446.jpg,2026-01-13T10:16:37.511139Z,2026-01-13T15:16:37.511139Z,false
+Widerstände 447,277,Lager C,B2,Widerstände – 277 Stück auf Lager. Artikel-Nr: ART-00447,images/artikel_447.jpg,2025-09-02T10:16:37.511506Z,2025-09-02T23:16:37.511506Z,false
+Kondensatoren 448,145,Regal 2,B1,Kondensatoren – 145 Packung auf Lager. Artikel-Nr: ART-00448,images/artikel_448.jpg,2025-09-27T10:16:37.511921Z,2025-09-29T06:16:37.511921Z,false
+Relais 449,393,Büro,B1,Relais – 393 Rolle auf Lager. Artikel-Nr: ART-00449,images/artikel_449.jpg,2025-10-18T10:16:37.512338Z,2025-10-18T21:16:37.512338Z,false
+LEDs 450,101,Lager C,F2,LEDs – 101 Rolle auf Lager. Artikel-Nr: ART-00450,images/artikel_450.jpg,2025-09-12T10:16:37.512816Z,2025-09-14T09:16:37.512816Z,false
+Kabel 451,404,Lager C,F4,Kabel – 404 Meter auf Lager. Artikel-Nr: ART-00451,images/artikel_451.jpg,2025-05-03T10:16:37.513273Z,2025-05-04T06:16:37.513273Z,false
+Kabel 452,321,Lager A,F1,Kabel – 321 Stück auf Lager. Artikel-Nr: ART-00452,images/artikel_452.jpg,2025-05-14T10:16:37.513714Z,2025-05-14T14:16:37.513714Z,false
+Stecker 453,62,Lager B,A2,Stecker – 62 Packung auf Lager. Artikel-Nr: ART-00453,images/artikel_453.jpg,2025-07-08T10:16:37.514331Z,2025-07-10T16:16:37.514331Z,false
+LEDs 454,130,Werkstatt,B1,LEDs – 130 Set auf Lager. Artikel-Nr: ART-00454,images/artikel_454.jpg,2025-05-11T10:16:37.514807Z,2025-05-12T11:16:37.514807Z,false
+Motoren 455,165,Regal 1,B2,Motoren – 165 Packung auf Lager. Artikel-Nr: ART-00455,images/artikel_455.jpg,2026-03-10T10:16:37.515183Z,2026-03-11T19:16:37.515183Z,false
+LEDs 456,196,Regal 3,F5,LEDs – 196 Meter auf Lager. Artikel-Nr: ART-00456,images/artikel_456.jpg,2025-12-07T10:16:37.515585Z,2025-12-09T20:16:37.515585Z,false
+Kabel 457,361,Keller,B1,Kabel – 361 Meter auf Lager. Artikel-Nr: ART-00457,images/artikel_457.jpg,2025-06-27T10:16:37.516005Z,2025-06-29T15:16:37.516005Z,false
+Stecker 458,325,Werkstatt,F2,Stecker – 325 Stück auf Lager. Artikel-Nr: ART-00458,images/artikel_458.jpg,2025-09-20T10:16:37.516356Z,2025-09-21T02:16:37.516356Z,false
+Relais 459,291,Büro,F4,Relais – 291 Stück auf Lager. Artikel-Nr: ART-00459,images/artikel_459.jpg,2025-06-08T10:16:37.516721Z,2025-06-09T05:16:37.516721Z,false
+Netzteile 460,159,Lager A,A1,Netzteile – 159 Meter auf Lager. Artikel-Nr: ART-00460,images/artikel_460.jpg,2025-09-13T10:16:37.517146Z,2025-09-14T22:16:37.517146Z,false
+Transistoren 461,494,Regal 2,B1,Transistoren – 494 Packung auf Lager. Artikel-Nr: ART-00461,images/artikel_461.jpg,2025-12-25T10:16:37.517549Z,2025-12-26T15:16:37.517549Z,false
+Widerstände 462,460,Lager A,A2,Widerstände – 460 Packung auf Lager. Artikel-Nr: ART-00462,images/artikel_462.jpg,2025-09-01T10:16:37.517913Z,2025-09-03T14:16:37.517913Z,false
+Stecker 463,468,Lager C,A1,Stecker – 468 Rolle auf Lager. Artikel-Nr: ART-00463,images/artikel_463.jpg,2026-01-21T10:16:37.518290Z,2026-01-23T21:16:37.518290Z,false
+Sensoren 464,56,Regal 2,F2,Sensoren – 56 Meter auf Lager. Artikel-Nr: ART-00464,images/artikel_464.jpg,2025-12-21T10:16:37.518654Z,2025-12-22T13:16:37.518654Z,false
+Dioden 465,229,Büro,A2,Dioden – 229 Set auf Lager. Artikel-Nr: ART-00465,images/artikel_465.jpg,2026-01-12T10:16:37.519164Z,2026-01-13T15:16:37.519164Z,false
+Relais 466,9,Büro,B2,Relais – 9 Stück auf Lager. Artikel-Nr: ART-00466,images/artikel_466.jpg,2025-07-10T10:16:37.519503Z,2025-07-13T03:16:37.519503Z,false
+Dioden 467,74,Regal 3,A1,Dioden – 74 Meter auf Lager. Artikel-Nr: ART-00467,images/artikel_467.jpg,2025-11-11T10:16:37.519884Z,2025-11-12T14:16:37.519884Z,false
+Transistoren 468,432,Lager B,F3,Transistoren – 432 Packung auf Lager. Artikel-Nr: ART-00468,images/artikel_468.jpg,2025-10-08T10:16:37.520261Z,2025-10-09T11:16:37.520261Z,false
+Dioden 469,328,Regal 2,A2,Dioden – 328 Meter auf Lager. Artikel-Nr: ART-00469,images/artikel_469.jpg,2025-04-02T10:16:37.520569Z,2025-04-04T14:16:37.520569Z,false
+Sensoren 470,9,Regal 1,F4,Sensoren – 9 Meter auf Lager. Artikel-Nr: ART-00470,images/artikel_470.jpg,2025-11-22T10:16:37.520979Z,2025-11-23T21:16:37.520979Z,false
+Schalter 471,237,Keller,F2,Schalter – 237 Set auf Lager. Artikel-Nr: ART-00471,images/artikel_471.jpg,2025-07-02T10:16:37.521332Z,2025-07-05T02:16:37.521332Z,false
+Motoren 472,453,Regal 2,F1,Motoren – 453 Meter auf Lager. Artikel-Nr: ART-00472,images/artikel_472.jpg,2025-06-17T10:16:37.521745Z,2025-06-17T10:16:37.521745Z,false
+Motoren 473,287,Regal 1,F3,Motoren – 287 Rolle auf Lager. Artikel-Nr: ART-00473,images/artikel_473.jpg,2025-12-28T10:16:37.522091Z,2025-12-29T15:16:37.522091Z,false
+Motoren 474,312,Lager A,F1,Motoren – 312 Set auf Lager. Artikel-Nr: ART-00474,images/artikel_474.jpg,2026-02-12T10:16:37.522407Z,2026-02-12T11:16:37.522407Z,false
+Netzteile 475,150,Lager A,F5,Netzteile – 150 Stück auf Lager. Artikel-Nr: ART-00475,images/artikel_475.jpg,2025-04-02T10:16:37.522827Z,2025-04-04T13:16:37.522827Z,false
+Relais 476,430,Büro,C1,Relais – 430 Stück auf Lager. Artikel-Nr: ART-00476,images/artikel_476.jpg,2025-07-13T10:16:37.523244Z,2025-07-13T17:16:37.523244Z,false
+Transistoren 477,204,Regal 3,A2,Transistoren – 204 Rolle auf Lager. Artikel-Nr: ART-00477,images/artikel_477.jpg,2025-10-17T10:16:37.523527Z,2025-10-19T03:16:37.523527Z,false
+Stecker 478,289,Regal 2,F3,Stecker – 289 Packung auf Lager. Artikel-Nr: ART-00478,images/artikel_478.jpg,2025-03-29T10:16:37.523849Z,2025-03-31T01:16:37.523849Z,false
+Motoren 479,422,Lager B,F2,Motoren – 422 Set auf Lager. Artikel-Nr: ART-00479,images/artikel_479.jpg,2025-11-13T10:16:37.524236Z,2025-11-16T07:16:37.524236Z,false
+Stecker 480,70,Regal 2,B1,Stecker – 70 Meter auf Lager. Artikel-Nr: ART-00480,images/artikel_480.jpg,2025-04-21T10:16:37.524560Z,2025-04-21T19:16:37.524560Z,false
+Transistoren 481,188,Werkstatt,C1,Transistoren – 188 Stück auf Lager. Artikel-Nr: ART-00481,images/artikel_481.jpg,2025-11-26T10:16:37.524940Z,2025-11-26T21:16:37.524940Z,false
+Relais 482,254,Regal 3,C1,Relais – 254 Stück auf Lager. Artikel-Nr: ART-00482,images/artikel_482.jpg,2026-03-12T10:16:37.525321Z,2026-03-14T20:16:37.525321Z,false
+Relais 483,249,Regal 3,B1,Relais – 249 Packung auf Lager. Artikel-Nr: ART-00483,images/artikel_483.jpg,2025-04-30T10:16:37.525649Z,2025-05-02T01:16:37.525649Z,false
+Widerstände 484,141,Lager A,F4,Widerstände – 141 Meter auf Lager. Artikel-Nr: ART-00484,images/artikel_484.jpg,2025-09-21T10:16:37.526079Z,2025-09-23T13:16:37.526079Z,false
+Schalter 485,197,Regal 3,F3,Schalter – 197 Meter auf Lager. Artikel-Nr: ART-00485,images/artikel_485.jpg,2025-05-15T10:16:37.526368Z,2025-05-18T09:16:37.526368Z,false
+Schalter 486,158,Lager B,F4,Schalter – 158 Set auf Lager. Artikel-Nr: ART-00486,images/artikel_486.jpg,2025-03-19T10:16:37.526730Z,2025-03-20T17:16:37.526730Z,false
+Stecker 487,272,Büro,F2,Stecker – 272 Packung auf Lager. Artikel-Nr: ART-00487,images/artikel_487.jpg,2026-01-16T10:16:37.527072Z,2026-01-18T23:16:37.527072Z,false
+Relais 488,398,Lager B,F5,Relais – 398 Set auf Lager. Artikel-Nr: ART-00488,images/artikel_488.jpg,2025-09-30T10:16:37.527473Z,2025-09-30T10:16:37.527473Z,false
+Relais 489,410,Regal 2,A2,Relais – 410 Stück auf Lager. Artikel-Nr: ART-00489,images/artikel_489.jpg,2025-11-02T10:16:37.527783Z,2025-11-04T06:16:37.527783Z,false
+Transistoren 490,400,Büro,F5,Transistoren – 400 Meter auf Lager. Artikel-Nr: ART-00490,images/artikel_490.jpg,2025-06-17T10:16:37.528146Z,2025-06-17T14:16:37.528146Z,false
+Kabel 491,433,Regal 2,F5,Kabel – 433 Set auf Lager. Artikel-Nr: ART-00491,images/artikel_491.jpg,2026-01-05T10:16:37.528495Z,2026-01-06T07:16:37.528495Z,false
+Stecker 492,387,Regal 2,C1,Stecker – 387 Meter auf Lager. Artikel-Nr: ART-00492,images/artikel_492.jpg,2025-09-19T10:16:37.528880Z,2025-09-21T23:16:37.528880Z,false
+Widerstände 493,41,Regal 3,A2,Widerstände – 41 Stück auf Lager. Artikel-Nr: ART-00493,images/artikel_493.jpg,2026-01-14T10:16:37.529416Z,2026-01-17T03:16:37.529416Z,false
+Kabel 494,426,Lager A,F4,Kabel – 426 Stück auf Lager. Artikel-Nr: ART-00494,images/artikel_494.jpg,2025-07-24T10:16:37.529876Z,2025-07-25T01:16:37.529876Z,false
+Dioden 495,262,Regal 2,B2,Dioden – 262 Set auf Lager. Artikel-Nr: ART-00495,images/artikel_495.jpg,2026-02-19T10:16:37.530279Z,2026-02-21T09:16:37.530279Z,false
+Motoren 496,142,Regal 2,A1,Motoren – 142 Meter auf Lager. Artikel-Nr: ART-00496,images/artikel_496.jpg,2026-03-10T10:16:37.530665Z,2026-03-12T02:16:37.530665Z,false
+Transistoren 497,122,Büro,F4,Transistoren – 122 Packung auf Lager. Artikel-Nr: ART-00497,images/artikel_497.jpg,2025-08-11T10:16:37.531026Z,2025-08-12T00:16:37.531026Z,false
+LEDs 498,36,Büro,B2,LEDs – 36 Rolle auf Lager. Artikel-Nr: ART-00498,images/artikel_498.jpg,2025-04-03T10:16:37.531379Z,2025-04-04T07:16:37.531379Z,false
+Kabel 499,169,Büro,C1,Kabel – 169 Packung auf Lager. Artikel-Nr: ART-00499,images/artikel_499.jpg,2025-08-03T10:16:37.531742Z,2025-08-04T23:16:37.531742Z,false
+ICs 500,227,Keller,B1,ICs – 227 Meter auf Lager. Artikel-Nr: ART-00500,images/artikel_500.jpg,2025-09-23T10:16:37.532235Z,2025-09-25T15:16:37.532235Z,false

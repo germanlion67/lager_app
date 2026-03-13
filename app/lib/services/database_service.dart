@@ -1,12 +1,26 @@
 // lib/services/database_service.dart
+//
+// ⚠️  DEPRECATED — wird in einer zukünftigen Version entfernt.
+//
+// Alle Aufrufe auf PocketBaseService migrieren:
+//
+//   Vorher:  DatabaseService.pb.collection('artikel')...
+//   Nachher: PocketBaseService().client.collection('artikel')...
+//
+// Diese Datei existiert nur noch als Kompatibilitäts-Shim,
+// damit bestehende Aufrufe nicht sofort brechen.
+
 import 'package:pocketbase/pocketbase.dart';
-import 'package:flutter/foundation.dart';
+import 'pocketbase_service.dart';
 
+@Deprecated(
+  'Nutze PocketBaseService().client statt DatabaseService.pb. '
+  'DatabaseService wird in einer zukünftigen Version entfernt.',
+)
 class DatabaseService {
-  // Ersetze 192.168.178.XX mit der IP deines Rechners im WLAN
-  static final String baseUrl = kIsWeb 
-      ? 'http://localhost:8090' 
-      : 'http://192.168.178.XX:8090'; 
+  DatabaseService._();
 
-  static final pb = PocketBase(baseUrl);
+  /// @deprecated Nutze PocketBaseService().client
+  @Deprecated('Nutze PocketBaseService().client')
+  static PocketBase get pb => PocketBaseService().client;
 }

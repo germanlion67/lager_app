@@ -10,7 +10,7 @@ class TestFileSelectorPlatform extends FileSelectorPlatform {
     List<XTypeGroup>? acceptedTypeGroups,
     SaveDialogOptions options = const SaveDialogOptions(),
   }) async {
-    return FileSaveLocation('test.zip');
+    return const FileSaveLocation('test.zip');
   }
 }
 
@@ -32,12 +32,12 @@ void main() {
     final context = tester.element(find.byType(Container));
     final result = await exportService.backupToZipFile(context);
     expect(result, isNull);
-  }, skip: true); // Test hängt - UI-Abhängigkeit
+  }, skip: true,); // Test hängt - UI-Abhängigkeit
 
   test('backupZipToNextcloud loggt Fehler, wenn Datei nicht existiert',
       () async {
     final fakePath = 'not_existing.zip';
     await exportService.backupZipToNextcloud(fakePath);
     // Hier könnte geprüft werden, ob ein Log-Eintrag erfolgt ist
-  }, skip: true); // Platform-Plugin fehlt in Tests
+  }, skip: true,); // Platform-Plugin fehlt in Tests
 }

@@ -11,6 +11,5 @@ Widget buildFileImage(
   double? width,
   double? height,
   BoxFit? fit,
-}) {
-  return const SizedBox.shrink();
-}
+}) =>
+    const SizedBox.shrink();

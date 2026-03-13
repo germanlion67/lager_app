@@ -1,0 +1,18 @@
+Analyzing app...                                                
+
+warning • The type argument(s) of the function 'showModalBottomSheet' can't be inferred • lib/screens/_dokumente_button.dart:110:5 • inference_failure_on_function_invocation
+   info • Missing an 'await' for the 'Future' computed by this expression • lib/screens/artikel_detail_screen.dart:259:9 • unawaited_futures
+warning • The type argument(s) of the function 'showDialog' can't be inferred • lib/screens/artikel_detail_screen.dart:485:5 • inference_failure_on_function_invocation
+warning • The type argument(s) of the function 'showDialog' can't be inferred • lib/screens/conflict_resolution_screen.dart:150:5 • inference_failure_on_function_invocation
+warning • The type argument(s) of the function 'showDialog' can't be inferred • lib/screens/conflict_resolution_screen.dart:169:5 • inference_failure_on_function_invocation
+   info • Missing an 'await' for the 'Future' computed by this expression • lib/screens/qr_scan_screen_mobile_scanner.dart:149:21 • unawaited_futures
+warning • The type argument(s) of the function 'showDialog' can't be inferred • lib/services/artikel_import_service.dart:590:5 • inference_failure_on_function_invocation
+warning • The type argument(s) of the constructor 'MaterialPageRoute' can't be inferred • lib/services/nextcloud_connection_service.dart:162:7 • inference_failure_on_instance_creation
+warning • The type argument(s) of the constructor 'Future.delayed' can't be inferred • lib/services/nextcloud_webdav_client.dart:253:17 • inference_failure_on_instance_creation
+warning • The type argument(s) of the constructor 'Future.delayed' can't be inferred • lib/services/nextcloud_webdav_client.dart:268:17 • inference_failure_on_instance_creation
+warning • The type argument(s) of the constructor 'Future.delayed' can't be inferred • lib/services/sync_error_recovery.dart:444:13 • inference_failure_on_instance_creation
+warning • The type argument(s) of the constructor 'Future.delayed' can't be inferred • lib/services/sync_error_recovery.dart:454:11 • inference_failure_on_instance_creation
+  error • The argument type 'dynamic' can't be assigned to the parameter type 'Iterable<dynamic>'.  • test/performance/import_500_smoke_test.dart:18:7 • argument_type_not_assignable
+warning • The type argument(s) of the constructor 'Future.delayed' can't be inferred • test/services/app_log_service_test.dart:52:19 • inference_failure_on_instance_creation
+
+14 issues found. (ran in 4.7s)

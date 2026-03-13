@@ -285,7 +285,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
                                   : Icons.visibility,
                             ),
                             onPressed: () => setState(
-                                () => _appPwVisible = !_appPwVisible),
+                                () => _appPwVisible = !_appPwVisible,),
                             tooltip: _appPwVisible
                                 ? 'Passwort verbergen'
                                 : 'Passwort anzeigen',

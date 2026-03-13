@@ -9,7 +9,9 @@ import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipEncoder;
 import 'app_log_service.dart';
 import 'artikel_db_service.dart';
+import 'package:pocketbase/pocketbase.dart';
 import 'pocketbase_service.dart';
+import '../models/artikel_model.dart'; // NEU ✅
 
 // Conditional imports
 import 'export_io.dart'
@@ -19,7 +21,7 @@ import 'export_io.dart'
 import 'export_nextcloud_stub.dart'
     if (dart.library.io) 'export_nextcloud.dart' as nextcloud;
 
-final JsonEncoder _prettyJsonEncoder = JsonEncoder.withIndent('  ');
+final JsonEncoder _prettyJsonEncoder = const JsonEncoder.withIndent('  ');
 
 class ArtikelExportService {
 
@@ -32,7 +34,6 @@ class ArtikelExportService {
   }
 
   Future<Uint8List> exportAllArtikelAsCsvBytes() async {
-    // FIX #3: Gibt Bytes zurück inkl. UTF-8 BOM für Excel-Kompatibilität
     final csvString = await exportAllArtikelAsCsv();
     final bom = Uint8List.fromList([0xEF, 0xBB, 0xBF]);
     final csvBytes = Uint8List.fromList(utf8.encode(csvString));
@@ -62,32 +63,32 @@ class ArtikelExportService {
   }
 
   String _sanitizeCsvValue(String v) {
-    // Verhindert CSV-Injection durch führende Formel-Zeichen
     if (v.startsWith(RegExp(r'[=+\-@]'))) {
       v = "'$v";
     }
-    // Felder mit Sonderzeichen in Anführungszeichen einschließen
     if (v.contains(';') || v.contains('"') || v.contains('\n')) {
       v = '"${v.replaceAll('"', '""')}"';
     }
     return v;
   }
 
-  /// Lädt Artikel plattformabhängig
-  Future<List<dynamic>> _loadArtikel() async {
+  /// Lädt Artikel plattformabhängig — gibt immer List<`Artikel`> zurück ✅
+  Future<List<Artikel>> _loadArtikel() async {
     if (kIsWeb) {
       final pb = PocketBaseService().client;
       final records =
           await pb.collection('artikel').getFullList(sort: '-created');
-      return records.map((r) => _recordToArtikelMap(r)).toList();
+      return records
+          .map((r) => Artikel.fromMap(_recordToArtikelMap(r)))
+          .toList();
     } else {
       return await ArtikelDbService().getAlleArtikel();
     }
   }
 
-  Map<String, dynamic> _recordToArtikelMap(dynamic record) {
+  Map<String, dynamic> _recordToArtikelMap(RecordModel record) {
     return {
-      ...Map<String, dynamic>.from(record.data),
+      ...record.data,
       'id': record.id,
     };
   }
@@ -116,7 +117,6 @@ class ArtikelExportService {
 
       if (exportType == null) return;
 
-      // FIX #3: CSV-Export verwendet BOM-fähige Bytes-Methode
       Uint8List bytes;
       if (exportType == 'json') {
         final exportData = await exportAllArtikelAsJson();
@@ -129,10 +129,8 @@ class ArtikelExportService {
         }
         bytes = Uint8List.fromList(utf8.encode(exportData));
       } else {
-        // CSV: mit UTF-8 BOM für Excel-Kompatibilität
         bytes = await exportAllArtikelAsCsvBytes();
         if (bytes.length <= 3) {
-          // Nur BOM, kein Inhalt
           if (!context.mounted) return;
           messenger.showSnackBar(
             const SnackBar(content: Text('Keine Artikeldaten vorhanden.')),
@@ -195,7 +193,8 @@ class ArtikelExportService {
         if (context.mounted) {
           messenger2.showSnackBar(
             const SnackBar(
-                content: Text('Keine Artikel für Backup vorhanden')),
+              content: Text('Keine Artikel für Backup vorhanden'),
+            ),
           );
         }
         return null;
@@ -206,7 +205,7 @@ class ArtikelExportService {
         'artikel_backup.json',
         jsonString.length,
         utf8.encode(jsonString),
-      ));
+      ),);
 
       final zipData = ZipEncoder().encode(archive);
       final filename = _buildBackupFilename();
@@ -220,25 +219,25 @@ class ArtikelExportService {
       );
 
       if (result != null) {
-        await AppLogService()
-            .log('ZIP-Backup (Web) gespeichert: $filename');
+        await AppLogService().log('ZIP-Backup (Web) gespeichert: $filename');
         if (context.mounted) {
           messenger2.showSnackBar(
             const SnackBar(
-                content: Text('ZIP-Backup erfolgreich gespeichert')),
+              content: Text('ZIP-Backup erfolgreich gespeichert'),
+            ),
           );
         }
       }
 
       return result;
     } catch (e, stack) {
-      await AppLogService()
-          .logError('ZIP-Backup (Web) Fehler: $e', stack);
+      await AppLogService().logError('ZIP-Backup (Web) Fehler: $e', stack);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text('Fehler: $e'),
-              backgroundColor: Colors.red),
+            content: Text('Fehler: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
       return null;
@@ -255,7 +254,8 @@ class ArtikelExportService {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Keine Artikel für Backup vorhanden')),
+              content: Text('Keine Artikel für Backup vorhanden'),
+            ),
           );
         }
         return null;
@@ -269,7 +269,7 @@ class ArtikelExportService {
         'artikel_backup.json',
         jsonString.length,
         utf8.encode(jsonString),
-      ));
+      ),);
 
       // Bilder hinzufügen (nur Mobile)
       for (final artikel in artikelList) {
@@ -281,7 +281,8 @@ class ArtikelExportService {
               final fileName =
                   'images/${artikel.id}_${_slug(artikel.name)}.jpg';
               archive.addFile(
-                  ArchiveFile(fileName, imageBytes.length, imageBytes));
+                ArchiveFile(fileName, imageBytes.length, imageBytes),
+              );
             }
           } catch (e, stack) {
             await AppLogService().logError(
@@ -318,7 +319,8 @@ class ArtikelExportService {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content: Text('ZIP-Backup erfolgreich gespeichert')),
+                content: Text('ZIP-Backup erfolgreich gespeichert'),
+              ),
             );
           }
         }
@@ -366,13 +368,15 @@ class ArtikelExportService {
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'ZIP-Backup erfolgreich zu Nextcloud hochgeladen')),
+            content: Text('ZIP-Backup erfolgreich zu Nextcloud hochgeladen'),
+          ),
         );
       }
     } catch (e, stack) {
       await AppLogService().logError(
-          'Fehler beim Hochladen des ZIP-Backups zu Nextcloud: $e', stack);
+        'Fehler beim Hochladen des ZIP-Backups zu Nextcloud: $e',
+        stack,
+      );
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -392,14 +396,17 @@ class ArtikelExportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text(
-                  'Backup mit Bildern erfolgreich zu Nextcloud hochgeladen')),
+            content: Text(
+              'Backup mit Bildern erfolgreich zu Nextcloud hochgeladen',
+            ),
+          ),
         );
       }
     } catch (e, stack) {
       await AppLogService().logError(
-          'Fehler beim Hochladen des Backups mit Bildern zu Nextcloud: $e',
-          stack);
+        'Fehler beim Hochladen des Backups mit Bildern zu Nextcloud: $e',
+        stack,
+      );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

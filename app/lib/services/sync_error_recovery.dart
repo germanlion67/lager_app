@@ -4,7 +4,6 @@ import 'dart:async';
 import 'dart:io';
 import 'package:logger/logger.dart';
 
-
 /// Typ von Sync-Fehlern
 enum SyncErrorType {
   network,
@@ -19,10 +18,10 @@ enum SyncErrorType {
 
 /// Schweregrad eines Fehlers
 enum ErrorSeverity {
-  low,     // Kann ignoriert werden
-  medium,  // Sollte behobeun werden
-  high,    // Muss behoben werden
-  critical // Blockiert weitere Synchronisation
+  low,      // Kann ignoriert werden
+  medium,   // Sollte behoben werden  // Fix: Tippfehler 'behobeun' → 'behoben'
+  high,     // Muss behoben werden
+  critical  // Blockiert weitere Synchronisation
 }
 
 /// Details eines Sync-Fehlers
@@ -56,7 +55,8 @@ class SyncError {
   }) : timestamp = timestamp ?? DateTime.now();
 
   /// Erstellt einen SyncError aus einer Exception
-  factory SyncError.fromException(Object error, {
+  factory SyncError.fromException(
+    Object error, {
     StackTrace? stackTrace,
     String? itemId,
     String? itemName,
@@ -66,7 +66,7 @@ class SyncError {
     final severity = _determineSeverity(type, error);
     final message = _generateUserMessage(type, error);
     final actions = _generateSuggestedActions(type, error);
-    
+
     return SyncError(
       id: 'error_${DateTime.now().millisecondsSinceEpoch}',
       type: type,
@@ -89,22 +89,41 @@ class SyncError {
     if (error is TimeoutException) {
       return SyncErrorType.timeout;
     }
-    if (error.toString().contains('authentication') || 
-        error.toString().contains('unauthorized') ||
-        error.toString().contains('401')) {
-      return SyncErrorType.authentication;
-    }
-    if (error.toString().contains('server') || 
-        error.toString().contains('50')) {
-      return SyncErrorType.server;
-    }
-    if (error.toString().contains('conflict') || 
-        error.toString().contains('409')) {
-      return SyncErrorType.conflict;
-    }
     if (error is FileSystemException) {
       return SyncErrorType.storage;
     }
+
+    // Fix: Robusteres String-Matching — lowercase + präzise HTTP-Codes
+    final msg = error.toString().toLowerCase();
+
+    if (msg.contains('401') ||
+        msg.contains('authentication') ||
+        msg.contains('unauthorized')) {
+      return SyncErrorType.authentication;
+    }
+
+    if (msg.contains('409') || msg.contains('conflict')) {
+      return SyncErrorType.conflict;
+    }
+
+    // Fix: Präzise Server-Codes statt '50' (würde auch '150', 'cost50' matchen)
+    if (msg.contains('500') ||
+        msg.contains('501') ||
+        msg.contains('502') ||
+        msg.contains('503') ||
+        msg.contains('504') ||
+        msg.contains('server error')) {
+      return SyncErrorType.server;
+    }
+
+    // Fix: client-Typ wird jetzt auch erkannt (war toter Code)
+    if (msg.contains('400') ||
+        msg.contains('403') ||
+        msg.contains('404') ||
+        msg.contains('client error')) {
+      return SyncErrorType.client;
+    }
+
     return SyncErrorType.unknown;
   }
 
@@ -122,6 +141,8 @@ class SyncError {
         return ErrorSeverity.high;
       case SyncErrorType.timeout:
         return ErrorSeverity.low;
+      case SyncErrorType.client:
+        return ErrorSeverity.high;
       default:
         return ErrorSeverity.medium;
     }
@@ -142,15 +163,16 @@ class SyncError {
       case SyncErrorType.timeout:
         return 'Timeout: Vorgang dauerte zu lange';
       case SyncErrorType.client:
-        return 'Client-Fehler: Problem mit der App-Konfiguration';
+        return 'Client-Fehler: Problem mit der App-Konfiguration oder Anfrage';
       default:
         return 'Unbekannter Fehler bei der Synchronisation';
     }
   }
 
-  static List<RecoveryAction> _generateSuggestedActions(SyncErrorType type, Object error) {
+  static List<RecoveryAction> _generateSuggestedActions(
+      SyncErrorType type, Object error,) {
     final actions = <RecoveryAction>[];
-    
+
     switch (type) {
       case SyncErrorType.network:
         actions.addAll([
@@ -189,6 +211,12 @@ class SyncError {
           RecoveryAction.adjustTimeout,
         ]);
         break;
+      case SyncErrorType.client:
+        actions.addAll([
+          RecoveryAction.viewLogs,
+          RecoveryAction.reportBug,
+        ]);
+        break;
       default:
         actions.addAll([
           RecoveryAction.retry,
@@ -196,18 +224,20 @@ class SyncError {
           RecoveryAction.reportBug,
         ]);
     }
-    
+
     return actions;
   }
 
-  bool get isRetryable => severity != ErrorSeverity.critical && 
-                         (type == SyncErrorType.network || 
-                          type == SyncErrorType.timeout ||
-                          type == SyncErrorType.server);
+  bool get isRetryable =>
+      severity != ErrorSeverity.critical &&
+      (type == SyncErrorType.network ||
+          type == SyncErrorType.timeout ||
+          type == SyncErrorType.server);
 
-  bool get requiresUserAction => severity == ErrorSeverity.critical ||
-                                type == SyncErrorType.conflict ||
-                                type == SyncErrorType.authentication;
+  bool get requiresUserAction =>
+      severity == ErrorSeverity.critical ||
+      type == SyncErrorType.conflict ||
+      type == SyncErrorType.authentication;
 }
 
 /// Empfohlene Wiederherstellungsaktionen
@@ -297,12 +327,24 @@ class SyncErrorRecoveryService {
   final List<SyncError> _errorHistory = [];
   final Map<String, int> _retryCount = {};
   final Map<String, DateTime> _lastRetryTime = {};
-  
+
   static const int maxRetries = 3;
   static const Duration retryDelay = Duration(seconds: 5);
   static const Duration exponentialBackoffBase = Duration(seconds: 2);
 
+  // Fix: Maximale History-Größe um Memory Leak zu verhindern
+  static const int _maxHistorySize = 500;
+
   List<SyncError> get errorHistory => List.unmodifiable(_errorHistory);
+
+  /// Fügt einen Fehler zur History hinzu (mit automatischem Size-Limit)
+  void _addToHistory(SyncError error) {
+    _errorHistory.add(error);
+    // Fix: Ältesten Eintrag entfernen wenn Limit erreicht
+    if (_errorHistory.length > _maxHistorySize) {
+      _errorHistory.removeAt(0);
+    }
+  }
 
   /// Behandelt einen aufgetretenen Fehler
   Future<SyncErrorRecoveryResult> handleError(
@@ -313,7 +355,7 @@ class SyncErrorRecoveryService {
     Map<String, dynamic>? context,
   }) async {
     logger.e('Sync error occurred', error: error, stackTrace: stackTrace);
-    
+
     final syncError = SyncError.fromException(
       error,
       stackTrace: stackTrace,
@@ -321,12 +363,12 @@ class SyncErrorRecoveryService {
       itemName: itemName,
       context: context,
     );
-    
-    _errorHistory.add(syncError);
-    
-    // Bestimme Recovery-Strategie
+
+    // Fix: _addToHistory statt direktem add (Size-Limit)
+    _addToHistory(syncError);
+
     final strategy = _determineRecoveryStrategy(syncError);
-    
+
     return SyncErrorRecoveryResult(
       error: syncError,
       strategy: strategy,
@@ -338,80 +380,95 @@ class SyncErrorRecoveryService {
 
   /// Bestimmt die optimale Recovery-Strategie
   RecoveryStrategy _determineRecoveryStrategy(SyncError error) {
-    // Kritische Fehler erfordern sofortige Benutzeraktion
     if (error.severity == ErrorSeverity.critical) {
       return RecoveryStrategy.requireUserAction;
     }
-    
-    // Konflikte erfordern Benutzerentscheidung
+
     if (error.type == SyncErrorType.conflict) {
       return RecoveryStrategy.resolveConflict;
     }
-    
-    // Prüfe Retry-Möglichkeiten
+
     if (_canRetry(error)) {
       return RecoveryStrategy.retryWithBackoff;
     }
-    
-    // Überspringbare Fehler
+
     if (error.severity == ErrorSeverity.low) {
       return RecoveryStrategy.skipAndContinue;
     }
-    
+
     return RecoveryStrategy.requireUserAction;
   }
 
   /// Prüft ob ein Retry möglich ist
   bool _canRetry(SyncError error) {
     if (!error.isRetryable) return false;
-    
-    final key = error.itemId ?? error.type.toString();
+
+    // Fix: Kombinierten Key verwenden um Key-Kollisionen zu vermeiden
+    final key = '${error.type}_${error.itemId ?? error.id}';
     final retries = _retryCount[key] ?? 0;
-    
+
     return retries < maxRetries;
   }
 
   /// Prüft ob ein Item übersprungen werden sollte
   bool _shouldSkip(SyncError error) {
-    return error.severity == ErrorSeverity.low || 
-           (!error.isRetryable && error.severity != ErrorSeverity.critical);
+    return error.severity == ErrorSeverity.low ||
+        (!error.isRetryable && error.severity != ErrorSeverity.critical);
+  }
+
+  /// Prüft ob ein Item noch im Cooldown ist
+  bool _isInCooldown(String key) {
+    // Fix: _lastRetryTime wird jetzt sinnvoll für Cooldown genutzt
+    final last = _lastRetryTime[key];
+    if (last == null) return false;
+    return DateTime.now().difference(last) < retryDelay;
   }
 
   /// Führt einen Retry mit exponential backoff durch
-  Future<void> performRetry(
+  /// Fix: Generische Signatur — Rückgabewert wird nicht mehr verworfen
+  Future<T> performRetry<T>(
     SyncError error,
-    Future<void> Function() retryFunction,
+    Future<T> Function() retryFunction,
   ) async {
-    final key = error.itemId ?? error.type.toString();
+    // Fix: Kombinierten Key verwenden (konsistent mit _canRetry)
+    final key = '${error.type}_${error.itemId ?? error.id}';
     final retries = _retryCount[key] ?? 0;
-    
+
     if (retries >= maxRetries) {
       throw Exception('Maximum retry count reached for ${error.message}');
     }
-    
+
+    // Fix: Cooldown prüfen vor Retry
+    if (_isInCooldown(key)) {
+      logger.d('Item $key is in cooldown, waiting...');
+      await Future<void>.delayed(retryDelay);
+    }
+
     // Exponential backoff
     final delay = Duration(
       milliseconds: exponentialBackoffBase.inMilliseconds * (1 << retries),
     );
-    
-    logger.i('Retrying after ${delay.inSeconds}s (attempt ${retries + 1}/$maxRetries)');
-    await Future.delayed(delay);
-    
+
+    logger.i(
+        'Retrying after ${delay.inSeconds}s (attempt ${retries + 1}/$maxRetries)',);
+    await Future<void>.delayed(delay);
+
     _retryCount[key] = retries + 1;
     _lastRetryTime[key] = DateTime.now();
-    
+
     try {
-      await retryFunction();
-      // Bei Erfolg: Reset retry count
+      final result = await retryFunction();
+      // Bei Erfolg: Reset retry count und lastRetryTime
       _retryCount.remove(key);
       _lastRetryTime.remove(key);
+      return result;
     } catch (e) {
-      // Bei erneutem Fehler: Count erhöhen
       rethrow;
     }
   }
 
   /// Erstellt eine Batch-Recovery für mehrere Fehler
+  /// Fix: Konsistente Signatur — retryFunction ohne Parameter (wie performRetry)
   Future<BatchRecoveryResult> performBatchRecovery(
     List<SyncError> errors,
     Future<void> Function(SyncError) retryFunction,
@@ -458,26 +515,30 @@ class SyncErrorRecoveryService {
   /// Generiert einen Fehlerbericht
   Map<String, dynamic> generateErrorReport() {
     final now = DateTime.now();
-    final last24h = _errorHistory.where(
-      (e) => now.difference(e.timestamp).inHours <= 24,
-    ).toList();
+    final last24h = _errorHistory
+        .where(
+          (e) => now.difference(e.timestamp).inHours <= 24,
+        )
+        .toList();
 
     return {
       'summary': {
         'totalErrors': _errorHistory.length,
         'errorsLast24h': last24h.length,
         'mostCommonType': _getMostCommonErrorType(),
-        'criticalErrors': _errorHistory.where((e) => e.severity == ErrorSeverity.critical).length,
+        'criticalErrors': _errorHistory
+            .where((e) => e.severity == ErrorSeverity.critical)
+            .length,
       },
       'errorsByType': _getErrorsByType(),
       'errorsBySeverity': _getErrorsBySeverity(),
       'recentErrors': last24h.take(10).map((e) => {
-        'timestamp': e.timestamp.toIso8601String(),
-        'type': e.type.toString(),
-        'severity': e.severity.toString(),
-        'message': e.message,
-        'item': e.itemName,
-      }).toList(),
+            'timestamp': e.timestamp.toIso8601String(),
+            'type': e.type.toString(),
+            'severity': e.severity.toString(),
+            'message': e.message,
+            'item': e.itemName,
+          },).toList(),
     };
   }
 

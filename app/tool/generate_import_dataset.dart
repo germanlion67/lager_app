@@ -1,3 +1,5 @@
+// tool/generate_import_dataset.dart
+
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -51,7 +53,7 @@ Future<void> main(List<String> args) async {
           x, y,
           (r + noise).clamp(0, 255),
           (g + noise).clamp(0, 255),
-          (b + noise).clamp(0, 255)
+          (b + noise).clamp(0, 255),
         );
       }
     }

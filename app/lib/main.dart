@@ -34,6 +34,9 @@ void main() async {
               ? '[Main] ✅ PocketBase erreichbar'
               : '[Main] ⚠️ PocketBase nicht erreichbar beim Start',
         );
+      }).catchError((Object e, StackTrace st) {
+        // Fix: catchError — unbehandelte Exception im fire-and-forget verhindert
+        debugPrint('[Main] ⚠️ PocketBase Health-Check Fehler: $e\n$st');
       }),
     );
   }
@@ -52,7 +55,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _wifiOnlySync = true;
   Timer? _syncTimer;
 
-  // FIX: static const statt final int — Wert ist kompilierzeitkonstant
   static const int _syncIntervalMinutes = 15;
 
   late final ArtikelDbService _db;
@@ -60,8 +62,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final PocketBaseSyncService _pocketSync;
   late final SyncOrchestrator _orchestrator;
 
-  // FIX: Guard gegen doppeltes Cleanup (paused + detached)
   bool _cleanupDone = false;
+
+  // Fix: Sync-Lauf-Guard — verhindert parallele Sync-Läufe
+  bool _syncRunning = false;
 
   @override
   void initState() {
@@ -91,13 +95,19 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _runInitialSync() async {
+    // Fix: Sync-Guard prüfen
+    if (_syncRunning) return;
+    _syncRunning = true;
+
     try {
       debugPrint('[Sync] Initialer Sync startet...');
       await _orchestrator.runOnce();
       debugPrint('[Sync] Initialer Sync abgeschlossen');
     } catch (e, st) {
-      // FIX: Stack-Trace mitloggen
       debugPrint('[Sync] Initialer Sync fehlgeschlagen: $e\n$st');
+    } finally {
+      // Fix: Guard in finally — auch bei Exception zurücksetzen
+      _syncRunning = false;
     }
   }
 
@@ -112,6 +122,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _syncIfConnected() async {
     if (kIsWeb) return;
 
+    // Fix: Sync-Guard — kein paralleler Sync wenn vorheriger noch läuft
+    if (_syncRunning) {
+      debugPrint('[Sync] Übersprungen: Sync läuft bereits');
+      return;
+    }
+    _syncRunning = true;
+
     try {
       final results = await Connectivity().checkConnectivity();
       final isWifi = results.contains(ConnectivityResult.wifi);
@@ -125,8 +142,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       await _orchestrator.runOnce();
       debugPrint('[Sync] Periodischer Sync beendet um ${DateTime.now()}');
     } catch (e, st) {
-      // FIX: Stack-Trace mitloggen
       debugPrint('[Sync] Fehler beim periodischen Sync: $e\n$st');
+    } finally {
+      // Fix: Guard in finally — auch bei Exception zurücksetzen
+      _syncRunning = false;
     }
   }
 
@@ -142,12 +161,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
+        // Fix: _cleanupDone zurücksetzen — App kann nach paused wieder resumed werden
+        _cleanupDone = false;
         if (!kIsWeb) {
           unawaited(_syncIfConnected());
         }
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        // FIX: paused + detached zusammengefasst — kein doppeltes Cleanup
         unawaited(_cleanupResources());
       default:
         break;
@@ -156,15 +176,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _cleanupResources() async {
     if (kIsWeb) return;
-
-    // FIX: Guard gegen doppeltes Schließen der DB
     if (_cleanupDone) return;
     _cleanupDone = true;
 
     try {
       await _db.closeDatabase();
     } catch (e, st) {
-      // FIX: Stack-Trace mitloggen
       debugPrint('Cleanup error: $e\n$st');
     }
   }
@@ -173,7 +190,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Elektronik Verwaltung',
-      // FIX: colorScheme statt deprecated primarySwatch
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         inputDecorationTheme: const InputDecorationTheme(

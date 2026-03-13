@@ -109,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         SnackBar(
           content: Text(ok
               ? '✅ Verbindung zu PocketBase erfolgreich!'
-              : '❌ PocketBase nicht erreichbar'),
+              : '❌ PocketBase nicht erreichbar',),
           backgroundColor: ok ? Colors.green : Colors.red,
         ),
       );

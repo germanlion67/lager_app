@@ -1,25 +1,65 @@
-List<String> sortFilesByName(List<String> files, {bool ascending = true}) {
+//lib/utils/dokumente_utils.dart
+
+/// Sortiert eine Liste von Dateinamen alphabetisch (case-insensitive).
+///
+/// - [ascending]: true = A→Z, false = Z→A
+/// - Gibt eine neue Liste zurück, das Original bleibt unverändert.
+List<String> sortFilesByName(
+  List<String> files, {
+  bool ascending = true,
+}) {
   final copy = List<String>.from(files);
-  copy.sort((a, b) => ascending ? a.toLowerCase().compareTo(b.toLowerCase()) : b.toLowerCase().compareTo(a.toLowerCase()));
+  copy.sort((a, b) {
+    final cmp = a.toLowerCase().compareTo(b.toLowerCase());
+    return ascending ? cmp : -cmp;
+  });
   return copy;
 }
 
-List<String> sortFilesByTypeThenName(List<String> files, {bool ascending = true}) {
+/// Sortiert eine Liste von Dateinamen nach Typ (Erweiterung), dann alphabetisch.
+///
+/// Typ-Reihenfolge (aufsteigend):
+///   1. Bilder  (jpg, jpeg, png, gif, bmp, webp)
+///   2. PDF
+///   3. Dokumente (doc, docx, odt)
+///   4. Alles andere
+///
+/// - [ascending]: true = Bilder zuerst / A→Z, false = umgekehrt
+/// - Gibt eine neue Liste zurück, das Original bleibt unverändert.
+List<String> sortFilesByTypeThenName(
+  List<String> files, {
+  bool ascending = true,
+}) {
   final copy = List<String>.from(files);
 
-  int weight(String f) {
-    final ext = f.contains('.') ? f.split('.').last.toLowerCase() : '';
-    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'].contains(ext)) return 1;
+  // Fix: Underscore entfernt — lokale Bezeichner dürfen in Dart
+  // nicht mit '_' beginnen (no_leading_underscores_for_local_identifiers)
+  String getExtension(String filename) {
+    final dot = filename.lastIndexOf('.');
+    return dot != -1 ? filename.substring(dot + 1).toLowerCase() : '';
+  }
+
+  int getWeight(String filename) {
+    final ext = getExtension(filename);
+    if (const {'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'}.contains(ext)) {
+      return 1;
+    }
     if (ext == 'pdf') return 2;
-    if (['doc', 'docx', 'odt'].contains(ext)) return 3;
+    if (const {'doc', 'docx', 'odt'}.contains(ext)) return 3;
     return 4;
   }
 
   copy.sort((a, b) {
-    final wa = weight(a);
-    final wb = weight(b);
-    if (wa != wb) return ascending ? wa.compareTo(wb) : wb.compareTo(wa);
-    return ascending ? a.toLowerCase().compareTo(b.toLowerCase()) : b.toLowerCase().compareTo(a.toLowerCase());
+    final wa = getWeight(a);
+    final wb = getWeight(b);
+
+    if (wa != wb) {
+      final cmp = wa.compareTo(wb);
+      return ascending ? cmp : -cmp;
+    }
+
+    final nameCmp = a.toLowerCase().compareTo(b.toLowerCase());
+    return ascending ? nameCmp : -nameCmp;
   });
 
   return copy;
