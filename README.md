@@ -1,6 +1,6 @@
-# 📦 Elektronik Lagerverwaltung
+# 📦 Lager_app
 
-Eine plattformübergreifende Lagerverwaltungs-App für Elektronikbauteile, gebaut mit **Flutter** und **PocketBase**. Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
+Eine plattformübergreifende Lagerverwaltungs-App für z.B. Elektronikbauteile, gebaut mit **Flutter** und **PocketBase**. Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
 ![PocketBase](https://img.shields.io/badge/PocketBase-0.22+-green?logo=pocketbase)
@@ -8,8 +8,11 @@ Eine plattformübergreifende Lagerverwaltungs-App für Elektronikbauteile, gebau
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Test Status](https://img.shields.io/badge/Tests-⚠️%20ungetestet-orange)
 
-> ⚠️ **Teststatus**: Stand März 2026 – alle Features implementiert, manuelles Testing läuft.  Siehe [Roadmap](#Roadmap).
-Nicht für Produktionseinsatz empfohlen.
+> ⚠️ **Teststatus**: Stand März 2026 – Nicht für Produktionseinsatz empfohlen.
+> - manuelles Testing läuft.  Siehe [Roadmap](#Roadmap).
+> - Nextcloud: Implementierung vorhanden (WebDAV-Client, Upload/Backup-Workflow). Integration ist als experimentell/ungeprüft gekennzeichnet
+
+
 
 ---
 
@@ -46,7 +49,7 @@ Nicht für Produktionseinsatz empfohlen.
 
 ## Overview
 
-Die **Elektronik Lagerverwaltung** ist eine Offline-First-Anwendung zur Verwaltung von Elektronikbauteilen und Lagerbeständen. Sie wurde entwickelt, um sowohl auf mobilen Geräten als auch im Browser zu funktionieren.
+Die **Lager_app** ist eine Offline-First-Anwendung zur Verwaltung von Elektronikbauteilen und Lagerbeständen. Sie wurde entwickelt, um sowohl auf mobilen Geräten als auch im Browser zu funktionieren.
 
 ### Kernkonzept
 
@@ -84,7 +87,7 @@ Die **Elektronik Lagerverwaltung** ist eine Offline-First-Anwendung zur Verwaltu
 
 ### 🔄 Synchronisation
 - **Offline-First**: Mobile App funktioniert ohne Netzwerk
-- **Background-Sync**: Automatische Synchronisation alle 15 Minuten
+- **Background-Sync**: Desktop: periodische Timer-Sync (15 min) implementiert. Mobile background-sync ist aktuell nicht aktiviert (Workmanager auskommentiert). Es existiert jedoch Sync-on-resume und manuelle Sync-Optionen.
 - **WiFi-Only Option**: Sync nur im WLAN
 - **Sync bei App-Resume**: Automatischer Sync wenn App in den Vordergrund kommt
 - **Konfliktlösung**: Manuelle Konfliktauflösung über eigenen Screen
@@ -186,9 +189,8 @@ Die schnellste Methode – startet Frontend und Backend in einem Befehl:
 
 ```bash
 # 1. Repository klonen
-git clone git clone https://github.com/dein-user/elektronik-lagerverwaltung.git
-cd elektronik-lagerverwaltung
-
+git clone git clone [https://github.com/germanlion67/lager_app.git](https://github.com/germanlion67/lager_app.git)
+cd lager_app
 # 2. Environment-Datei erstellen
 cp .env.example .env
 
@@ -207,8 +209,8 @@ docker compose up -d --build
 
 ```bash
 # 1. Repository klonen
-git clone https://github.com/dein-user/elektronik-lagerverwaltung.git
-cd elektronik-lagerverwaltung/app
+git clone [https://github.com/germanlion67/lager_app.git](https://github.com/germanlion67/lager_app.git)
+cd lager_app/app
 
 # 2. Dependencies installieren
 flutter pub get
@@ -344,7 +346,14 @@ docker compose exec server cp -r /pb_data /pb_data_backup
 
 # Shell im Container öffnen
 docker compose exec app sh
-docker compose exec server sh
+
+Tools & Tests:
+- Es existiert ein Tool zum Generieren von Import-Datensätzen (tool/generate_import_dataset.dart) und Performance-Tests (z. B. test/performance/import_500_smoke_test.dart).
+- Empfehlung: Nutze diese Tools, um Import-/Export-Workflows zu verifizieren. Beispiel:
+  - Daten generieren: `dart run tool/generate_import_dataset.dart --count 500`
+  - Test ausführen: `flutter test test/performance/import_500_smoke_test.dart`docker compose exec server sh
+
+
 ```
 
 ### Web Interface
