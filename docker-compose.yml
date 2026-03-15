@@ -10,12 +10,12 @@ services:
       - serve
       - --http=0.0.0.0:8080
       - --dir=/pb_data
-    container_name: lager_backend
+    container_name: pocketbase
     restart: unless-stopped
     # KEIN externer Port mehr nötig! nginx leitet intern weiter.
     # Für direkten Admin-Zugriff optional freigeben:
-    # ports:
-    #   - "${PB_PORT:-8080}:8080"
+    ports:
+      - "${PB_PORT:-8080}:8080"
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public

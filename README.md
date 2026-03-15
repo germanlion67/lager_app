@@ -8,7 +8,8 @@ Eine plattformübergreifende Lagerverwaltungs-App für Elektronikbauteile, gebau
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Test Status](https://img.shields.io/badge/Tests-⚠️%20ungetestet-orange)
 
-> ⚠️ **Teststatus**: Stand März 2026 – alle Features implementiert, aber noch kein manuelles Testing durchgeführt. Nicht für Produktionseinsatz empfohlen.
+> ⚠️ **Teststatus**: Stand März 2026 – alle Features implementiert, manuelles Testing läuft.  Siehe [Roadmap](#Roadmap).
+Nicht für Produktionseinsatz empfohlen.
 
 ---
 
@@ -185,7 +186,7 @@ Die schnellste Methode – startet Frontend und Backend in einem Befehl:
 
 ```bash
 # 1. Repository klonen
-git clone https://github.com/dein-user/elektronik-lagerverwaltung.git
+git clone git clone https://github.com/dein-user/elektronik-lagerverwaltung.git
 cd elektronik-lagerverwaltung
 
 # 2. Environment-Datei erstellen
@@ -196,7 +197,7 @@ docker compose up -d --build
 
 # 4. Fertig! Öffne im Browser:
 #    App:   http://localhost:8081
-#    Admin: http://localhost:8081/_/
+#    Admin: http://localhost:8080/_/
 ```
 
 > ⚠️ **Wichtig**: Nach dem ersten Start muss die PocketBase Collection `artikel` manuell angelegt werden.  
@@ -214,19 +215,19 @@ flutter pub get
 
 # 3. PocketBase starten (separates Terminal)
 cd ../server
-./pocketbase serve --http=0.0.0.0:8090
+./pocketbase serve --http=0.0.0.0:8080
 
 # 4. App starten
 cd ../app
 
 # Web:
-flutter run -d chrome --dart-define=PB_URL=http://localhost:8090
+flutter run -d chrome --dart-define=PB_URL=http://localhost:8080
 
 # Desktop (Linux):
-flutter run -d linux --dart-define=PB_URL=http://localhost:8090
+flutter run -d linux --dart-define=PB_URL=http://localhost:8080
 
 # Mobile (Emulator/Gerät):
-flutter run --dart-define=PB_URL=http://192.168.1.100:8090
+flutter run --dart-define=PB_URL=http://192.168.1.100:8080
 ```
 
 ### Mobile (Android)
@@ -234,7 +235,7 @@ flutter run --dart-define=PB_URL=http://192.168.1.100:8090
 ```bash
 # Android APK bauen
 flutter build apk --release \
-  --dart-define=PB_URL=http://dein-server:8090
+  --dart-define=PB_URL=http://<your-server>:8080
 ```
 
 ---
@@ -245,7 +246,7 @@ flutter build apk --release \
 
 Beim ersten Start muss PocketBase konfiguriert werden:
 
-1. **Admin-UI öffnen**: `http://localhost:8081/_/`
+1. **Admin-UI öffnen**: `http://localhost:8080/_/`
 2. **Admin-Account erstellen** (E-Mail + Passwort)
 3. **Collection `artikel` erstellen** mit folgendem Schema:
 
@@ -267,7 +268,7 @@ Beim ersten Start muss PocketBase konfiguriert werden:
 | `updated_at` | Number | Default: 0 |
 | `deleted` | Boolean | Default: false |
 | `etag` | Text | — |
-| `remote_path` | Text | — |
+| `remote_path` | Text | — |a
 | `device_id` | Text | — |
 
 4. **API Rules konfigurieren** (für Collection `artikel`):
@@ -285,7 +286,7 @@ Erstelle eine `.env`-Datei im Projekt-Root (Vorlage: `.env.example`):
 WEB_PORT=8081
 
 # Optional: PocketBase direkt erreichbar machen (für Debugging)
-# PB_PORT=8090
+# PB_PORT=8080
 ```
 
 ### App Settings
@@ -294,7 +295,7 @@ In der App unter **Einstellungen** konfigurierbar:
 
 | Einstellung | Beschreibung | Standard |
 |-------------|-------------|----------|
-| **PocketBase URL** | Server-Adresse | `/api` (Web) oder `http://127.0.0.1:8090` (Mobile) |
+| **PocketBase URL** | Server-Adresse | `/api` (Web) oder `http://127.0.0.1:8080` (Mobile) |
 | **Start-Artikelnummer** | Erste ID für neue Artikel | `1000` |
 
 ### Nextcloud (Optional)
@@ -313,7 +314,7 @@ In der App unter **Einstellungen** konfigurierbar:
 
 1. **Docker starten**: `docker compose up -d`
 2. **Browser öffnen**: `http://localhost:8081`
-3. **PocketBase Admin einrichten**: `http://localhost:8081/_/`
+3. **PocketBase Admin einrichten**: `http://localhost:8080/_/`
 4. **Collection `artikel` erstellen** (siehe [PocketBase Setup](#pocketbase-setup))
 5. **Ersten Artikel anlegen**: Klick auf "Neuer Artikel"
 
@@ -351,9 +352,9 @@ docker compose exec server sh
 | URL | Beschreibung |
 |-----|-------------|
 | `http://localhost:8081/` | Flutter Web App |
-| `http://localhost:8081/_/` | PocketBase Admin UI |
-| `http://localhost:8081/api/health` | Health-Check Endpoint |
-| `http://localhost:8081/api/collections/artikel/records` | API: Alle Artikel |
+| `http://localhost:8080/_/` | PocketBase Admin UI |
+| `http://localhost:8080/api/health` | Health-Check Endpoint |
+| `http://localhost:8080/api/collections/artikel/records` | API: Alle Artikel |
 
 ### Mobile App
 
@@ -376,7 +377,7 @@ docker compose exec server sh
 docker compose ps
 
 # Prüfe Health-Check
-curl http://localhost:8081/api/health
+curl http://localhost:8080/api/health
 
 # Logs prüfen
 docker compose logs server
@@ -385,7 +386,7 @@ docker compose logs server
 **Mobile**:
 - Einstellungen → PocketBase URL prüfen
 - Gerät muss im gleichen Netzwerk sein
-- URL-Format: `http://192.168.1.100:8081/api` (über nginx) oder `http://192.168.1.100:8090` (direkt)
+- URL-Format: `http://192.168.1.100:8080/api` (über nginx) oder `http://192.168.1.100:8080` (direkt)
 
 ### 🔴 "Bilder werden nicht angezeigt"
 
@@ -400,7 +401,7 @@ docker compose logs server
 ping dein-server
 
 # Prüfe PocketBase API
-curl http://dein-server:8081/api/health
+curl http://dein-server:8080/api/health
 
 # App-Log prüfen: Menü → Log-Ansicht
 ```
@@ -512,7 +513,8 @@ if (kIsWeb) {
 
 ### Testing
 
-> ⚠️ **Teststatus**: Noch kein manuelles Testing durchgeführt.
+> ⚠️ **Teststatus**: Tests laufen
+
 
 #### Test-Prioritäten
 
@@ -577,6 +579,16 @@ chore:    Build/Dependencies
 
 ---
 
+### Roadmap
+
+- Datenbanktest (Web)
+  - Artikel anlegen, ändern, löschen  ✅
+  - Artikel export JSON / import JSON ❌ (fehlende Bilder)
+- PocketBase-Migrations-Script
+- Druck ud PDF Export
+
+
+
 ## License
 
 Dieses Projekt steht unter der [MIT License](LICENSE).
@@ -584,7 +596,7 @@ Dieses Projekt steht unter der [MIT License](LICENSE).
 ```
 MIT License
 
-Copyright (c) 2024-2026
+Copyright (c) 2026
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
