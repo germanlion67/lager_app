@@ -347,13 +347,6 @@ docker compose exec server cp -r /pb_data /pb_data_backup
 # Shell im Container öffnen
 docker compose exec app sh
 
-Tools & Tests:
-- Es existiert ein Tool zum Generieren von Import-Datensätzen (tool/generate_import_dataset.dart) und Performance-Tests (z. B. test/performance/import_500_smoke_test.dart).
-- Empfehlung: Nutze diese Tools, um Import-/Export-Workflows zu verifizieren. Beispiel:
-  - Daten generieren: `dart run tool/generate_import_dataset.dart --count 500`
-  - Test ausführen: `flutter test test/performance/import_500_smoke_test.dart`docker compose exec server sh
-
-
 ```
 
 ### Web Interface
@@ -448,7 +441,7 @@ docker compose up -d
 ### Project Structure
 
 ```
-elektronik-lagerverwaltung/
+lager_app/
 ├── app/                        # Flutter App
 │   ├── lib/                    # Dart Source Code
 │   ├── android/                # Android-spezifisch
@@ -550,6 +543,12 @@ cd build/web && python3 -m http.server 8080
 # Docker-Build testen
 docker compose up -d --build
 curl http://localhost:8081/api/health
+
+Tools & Tests:
+- Es existiert ein Tool zum Generieren von Import-Datensätzen (tool/generate_import_dataset.dart) und Performance-Tests (z. B. test/performance/import_500_smoke_test.dart).
+- Empfehlung: Nutze diese Tools, um Import-/Export-Workflows zu verifizieren. Beispiel:
+  - Daten generieren: `dart run tool/generate_import_dataset.dart --count 500`
+  - Test ausführen: `flutter test test/performance/import_500_smoke_test.dart`docker compose exec server sh
 ```
 
 ---
