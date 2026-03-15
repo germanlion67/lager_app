@@ -166,9 +166,9 @@ lib/
 - [Docker Compose](https://docs.docker.com/compose/) >= 2.0
 
 ### Für lokale Entwicklung
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) >= 3.16
-- [Dart SDK](https://dart.dev/get-dart) >= 3.2
-- [PocketBase](https://pocketbase.io/docs/) >= 0.22 (für Backend)
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) >= 3.41.4
+- [Dart SDK](https://dart.dev/get-dart) >= 3.11.1
+- [PocketBase](https://pocketbase.io/docs/) >= 0.36.6 (für Backend)
 - Android Studio / VS Code mit Flutter-Plugin
 
 ### Für Mobile-Build
