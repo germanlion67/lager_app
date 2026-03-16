@@ -1,20 +1,32 @@
 # docker-compose.yml
+#
+# Dev/Test-Setup:
+#   - Flutter Web (Caddy) auf Port 8081
+#   - PocketBase direkt auf Port 8080
+#   - Kein interner Reverse Proxy (nginx entfernt)
+#   - Flutter spricht PocketBase direkt an (POCKETBASE_URL=http://localhost:8080)
+#
+# Produktion:
+#   - Nginx Proxy Manager vorgeschaltet (übernimmt SSL, Header, Routing)
+#   - POCKETBASE_URL auf Produktions-Domain setzen (Build-Arg)
 
 services:
+
   # ============================================================
   # PocketBase Backend
   # ============================================================
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
+    image: ghcr.io/muchobien/pocketbase:0.36.6
     command:
       - serve
       - --http=0.0.0.0:8080
       - --dir=/pb_data
     container_name: pocketbase
     restart: unless-stopped
-    # KEIN externer Port mehr nötig! nginx leitet intern weiter.
-    # Für direkten Admin-Zugriff optional freigeben:
     ports:
+      # Direkt erreichbar — kein Reverse Proxy mehr vorgeschaltet.
+      # Admin UI: http://localhost:8080/_/
+      # API:      http://localhost:8080/api/
       - "${PB_PORT:-8080}:8080"
     volumes:
       - ./server/pb_data:/pb_data
@@ -28,26 +40,29 @@ services:
       - lager_network
 
   # ============================================================
-  # Flutter Web Frontend + Reverse Proxy
+  # Flutter Web Frontend (Caddy)
   # ============================================================
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
       args:
-        # Relativer Pfad! nginx leitet /api/* an PocketBase weiter
-        - PB_URL=/api
+        # Flutter baut die PocketBase-URL zur Build-Zeit ein.
+        # Der Browser ruft PocketBase direkt auf — kein Proxy nötig.
+        # In Produktion: auf Produktions-URL ändern und neu bauen.
+        - POCKETBASE_URL=http://localhost:${PB_PORT:-8080}
     container_name: lager_frontend
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-8081}:80"
+      - "${WEB_PORT:-8081}:8081"
     depends_on:
       pocketbase:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
       interval: 30s
       timeout: 3s
+      start_period: 5s
       retries: 3
     networks:
       - lager_network

@@ -1,5 +1,3 @@
-# .dockerignore
-
 # Build-Artefakte
 build/
 .dart_tool/
@@ -18,7 +16,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# Platform-spezifisch (nicht für Web nötig)
+# Plattform-spezifisch (nicht für Web-Build benötigt)
 android/
 ios/
 macos/
@@ -34,7 +32,15 @@ integration_test/
 LICENSE
 CHANGELOG
 
-# Docker (verhindert rekursives Kopieren)
+# Docker
 Dockerfile
-docker-compose*.yml
 .dockerignore
+
+# Nicht mehr benötigt (nginx entfernt)
+nginx.conf
+
+# Entwicklungs-Tools
+tool/
+prompt.txt
+analyze_output.txt
+setup_flutter_wsl.sh

@@ -1,73 +1,107 @@
 # 📦 Lager_app
 
-Eine plattformübergreifende Lagerverwaltungs-App für z.B. Elektronikbauteile, gebaut mit **Flutter** und **PocketBase**. Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
+Eine plattformübergreifende Lagerverwaltungs-App für z.B. Elektronikbauteile,
+gebaut mit **Flutter** und **PocketBase**.
+Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
 
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
-![PocketBase](https://img.shields.io/badge/PocketBase-0.22+-green?logo=pocketbase)
+![PocketBase](https://img.shields.io/badge/PocketBase-0.36.6-green?logo=pocketbase)
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Test Status](https://img.shields.io/badge/Tests-⚠️%20ungetestet-orange)
 
 > ⚠️ **Teststatus**: Stand März 2026 – Nicht für Produktionseinsatz empfohlen.
-> - manuelles Testing läuft.  Siehe [Roadmap](#Roadmap).
-> - Nextcloud: Implementierung vorhanden (WebDAV-Client, Upload/Backup-Workflow). Integration ist als experimentell/ungeprüft gekennzeichnet
-
-
+> Manuelles Testing läuft. Siehe [Roadmap](#roadmap).
+> Nextcloud: Implementierung vorhanden (WebDAV-Client, Upload/Backup-Workflow).
+> Integration ist als experimentell/ungeprüft gekennzeichnet.
 
 ---
 
-## 📋 Table of Contents
+## 📋 Inhaltsverzeichnis
 
-- [Overview](#overview)
+- [Übersicht](#übersicht)
 - [Features](#features)
-- [Architecture](#architecture)
-- [Requirements](#requirements)
+- [Architektur](#architektur)
+- [Voraussetzungen](#voraussetzungen)
 - [Installation](#installation)
   - [Docker (Web)](#docker-web)
-  - [Local Development](#local-development)
+  - [Lokale Entwicklung](#lokale-entwicklung)
   - [Mobile (Android)](#mobile-android)
-- [Configuration](#configuration)
+- [Konfiguration](#konfiguration)
   - [PocketBase Setup](#pocketbase-setup)
-  - [Environment Variables](#environment-variables)
-  - [App Settings](#app-settings)
+  - [Umgebungsvariablen](#umgebungsvariablen)
+  - [App-Einstellungen](#app-einstellungen)
   - [Nextcloud (Optional)](#nextcloud-optional)
-- [Usage](#usage)
+- [Verwendung](#verwendung)
   - [Quick Start](#quick-start)
-  - [Command Line](#command-line)
-  - [Web Interface](#web-interface)
+  - [Kommandozeile](#kommandozeile)
+  - [Web-Interface](#web-interface)
   - [Mobile App](#mobile-app)
 - [Troubleshooting](#troubleshooting)
-- [Development](#development)
-  - [Project Structure](#project-structure)
-  - [Platform Architecture](#platform-architecture)
-  - [Adding Features](#adding-features)
-  - [Testing](#testing)
+- [Entwicklung](#entwicklung)
+  - [Projektstruktur](#projektstruktur)
+  - [Plattform-Architektur](#plattform-architektur)
+  - [Features hinzufügen](#features-hinzufügen)
+  - [Tests](#tests)
+- [Roadmap](#roadmap)
 - [Contributing](#contributing)
-- [License](#license)
+- [Lizenz](#lizenz)
 
 ---
 
-## Overview
+## Übersicht
 
-Die **Lager_app** ist eine Offline-First-Anwendung zur Verwaltung von Elektronikbauteilen und Lagerbeständen. Sie wurde entwickelt, um sowohl auf mobilen Geräten als auch im Browser zu funktionieren.
+Die **Lager_app** ist eine Offline-First-Anwendung zur Verwaltung von
+Elektronikbauteilen und Lagerbeständen. Sie funktioniert auf mobilen Geräten
+und im Browser.
 
 ### Kernkonzept
 
 | Plattform | Datenbank | Bilder | Sync |
-|-----------|-----------|--------|------|
+|---|---|---|---|
 | 📱 **Mobile (Android)** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
 | 🖥️ **Desktop (Linux)** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
 | 🌐 **Web (Docker)** | PocketBase (direkt) | PocketBase File Storage | Kein Sync nötig (immer online) |
 
+---
+
+## Architektur
+
+### Dev/Test-Setup
+
 ```
-┌──────────┐  :8081   ┌───────────┐  intern   ┌────────────┐
-│ Browser  │─────────→│ nginx     │──────────→│ PocketBase │
-└──────────┘          │ (Flutter  │           │ (API + DB) │
-                      │  Web App) │           └────────────┘
-┌──────────┐          └───────────┘                  ↑
-│ 📱 App   │─────────────────────────────────────────┘
-└──────────┘         PocketBase API (direkt)
+Browser
+  │
+  ├──→ Flutter Web (Caddy :8081)     statische Assets
+  │
+  └──→ PocketBase (:8080)            API + Admin UI
 ```
+
+Flutter Web kommuniziert **direkt** mit PocketBase — kein interner
+Reverse Proxy. Die PocketBase-URL wird zur **Build-Zeit** eingebrannt
+(`--dart-define=POCKETBASE_URL=...`).
+
+### Produktions-Setup
+
+```
+Internet
+  │
+  └──→ Nginx Proxy Manager           SSL, Header, Routing
+         │
+         ├──→ Flutter Web (Caddy :8081)
+         │
+         └──→ PocketBase (:8080)
+```
+
+Der vorgeschaltete **Nginx Proxy Manager** übernimmt in Produktion:
+SSL/HTTPS, Sicherheits-Header, Gzip-Kompression und Zugriffskontrolle
+für die PocketBase Admin UI.
+
+> **Warum kein nginx im Container?**
+> Da in Produktion ein Nginx Proxy Manager vorgeschaltet ist, wäre
+> nginx im Container doppelt gemoppelt. Caddy übernimmt nur das
+> Ausliefern der statischen Flutter-Assets und das SPA-Routing —
+> das sind 4 Zeilen Konfiguration statt 200.
 
 ---
 
@@ -87,22 +121,23 @@ Die **Lager_app** ist eine Offline-First-Anwendung zur Verwaltung von Elektronik
 
 ### 🔄 Synchronisation
 - **Offline-First**: Mobile App funktioniert ohne Netzwerk
-- **Background-Sync**: Desktop: periodische Timer-Sync (15 min) implementiert. Mobile background-sync ist aktuell nicht aktiviert (Workmanager auskommentiert). Es existiert jedoch Sync-on-resume und manuelle Sync-Optionen.
-- **WiFi-Only Option**: Sync nur im WLAN
 - **Sync bei App-Resume**: Automatischer Sync wenn App in den Vordergrund kommt
+- **WiFi-Only Option**: Sync nur im WLAN
 - **Konfliktlösung**: Manuelle Konfliktauflösung über eigenen Screen
+- Desktop: Periodische Timer-Sync (15 min)
+- Mobile Background-Sync: vorbereitet, aktuell nicht aktiv
 
 ### 📄 Export & Backup
 - JSON-Export / -Import
 - CSV-Export / -Import
 - ZIP-Backup (Daten + Bilder)
-- PDF-Berichte (Artikelliste, Einzelartikel) — nur Mobile/Desktop
+- PDF-Berichte (nur Mobile/Desktop)
 - Nextcloud ZIP-Backup (optional, ungetestet)
 
 ### 🌐 Web-Version
 - Identische UI wie Mobile
-- Läuft als Docker-Container
-- PocketBase Admin-UI über gleichen Port erreichbar
+- Läuft als Docker-Container (Caddy)
+- PocketBase direkt erreichbar (kein Proxy)
 - Kein lokaler Speicher nötig
 
 ### ☁️ Nextcloud Integration (Optional, ungetestet)
@@ -112,72 +147,22 @@ Die **Lager_app** ist eine Offline-First-Anwendung zur Verwaltung von Elektronik
 
 ---
 
-## Architecture
+## Voraussetzungen
 
-```
-lib/
-├── main.dart                          # App-Einstiegspunkt
-├── main_io.dart                       # Desktop DB-Init (conditional)
-├── main_stub.dart                     # Web-Stub
-├── models/
-│   └── artikel_model.dart             # Datenmodell (SQLite + PocketBase kompatibel)
-├── screens/
-│   ├── artikel_list_screen.dart       # Hauptliste mit Suche & Filter
-│   ├── artikel_detail_screen.dart     # Detailansicht & Bearbeitung
-│   ├── artikel_erfassen_screen.dart   # Neuen Artikel anlegen
-│   ├── conflict_resolution_screen.dart # Sync-Konfliktlösung
-│   ├── settings_screen.dart           # PocketBase-URL & Einstellungen
-│   ├── sync_management_screen.dart    # Sync-Verwaltung
-│   ├── nextcloud_settings_screen.dart # Nextcloud (optional)
-│   ├── qr_scan_screen_mobile_scanner.dart # QR/Barcode Scanner
-│   ├── *_io.dart                      # Plattform-spezifisch (Mobile/Desktop)
-│   └── *_stub.dart                    # Web-Stubs
-├── services/
-│   ├── pocketbase_service.dart        # PocketBase Client (Singleton)
-│   ├── artikel_db_service.dart        # Lokale SQLite DB (nur Mobile/Desktop)
-│   ├── pocketbase_sync_service.dart   # Push/Pull Sync
-│   ├── sync_orchestrator.dart         # Sync-Koordination
-│   ├── artikel_export_service.dart    # JSON/CSV/ZIP Export
-│   ├── artikel_import_service.dart    # JSON/CSV/ZIP Import
-│   ├── pdf_service.dart               # PDF-Generierung (nur Mobile/Desktop)
-│   ├── scan_service.dart              # QR/Barcode Scanner (nur Mobile)
-│   ├── tag_service.dart               # Tag-Verwaltung
-│   ├── nextcloud_sync_service.dart    # Nextcloud Sync (optional)
-│   └── nextcloud_client.dart          # Nextcloud WebDAV Client
-├── utils/
-│   ├── dokumente_utils.dart           # Datei-Hilfsfunktionen
-│   ├── image_processing_utils.dart    # Bildverarbeitung
-│   └── uuid_generator.dart           # UUID Generierung
-├── widgets/
-│   ├── article_icons.dart             # Custom Icons
-│   ├── image_crop_dialog.dart         # Bild-Zuschnitt Dialog
-│   ├── sync_conflict_handler.dart     # Konflikt-Handler Widget
-│   ├── sync_error_widgets.dart        # Fehler-Anzeige Widgets
-│   └── sync_progress_widgets.dart     # Sync-Fortschritt Widgets
-└── docker/
-    ├── Dockerfile                     # Multi-Stage Flutter Web Build
-    ├── docker-compose.yml             # Web + PocketBase
-    └── nginx.conf                     # Reverse Proxy
-```
-
----
-
-## Requirements
-
-### Für Docker (Web-Deployment)
+### Docker (Web-Deployment)
 - [Docker](https://docs.docker.com/get-docker/) >= 20.10
 - [Docker Compose](https://docs.docker.com/compose/) >= 2.0
 
-### Für lokale Entwicklung
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) >= 3.41.4
-- [Dart SDK](https://dart.dev/get-dart) >= 3.11.1
-- [PocketBase](https://pocketbase.io/docs/) >= 0.36.6 (für Backend)
+### Lokale Entwicklung
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) >= 3.32.0
+- [Dart SDK](https://dart.dev/get-dart) >= 3.8.0
+- [PocketBase](https://pocketbase.io/docs/) >= 0.36.6
 - Android Studio / VS Code mit Flutter-Plugin
 
-### Für Mobile-Build
+### Mobile-Build
 - Android SDK >= 21 (Android 5.0+)
 
-> ℹ️ **iOS**: Nicht aktiv unterstützt. iOS-Build ist theoretisch möglich, wurde aber nicht getestet.
+> ℹ️ **iOS**: Nicht aktiv unterstützt.
 
 ---
 
@@ -185,31 +170,31 @@ lib/
 
 ### Docker (Web)
 
-Die schnellste Methode – startet Frontend und Backend in einem Befehl:
-
 ```bash
 # 1. Repository klonen
-git clone git clone [https://github.com/germanlion67/lager_app.git](https://github.com/germanlion67/lager_app.git)
+git clone https://github.com/germanlion67/lager_app.git
 cd lager_app
-# 2. Environment-Datei erstellen
+
+# 2. Umgebungsvariablen anlegen
 cp .env.example .env
+# .env bei Bedarf anpassen (Ports)
 
 # 3. Container starten
 docker compose up -d --build
 
-# 4. Fertig! Öffne im Browser:
-#    App:   http://localhost:8081
-#    Admin: http://localhost:8080/_/
+# 4. Fertig!
+#    Web-App:       http://localhost:8081
+#    PocketBase:    http://localhost:8080/_/
 ```
 
-> ⚠️ **Wichtig**: Nach dem ersten Start muss die PocketBase Collection `artikel` manuell angelegt werden.  
-> Siehe [PocketBase Setup](#pocketbase-setup).
+> ⚠️ **Wichtig**: Nach dem ersten Start muss die PocketBase Collection
+> `artikel` angelegt werden. Siehe [PocketBase Setup](#pocketbase-setup).
 
-### Local Development
+### Lokale Entwicklung
 
 ```bash
 # 1. Repository klonen
-git clone [https://github.com/germanlion67/lager_app.git](https://github.com/germanlion67/lager_app.git)
+git clone https://github.com/germanlion67/lager_app.git
 cd lager_app/app
 
 # 2. Dependencies installieren
@@ -219,41 +204,41 @@ flutter pub get
 cd ../server
 ./pocketbase serve --http=0.0.0.0:8080
 
-# 4. App starten
+# 4. App starten (Web)
 cd ../app
+flutter run -d chrome \
+    --dart-define=POCKETBASE_URL=http://localhost:8080
 
-# Web:
-flutter run -d chrome --dart-define=PB_URL=http://localhost:8080
+# App starten (Desktop Linux)
+flutter run -d linux \
+    --dart-define=POCKETBASE_URL=http://localhost:8080
 
-# Desktop (Linux):
-flutter run -d linux --dart-define=PB_URL=http://localhost:8080
-
-# Mobile (Emulator/Gerät):
-flutter run --dart-define=PB_URL=http://192.168.1.100:8080
+# App starten (Mobile — IP des Entwicklungsrechners angeben)
+flutter run \
+    --dart-define=POCKETBASE_URL=http://192.168.1.100:8080
 ```
 
 ### Mobile (Android)
 
 ```bash
-# Android APK bauen
 flutter build apk --release \
-  --dart-define=PB_URL=http://<your-server>:8080
+    --dart-define=POCKETBASE_URL=http://<server-ip>:8080
 ```
 
 ---
 
-## Configuration
+## Konfiguration
 
 ### PocketBase Setup
 
-Beim ersten Start muss PocketBase konfiguriert werden:
+Beim ersten Start:
 
 1. **Admin-UI öffnen**: `http://localhost:8080/_/`
 2. **Admin-Account erstellen** (E-Mail + Passwort)
-3. **Collection `artikel` erstellen** mit folgendem Schema:
+3. **Collection `artikel` erstellen**:
 
 | Feld | Typ | Optionen |
-|------|-----|----------|
+|---|---|---|
 | `name` | Text | Required |
 | `menge` | Number | Default: 0 |
 | `ort` | Text | Required |
@@ -265,97 +250,99 @@ Beim ersten Start muss PocketBase konfiguriert werden:
 | `erstelltAm` | Text | — |
 | `aktualisiertAm` | Text | — |
 | `remoteBildPfad` | Text | — |
-| `bild` | File | Max Size: 5MB, MIME: image/* |
+| `bild` | File | Max: 5 MB, MIME: image/* |
 | `uuid` | Text | Required, Unique |
 | `updated_at` | Number | Default: 0 |
 | `deleted` | Boolean | Default: false |
 | `etag` | Text | — |
-| `remote_path` | Text | — |a
+| `remote_path` | Text | — |
 | `device_id` | Text | — |
 
-4. **API Rules konfigurieren** (für Collection `artikel`):
-   - List/Search: `@request.auth.id != ""` (oder leer für öffentlich)
-   - View/Create/Update/Delete: nach Bedarf
+4. **API Rules** nach Bedarf konfigurieren.
 
-> 💡 **Tipp**: Ein PocketBase-Migrations-Script (`pb_migrations/`) ist geplant, um diesen Schritt zu automatisieren.
+> 💡 Ein PocketBase-Migrations-Script ist in Planung.
 
-### Environment Variables
+### Umgebungsvariablen
 
-Erstelle eine `.env`-Datei im Projekt-Root (Vorlage: `.env.example`):
+Datei: `.env` im Projekt-Root (Vorlage: `.env.example`)
 
 ```env
-# Port für die Web-App (Frontend + API über nginx)
+# Port für Flutter Web App (Caddy)
 WEB_PORT=8081
 
-# Optional: PocketBase direkt erreichbar machen (für Debugging)
-# PB_PORT=8080
+# Port für PocketBase (API + Admin UI)
+PB_PORT=8080
 ```
 
-### App Settings
+> ⚠️ **Wichtig**: Die PocketBase-URL für Flutter Web wird zur
+> **Build-Zeit** eingebrannt. Wenn sich die URL ändert (z.B. für
+> Produktion), muss der Container neu gebaut werden:
+> `docker compose up -d --build app`
+
+### App-Einstellungen
 
 In der App unter **Einstellungen** konfigurierbar:
 
 | Einstellung | Beschreibung | Standard |
-|-------------|-------------|----------|
-| **PocketBase URL** | Server-Adresse | `/api` (Web) oder `http://127.0.0.1:8080` (Mobile) |
+|---|---|---|
+| **PocketBase URL** | Server-Adresse (Laufzeit-Override) | `http://localhost:8080` |
 | **Start-Artikelnummer** | Erste ID für neue Artikel | `1000` |
 
 ### Nextcloud (Optional)
 
-> ⚠️ **Hinweis**: Nextcloud-Integration ist implementiert aber **ungetestet**. Nur auf Mobile/Desktop verfügbar.
+> ⚠️ Nur Mobile/Desktop. Ungetestet.
 
-1. In der App: **Menü → Nextcloud-Einstellungen**
+1. **Menü → Nextcloud-Einstellungen**
 2. Server-URL, Benutzername und App-Passwort eingeben
-3. Basis-Ordner für Backups festlegen
+3. Basis-Ordner festlegen
 
 ---
 
-## Usage
+## Verwendung
 
 ### Quick Start
 
-1. **Docker starten**: `docker compose up -d`
-2. **Browser öffnen**: `http://localhost:8081`
-3. **PocketBase Admin einrichten**: `http://localhost:8080/_/`
-4. **Collection `artikel` erstellen** (siehe [PocketBase Setup](#pocketbase-setup))
-5. **Ersten Artikel anlegen**: Klick auf "Neuer Artikel"
-
-### Command Line
-
 ```bash
-# Container starten
 docker compose up -d --build
-
-# Container stoppen
-docker compose down
-
-# Logs anzeigen
-docker compose logs -f
-
-# Nur Frontend-Logs
-docker compose logs -f app
-
-# Nur Backend-Logs
-docker compose logs -f server
-
-# Container neu bauen (nach Code-Änderungen)
-docker compose up -d --build app
-
-# PocketBase Daten sichern
-docker compose exec server cp -r /pb_data /pb_data_backup
-
-# Shell im Container öffnen
-docker compose exec app sh
-
+# Web-App:    http://localhost:8081
+# PocketBase: http://localhost:8080/_/
 ```
 
-### Web Interface
+### Kommandozeile
+
+```bash
+# Starten
+docker compose up -d --build
+
+# Stoppen
+docker compose down
+
+# Alle Logs
+docker compose logs -f
+
+# Nur Frontend
+docker compose logs -f app
+
+# Nur Backend
+docker compose logs -f pocketbase
+
+# Frontend neu bauen (nach Code-Änderungen)
+docker compose up -d --build app
+
+# PocketBase-Daten sichern
+docker compose exec pocketbase cp -r /pb_data /pb_data_backup
+
+# Shell im Frontend-Container
+docker compose exec app sh
+```
+
+### Web-Interface
 
 | URL | Beschreibung |
-|-----|-------------|
+|---|---|
 | `http://localhost:8081/` | Flutter Web App |
 | `http://localhost:8080/_/` | PocketBase Admin UI |
-| `http://localhost:8080/api/health` | Health-Check Endpoint |
+| `http://localhost:8080/api/health` | Health-Check |
 | `http://localhost:8080/api/collections/artikel/records` | API: Alle Artikel |
 
 ### Mobile App
@@ -364,202 +351,223 @@ docker compose exec app sh
 - **Neuer Artikel**: FAB-Button unten rechts
 - **Scanner**: QR/Barcode-Button (wenn Kamera verfügbar)
 - **Detail**: Tippe auf einen Artikel zum Bearbeiten
-- **Menü**: Drei-Punkte-Menü oben rechts für Import/Export/Einstellungen
-- **Pull-to-Refresh**: Liste nach unten ziehen zum Aktualisieren
+- **Menü**: Drei-Punkte-Menü für Import/Export/Einstellungen
+- **Pull-to-Refresh**: Liste nach unten ziehen
 
 ---
 
 ## Troubleshooting
 
-### 🔴 "PocketBase nicht erreichbar"
+### 🔴 "PocketBase nicht erreichbar" (Web)
 
-**Web (Docker)**:
 ```bash
-# Prüfe ob Container laufen
+# Container-Status prüfen
 docker compose ps
 
-# Prüfe Health-Check
+# Health-Check prüfen
 curl http://localhost:8080/api/health
 
 # Logs prüfen
-docker compose logs server
+docker compose logs pocketbase
 ```
 
-**Mobile**:
-- Einstellungen → PocketBase URL prüfen
+Häufige Ursachen:
+- Container noch nicht gestartet → kurz warten, `docker compose ps` erneut
+- Port 8080 bereits belegt → `PB_PORT=8090` in `.env` setzen
+
+### 🔴 "PocketBase nicht erreichbar" (Mobile)
+
+- **Einstellungen → PocketBase URL** prüfen
 - Gerät muss im gleichen Netzwerk sein
-- URL-Format: `http://192.168.1.100:8080/api` (über nginx) oder `http://192.168.1.100:8080` (direkt)
+- Format: `http://192.168.1.100:8080`
+- Firewall auf dem Server prüfen: Port 8080 muss offen sein
+
+### 🔴 "Seite nicht gefunden" nach Flutter-Navigation
+
+Caddy leitet alle unbekannten Pfade auf `/index.html` weiter
+(SPA-Routing). Falls das nicht funktioniert:
+
+```bash
+# Caddyfile prüfen
+docker compose exec app cat /etc/caddy/Caddyfile
+
+# Caddy-Logs prüfen
+docker compose logs app
+```
 
 ### 🔴 "Bilder werden nicht angezeigt"
 
-**Web**: Prüfe ob das `bild`-Feld in der PocketBase Collection existiert (Typ: File)
+**Web**: `bild`-Feld in PocketBase Collection prüfen (Typ: File).
+Browser-Konsole auf CORS-Fehler prüfen.
 
-**Mobile**: Bilder werden lokal gespeichert unter `app_flutter/images/`. Prüfe die Berechtigungen.
-
-### 🔴 "Sync funktioniert nicht"
-
-```bash
-# Prüfe Netzwerk
-ping dein-server
-
-# Prüfe PocketBase API
-curl http://dein-server:8080/api/health
-
-# App-Log prüfen: Menü → Log-Ansicht
-```
+**Mobile**: Lokaler Speicher unter `app_flutter/images/`. Berechtigungen prüfen.
 
 ### 🟡 "Docker Build dauert sehr lange"
 
 ```bash
-# Prüfe ob .dockerignore vorhanden ist
-cat .dockerignore
+# .dockerignore vorhanden?
+cat app/.dockerignore
 
-# Nur Frontend neu bauen (ohne PocketBase)
+# Nur Frontend neu bauen
 docker compose up -d --build app
 
-# Build-Cache nutzen (--no-cache nur wenn wirklich nötig!)
+# Cache nutzen (--no-cache nur wenn wirklich nötig)
 docker compose build app
 ```
 
 ### 🟡 "Port bereits belegt"
 
 ```bash
-# Prüfe welcher Prozess den Port nutzt
+# Belegten Prozess finden
 lsof -i :8081
-# oder
-netstat -tlnp | grep 8081
 
 # Anderen Port in .env setzen
-echo "WEB_PORT=8082" > .env
+WEB_PORT=8082
 docker compose up -d
 ```
 
+### 🟡 "CORS-Fehler in der Browser-Konsole"
+
+Da Flutter Web direkt auf PocketBase zugreift (kein Proxy), muss
+PocketBase CORS für den Frontend-Origin erlauben.
+
+In der PocketBase Admin UI:
+**Settings → Application → Allowed Origins** → `http://localhost:8081` eintragen.
+
+Für Produktion: Produktions-Domain eintragen.
+
 ---
 
-## Development
+## Entwicklung
 
-### Project Structure
+### Projektstruktur
 
 ```
 lager_app/
-├── app/                        # Flutter App
-│   ├── lib/                    # Dart Source Code
-│   ├── android/                # Android-spezifisch
-│   ├── web/                    # Web-spezifisch
-│   ├── linux/                  # Linux Desktop
-│   ├── pubspec.yaml            # Dependencies
-│   ├── Dockerfile              # Web Build
-│   └── nginx.conf              # Reverse Proxy Config
+├── app/                         # Flutter App
+│   ├── lib/                     # Dart Source Code
+│   │   ├── config/
+│   │   │   └── app_config.dart  # URL-Konfiguration
+│   │   ├── models/              # Datenmodelle
+│   │   ├── screens/             # UI Screens
+│   │   ├── services/            # Business Logic
+│   │   ├── utils/               # Hilfsfunktionen
+│   │   └── widgets/             # Wiederverwendbare Widgets
+│   ├── web/                     # Web-spezifisch (index.html, Icons)
+│   ├── test/                    # Unit & Widget Tests
+│   ├── tool/                    # Entwicklungs-Tools
+│   ├── Caddyfile                # Static File Server Konfiguration
+│   ├── Dockerfile               # Multi-Stage Web Build
+│   ├── pubspec.yaml             # Dependencies
+│   └── .dockerignore
 ├── server/
-│   ├── pb_data/                # PocketBase Datenbank (gitignored)
-│   └── pb_public/              # Öffentliche Dateien
+│   ├── pb_data/                 # PocketBase Datenbank (gitignored)
+│   ├── pb_migrations/           # Schema-Migrationen
+│   └── pb_public/               # Öffentliche Dateien
+├── .github/
+│   └── workflows/               # CI/CD Pipelines
 ├── docker-compose.yml
-├── .env                        # Environment Variables (gitignored)
-├── .env.example                # Template
-├── .dockerignore
-├── .gitignore
+├── .env                         # Umgebungsvariablen (gitignored)
+├── .env.example                 # Vorlage
 └── README.md
 ```
 
-### Platform Architecture
+### Plattform-Architektur
 
-Die App nutzt **Conditional Imports** um plattformspezifischen Code zu isolieren:
+Die App nutzt **Conditional Imports** für plattformspezifischen Code:
 
 ```
-feature_screen.dart          # Haupt-Widget (plattformunabhängig)
-├── feature_screen_io.dart   # Mobile/Desktop Implementation (dart:io)
-└── feature_screen_stub.dart # Web-Stub (kein dart:io)
+feature_screen.dart           # Haupt-Widget (plattformunabhängig)
+├── feature_screen_io.dart    # Mobile/Desktop (dart:io)
+└── feature_screen_stub.dart  # Web-Stub (kein dart:io)
 ```
 
-**Beispiel**:
 ```dart
-// In der Hauptdatei:
+// Conditional Import Pattern
 import 'feature_io.dart'
     if (dart.library.html) 'feature_stub.dart' as platform;
-
-// Verwendung:
-if (kIsWeb) {
-  // PocketBase direkt
-} else {
-  // Lokale DB + platform.doSomething()
-}
 ```
 
-### Key Design Decisions
+### Architektur-Entscheidungen
 
 | Entscheidung | Begründung |
-|-------------|-----------|
-| **Offline-First (Mobile)** | Zuverlässigkeit in Werkstatt/Lager ohne WLAN |
-| **Online-Only (Web)** | Web läuft im Docker neben PocketBase → immer verbunden |
-| **PocketBase statt eigenes Backend** | Einfach, eingebettete DB, File Storage, Admin UI |
-| **nginx Reverse Proxy** | Ein Port für alles, kein CORS, einfaches Deployment |
-| **Conditional Imports** | Saubere Trennung statt `kIsWeb`-Checks mit `dart:io` |
-| **Soft-Delete** | Sync-Kompatibilität, Daten-Recovery möglich |
+|---|---|
+| **Offline-First (Mobile)** | Zuverlässigkeit ohne WLAN |
+| **Online-Only (Web)** | Läuft neben PocketBase, immer verbunden |
+| **PocketBase** | Einfach, eingebettete DB, File Storage, Admin UI |
+| **Caddy statt nginx** | 4 Zeilen statt 200, kein Proxy nötig in Dev/Test |
+| **Nginx Proxy Manager (Prod)** | Übernimmt SSL, Header, Routing zentral |
+| **Conditional Imports** | Saubere Trennung ohne `kIsWeb`-Checks mit `dart:io` |
+| **Soft-Delete** | Sync-Kompatibilität, Daten-Recovery |
 | **UUID statt Auto-Increment** | Eindeutige IDs über Geräte hinweg |
+| **URL zur Build-Zeit** | Kein Runtime-Config-Server nötig; SharedPreferences als Override |
 
-### Adding Features
+### Features hinzufügen
 
-1. **Neues Model-Feld**:
-   - `artikel_model.dart` → `toMap()`, `fromMap()`, `copyWith()` erweitern
-   - DB-Version in `artikel_db_service.dart` erhöhen + Migration schreiben
-   - PocketBase Collection Schema aktualisieren
+**Neues Model-Feld**:
+1. `artikel_model.dart` → `toMap()`, `fromMap()`, `copyWith()` erweitern
+2. DB-Version in `artikel_db_service.dart` erhöhen + Migration
+3. PocketBase Collection Schema aktualisieren
 
-2. **Neuer Screen**:
-   - Screen in `lib/screens/` erstellen
-   - Bei `dart:io`-Nutzung: `_io.dart` + `_stub.dart` anlegen
-   - Route in `main.dart` registrieren
+**Neuer Screen**:
+1. Screen in `lib/screens/` erstellen
+2. Bei `dart:io`: `_io.dart` + `_stub.dart` anlegen
+3. Route in `main.dart` registrieren
 
-3. **Neuer Service**:
-   - Service in `lib/services/` erstellen
-   - Bei `dart:io`-Nutzung: Conditional Import Pattern verwenden
-
-### Testing
-
-> ⚠️ **Teststatus**: Tests laufen
-
-
-#### Test-Prioritäten
-
-| Priorität | Bereich |
-|-----------|---------|
-| 🔴 Kritisch | Artikel anlegen / bearbeiten / löschen |
-| 🔴 Kritisch | PocketBase Sync Push/Pull |
-| 🔴 Kritisch | Konfliktlösung bei Sync |
-| 🟡 Wichtig | CSV/JSON Import & Export |
-| 🟡 Wichtig | Bildverwaltung |
-| 🟢 Nice-to-have | PDF Export, QR Scanner, Nextcloud |
+### Tests
 
 ```bash
 # Unit Tests
 flutter test
 
-# Integration Tests
-flutter test integration_test/
+# Einzelnen Test
+flutter test test/models/artikel_model_test.dart
 
-# Web-Build testen
-flutter build web --release --dart-define=PB_URL=/api
-cd build/web && python3 -m http.server 8080
+# Performance-Test (500 Artikel Import)
+dart run tool/generate_import_dataset.dart --count 500
+flutter test test/performance/import_500_smoke_test.dart
+
+# Web-Build lokal testen (ohne Docker)
+flutter build web --release \
+    --dart-define=POCKETBASE_URL=http://localhost:8080
+cd build/web && python3 -m http.server 9000
+# → http://localhost:9000
 
 # Docker-Build testen
 docker compose up -d --build
-curl http://localhost:8081/api/health
-
-Tools & Tests:
-- Es existiert ein Tool zum Generieren von Import-Datensätzen (tool/generate_import_dataset.dart) und Performance-Tests (z. B. test/performance/import_500_smoke_test.dart).
-- Empfehlung: Nutze diese Tools, um Import-/Export-Workflows zu verifizieren. Beispiel:
-  - Daten generieren: `dart run tool/generate_import_dataset.dart --count 500`
-  - Test ausführen: `flutter test test/performance/import_500_smoke_test.dart`docker compose exec server sh
+curl http://localhost:8081/
+curl http://localhost:8080/api/health
 ```
+
+#### Test-Prioritäten
+
+| Priorität | Bereich | Status |
+|---|---|---|
+| 🔴 Kritisch | Artikel anlegen / bearbeiten / löschen | ⚠️ manuell |
+| 🔴 Kritisch | PocketBase Sync Push/Pull | ⚠️ manuell |
+| 🔴 Kritisch | Konfliktlösung bei Sync | ❌ offen |
+| 🟡 Wichtig | CSV/JSON Import & Export | ⚠️ teilweise |
+| 🟡 Wichtig | Bildverwaltung | ❌ offen |
+| 🟢 Nice-to-have | PDF Export, QR Scanner, Nextcloud | ❌ offen |
+
+---
+
+## Roadmap
+
+- [x] Artikel anlegen, ändern, löschen (Web) ✅
+- [ ] Artikel Export JSON / Import JSON (fehlende Bilder)
+- [ ] PocketBase-Migrations-Script (automatisches Schema-Setup)
+- [ ] PDF Export & Druck
+- [ ] Mobile Background-Sync aktivieren
+- [ ] Automatisierte Integrationstests
 
 ---
 
 ## Contributing
 
-Beiträge sind willkommen! Bitte beachte folgende Regeln:
-
 1. **Fork** das Repository
-2. **Feature-Branch** erstellen: `git checkout -b feature/mein-feature`
-3. **Conditional Imports** verwenden wenn `dart:io` benötigt wird
+2. **Feature-Branch**: `git checkout -b feature/mein-feature`
+3. **Conditional Imports** bei `dart:io`-Nutzung verwenden
 4. **Testen** auf Web UND Mobile
 5. **Commit**: `git commit -m 'feat: Beschreibung'`
 6. **Push**: `git push origin feature/mein-feature`
@@ -582,55 +590,22 @@ chore:    Build/Dependencies
 - Dart-Dateien: `snake_case.dart`
 - Klassen: `PascalCase`
 - Variablen: `camelCase`
-- Deutsche UI-Texte, englische Code-Kommentare wo sinnvoll
+- Deutsche UI-Texte
 - `flutter analyze` muss fehlerfrei sein
 
 ---
 
-### Roadmap
+## Lizenz
 
-- Datenbanktest (Web)
-  - Artikel anlegen, ändern, löschen  ✅
-  - Artikel export JSON / import JSON ❌ (fehlende Bilder)
-- PocketBase-Migrations-Script
-- Druck ud PDF Export
-
-
-
-## License
-
-Dieses Projekt steht unter der [MIT License](LICENSE).
-
-```
-MIT License
-
-Copyright (c) 2026
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+[MIT License](LICENSE) — Copyright (c) 2026
 
 ---
 
-## 🙏 Acknowledgements
+## Danksagungen
 
 - [Flutter](https://flutter.dev/) — UI Framework
-- [PocketBase](https://pocketbase.io/) — Backend & Database
-- [nginx](https://nginx.org/) — Reverse Proxy
-- [Docker](https://www.docker.com/) — Containerization
-- [Nextcloud](https://nextcloud.com/) — Optional Cloud Backup
+- [PocketBase](https://pocketbase.io/) — Backend & Datenbank
+- [Caddy](https://caddyserver.com/) — Static File Server
+- [Docker](https://www.docker.com/) — Containerisierung
+- [Nginx Proxy Manager](https://nginxproxymanager.com/) — Produktions-Proxy
+- [Nextcloud](https://nextcloud.com/) — Optionales Cloud-Backup
