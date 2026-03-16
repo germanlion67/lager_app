@@ -93,7 +93,6 @@ class SyncService {
 
   /// Gibt das App-Cache-Verzeichnis zurück (plattformkorrekt)
   Future<Directory> _getCacheDir(String subPath) async {
-    // Fix: Plattformkorrekter Pfad statt relativem 'cache/...'
     final appCacheDir = await getApplicationCacheDirectory();
     final dir = Directory('${appCacheDir.path}/$subPath');
     if (!await dir.exists()) await dir.create(recursive: true);
@@ -310,7 +309,11 @@ class SyncService {
       );
 
       return SyncResult(
-          pulled: pulled, pushed: pushed, conflicts: conflicts, errors: errors,);
+        pulled: pulled,
+        pushed: pushed,
+        conflicts: conflicts,
+        errors: errors,
+      );
     }
   }
 
@@ -321,13 +324,18 @@ class SyncService {
       if ((artikel.remoteBildPfad ?? '').isNotEmpty) return;
 
       final file = File(artikel.bildPfad);
-      if (!await file.exists()) return; // Fix: async exists() statt existsSync()
+      if (!await file.exists()) return;
 
+      // FIX Bug 1: Einmal lesen, dann prüfen — kein doppelter I/O-Call
       final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return;
+
       final filename = artikel.bildPfad.split(Platform.pathSeparator).last;
       final etag = await _client.uploadAttachment(artikel.uuid, filename, bytes);
       if (etag != null) {
         final remotePath = 'attachments/${artikel.uuid}/$filename';
+        // FIX Bug 2: remoteBildPfad-Änderung als dirty markieren →
+        // PocketBase-Sync überträgt den neuen remoteBildPfad beim nächsten Zyklus
         await _dbService.setRemoteBildPfadByUuid(artikel.uuid, remotePath);
         logger.d('Attachment synced for ${artikel.name}: $remotePath');
       }
@@ -347,7 +355,8 @@ class SyncService {
       );
 
       logger.d(
-          'Pushing article: ${articleToUpload.name} (UUID: ${articleToUpload.uuid})',);
+        'Pushing article: ${articleToUpload.name} (UUID: ${articleToUpload.uuid})',
+      );
 
       final newEtag = await _client.uploadItem(
         remotePath,
@@ -357,13 +366,12 @@ class SyncService {
 
       if (newEtag == null) {
         logger.w('Conflict detected for ${articleToUpload.name}');
-        // Fix: Exception in _resolveConflict führt nicht mehr zu _PushResult.error()
         try {
           await _resolveConflict(articleToUpload);
         } catch (resolveError) {
           logger.e(
-              'Conflict resolution failed for ${articleToUpload.name}: $resolveError',);
-          // Bleibt ein Konflikt, kein Error
+            'Conflict resolution failed for ${articleToUpload.name}: $resolveError',
+          );
         }
         return _PushResult.conflict();
       } else {
@@ -392,7 +400,10 @@ class SyncService {
       final jsonBody = await _client.downloadItem(remoteItem.path);
 
       await _dbService.upsertFromRemote(
-          remoteItem.path, remoteItem.etag, jsonBody,);
+        remoteItem.path,
+        remoteItem.etag,
+        jsonBody,
+      );
       logger.d('Successfully pulled ${remoteItem.path}');
 
       final artikel = await _dbService.getArtikelByUUID(uuid);
@@ -429,7 +440,10 @@ class SyncService {
       } else if (remoteArtikel.updatedAt > lokalerArtikel.updatedAt) {
         logger.i('Remote version is newer - updating local');
         await _dbService.upsertFromRemote(
-            remotePath, remoteArtikel.etag!, remoteJson,);
+          remotePath,
+          remoteArtikel.etag!,
+          remoteJson,
+        );
       } else {
         final localWins =
             (lokalerArtikel.deviceId ?? '').compareTo(remoteArtikel.deviceId ?? '') < 0;
@@ -443,7 +457,10 @@ class SyncService {
         } else {
           logger.i('Same timestamp - remote device wins alphabetically');
           await _dbService.upsertFromRemote(
-              remotePath, remoteArtikel.etag!, remoteJson,);
+            remotePath,
+            remoteArtikel.etag!,
+            remoteJson,
+          );
         }
       }
 
@@ -458,14 +475,12 @@ class SyncService {
   Future<void> _tryDownloadAttachment(Artikel artikel) async {
     try {
       if ((artikel.remoteBildPfad ?? '').isEmpty) return;
-      // Fix: async exists() statt existsSync()
       if (artikel.bildPfad.isNotEmpty && await File(artikel.bildPfad).exists()) return;
 
       final remotePath = artikel.remoteBildPfad!;
       final filename = remotePath.split('/').last;
       final bytes = await _client.downloadAttachment(artikel.uuid, filename);
 
-      // Fix: Plattformkorrekter Cache-Pfad
       final cacheDir = await _getCacheDir('images/${artikel.uuid}');
       final localPath = '${cacheDir.path}/$filename';
       await File(localPath).writeAsBytes(bytes);
@@ -491,12 +506,10 @@ class SyncService {
       final thumbnail = img.copyResize(original, width: 128, height: 128);
       final thumbBytes = img.encodePng(thumbnail);
 
-      // Fix: Plattformkorrekter Cache-Pfad
       final cacheDir = await _getCacheDir('thumbnails/${artikel.uuid}');
       final thumbPath = '${cacheDir.path}/thumb.png';
       await File(thumbPath).writeAsBytes(thumbBytes);
 
-      // Fix: Echter MD5-Hash statt Dummy-ETag
       final etag = md5.convert(thumbBytes).toString();
 
       await _dbService.setThumbnailPfadByUuid(artikel.uuid, thumbPath);
@@ -598,8 +611,7 @@ class SyncService {
         };
       }
 
-      logger.i(
-          'Found ${conflicts.length} conflicts requiring user resolution',);
+      logger.i('Found ${conflicts.length} conflicts requiring user resolution');
       return {
         'success': false,
         'conflicts': conflicts.length,
@@ -624,7 +636,8 @@ class SyncService {
   }) async {
     try {
       logger.i(
-          'Applying resolution ${resolution.name} for ${conflict.localVersion.name}',);
+        'Applying resolution ${resolution.name} for ${conflict.localVersion.name}',
+      );
 
       switch (resolution) {
         case ConflictResolution.useLocal:
@@ -642,10 +655,12 @@ class SyncService {
       }
 
       logger.i(
-          'Successfully applied resolution for ${conflict.localVersion.name}',);
+        'Successfully applied resolution for ${conflict.localVersion.name}',
+      );
     } catch (e) {
       logger.e(
-          'Failed to apply resolution for ${conflict.localVersion.name}: $e',);
+        'Failed to apply resolution for ${conflict.localVersion.name}: $e',
+      );
       rethrow;
     }
   }
@@ -658,7 +673,8 @@ class SyncService {
     if (newEtag != null) {
       await _dbService.markSynced(conflict.localVersion.uuid, newEtag);
       logger.d(
-          'Local version pushed to remote for ${conflict.localVersion.name}',);
+        'Local version pushed to remote for ${conflict.localVersion.name}',
+      );
     }
   }
 
@@ -666,14 +682,19 @@ class SyncService {
   Future<void> _applyRemoteVersion(ConflictData conflict) async {
     await _dbService.updateArtikel(conflict.remoteVersion);
     await _dbService.markSynced(
-        conflict.remoteVersion.uuid, conflict.remoteVersion.etag!,);
+      conflict.remoteVersion.uuid,
+      conflict.remoteVersion.etag!,
+    );
     logger.d(
-        'Remote version applied locally for ${conflict.remoteVersion.name}',);
+      'Remote version applied locally for ${conflict.remoteVersion.name}',
+    );
   }
 
   /// Wendet eine zusammengeführte Version an
   Future<void> _applyMergedVersion(
-      ConflictData conflict, Artikel mergedVersion,) async {
+    ConflictData conflict,
+    Artikel mergedVersion,
+  ) async {
     await _dbService.updateArtikel(mergedVersion);
 
     final remotePath = '${mergedVersion.uuid}.json';
@@ -698,7 +719,8 @@ class SyncService {
 
       final unsyncedArticles = await _dbService.getUnsyncedArtikel();
       logger.i(
-          'Found ${unsyncedArticles.length} articles with unsynced images',);
+        'Found ${unsyncedArticles.length} articles with unsynced images',
+      );
 
       int uploadedCount = 0;
       int failedUploads = 0;
@@ -732,13 +754,13 @@ class SyncService {
                 recoveryResult.error,
                 () => _uploadAttachmentForArticle(artikel),
               );
-              // Fix: Lokale Zähler statt decrementStat
               uploadedCount++;
               failedUploads--;
             }
           } catch (retryError) {
             logger.e(
-                'Retry failed for attachment upload ${artikel.name}: $retryError',);
+              'Retry failed for attachment upload ${artikel.name}: $retryError',
+            );
           }
         }
       }
@@ -750,7 +772,6 @@ class SyncService {
       );
 
       final allArticles = await _dbService.getAlleArtikel();
-      // Fix: async exists() statt existsSync()
       final articlesWithRemoteImages = <Artikel>[];
       for (final artikel in allArticles) {
         if ((artikel.remoteBildPfad ?? '').isEmpty) continue;
@@ -760,7 +781,8 @@ class SyncService {
       }
 
       logger.i(
-          'Found ${articlesWithRemoteImages.length} articles with missing local images',);
+        'Found ${articlesWithRemoteImages.length} articles with missing local images',
+      );
 
       int downloadedCount = 0;
       int failedDownloads = 0;
@@ -794,20 +816,22 @@ class SyncService {
                 recoveryResult.error,
                 () => _tryDownloadAttachment(artikel),
               );
-              // Fix: Lokale Zähler statt decrementStat
               downloadedCount++;
               failedDownloads--;
             }
           } catch (retryError) {
             logger.e(
-                'Retry failed for attachment download ${artikel.name}: $retryError',);
+              'Retry failed for attachment download ${artikel.name}: $retryError',
+            );
           }
         }
       }
 
-      logger.i('Attachment synchronization completed: '
-          '$uploadedCount uploaded, $downloadedCount downloaded, '
-          '${failedUploads + failedDownloads} failed');
+      logger.i(
+        'Attachment synchronization completed: '
+        '$uploadedCount uploaded, $downloadedCount downloaded, '
+        '${failedUploads + failedDownloads} failed',
+      );
     } catch (e) {
       logger.e('General attachment sync error: $e');
       progressService.incrementStat('error');
@@ -823,7 +847,8 @@ class SyncService {
 
     if ((artikel.remoteBildPfad ?? '').isNotEmpty) {
       logger.d(
-          'Article ${artikel.name} already has remote image path, skipping upload',);
+        'Article ${artikel.name} already has remote image path, skipping upload',
+      );
       return;
     }
 
@@ -832,16 +857,20 @@ class SyncService {
       throw Exception('Local image file not found: ${artikel.bildPfad}');
     }
 
-    final fileSize = await file.length();
-    if (fileSize == 0) {
+    // FIX Bug 1: Einmal lesen, dann prüfen — kein doppelter I/O-Call.
+    // Vorher: file.length() + file.readAsBytes() = 2× Datei öffnen.
+    // Jetzt:  readAsBytes() einmal, isEmpty-Check auf dem Ergebnis.
+    final bytes = await file.readAsBytes();
+    if (bytes.isEmpty) {
       throw Exception('Image file is empty: ${artikel.bildPfad}');
     }
 
-    final bytes = await file.readAsBytes();
+    final fileSize = bytes.length; // für den Log — kein extra I/O
     final filename = artikel.bildPfad.split(Platform.pathSeparator).last;
 
     logger.d(
-        'Uploading attachment for ${artikel.name}: $filename ($fileSize bytes)',);
+      'Uploading attachment for ${artikel.name}: $filename ($fileSize bytes)',
+    );
 
     final etag = await _client.uploadAttachment(artikel.uuid, filename, bytes);
     if (etag == null) {
@@ -849,9 +878,15 @@ class SyncService {
     }
 
     final remotePath = 'attachments/${artikel.uuid}/$filename';
+
+    // FIX Bug 2: remoteBildPfad-Änderung sofort als dirty markieren →
+    // nächster PocketBase-Sync-Zyklus überträgt den neuen remoteBildPfad
+    // automatisch, ohne manuelles Koordinieren der zwei Services.
     await _dbService.setRemoteBildPfadByUuid(artikel.uuid, remotePath);
+   
 
     logger.i(
-        'Successfully uploaded attachment for ${artikel.name}: $remotePath',);
+      'Successfully uploaded attachment for ${artikel.name}: $remotePath',
+    );
   }
 }

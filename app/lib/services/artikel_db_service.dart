@@ -20,8 +20,6 @@ class ArtikelDbService {
   factory ArtikelDbService() => _instance;
   ArtikelDbService._internal();
 
-  // FIX: static verhindert mehrere Logger-Instanzen (Singleton-Klasse,
-  // aber explizite Klarheit schadet nicht)
   static final _logger = Logger();
   Database? _db;
 
@@ -56,9 +54,6 @@ class ArtikelDbService {
 
   // ==================== SCHEMA ====================
 
-  // FIX Bug 1: 'kategorie' war in _onUpgrade (oldVersion < 2) referenziert,
-  // aber nie im Haupt-Schema definiert. Spalte hier ergänzt für Konsistenz
-  // mit bestehenden Upgrade-Pfaden.
   static const _createTableSql = '''
     CREATE TABLE artikel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -193,7 +188,6 @@ class ArtikelDbService {
         error: e,
         stackTrace: stack,
       );
-      // Fallback auf Standardwert 1000
       try {
         await db.insert(
           'sqlite_sequence',
@@ -391,8 +385,6 @@ class ArtikelDbService {
     }
   }
 
-  // FIX Problem 6: updated_at ergänzt — ohne diesen Timestamp würde
-  // der Sync-Service diese Änderung übersehen.
   Future<int> updateRemoteBildPfad(
     int artikelId,
     String remotePfad,
@@ -425,8 +417,6 @@ class ArtikelDbService {
     }
   }
 
-  // FIX Problem 7: updated_at ergänzt — ohne diesen Timestamp würde
-  // der Sync-Service diese Änderung übersehen.
   Future<void> setBildPfadByUuid(String uuid, String bildPfad) async {
     try {
       final db = await database;
@@ -503,6 +493,12 @@ class ArtikelDbService {
     }
   }
 
+  /// Setzt den Remote-Bildpfad und markiert den Artikel gleichzeitig
+  /// als dirty (etag = null), damit der nächste PocketBase-Sync-Zyklus
+  /// den neuen remoteBildPfad automatisch überträgt.
+  ///
+  /// FIX Finding 2: etag wird auf null gesetzt → Artikel landet in
+  /// getPendingChanges() und wird beim nächsten Sync zu PocketBase gepusht.
   Future<void> setRemoteBildPfadByUuid(
     String uuid,
     String remoteBildPfad,
@@ -514,13 +510,17 @@ class ArtikelDbService {
         {
           'remoteBildPfad': remoteBildPfad,
           'updated_at': DateTime.now().millisecondsSinceEpoch,
+          // FIX Finding 2: etag nullen → Artikel wird als pending erkannt.
+          // markAsDirty() ist damit nicht mehr nötig und wurde entfernt.
+          'etag': null,
         },
         where: 'uuid = ?',
         whereArgs: [uuid],
       );
       if (rowsAffected > 0) {
         _logger.d(
-          '✅ Remote-Bildpfad für Artikel UUID $uuid aktualisiert.',
+          '✅ Remote-Bildpfad für Artikel UUID $uuid aktualisiert '
+          '(Artikel als dirty markiert für nächsten Sync).',
         );
       }
     } catch (e, stack) {
@@ -610,16 +610,13 @@ class ArtikelDbService {
 
   // ==================== SYNC ====================
 
-  // FIX Bug 2: Gelöschte Artikel (deleted = 1) werden bewusst mitgeliefert,
+  // Gelöschte Artikel (deleted = 1) werden bewusst mitgeliefert,
   // da der Sync-Service auch Löschungen propagieren muss.
-  // Dies ist explizit dokumentiert — kein versehentliches Auslassen.
   Future<List<Artikel>> getPendingChanges() async {
     try {
       final db = await database;
       final maps = await db.query(
         'artikel',
-        // Bewusst KEIN deleted-Filter: gelöschte Artikel müssen ebenfalls
-        // zum Server synchronisiert werden, damit Remote-Löschungen erfolgen.
         where: 'etag IS NULL OR etag = ""',
         orderBy: 'updated_at ASC',
       );
@@ -638,18 +635,23 @@ class ArtikelDbService {
     }
   }
 
-  Future<void> markSynced(String uuid, String etag) async {
+  /// FIX Finding 3: remote_path wird zusammen mit etag gesetzt,
+  /// damit getArtikelByRemotePath() nach einem Push funktioniert.
+  Future<void> markSynced(String uuid, String etag, {String? remotePath}) async {
     try {
       final db = await database;
+      final data = <String, dynamic>{'etag': etag};
+      if (remotePath != null) data['remote_path'] = remotePath;
+
       final rowsAffected = await db.update(
         'artikel',
-        {'etag': etag},
+        data,
         where: 'uuid = ?',
         whereArgs: [uuid],
       );
       if (rowsAffected > 0) {
         _logger.d(
-          '✅ Artikel UUID $uuid als synchronisiert markiert (Etag: $etag).',
+          '✅ Artikel UUID $uuid als synchronisiert markiert (ETag: $etag).',
         );
       } else {
         _logger.w(
@@ -667,9 +669,6 @@ class ArtikelDbService {
     }
   }
 
-  // FIX Bug 3: updated_at = 0 wird abgesichert. Wenn der Artikel keinen
-  // gültigen Timestamp hat, wird der aktuelle Zeitpunkt verwendet,
-  // damit der Delta-Sync nicht fehlschlägt.
   Future<void> upsertArtikel(Artikel artikel, {String? etag}) async {
     try {
       final db = await database;
@@ -812,10 +811,6 @@ class ArtikelDbService {
 
   // ==================== ADMIN ====================
 
-  // FIX Problem 4: Nach DROP TABLE wird sqlite_sequence automatisch
-  // bereinigt. Der direkte INSERT schlägt fehl, solange noch kein
-  // AUTOINCREMENT-Eintrag existiert. Daher wird _setInitialSequenceFromSettings
-  // wiederverwendet, die bereits einen robusten Fallback enthält.
   Future<void> resetDatabase({int startId = 1000}) async {
     try {
       final db = await database;
@@ -830,8 +825,6 @@ class ArtikelDbService {
         "🗑️ Tabellen 'artikel' und 'sync_meta' neu erstellt.",
       );
       await _createIndices(db);
-      // Einen Dummy-Eintrag einfügen und wieder löschen, damit
-      // sqlite_sequence initialisiert wird, bevor wir den seq-Wert setzen.
       await db.insert('artikel', {
         'uuid': '__init__',
         'updated_at': 0,
@@ -856,9 +849,6 @@ class ArtikelDbService {
     }
   }
 
-  // FIX Problem 5: deleteAlleArtikel() nutzt jetzt Soft-Delete für
-  // Sync-Konsistenz. Hartes Löschen würde den Remote-Server nicht
-  // informieren. Für einen echten lokalen Hard-Reset: resetDatabase() nutzen.
   Future<void> deleteAlleArtikel() async {
     try {
       final db = await database;
@@ -884,20 +874,28 @@ class ArtikelDbService {
     }
   }
 
+  /// FIX Finding 5: updated_at und etag = null werden beim Restore
+  /// explizit gesetzt, damit alle wiederhergestellten Artikel beim
+  /// nächsten Sync als pending erkannt und hochgeladen werden.
   Future<void> insertArtikelList(List<Artikel> artikelList) async {
     try {
       final db = await database;
       await db.transaction((txn) async {
         for (final artikel in artikelList) {
+          final data = artikel.toMap();
+          // Sicherstellen dass restored Artikel neu synchronisiert werden
+          data['etag'] = null;
+          data['updated_at'] = DateTime.now().millisecondsSinceEpoch;
           await txn.insert(
             'artikel',
-            artikel.toMap(),
+            data,
             conflictAlgorithm: ConflictAlgorithm.replace,
           );
         }
       });
       _logger.i(
-        '✅ ${artikelList.length} Artikel aus Backup wiederhergestellt.',
+        '✅ ${artikelList.length} Artikel aus Backup wiederhergestellt '
+        '(alle als pending für nächsten Sync markiert).',
       );
     } catch (e, stack) {
       _logger.e(
@@ -928,8 +926,6 @@ class ArtikelDbService {
     }
   }
 
-  // FIX Hinweis 8: dart:math Import entfernt, max() durch einfachen
-  // ternären Vergleich ersetzt.
   Future<int> getNextArtikelNummer() async {
     try {
       final prefs = await SharedPreferences.getInstance();

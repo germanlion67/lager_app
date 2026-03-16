@@ -554,12 +554,22 @@ curl http://localhost:8080/api/health
 
 ## Roadmap
 
-- [x] Artikel anlegen, ändern, löschen (Web) ✅
+### Web
+
+- [x] Artikel anlegen, ändern, löschen ✅
 - [ ] Artikel Export JSON / Import JSON (fehlende Bilder)
+- [ ] Artikel Backup / Restore (inklusive Bilder)
 - [ ] PocketBase-Migrations-Script (automatisches Schema-Setup)
 - [ ] PDF Export & Druck
-- [ ] Mobile Background-Sync aktivieren
 - [ ] Automatisierte Integrationstests
+
+### Mobile
+
+- [ ] Artikel anlegen, ändern, löschen
+- [ ] Artikel Export JSON / Import JSON
+- [ ] Artikel Backup / Restore (inklusive Bilder)
+- [ ] PDF Export & Druck
+- [ ] Background-Sync
 
 ---
 

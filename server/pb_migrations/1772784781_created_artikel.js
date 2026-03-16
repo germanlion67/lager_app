@@ -167,7 +167,7 @@ migrate((app) => {
         "hidden": false,
         "id": "file1962578385",
         "maxSelect": 1,
-        "maxSize": 0,
+        "maxSize": 5000000,
         "mimeTypes": [],
         "name": "bild",
         "presentable": false,
