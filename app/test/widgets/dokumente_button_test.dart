@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:elektronik_verwaltung/screens/_dokumente_button.dart';
+import 'package:lager_app/screens/_dokumente_button.dart';
 
 void main() {
   testWidgets('DokumenteButton öffnet BottomSheet und zeigt leeren Zustand bei fehlenden Credentials', (WidgetTester tester) async {

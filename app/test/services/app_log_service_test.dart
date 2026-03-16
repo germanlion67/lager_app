@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:elektronik_verwaltung/services/app_log_service.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
 

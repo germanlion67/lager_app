@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:elektronik_verwaltung/models/artikel_model.dart';
+import 'package:lager_app/models/artikel_model.dart';
 
 void main() {
   group('Artikel Model Tests', () {

@@ -30,7 +30,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    // FIX: Instanzen einmal erstellen
     _pbService = PocketBaseService();
     _db = ArtikelDbService();
 
@@ -50,13 +49,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== LADEN ====================
 
   Future<void> _loadSettings() async {
-    // FIX: try/catch ergänzt — Exception crasht sonst die App
     try {
       final prefs = await SharedPreferences.getInstance();
       if (!_pbService.isInitialized) {
         await _pbService.initialize();
       }
-      // FIX: mounted-Guard nach await
       if (!mounted) return;
       setState(() {
         _artikelNummerController.text =
@@ -67,14 +64,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
       debugPrint('[Settings] Laden fehlgeschlagen: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Einstellungen konnten nicht geladen werden: $e')),
+        SnackBar(
+          content: Text('Einstellungen konnten nicht geladen werden: $e'),
+        ),
       );
     }
   }
 
   Future<void> _checkDatabaseStatus() async {
     if (kIsWeb) return;
-    // FIX: try/catch + mounted-Guard ergänzt
     try {
       final isEmpty = await _db.isDatabaseEmpty();
       if (!mounted) return;
@@ -93,28 +91,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
 
     try {
-      // FIX: Gespeicherte _pbService-Instanz verwenden
       final testUrl = _pocketBaseUrlController.text.trim();
+
       if (testUrl.isNotEmpty && testUrl != _pbService.url) {
-        await _pbService.updateUrl(testUrl);
+        // FIX: updateUrl() gibt jetzt bool zurück und führt intern bereits
+        // einen Health-Check durch. Schlägt er fehl (URL ungültig oder
+        // nicht erreichbar), bleibt der bestehende Client aktiv.
+        // → kein separater checkHealth()-Aufruf mehr nötig (war doppelter
+        //   Netzwerk-Request). Ergebnis direkt als Verbindungsstatus nutzen.
+        final ok = await _pbService.updateUrl(testUrl);
+
+        if (!mounted) return;
+        setState(() => _pbConnectionOk = ok);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              ok
+                  ? '✅ Verbindung zu PocketBase erfolgreich!'
+                  : '❌ PocketBase nicht erreichbar – '
+                    'bestehende URL bleibt aktiv',
+            ),
+            backgroundColor: ok ? Colors.green : Colors.red,
+          ),
+        );
+      } else {
+        // URL unverändert — nur Health-Check auf bestehendem Client
+        final ok = await _pbService.checkHealth();
+
+        if (!mounted) return;
+        setState(() => _pbConnectionOk = ok);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              ok
+                  ? '✅ Verbindung zu PocketBase erfolgreich!'
+                  : '❌ PocketBase nicht erreichbar',
+            ),
+            backgroundColor: ok ? Colors.green : Colors.red,
+          ),
+        );
       }
-
-      final ok = await _pbService.checkHealth();
-
-      // FIX: mounted-Guard vor setState nach await
-      if (!mounted) return;
-      setState(() => _pbConnectionOk = ok);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ok
-              ? '✅ Verbindung zu PocketBase erfolgreich!'
-              : '❌ PocketBase nicht erreichbar',),
-          backgroundColor: ok ? Colors.green : Colors.red,
-        ),
-      );
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[Settings] PocketBase-Test fehlgeschlagen: $e\n$st');
       if (!mounted) return;
       setState(() => _pbConnectionOk = false);
@@ -125,7 +144,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     } finally {
-      // FIX: mounted-Guard in finally
       if (mounted) setState(() => _isCheckingConnection = false);
     }
   }
@@ -152,12 +170,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    // FIX: mounted-Guard nach showDialog (async-Gap)
     if (!mounted) return;
 
     if (confirm == true) {
       try {
-        // FIX: Gespeicherte _pbService-Instanz verwenden
         await _pbService.resetToDefault();
         if (!mounted) return;
         setState(() {
@@ -203,12 +219,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    // FIX: mounted-Guard nach showDialog (async-Gap)
     if (!mounted) return;
 
     if (confirm == true) {
       try {
-        // FIX: Gespeicherte _db-Instanz verwenden
         await _db.resetDatabase();
         await _checkDatabaseStatus();
         await _loadSettings();
@@ -222,7 +236,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       } catch (e, st) {
-        // FIX: StackTrace mitloggen
         debugPrint('[Settings] DB-Löschen fehlgeschlagen: $e\n$st');
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -235,16 +248,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== SPEICHERN ====================
 
   Future<void> _saveSettings() async {
-    // FIX: Null-sicherer Zugriff statt Force-Unwrap
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      // FIX: Gespeicherte _pbService-Instanz verwenden
       final newUrl = _pocketBaseUrlController.text.trim();
       if (newUrl.isNotEmpty) {
-        await _pbService.updateUrl(newUrl);
+        // FIX: updateUrl() bool-Rückgabe auswerten —
+        // schlägt der Health-Check fehl, bleibt der bestehende Client
+        // aktiv und der User bekommt eine klare Fehlermeldung.
+        // Einstellungen werden trotzdem gespeichert (Artikelnummer etc.)
+        // — nur die URL wird nicht übernommen wenn sie nicht erreichbar ist.
+        final urlUpdated = await _pbService.updateUrl(newUrl);
+        if (!urlUpdated) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                '⚠️ PocketBase URL konnte nicht gesetzt werden – '
+                'Server nicht erreichbar oder URL ungültig. '
+                'Bestehende URL bleibt aktiv.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          // Frühzeitig abbrechen — URL-Feld zurücksetzen auf aktive URL
+          setState(() {
+            _pocketBaseUrlController.text = _pbService.url;
+          });
+          return;
+        }
       }
 
       // Artikelnummer nur bei leerer DB (und nur auf Mobile)
@@ -254,13 +288,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await prefs.setInt('artikel_start_nummer', artikelNummer);
       }
 
-      // FIX: mounted-Guard nach await
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Einstellungen gespeichert')),
+        const SnackBar(content: Text('✅ Einstellungen gespeichert')),
       );
     } catch (e, st) {
-      // FIX: StackTrace mitloggen
       debugPrint('[Settings] Speichern fehlgeschlagen: $e\n$st');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -330,7 +362,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             const SizedBox(height: 16),
-
             TextFormField(
               controller: _pocketBaseUrlController,
               decoration: InputDecoration(
@@ -360,7 +391,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             const SizedBox(height: 12),
-
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -380,7 +410,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
-
             if (_pbConnectionOk != null) ...[
               const SizedBox(height: 8),
               Container(
@@ -419,7 +448,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ],
-
             if (kIsWeb) ...[
               const SizedBox(height: 12),
               Container(
@@ -468,7 +496,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-
             TextFormField(
               controller: _artikelNummerController,
               enabled: _isDatabaseEmpty,
@@ -496,7 +523,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return null;
               },
             ),
-
             if (!_isDatabaseEmpty) ...[
               const SizedBox(height: 12),
               Container(
@@ -544,7 +570,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== INFO CARD ====================
 
   Widget _buildInfoCard() {
-    // FIX: _pbService-Instanz verwenden — kein neues Objekt im build
     final pbUrl = _pbService.url;
 
     return Card(
@@ -566,7 +591,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ? 'PocketBase (direkt)'
                   : 'SQLite (lokal) + PocketBase Sync',
             ),
-            // FIX: Gecachte URL — kein PocketBaseService() im build
             _infoRow('PocketBase URL', pbUrl),
           ],
         ),

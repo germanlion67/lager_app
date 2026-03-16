@@ -106,7 +106,13 @@ class PocketBaseService {
 
   /// Ändert die PocketBase-URL und erstellt einen neuen Client.
   /// Speichert die URL persistent in SharedPreferences.
-  Future<void> updateUrl(String newUrl) async {
+  ///
+  /// Führt vor dem Client-Ersatz einen Health-Check durch.
+  /// Ist die neue URL nicht erreichbar, bleibt der bestehende
+  /// Client aktiv und die URL wird nicht gespeichert.
+  /// Gibt [true] zurück wenn die URL erfolgreich gewechselt wurde,
+  /// [false] wenn Validierung oder Health-Check fehlschlagen.
+  Future<bool> updateUrl(String newUrl) async {
     final trimmed = newUrl.trim();
     final uri = Uri.tryParse(trimmed);
 
@@ -119,7 +125,7 @@ class PocketBaseService {
         '⚠️ PocketBase URL ungültig oder Schema nicht erlaubt '
         '(nur http/https): $trimmed',
       );
-      return;
+      return false;
     }
 
     // URL normalisieren: trailing slash entfernen
@@ -127,8 +133,29 @@ class PocketBaseService {
         ? trimmed.substring(0, trimmed.length - 1)
         : trimmed;
 
+    // FIX: Health-Check vor Client-Ersatz —
+    // Kandidaten-Client temporär erstellen und prüfen ob die neue URL
+    // erreichbar ist. Schlägt der Check fehl, bleibt der aktive
+    // Client unverändert und die URL wird nicht gespeichert.
+    // → Verhindert dass ein funktionierender Client durch eine
+    //   nicht erreichbare URL überschrieben wird.
+    final candidateClient = PocketBase(normalized);
+    try {
+      await candidateClient.health.check();
+      _logger.d('✅ Health-Check für neue URL OK: $normalized');
+    } catch (e, stack) {
+      _logger.w(
+        '⚠️ Health-Check für neue URL fehlgeschlagen — '
+        'bestehender Client bleibt aktiv: $normalized',
+        error: e,
+        stackTrace: stack,
+      );
+      return false;
+    }
+
+    // Health-Check bestanden → Client und URL ersetzen
     _currentUrl = normalized;
-    _client = PocketBase(normalized);
+    _client = candidateClient;
 
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -141,6 +168,8 @@ class PocketBaseService {
         stackTrace: stack,
       );
     }
+
+    return true;
   }
 
   /// Prüft ob PocketBase erreichbar ist.
@@ -201,8 +230,17 @@ class PocketBaseService {
     _instance!._client = mock;
   }
 
-  // FIX Hinweis 6: dispose() für sauberes Teardown in Tests und
-  // bei App-Neustart-Szenarien.
+  /// Setzt den Singleton vollständig zurück.
+  ///
+  /// ⚠️ Nur in Unit-Tests verwenden — niemals in Produktionscode.
+  ///
+  /// In Tests nach jedem Test-Case aufrufen (z.B. in tearDown()) um
+  /// sicherzustellen dass kein Zustand zwischen Tests überläuft.
+  /// In der laufenden App hat dispose() keinen sinnvollen Anwendungsfall:
+  /// Flutter-Apps haben keinen App-Neustart-Lifecycle der dispose()
+  /// triggern würde — ein versehentlicher Aufruf würde den Singleton
+  /// zerstören und alle nachfolgenden client-Zugriffe mit StateError
+  /// crashen.
   static void dispose() {
     _instance?._client = null;
     _instance?._initCompleter = null;

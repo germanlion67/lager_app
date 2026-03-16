@@ -1,13 +1,13 @@
 # pubspec.yaml
 
-name: elektronik_verwaltung
+name: lager_app
 description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 
 # Fix: version mit Build-Nummer ergänzt —
 # Flutter erwartet version: major.minor.patch+build.
 # Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
 # da versionCode (Android) bzw. CFBundleVersion (iOS) fehlt.
-version: 1.6.0+1
+version: 1.7.0
 
 # Fix: SDK-Constraint präzisiert —
 # ">=3.0.0 <4.0.0" erlaubt theoretisch Dart 4.x sobald es erscheint.
@@ -134,11 +134,7 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
-  # Fix: flutter_lints Version aktualisiert —
-  # ^6.0.0 ist die aktuelle Version, kompatibel mit Dart 3.3+.
-  # Ältere Versionen haben weniger Lint-Regeln für null safety
-  # und moderne Dart-Features.
+  
   flutter_lints: ^6.0.0
 
   mockito: ^5.4.2
@@ -153,23 +149,11 @@ dev_dependencies:
 
   build_runner: ^2.4.6
 
-  # Fix: path_provider_platform_interface in dev_dependencies —
-  # dieses Package ist eine transitive Dependency von path_provider
-  # und sollte NICHT explizit in dev_dependencies aufgeführt werden.
-  # Explizite Angabe kann Versionskonflikte mit path_provider erzeugen.
-  # → Entfernt: path_provider_platform_interface
-
-  # Fix: file_selector + file_selector_platform_interface —
-  # file_selector ist eine Platform-Implementation für file_picker
-  # auf Desktop und wird automatisch aufgelöst.
-  # file_selector_platform_interface: any ist gefährlich —
-  # "any" fixiert keine Version und kann zu Inkompatibilitäten führen.
-  # Wenn file_selector explizit benötigt wird, mit Version pinnen.
+ 
   file_selector: ^1.0.4
-  # → Entfernt: file_selector_platform_interface: any
-
-  file_selector_platform_interface: ^2.2.0
-
+  file_selector_platform_interface: ^2.7.0
+  
+  
   flutter_native_splash: ^2.3.10
   flutter_launcher_icons: ^0.13.1
 

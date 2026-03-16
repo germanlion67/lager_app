@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:elektronik_verwaltung/services/nextcloud_credentials.dart';
+import 'package:lager_app/services/nextcloud_credentials.dart';
 
 void main() {
   group('NextcloudCredentials Tests', () {

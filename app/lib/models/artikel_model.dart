@@ -85,7 +85,12 @@ class Artikel {
     return map;
   }
 
-  /// PocketBase-Format: nur echte PB-Schema-Felder, kein updatedAt.
+  /// PocketBase-Format: nur echte PB-Schema-Felder.
+  /// remote_path und etag werden mitgeschickt damit PocketBase
+  /// nach einem Bild-Upload den Datei-Pfad und ETag korrekt speichert.
+  /// etag ist hier die PocketBase Record-ID (Surrogate-ETag) —
+  /// sie identifiziert eindeutig den Stand des Remote-Records
+  /// und wird für Konflikt-Erkennung beim Sync genutzt.
   Map<String, dynamic> toPocketBaseMap() {
     return {
       'name': name,
@@ -96,10 +101,26 @@ class Artikel {
       'uuid': uuid,
       'deleted': deleted,
       'deviceId': deviceId,
+      // FIX: remote_path ergänzt — PocketBase speichert den Bild-Pfad
+      // im Record. Ohne dieses Feld bleibt nach einem Upload der alte
+      // Pfad im Record stehen.
+      'remote_path': remotePath,
+      // FIX: etag ergänzt — wird als Surrogate-ETag genutzt
+      // (PocketBase Record-ID). Ermöglicht Konflikt-Erkennung
+      // beim bidirektionalen Sync ohne separaten Versions-Counter.
+      'etag': etag,
     };
   }
 
   /// SQLite → Artikel.
+  ///
+  /// Key-Konventionen:
+  /// - SQLite speichert Felder in snake_case (z.B. remote_path, device_id).
+  /// - PocketBase liefert Felder in camelCase (z.B. remotePath, deviceId).
+  /// - Fallbacks (??) stellen sicher dass fromMap() für beide Quellen
+  ///   funktioniert ohne separate fromSQLite()- und fromPocketBase()-Pfade.
+  /// - Felder ohne Fallback (z.B. etag, uuid) existieren in beiden
+  ///   Quellen unter demselben Key.
   factory Artikel.fromMap(Map<String, dynamic> map) {
     final parsedId = map['id'] is int
         ? map['id'] as int
@@ -126,11 +147,15 @@ class Artikel {
       aktualisiertAm: _parseDateTime(aktualisiertAmValue),
       remoteBildPfad: map['remoteBildPfad']?.toString(),
       uuid: map['uuid']?.toString() ?? UuidGenerator.generate(),
+      // snake_case (SQLite) mit camelCase-Fallback (PocketBase)
       updatedAt: _parseInt(map['updated_at'] ?? map['updatedAt']),
       deleted: map['deleted'] == 1 || map['deleted'] == true,
+      // etag: gleicher Key in SQLite und PocketBase → kein Fallback nötig
       etag: map['etag']?.toString(),
+      // snake_case (SQLite) mit camelCase-Fallback (PocketBase)
       remotePath: map['remote_path']?.toString()
           ?? map['remotePath']?.toString(),
+      // snake_case (SQLite) mit camelCase-Fallback (PocketBase)
       deviceId: map['device_id']?.toString()
           ?? map['deviceId']?.toString(),
     );
@@ -172,7 +197,12 @@ class Artikel {
           : DateTime.now().toUtc().millisecondsSinceEpoch,
       // FIX #8: ↑ UTC-Normalisierung im Fallback
       deleted: data['deleted'] == true,
+      // etag = PocketBase Record-ID als Surrogate-ETag.
+      // Identifiziert eindeutig den Stand des Remote-Records.
+      // Wird für Konflikt-Erkennung beim bidirektionalen Sync genutzt.
       etag: recordId,
+      // remotePath = PocketBase Record-ID als Referenz auf den Remote-Record.
+      // Wird genutzt um den lokalen Artikel mit dem PB-Record zu verknüpfen.
       remotePath: recordId,
       deviceId: data['deviceId']?.toString(),
     );

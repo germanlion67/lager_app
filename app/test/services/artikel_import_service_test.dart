@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/services.dart';
-import 'package:elektronik_verwaltung/services/artikel_import_service.dart';
+import 'package:lager_app/services/artikel_import_service.dart';
 import 'dart:io';
 
 void main() {

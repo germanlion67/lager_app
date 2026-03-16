@@ -1,7 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:elektronik_verwaltung/services/artikel_export_service.dart';
-import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
+import 'package:lager_app/services/artikel_export_service.dart';
+//import 'package:file_selector/file_selector.dart';
+import 'package:file_selector_platform_interface/file_selector_platform_interface.dart'; // FileSelectorPlatform + SaveDialogOptions
 
 // Test-Implementierung für FileSelectorPlatform
 class TestFileSelectorPlatform extends FileSelectorPlatform {

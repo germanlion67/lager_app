@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:elektronik_verwaltung/utils/dokumente_utils.dart';
+import 'package:lager_app/utils/dokumente_utils.dart';
 
 void main() {
   test('sortFilesByName ascending', () {
