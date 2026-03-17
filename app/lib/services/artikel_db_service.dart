@@ -617,7 +617,7 @@ class ArtikelDbService {
       final db = await database;
       final maps = await db.query(
         'artikel',
-        where: 'etag IS NULL OR etag = ""',
+        where: "etag IS NULL OR etag = ''",
         orderBy: 'updated_at ASC',
       );
       _logger.d(

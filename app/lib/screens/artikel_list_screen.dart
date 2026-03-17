@@ -731,6 +731,21 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Expanded(child: Text('Gefilterte Artikelliste als PDF')),
               ],),
             ),
+            const Divider(),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.pop(ctx);
+                if (!mounted) return;
+                await mobile_actions.generateArtikelDetailPdf(
+                    context, _gefilterteArtikel(),);
+                if (!mounted) return;
+              },
+              child: const Row(children: [
+                Icon(Icons.description_outlined, color: Colors.blue),
+                SizedBox(width: 8),
+                Expanded(child: Text('Einzelner Artikel als Detail-PDF')),
+              ],),
+            ),
           ],
         );
       },

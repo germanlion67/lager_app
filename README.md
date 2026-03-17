@@ -43,7 +43,7 @@ Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
   - [Plattform-Architektur](#plattform-architektur)
   - [Features hinzufügen](#features-hinzufügen)
   - [Tests](#tests)
-- [Roadmap](#roadmap)
+- [Prüfplan](#prüfplan)
 - [Contributing](#contributing)
 - [Lizenz](#lizenz)
 
@@ -552,25 +552,153 @@ curl http://localhost:8080/api/health
 
 ---
 
-## Roadmap
+## Prüfplan
 
-### Web
+### Phase 1 — Linux 🐧
 
-- [x] Artikel anlegen, ändern, löschen ✅
-- [ ] Artikel Export JSON / Import JSON (fehlende Bilder)
-- [ ] Artikel Backup / Restore (inklusive Bilder)
-- [ ] PocketBase-Migrations-Script (automatisches Schema-Setup)
-- [ ] PDF Export & Druck
-- [ ] Automatisierte Integrationstests
-
-### Mobile
+```bash
+flutter build linux --release
+./build/linux/x64/release/bundle/lager_app
+```
 
 - [ ] Artikel anlegen, ändern, löschen
-- [ ] Artikel Export JSON / Import JSON
-- [ ] Artikel Backup / Restore (inklusive Bilder)
-- [ ] PDF Export & Druck
-- [ ] Background-Sync
+- [ ] Suche & Filter (Ort / Fach / Kombination)
+- [ ] PDF Export — Alle Artikel (FilePicker + xdg-open)
+- [ ] PDF Export — Gefilterte Artikel
+- [ ] PDF Export — Artikel-Detail (mit & ohne Bild)
+- [ ] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
+- [ ] ZIP-Backup lokal exportieren & importieren
+- [ ] ZIP-Backup Nextcloud exportieren & importieren
 
+> **Stolperstellen:**
+> - `xdg-open` benötigt einen laufenden Desktop-Session-Bus — im reinen TTY-Modus schlägt es lautlos fehl
+> - FilePicker braucht `xdg-desktop-portal` + passendes Backend (`xdg-desktop-portal-gtk` o.ä.) — ohne Portal greift der `~/Downloads/`-Fallback
+> - `sqflite_common_ffi` benötigt `libsqlite3-dev` als System-Paket (`sudo apt install libsqlite3-dev`)
+
+---
+
+### Phase 1 — Windows 🪟
+
+```powershell
+flutter build windows --release
+.\build\windows\x64\runner\Release\lager_app.exe
+```
+
+- [ ] Artikel anlegen, ändern, löschen
+- [ ] Suche & Filter (Ort / Fach / Kombination)
+- [ ] PDF Export — Alle Artikel (FilePicker + url_launcher)
+- [ ] PDF Export — Gefilterte Artikel
+- [ ] PDF Export — Artikel-Detail (mit & ohne Bild)
+- [ ] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
+- [ ] ZIP-Backup lokal exportieren & importieren
+- [ ] ZIP-Backup Nextcloud exportieren & importieren
+
+> **Stolperstellen:**
+> - Pfad-Trenner: `\` statt `/` — `Platform.environment['USERPROFILE']` statt `HOME` für den Downloads-Fallback prüfen
+> - `url_launcher` benötigt zwingend `LaunchMode.externalApplication`, sonst öffnet sich nichts
+> - Dateinamen mit Umlauten (`äöüÄÖÜß`) können auf NTFS-Partitionen zu Encoding-Problemen führen — Regex im `cleanName` testen
+> - SQLite-DLL (`sqlite3.dll`) muss im App-Verzeichnis liegen — wird bei `flutter build windows` automatisch kopiert, bei manuellem Deployment prüfen
+
+---
+
+### Phase 2 — Android 🤖
+
+```bash
+# Debug auf angeschlossenem Gerät / Emulator
+flutter run -d android
+
+# Release APK (Sideloading)
+flutter build apk --release
+# APK liegt unter: build/app/outputs/flutter-apk/app-release.apk
+
+# Release AAB (Play Store)
+flutter build appbundle --release
+```
+
+- [ ] Artikel anlegen, ändern, löschen
+- [ ] Suche & Filter (Ort / Fach / Kombination)
+- [ ] PDF Export — Alle Artikel (share_plus Share-Sheet)
+- [ ] PDF Export — Gefilterte Artikel
+- [ ] PDF Export — Artikel-Detail (mit & ohne Bild)
+- [ ] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
+- [ ] ZIP-Backup lokal exportieren & importieren
+- [ ] ZIP-Backup Nextcloud exportieren & importieren
+
+> **Stolperstellen:**
+> - `WRITE_EXTERNAL_STORAGE` Permission ab Android 10+ eingeschränkt — `getExternalStorageDirectory()` liefert nur App-privaten Pfad, **nicht** den sichtbaren Download-Ordner
+> - Ab Android 11+ (API 30) braucht man `MANAGE_EXTERNAL_STORAGE` oder `MediaStore`-API für öffentliche Ordner — im `AndroidManifest.xml` prüfen
+> - Share-Sheet: `ShareResultStatus.success` wird auf manchen Android-Versionen **nicht** zuverlässig zurückgegeben (Samsung-ROMs bekannt) — Fehlerfall trotzdem testen
+> - Bilder aus der Galerie: `file_picker` benötigt `READ_MEDIA_IMAGES` (Android 13+) statt `READ_EXTERNAL_STORAGE`
+
+---
+
+### Phase 3 — iOS 🍎
+
+```bash
+# Debug auf Simulator
+flutter run -d ios
+
+# Release Build (benötigt macOS + Xcode)
+flutter build ios --release
+
+# Auf Gerät installieren via Xcode
+open ios/Runner.xcworkspace
+```
+
+- [ ] Artikel anlegen, ändern, löschen
+- [ ] Suche & Filter (Ort / Fach / Kombination)
+- [ ] PDF Export — Alle Artikel (iOS Share-Sheet)
+- [ ] PDF Export — Gefilterte Artikel
+- [ ] PDF Export — Artikel-Detail (mit & ohne Bild)
+- [ ] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
+- [ ] ZIP-Backup lokal exportieren & importieren
+- [ ] ZIP-Backup Nextcloud exportieren & importieren
+
+> **Stolperstellen:**
+> - iOS Sandbox: `getDownloadsDirectory()` zeigt nur App-internen Ordner — Dateien sind nur über die Dateien-App sichtbar wenn `UIFileSharingEnabled = true` in `Info.plist` gesetzt ist
+> - `NSPhotoLibraryUsageDescription` + `NSCameraUsageDescription` müssen in `Info.plist` eingetragen sein, sonst Crash beim Bildpicker
+> - Share-Sheet auf iOS gibt **immer** `ShareResultStatus.dismissed` zurück, nie `success` — Erfolgs-Logik entsprechend anpassen
+> - TestFlight / physisches Gerät nötig für vollständigen Test — Simulator hat keinen Share-Sheet-Flow
+
+---
+
+### Phase 3 — Web 🌐
+
+```bash
+# Stack starten (PocketBase + Flutter Web via Caddy)
+docker compose up --build
+
+# Nur PocketBase neu starten (z.B. nach Schema-Änderung)
+docker compose restart pocketbase
+
+# Nur Frontend neu bauen (z.B. nach Code-Änderung)
+docker compose up --build app
+
+# Logs live verfolgen
+docker compose logs -f
+
+# PocketBase Admin UI
+# → http://localhost:8080/_/
+
+# Flutter Web App
+# → http://localhost:8081/
+
+# Stack stoppen
+docker compose down
+```
+
+- [ ] Artikel anlegen, ändern, löschen
+- [ ] Suche & Filter (Ort / Fach / Kombination)
+- [ ] PDF Export — Download via Browser
+- [ ] ZIP-Backup exportieren & importieren
+
+> **Stolperstellen:**
+> - `POCKETBASE_URL` wird zur **Build-Zeit** eingebrannt (`--dart-define`) — nach URL-Änderung zwingend `docker compose up --build app` ausführen, `restart` allein reicht nicht
+> - PocketBase Schema muss vor dem ersten App-Start manuell angelegt sein — Admin UI unter `http://localhost:8080/_/` prüfen, sonst schlagen alle API-Calls lautlos fehl
+> - Browser blockiert `http://localhost:8080` wenn die App über `https://` ausgeliefert wird (Mixed Content) — in Dev/Test beide Dienste auf `http` halten
+> - CORS: PocketBase erlaubt in Dev standardmäßig alle Origins — in Produktion hinter Nginx Proxy Manager explizit einschränken
+> - `dart:io` (`File`, `Directory`, `Platform`) existiert im Browser **nicht** — PDF- und ZIP-Funktionen benötigen eine Web-spezifische Implementierung (`dart:html` / `package:web`)
+> - Caddy liefert nur statische Assets aus — SPA-Routing (alle Routen → `/index.html`) muss im `Caddyfile` korrekt konfiguriert sein, sonst gibt es `404` bei direktem URL-Aufruf
 ---
 
 ## Contributing

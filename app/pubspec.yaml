@@ -7,7 +7,7 @@ description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 # Flutter erwartet version: major.minor.patch+build.
 # Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
 # da versionCode (Android) bzw. CFBundleVersion (iOS) fehlt.
-version: 1.7.0
+version: 0.3.0
 
 # Fix: SDK-Constraint präzisiert —
 # ">=3.0.0 <4.0.0" erlaubt theoretisch Dart 4.x sobald es erscheint.
@@ -130,6 +130,7 @@ dependencies:
   flutter_local_notifications: ^19.4.1
 
   logger: ^2.0.2
+  google_fonts: ^8.0.2
 
 dev_dependencies:
   flutter_test:

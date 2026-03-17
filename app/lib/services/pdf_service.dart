@@ -18,10 +18,9 @@ import '../models/artikel_model.dart';
 /// - [generateArtikelDetailPdf] — Detaillierte PDF für einen Artikel (DIN A4)
 ///
 /// Plattformspezifisch:
-/// - Desktop: FilePicker Save-Dialog + url_launcher
+/// - Desktop: FilePicker Save-Dialog + xdg-open (Fallback: ~/Downloads/)
 /// - Mobile: Download-Ordner + share_plus
 class PdfService {
-  // FIX Problem 6: Instanzklasse mit Logger statt static-Durcheinander.
   final Logger _logger = Logger();
 
   // ---------------------------------------------------------------------------
@@ -31,7 +30,6 @@ class PdfService {
   /// Erstellt eine PDF-Liste mit allen Artikeln.
   /// Gibt `null` zurück wenn der Save-Dialog abgebrochen wurde.
   Future<File?> generateArtikelListePdf(List<Artikel> artikelListe) async {
-    // FIX Hinweis 10: try/catch um den gesamten PDF-Aufbau.
     late Uint8List pdfBytes;
     try {
       final pdf = pw.Document();
@@ -53,7 +51,7 @@ class PdfService {
                       ),
                     ),
                     pw.Text('Menge: ${artikel.menge}'),
-                    pw.Text('Ort: ${artikel.ort} • Fach: ${artikel.fach}'),
+                    pw.Text('Ort: ${artikel.ort} | Fach: ${artikel.fach}'),
                     pw.Text('Beschreibung: ${artikel.beschreibung}'),
                     pw.Text('Erstellt am: ${_formatDate(artikel.erstelltAm)}'),
                     pw.Text(
@@ -72,8 +70,7 @@ class PdfService {
       throw Exception('Fehler beim PDF-Aufbau: $e');
     }
 
-    final fileName =
-        'artikel_liste_${_fileTimestamp()}.pdf';
+    final fileName = 'artikel_liste_${_fileTimestamp()}.pdf';
 
     try {
       final file = await _savePdfBytes(
@@ -103,7 +100,6 @@ class PdfService {
   Future<File?> generateArtikelDetailPdf(Artikel artikel) async {
     late Uint8List pdfBytes;
     try {
-      // FIX Bug 4: await file.exists() statt blockierendem existsSync().
       pw.Image? artikelBild;
       if (artikel.bildPfad.isNotEmpty &&
           await File(artikel.bildPfad).exists()) {
@@ -234,7 +230,7 @@ class PdfService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'ZUSÄTZLICHE INFORMATIONEN',
+                      'ZUSAETZLICHE INFORMATIONEN',
                       style: pw.TextStyle(
                         fontSize: 14,
                         fontWeight: pw.FontWeight.bold,
@@ -278,7 +274,7 @@ class PdfService {
                   border: pw.Border(top: pw.BorderSide()),
                 ),
                 child: pw.Text(
-                  'Erstellt mit Lager-App • ${_formatDate(DateTime.now())}',
+                  'Erstellt mit Lager-App | ${_formatDate(DateTime.now())}',
                   style: const pw.TextStyle(fontSize: 8),
                   textAlign: pw.TextAlign.center,
                 ),
@@ -293,7 +289,6 @@ class PdfService {
       throw Exception('Fehler beim PDF-Aufbau: $e');
     }
 
-    // FIX Problem 7: Leerzeichen → Unterstrich, Umlaute bleiben erhalten.
     final cleanName = artikel.name
         .replaceAll(RegExp(r'\s+'), '_')
         .replaceAll(RegExp(r'[^\w\-äöüÄÖÜß]'), '_');
@@ -323,13 +318,15 @@ class PdfService {
   }
 
   /// Öffnet oder teilt eine PDF-Datei plattformspezifisch.
+  ///
+  /// - Mobile (Android/iOS): share_plus
+  /// - Linux/macOS:          xdg-open / open via Process.run (zuverlässiger als launchUrl)
+  /// - Windows:              url_launcher mit LaunchMode.externalApplication
   static Future<bool> openPdf(String filePath) async {
     final logger = Logger();
     try {
       final file = File(filePath);
 
-      // FIX Problem 8: Einfache Existenzprüfung statt Polling-Loop.
-      // writeAsBytes() ist bereits awaited — die Datei ist vollständig.
       if (!await file.exists()) {
         logger.w('PDF-Datei nicht gefunden: $filePath');
         return false;
@@ -341,31 +338,76 @@ class PdfService {
         return false;
       }
 
+      // ── Mobile ──────────────────────────────────────────────────────────────
       if (Platform.isAndroid || Platform.isIOS) {
         final shareResult = await Share.shareXFiles(
           [XFile(filePath)],
           text: 'PDF-Export aus Lager-App',
           subject: 'Artikel-PDF',
         );
-
-        final success =
-            shareResult.status == ShareResultStatus.success;
+        final success = shareResult.status == ShareResultStatus.success;
         if (success) {
           logger.i('PDF geteilt: $filePath ($fileSize bytes)');
         } else {
           logger.w('Share fehlgeschlagen: ${shareResult.status}');
         }
         return success;
-      } else {
-        final uri = Uri.file(filePath);
-        final success = await launchUrl(uri);
-        if (success) {
-          logger.i('PDF geöffnet: $filePath ($fileSize bytes)');
+      }
+
+      // ── Linux / macOS ────────────────────────────────────────────────────────
+      // launchUrl mit Uri.file() ist auf Linux oft unzuverlässig ohne
+      // laufendes xdg-desktop-portal. Process.run('xdg-open') ist stabiler.
+      if (Platform.isLinux) {
+        final result = await Process.run('xdg-open', [filePath]);
+        if (result.exitCode == 0) {
+          logger.i('PDF geöffnet via xdg-open: $filePath');
+          return true;
         }
+        // Fallback: url_launcher
+        logger.w('xdg-open fehlgeschlagen (exit ${result.exitCode}), '
+            'versuche url_launcher …');
+        final uri = Uri.file(filePath);
+        final success = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        logger.i(success
+            ? 'PDF geöffnet via url_launcher: $filePath'
+            : 'url_launcher fehlgeschlagen: $filePath',);
         return success;
       }
+
+      if (Platform.isMacOS) {
+        final result = await Process.run('open', [filePath]);
+        if (result.exitCode == 0) {
+          logger.i('PDF geöffnet via open: $filePath');
+          return true;
+        }
+        logger.w('open fehlgeschlagen (exit ${result.exitCode})');
+        return false;
+      }
+
+      // ── Windows ──────────────────────────────────────────────────────────────
+      if (Platform.isWindows) {
+        final uri = Uri.file(filePath);
+        final success = await launchUrl(
+          uri,
+          mode: LaunchMode.externalApplication,
+        );
+        logger.i(success
+            ? 'PDF geöffnet via url_launcher (Windows): $filePath'
+            : 'url_launcher fehlgeschlagen (Windows): $filePath',);
+        return success;
+      }
+
+      logger.w('Unbekannte Plattform — PDF kann nicht geöffnet werden');
+      return false;
     } catch (e, stack) {
-      Logger().e('Fehler beim Öffnen/Teilen der PDF:', error: e, stackTrace: stack);
+      Logger().e(
+        'Fehler beim Öffnen/Teilen der PDF:',
+        error: e,
+        stackTrace: stack,
+      );
       return false;
     }
   }
@@ -393,11 +435,7 @@ class PdfService {
       Directory? directory;
 
       if (Platform.isAndroid) {
-        // FIX Bug 2: getExternalStorageDirectory() statt hardcodiertem Pfad.
-        // Funktioniert auf allen Android-Versionen und Geräten.
         directory = await getExternalStorageDirectory();
-
-        // Versuche den Download-Unterordner zu erstellen
         if (directory != null) {
           final downloadDir = Directory('${directory.path}/Download');
           if (!await downloadDir.exists()) {
@@ -409,11 +447,9 @@ class PdfService {
         directory = await getDownloadsDirectory();
       }
 
-      // Fallback zu App-Documents wenn kein öffentlicher Ordner verfügbar
       directory ??= await getApplicationDocumentsDirectory();
 
       final file = File('${directory.path}/$fileName');
-      // FIX Bug 3: writeAsBytes() ist awaited — kein delay nötig.
       await file.writeAsBytes(pdfBytes);
 
       _logger.i('PDF gespeichert: ${file.path}');
@@ -425,6 +461,7 @@ class PdfService {
   }
 
   /// Speichert auf Desktop via FilePicker Save-Dialog.
+  /// Fallback: ~/Downloads/ wenn kein xdg-desktop-portal verfügbar.
   Future<File?> _saveDesktop(
     Uint8List pdfBytes,
     String fileName,
@@ -445,16 +482,43 @@ class PdfService {
       }
 
       final file = File(savedPath);
-      // FIX Bug 3: Kein delay — writeAsBytes() ist synchron nach await.
       if (!await file.exists() || await file.length() == 0) {
-        // FilePicker hat bytes-Parameter ignoriert — manuell schreiben
         await file.writeAsBytes(pdfBytes);
       }
 
       _logger.i('PDF gespeichert: ${file.path}');
       return file;
+    } catch (e) {
+      // FilePicker nicht verfügbar (kein xdg-desktop-portal) → Fallback
+      _logger.w('FilePicker nicht verfügbar, Fallback ~/Downloads/: $e');
+      return _saveDesktopFallback(pdfBytes, fileName);
+    }
+  }
+
+  /// Fallback: Speichert direkt in ~/Downloads/ ohne Dialog.
+  Future<File?> _saveDesktopFallback(
+    Uint8List pdfBytes,
+    String fileName,
+  ) async {
+    try {
+      final home = Platform.environment['USERPROFILE'] // Windows
+          ??
+          Platform.environment['HOME'] // Linux/macOS
+          ??
+          '/tmp'; // letzter Ausweg
+      final downloadsDir = Directory('$home/Downloads');
+
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
+
+      final file = File('${downloadsDir.path}/$fileName');
+      await file.writeAsBytes(pdfBytes);
+
+      _logger.i('PDF Fallback gespeichert: ${file.path}');
+      return file;
     } catch (e, stack) {
-      _logger.e('Desktop FilePicker Fehler:', error: e, stackTrace: stack);
+      _logger.e('Desktop Fallback Fehler:', error: e, stackTrace: stack);
       return null;
     }
   }
@@ -537,8 +601,6 @@ class PdfService {
   }
 
   /// Formatiert ein Datum als lesbaren String.
-  ///
-  /// FIX Hinweis 9: Robuster als substring(0,19) auf DateTime.toString().
   String _formatDate(DateTime dt) {
     final local = dt.toLocal();
     final y = local.year.toString().padLeft(4, '0');

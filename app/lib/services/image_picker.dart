@@ -15,6 +15,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../utils/image_processing_utils.dart';
 import '../widgets/image_crop_dialog.dart';
+import 'dart:io';
 
 /// Ergebnis eines Bild-Picks.
 ///
@@ -48,23 +49,23 @@ class ImagePickerService {
   static Future<PickedImage> pickImageFile(BuildContext context) async {
     final FilePickerResult? result;
 
-    // Fix: FilePicker-Fehler abfangen statt unkontrolliert werfen
     try {
       result = await FilePicker.platform.pickFiles(
         allowMultiple: false,
         type: FileType.image,
-        withData: true, // Wichtig für Web: liefert bytes
+        withData: true,
       );
     } catch (e) {
       debugPrint('ImagePickerService.pickImageFile: FilePicker Fehler: $e');
-      return PickedImage.empty;
+      // Fallback: Manuellen Pfad abfragen (Linux ohne xdg-desktop-portal)
+      if (!context.mounted) return PickedImage.empty;
+      return await _pickImageByPathFallback(context);
     }
 
     if (result == null || result.files.isEmpty) return PickedImage.empty;
 
     final file = result.files.single;
 
-    // Fix: Dateigröße prüfen vor Verarbeitung
     if (file.bytes != null && file.bytes!.length > _maxFileSizeBytes) {
       debugPrint(
         'ImagePickerService.pickImageFile: Datei zu groß '
@@ -78,7 +79,6 @@ class ImagePickerService {
     final cropResult = await _openCropDialog(context, file.bytes);
     if (cropResult == null) return PickedImage.empty;
 
-    // Fix: ImageProcessingUtils-Fehler abfangen
     final Uint8List? processedBytes;
     try {
       processedBytes = await ImageProcessingUtils.ensureTargetFormat(
@@ -86,18 +86,100 @@ class ImagePickerService {
         crop: cropResult.cropped,
       );
     } catch (e) {
-      debugPrint(
-          'ImagePickerService.pickImageFile: Bildverarbeitung Fehler: $e',);
+      debugPrint('ImagePickerService.pickImageFile: Bildverarbeitung Fehler: $e');
       return PickedImage.empty;
     }
 
     return PickedImage(
-      // Im Web ist file.path null → das ist OK, bytes sind vorhanden
       pfad: kIsWeb ? null : file.path,
       bytes: processedBytes ?? cropResult.bytes,
       dateiname: file.name,
     );
   }
+
+  /// Fallback für Linux ohne xdg-desktop-portal:
+  /// Nutzer gibt Bildpfad manuell ein → Datei wird direkt gelesen.
+  static Future<PickedImage> _pickImageByPathFallback(BuildContext context) async {
+    final controller = TextEditingController();
+
+    final String? eingabePfad = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Bildpfad eingeben'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Datei-Dialog nicht verfügbar.\n'
+              'Bitte vollständigen Bildpfad eingeben:',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: controller,
+              decoration: const InputDecoration(
+                hintText: '/home/user/bilder/foto.jpg',
+                border: OutlineInputBorder(),
+              ),
+              autofocus: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Abbrechen'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Laden'),
+          ),
+        ],
+      ),
+    );
+
+    controller.dispose();
+
+    if (eingabePfad == null || eingabePfad.isEmpty) return PickedImage.empty;
+
+    final file = File(eingabePfad);
+    if (!await file.exists()) {
+      debugPrint('ImagePickerService: Datei nicht gefunden: $eingabePfad');
+      return PickedImage.empty;
+    }
+
+    final Uint8List bytes;
+    try {
+      bytes = await file.readAsBytes();
+    } catch (e) {
+      debugPrint('ImagePickerService: Lesen fehlgeschlagen: $e');
+      return PickedImage.empty;
+    }
+
+    if (bytes.length > _maxFileSizeBytes) return PickedImage.empty;
+
+    if (!context.mounted) return PickedImage.empty;
+
+    final cropResult = await _openCropDialog(context, bytes);
+    if (cropResult == null) return PickedImage.empty;
+
+    final Uint8List? processedBytes;
+    try {
+      processedBytes = await ImageProcessingUtils.ensureTargetFormat(
+        cropResult.bytes,
+        crop: cropResult.cropped,
+      );
+    } catch (e) {
+      return PickedImage.empty;
+    }
+
+    return PickedImage(
+      pfad: eingabePfad,
+      bytes: processedBytes ?? cropResult.bytes,
+      dateiname: eingabePfad.split('/').last,
+    );
+  }
+
 
   /// Nimmt ein Bild mit der Kamera auf.
   ///
