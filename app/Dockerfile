@@ -3,7 +3,7 @@
 # ============================================================
 FROM debian:bookworm-slim AS build-env
 
-ARG FLUTTER_VERSION=3.32.0
+ARG FLUTTER_VERSION=3.41.4
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

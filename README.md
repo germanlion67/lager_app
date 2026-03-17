@@ -4,14 +4,14 @@ Eine plattformübergreifende Lagerverwaltungs-App für z.B. Elektronikbauteile,
 gebaut mit **Flutter** und **PocketBase**.
 Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
 
-![Flutter](https://img.shields.io/badge/Flutter-3.x-blue?logo=flutter)
+![Flutter](https://img.shields.io/badge/Flutter-3.41.4-blue?logo=flutter)
 ![PocketBase](https://img.shields.io/badge/PocketBase-0.36.6-green?logo=pocketbase)
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 ![Test Status](https://img.shields.io/badge/Tests-⚠️%20ungetestet-orange)
 
 > ⚠️ **Teststatus**: Stand März 2026 – Nicht für Produktionseinsatz empfohlen.
-> Manuelles Testing läuft. Siehe [Roadmap](#roadmap).
+> Manuelles Testing läuft. Siehe [Prüfplan](#prüfplan).
 > Nextcloud: Implementierung vorhanden (WebDAV-Client, Upload/Backup-Workflow).
 > Integration ist als experimentell/ungeprüft gekennzeichnet.
 
@@ -60,7 +60,7 @@ und im Browser.
 | Plattform | Datenbank | Bilder | Sync |
 |---|---|---|---|
 | 📱 **Mobile (Android)** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
-| 🖥️ **Desktop (Linux)** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
+| 🖥️ **Desktop (Linux/Windows)** | SQLite (lokal) | Lokales Dateisystem | Background-Sync mit PocketBase |
 | 🌐 **Web (Docker)** | PocketBase (direkt) | PocketBase File Storage | Kein Sync nötig (immer online) |
 
 ---
@@ -150,12 +150,12 @@ für die PocketBase Admin UI.
 ## Voraussetzungen
 
 ### Docker (Web-Deployment)
-- [Docker](https://docs.docker.com/get-docker/) >= 20.10
-- [Docker Compose](https://docs.docker.com/compose/) >= 2.0
+- [Docker](https://docs.docker.com/get-docker/) >= 29.0
+- [Docker Compose](https://docs.docker.com/compose/) >= 2.40
 
 ### Lokale Entwicklung
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) >= 3.32.0
-- [Dart SDK](https://dart.dev/get-dart) >= 3.8.0
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) >= 3.41.4
+- [Dart SDK](https://dart.dev/get-dart) >= 3.11.1
 - [PocketBase](https://pocketbase.io/docs/) >= 0.36.6
 - Android Studio / VS Code mit Flutter-Plugin
 
@@ -188,7 +188,7 @@ docker compose up -d --build
 ```
 
 > ⚠️ **Wichtig**: Nach dem ersten Start muss die PocketBase Collection
-> `artikel` angelegt werden. Siehe [PocketBase Setup](#pocketbase-setup).
+> `artikel` manuell angelegt werden. Siehe [PocketBase Setup](#pocketbase-setup).
 
 ### Lokale Entwicklung
 
@@ -213,6 +213,10 @@ flutter run -d chrome \
 flutter run -d linux \
     --dart-define=POCKETBASE_URL=http://localhost:8080
 
+# App starten (Desktop Windows)
+flutter run -d windows \
+    --dart-define=POCKETBASE_URL=http://localhost:8080
+
 # App starten (Mobile — IP des Entwicklungsrechners angeben)
 flutter run \
     --dart-define=POCKETBASE_URL=http://192.168.1.100:8080
@@ -235,32 +239,46 @@ Beim ersten Start:
 
 1. **Admin-UI öffnen**: `http://localhost:8080/_/`
 2. **Admin-Account erstellen** (E-Mail + Passwort)
-3. **Collection `artikel` erstellen**:
+3. **Collection `artikel` manuell erstellen**:
 
-| Feld | Typ | Optionen |
-|---|---|---|
-| `name` | Text | Required |
-| `menge` | Number | Default: 0 |
-| `ort` | Text | Required |
-| `fach` | Text | Required |
-| `beschreibung` | Text | — |
-| `bildPfad` | Text | — |
-| `thumbnailPfad` | Text | — |
-| `thumbnailEtag` | Text | — |
-| `erstelltAm` | Text | — |
-| `aktualisiertAm` | Text | — |
-| `remoteBildPfad` | Text | — |
-| `bild` | File | Max: 5 MB, MIME: image/* |
-| `uuid` | Text | Required, Unique |
-| `updated_at` | Number | Default: 0 |
-| `deleted` | Boolean | Default: false |
-| `etag` | Text | — |
-| `remote_path` | Text | — |
-| `device_id` | Text | — |
+> 💡 Ein Migrations-Script (`server/pb_migrations/1772784781_created_artikel.js`)
+> liegt im Repository und dient als Referenz für das Schema.
+> Da der Migrations-Ordner nicht automatisch gemountet wird,
+> muss die Collection beim ersten Start manuell angelegt werden.
 
-4. **API Rules** nach Bedarf konfigurieren.
+| Feld | Typ | Pflicht | Hinweise |
+|---|---|---|---|
+| `name` | Text | ✅ | Artikelbezeichnung |
+| `menge` | Number | — | Ganzzahl (`onlyInt`), min: 0 |
+| `ort` | Text | ✅ | Lagerort |
+| `fach` | Text | ✅ | Lagerfach |
+| `beschreibung` | Text | — | Optionale Beschreibung |
+| `bildPfad` | Text | — | Lokaler Bildpfad (Mobile/Desktop) |
+| `erstelltAm` | Text | — | Erstellungszeitpunkt |
+| `aktualisiertAm` | Text | — | Letzter Update-Zeitpunkt |
+| `remoteBildPfad` | Text | — | Remote-Bildpfad (Nextcloud) |
+| `bild` | File | — | Max: 5 MB, MIME: png/jpeg/gif/tiff/bmp/webp |
+| `uuid` | Text | ✅ | Client-seitige UUID, Unique |
+| `updated_at` | Number | — | Unix-Timestamp, letztes Update |
+| `deleted` | Boolean | — | Soft-Delete Flag |
+| `etag` | Text | — | Sync-ETag |
+| `remote_path` | Text | — | WebDAV/Remote-Pfad |
+| `device_id` | Text | — | Gerätekennzeichnung |
+| `kategorie` | Text | — | Artikelkategorie |
 
-> 💡 Ein PocketBase-Migrations-Script ist in Planung.
+> ℹ️ **Thumbnail-Felder**: Die Felder `thumbnailPfad` und `thumbnailEtag`
+> existieren ausschließlich in der lokalen SQLite-Datenbank (Mobile/Desktop)
+> und werden **nicht** zu PocketBase synchronisiert. Sie sind als Vorbereitung
+> für ein noch nicht implementiertes Thumbnail-Feature angelegt. Das
+> PocketBase-Schema benötigt diese Felder daher **nicht**.
+
+4. **API Rules konfigurieren**:
+
+> ⚠️ **Sicherheitshinweis:** Standardmäßig sind alle API-Regeln der
+> `artikel`-Collection auf `""` gesetzt — das bedeutet **öffentlich
+> zugänglich ohne Authentifizierung**. Für den Produktionsbetrieb
+> müssen diese Regeln in der Admin UI eingeschränkt werden:
+> **Collection → artikel → API Rules**
 
 ### Umgebungsvariablen
 
@@ -329,8 +347,11 @@ docker compose logs -f pocketbase
 # Frontend neu bauen (nach Code-Änderungen)
 docker compose up -d --build app
 
-# PocketBase-Daten sichern
-docker compose exec pocketbase cp -r /pb_data /pb_data_backup
+# PocketBase-Daten sichern (named volume)
+docker run --rm \
+  -v lager_app_pb_data:/pb_data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/pb_backup_$(date +%Y%m%d_%H%M%S).tar.gz /pb_data
 
 # Shell im Frontend-Container
 docker compose exec app sh
@@ -462,7 +483,7 @@ lager_app/
 │   └── .dockerignore
 ├── server/
 │   ├── pb_data/                 # PocketBase Datenbank (gitignored)
-│   ├── pb_migrations/           # Schema-Migrationen
+│   ├── pb_migrations/           # Schema-Referenz (nicht auto-gemountet)
 │   └── pb_public/               # Öffentliche Dateien
 ├── .github/
 │   └── workflows/               # CI/CD Pipelines
@@ -699,6 +720,7 @@ docker compose down
 > - CORS: PocketBase erlaubt in Dev standardmäßig alle Origins — in Produktion hinter Nginx Proxy Manager explizit einschränken
 > - `dart:io` (`File`, `Directory`, `Platform`) existiert im Browser **nicht** — PDF- und ZIP-Funktionen benötigen eine Web-spezifische Implementierung (`dart:html` / `package:web`)
 > - Caddy liefert nur statische Assets aus — SPA-Routing (alle Routen → `/index.html`) muss im `Caddyfile` korrekt konfiguriert sein, sonst gibt es `404` bei direktem URL-Aufruf
+
 ---
 
 ## Contributing

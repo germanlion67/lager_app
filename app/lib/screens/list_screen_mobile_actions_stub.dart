@@ -7,17 +7,55 @@ import '../models/artikel_model.dart';
 Future<void> generateArtikelListePdf(
   BuildContext context,
   List<Artikel> artikelListe,
-) async =>
-    throw UnsupportedError('PDF-Export ist im Web nicht verfügbar');
+) async {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('PDF-Export ist im Web nicht verfügbar.'),
+      backgroundColor: Colors.orange,
+      duration: Duration(seconds: 3),
+    ),
+  );
+}
 
 Future<void> generateFilteredArtikelListePdf(
   BuildContext context,
   List<Artikel> gefilterteArtikel,
-) async =>
-    throw UnsupportedError('PDF-Export ist im Web nicht verfügbar');
+) async {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('PDF-Export ist im Web nicht verfügbar.'),
+      backgroundColor: Colors.orange,
+      duration: Duration(seconds: 3),
+    ),
+  );
+}
+
+Future<void> generateArtikelDetailPdf(
+  BuildContext context,
+  Artikel artikel,
+) async {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('PDF-Export ist im Web nicht verfügbar.'),
+      backgroundColor: Colors.orange,
+      duration: Duration(seconds: 3),
+    ),
+  );
+}
 
 Future<void> showZipBackupDialog(
   BuildContext context,
   Future<void> Function() reloadArtikel,
-) async =>
-    throw UnsupportedError('ZIP-Backup ist im Web nicht verfügbar');
+) async {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('ZIP-Backup ist im Web nicht verfügbar.'),
+      backgroundColor: Colors.orange,
+      duration: Duration(seconds: 3),
+    ),
+  );
+}

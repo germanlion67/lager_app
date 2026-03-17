@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const collection = new Collection({
-    "createRule": null,
-    "deleteRule": null,
+    "createRule": "",
+    "deleteRule": "",
     "fields": [
       {
         "autogeneratePattern": "[a-z0-9]{15}",
@@ -36,11 +36,11 @@ migrate((app) => {
         "hidden": false,
         "id": "number4267035981",
         "max": null,
-        "min": null,
+        "min": 0,
         "name": "menge",
-        "onlyInt": false,
+        "onlyInt": true,
         "presentable": false,
-        "required": true,
+        "required": false,
         "system": false,
         "type": "number"
       },
@@ -54,7 +54,7 @@ migrate((app) => {
         "pattern": "",
         "presentable": false,
         "primaryKey": false,
-        "required": false,
+        "required": true,
         "system": false,
         "type": "text"
       },
@@ -68,7 +68,7 @@ migrate((app) => {
         "pattern": "",
         "presentable": false,
         "primaryKey": false,
-        "required": false,
+        "required": true,
         "system": false,
         "type": "text"
       },
@@ -89,6 +89,83 @@ migrate((app) => {
       {
         "autogeneratePattern": "",
         "hidden": false,
+        "id": "text1260923042",
+        "max": 0,
+        "min": 0,
+        "name": "bildPfad",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text3430662505",
+        "max": 0,
+        "min": 0,
+        "name": "erstelltAm",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text565851922",
+        "max": 0,
+        "min": 0,
+        "name": "aktualisiertAm",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text2191334638",
+        "max": 0,
+        "min": 0,
+        "name": "remoteBildPfad",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "hidden": false,
+        "id": "file1962578385",
+        "maxSelect": 1,
+        "maxSize": 5000000,
+        "mimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/gif",
+          "image/tiff",
+          "image/bmp",
+          "image/webp"
+        ],
+        "name": "bild",
+        "presentable": false,
+        "protected": false,
+        "required": false,
+        "system": false,
+        "thumbs": [],
+        "type": "file"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
         "id": "text3514781862",
         "max": 0,
         "min": 0,
@@ -102,10 +179,10 @@ migrate((app) => {
       },
       {
         "hidden": false,
-        "id": "number3175243278",
+        "id": "number1130519967",
         "max": null,
         "min": null,
-        "name": "updatedAt",
+        "name": "updated_at",
         "onlyInt": false,
         "presentable": false,
         "required": false,
@@ -138,10 +215,10 @@ migrate((app) => {
       {
         "autogeneratePattern": "",
         "hidden": false,
-        "id": "text2056338585",
+        "id": "text2393712598",
         "max": 0,
         "min": 0,
-        "name": "remotePath",
+        "name": "remote_path",
         "pattern": "",
         "presentable": false,
         "primaryKey": false,
@@ -152,30 +229,16 @@ migrate((app) => {
       {
         "autogeneratePattern": "",
         "hidden": false,
-        "id": "text2915035553",
+        "id": "text2493827028",
         "max": 0,
         "min": 0,
-        "name": "deviceId",
+        "name": "device_id",
         "pattern": "",
         "presentable": false,
         "primaryKey": false,
         "required": false,
         "system": false,
         "type": "text"
-      },
-      {
-        "hidden": false,
-        "id": "file1962578385",
-        "maxSelect": 1,
-        "maxSize": 5000000,
-        "mimeTypes": [],
-        "name": "bild",
-        "presentable": false,
-        "protected": false,
-        "required": false,
-        "system": false,
-        "thumbs": [],
-        "type": "file"
       },
       {
         "hidden": false,
@@ -200,12 +263,12 @@ migrate((app) => {
     ],
     "id": "pbc_895755225",
     "indexes": [],
-    "listRule": null,
+    "listRule": "",
     "name": "artikel",
     "system": false,
     "type": "base",
-    "updateRule": null,
-    "viewRule": null
+    "updateRule": "",
+    "viewRule": ""
   });
 
   return app.save(collection);
