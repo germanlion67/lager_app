@@ -1,0 +1,22 @@
+# Flutter Build-Artefakte
+build/
+.dart_tool/
+.flutter-plugins-dependencies
+.flutter-plugins
+
+# Android Auto-generated
+android/.gradle/
+android/local.properties
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+
+# iOS Auto-generated
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
+
+# Linux/macOS/Windows Ephemeral
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+windows/flutter/ephemeral/.flutter-plugins-dependencies
