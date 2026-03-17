@@ -46,3 +46,4 @@ server/pb_data/
 # Eigene
 infos._js
 prompt.txt
+.dart_tool/
