@@ -736,7 +736,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               onPressed: () async {
                 Navigator.pop(ctx);
                 if (!mounted) return;
-                await mobile_actions.generateArtikelDetailPdf(
+                await mobile_actions.generateFilteredArtikelListePdf(
                     context, _gefilterteArtikel(),);
                 if (!mounted) return;
               },
