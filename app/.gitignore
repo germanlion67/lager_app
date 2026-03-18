@@ -1,3 +1,5 @@
+# lager_app/app/.gitignore
+
 # Flutter Build-Artefakte
 build/
 .dart_tool/
@@ -20,3 +22,11 @@ ios/Runner/GeneratedPluginRegistrant.m
 linux/flutter/ephemeral/
 macos/Flutter/ephemeral/
 windows/flutter/ephemeral/.flutter-plugins-dependencies
+
+# Generierte Dateien und temporäre Ausgaben aus dem app/ Verzeichnis
+# Diese Dateien sollten nicht versioniert werden, da sie generiert werden können
+analyze_output.txt
+.metadata
+info._js # Wenn es sich um eine temporäre oder lokale Notiz handelt
+prompt.txt # Wenn es sich um eine temporäre oder lokale Notiz handelt
+tool/Erklärung.txt # Wenn es sich um eine temporäre oder lokale Notiz handelt

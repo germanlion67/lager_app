@@ -1,3 +1,5 @@
+# lager_app/.gitignore
+
 # Miscellaneous
 *.class
 *.log
@@ -47,3 +49,18 @@ server/pb_data/
 infos._js
 prompt.txt
 .dart_tool/
+
+# Generierte Dateien und temporäre Ausgaben aus dem Root-Verzeichnis oder global
+# Diese Dateien sollten nicht versioniert werden, da sie generiert werden können
+analyze_output.txt
+.flutter-plugins-dependencies
+.metadata
+
+# Sensible Umgebungsvariablen
+# Diese Datei enthält oft sensible Daten und sollte niemals eingecheckt werden.
+# Stattdessen sollte eine .env.example oder .env.dist ins Repo, die die Struktur zeigt.
+.env
+
+# Backup-Dateien
+# Backup-Dateien sind generierte Artefakte und sollten nicht versioniert werden.
+server/*.tar.gz
