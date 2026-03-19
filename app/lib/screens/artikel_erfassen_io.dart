@@ -34,8 +34,14 @@ Future<String?> copyImageToLocalDirectory({
 
   try {
     final appDir = await getApplicationDocumentsDirectory();
+    debugPrint('[DEBUG] appDir: ${appDir.path}');  //DEBUG-PRINT
+
     final imagesDir = Directory(p.join(appDir.path, 'images'));
-    await imagesDir.create(recursive: true);
+    debugPrint('[DEBUG] imagesDir: ${imagesDir.path}');   //DEBUG-PRINT
+    debugPrint('[DEBUG] imagesDir exists: ${await imagesDir.exists()}');   //DEBUG-PRINT
+    debugPrint('[DEBUG] bildBytes null: ${bildBytes == null}');   //DEBUG-PRINT
+    debugPrint('[DEBUG] bildPfad: $bildPfad');   //DEBUG-PRINT
+      await imagesDir.create(recursive: true);
 
     final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
     final fileName = '${artikelId}_$nameSlug.jpg';

@@ -7,11 +7,12 @@ import 'dart:typed_data';
 import 'package:csv/csv.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipEncoder;
+import 'package:logger/logger.dart';
 import 'app_log_service.dart';
 import 'artikel_db_service.dart';
 import 'package:pocketbase/pocketbase.dart';
 import 'pocketbase_service.dart';
-import '../models/artikel_model.dart'; // NEU ✅
+import '../models/artikel_model.dart';
 
 // Conditional imports
 import 'export_io.dart'
@@ -22,6 +23,9 @@ import 'export_nextcloud_stub.dart'
     if (dart.library.io) 'export_nextcloud.dart' as nextcloud;
 
 final JsonEncoder _prettyJsonEncoder = const JsonEncoder.withIndent('  ');
+
+// ✅ Lokale Logger-Referenz — einmal definiert, überall nutzbar
+final Logger _logger = AppLogService.logger;
 
 class ArtikelExportService {
 
@@ -72,7 +76,7 @@ class ArtikelExportService {
     return v;
   }
 
-  /// Lädt Artikel plattformabhängig — gibt immer List<`Artikel`> zurück ✅
+  /// Lädt Artikel plattformabhängig — gibt immer `List<Artikel>` zurück
   Future<List<Artikel>> _loadArtikel() async {
     if (kIsWeb) {
       final pb = PocketBaseService().client;
@@ -142,7 +146,8 @@ class ArtikelExportService {
       final fileName =
           'artikel_export_${DateTime.now().toIso8601String().replaceAll(':', '-')}.$exportType';
 
-      await AppLogService().log('Export gestartet ($exportType)');
+      // ✅ kein await — void
+      _logger.i('Export gestartet ($exportType)');
 
       final savedPath = await FilePicker.platform.saveFile(
         dialogTitle: 'Exportiere Artikeldaten',
@@ -153,7 +158,8 @@ class ArtikelExportService {
       );
 
       if (savedPath != null) {
-        await AppLogService().log('Export erfolgreich: $savedPath');
+        // ✅ kein await — void
+        _logger.i('Export erfolgreich: $savedPath');
         if (context.mounted) {
           messenger.showSnackBar(
             SnackBar(content: Text('Export erfolgreich: $fileName')),
@@ -161,7 +167,8 @@ class ArtikelExportService {
         }
       }
     } catch (e, stack) {
-      await AppLogService().logError('Fehler beim Export: $e', stack);
+      // ✅ named parameters
+      _logger.e('Fehler beim Export:', error: e, stackTrace: stack);
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -184,14 +191,16 @@ class ArtikelExportService {
 
   /// Web: ZIP-Backup nur mit JSON-Daten (keine lokalen Bilder)
   Future<String?> _backupToZipWeb(BuildContext context) async {
-    final messenger2 = ScaffoldMessenger.of(context);
-    await AppLogService().log('ZIP-Backup (Web) gestartet');
+    final messenger = ScaffoldMessenger.of(context);
+
+    // ✅ kein await — void
+    _logger.i('ZIP-Backup (Web) gestartet');
 
     try {
       final jsonString = await exportAllArtikelAsJson();
       if (jsonString == '[]') {
         if (context.mounted) {
-          messenger2.showSnackBar(
+          messenger.showSnackBar(
             const SnackBar(
               content: Text('Keine Artikel für Backup vorhanden'),
             ),
@@ -219,9 +228,10 @@ class ArtikelExportService {
       );
 
       if (result != null) {
-        await AppLogService().log('ZIP-Backup (Web) gespeichert: $filename');
+        // ✅ kein await — void
+        _logger.i('ZIP-Backup (Web) gespeichert: $filename');
         if (context.mounted) {
-          messenger2.showSnackBar(
+          messenger.showSnackBar(
             const SnackBar(
               content: Text('ZIP-Backup erfolgreich gespeichert'),
             ),
@@ -231,9 +241,10 @@ class ArtikelExportService {
 
       return result;
     } catch (e, stack) {
-      await AppLogService().logError('ZIP-Backup (Web) Fehler: $e', stack);
+      // ✅ named parameters
+      _logger.e('ZIP-Backup (Web) Fehler:', error: e, stackTrace: stack);
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(
             content: Text('Fehler: $e'),
             backgroundColor: Colors.red,
@@ -246,7 +257,8 @@ class ArtikelExportService {
 
   /// Mobile: ZIP-Backup mit JSON + lokalen Bildern
   Future<String?> _backupToZipMobile(BuildContext context) async {
-    await AppLogService().log('ZIP-Backup (Mobile) gestartet');
+    // ✅ kein await — void
+    _logger.i('ZIP-Backup (Mobile) gestartet');
 
     try {
       final artikelList = await ArtikelDbService().getAlleArtikel();
@@ -285,10 +297,12 @@ class ArtikelExportService {
               );
             }
           } catch (e, stack) {
-            await AppLogService().logError(
+            // ✅ named parameters
+            _logger.e(
               'Fehler beim Lesen des Bildes für Artikel '
-              '${artikel.id} (${artikel.name}): $e',
-              stack,
+              '${artikel.id} (${artikel.name}):',
+              error: e,
+              stackTrace: stack,
             );
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -315,7 +329,8 @@ class ArtikelExportService {
         );
 
         if (result != null) {
-          await AppLogService().log('ZIP-Backup gespeichert: $filename');
+          // ✅ kein await — void
+          _logger.i('ZIP-Backup gespeichert: $filename');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -326,9 +341,11 @@ class ArtikelExportService {
         }
         return result;
       } catch (e, stack) {
-        await AppLogService().logError(
-          'Fehler beim Speichern der ZIP-Backup-Datei: $e',
-          stack,
+        // ✅ named parameters
+        _logger.e(
+          'Fehler beim Speichern der ZIP-Backup-Datei:',
+          error: e,
+          stackTrace: stack,
         );
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -341,8 +358,12 @@ class ArtikelExportService {
         return null;
       }
     } catch (e, stack) {
-      await AppLogService()
-          .logError('Fehler während des ZIP-Backup-Prozesses: $e', stack);
+      // ✅ AppLogService().logError() — alte API — ersetzt
+      _logger.e(
+        'Fehler während des ZIP-Backup-Prozesses:',
+        error: e,
+        stackTrace: stack,
+      );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -373,9 +394,11 @@ class ArtikelExportService {
         );
       }
     } catch (e, stack) {
-      await AppLogService().logError(
-        'Fehler beim Hochladen des ZIP-Backups zu Nextcloud: $e',
-        stack,
+      // ✅ named parameters
+      _logger.e(
+        'Fehler beim Hochladen des ZIP-Backups zu Nextcloud:',
+        error: e,
+        stackTrace: stack,
       );
       if (context != null && context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -403,9 +426,11 @@ class ArtikelExportService {
         );
       }
     } catch (e, stack) {
-      await AppLogService().logError(
-        'Fehler beim Hochladen des Backups mit Bildern zu Nextcloud: $e',
-        stack,
+      // ✅ named parameters
+      _logger.e(
+        'Fehler beim Hochladen des Backups mit Bildern zu Nextcloud:',
+        error: e,
+        stackTrace: stack,
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

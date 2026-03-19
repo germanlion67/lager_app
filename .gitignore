@@ -60,6 +60,8 @@ analyze_output.txt
 # Diese Datei enthält oft sensible Daten und sollte niemals eingecheckt werden.
 # Stattdessen sollte eine .env.example oder .env.dist ins Repo, die die Struktur zeigt.
 .env
+.env.local
+.env.production
 
 # Backup-Dateien
 # Backup-Dateien sind generierte Artefakte und sollten nicht versioniert werden.

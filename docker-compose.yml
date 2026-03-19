@@ -4,11 +4,16 @@
 #   - Flutter Web (Caddy) auf Port 8081
 #   - PocketBase direkt auf Port 8080
 #   - Kein interner Reverse Proxy (nginx entfernt)
-#   - Flutter spricht PocketBase direkt an (POCKETBASE_URL=http://localhost:8080)
+#
+# WICHTIG: POCKETBASE_URL muss eine vom Browser erreichbare Adresse sein.
+#   Der Flutter Web Build läuft im Browser des Nutzers — nicht im Container!
+#   → localhost funktioniert nur weil Port 8080 nach außen gemappt ist.
+#   → In Produktion: echte Domain angeben (kein localhost).
 #
 # Produktion:
 #   - Nginx Proxy Manager vorgeschaltet (übernimmt SSL, Header, Routing)
-#   - POCKETBASE_URL auf Produktions-Domain setzen (Build-Arg)
+#   - POCKETBASE_URL auf Produktions-Domain setzen und neu bauen:
+#     POCKETBASE_URL=https://api.deine-domain.de docker compose up --build
 
 services:
 
@@ -24,7 +29,7 @@ services:
     container_name: pocketbase
     restart: unless-stopped
     ports:
-      # Direkt erreichbar — kein Reverse Proxy mehr vorgeschaltet.
+      # Direkt erreichbar — kein Reverse Proxy vorgeschaltet.
       # Admin UI: http://localhost:8080/_/
       # API:      http://localhost:8080/api/
       - "${PB_PORT:-8080}:8080"
@@ -35,7 +40,8 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
-      retries: 3
+      retries: 5          # ← erhöht: PocketBase braucht beim ersten Start länger
+      start_period: 10s   # ← neu: gibt PocketBase Zeit zum initialisieren
     networks:
       - lager_network
 
@@ -47,10 +53,11 @@ services:
       context: ./app
       dockerfile: Dockerfile
       args:
-        # Flutter baut die PocketBase-URL zur Build-Zeit ein.
-        # Der Browser ruft PocketBase direkt auf — kein Proxy nötig.
-        # In Produktion: auf Produktions-URL ändern und neu bauen.
-        - POCKETBASE_URL=http://localhost:${PB_PORT:-8080}
+        # WICHTIG: localhost hier ist korrekt — aber nur weil Port 8080
+        # nach außen gemappt ist. Der Browser des Nutzers ruft
+        # localhost:8080 auf seinem eigenen Rechner auf.
+        # Für Produktion: echte Domain verwenden.
+        - POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:${PB_PORT:-8080}}
     container_name: lager_frontend
     restart: unless-stopped
     ports:

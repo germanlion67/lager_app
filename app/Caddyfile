@@ -8,48 +8,27 @@
 # Nicht hier (wird vom Nginx Proxy Manager übernommen):
 #   - SSL/HTTPS
 #   - Sicherheits-Header
-#   - Gzip/Kompression
 #   - Reverse Proxy zu PocketBase
 
 :8081 {
     root * /srv
     encode gzip
 
-
-
-    # WICHTIG: Cache-Control für die index.html
-    # Stellt sicher, dass der Browser die index.html immer neu anfragt
-    # und somit die neuesten gehashten Asset-Referenzen erhält.
+    # Cache-Control: index.html nie cachen
     header /index.html Cache-Control "no-cache, no-store, must-revalidate"
     header /index.html Pragma "no-cache"
     header /index.html Expires "0"
 
-    # Optional: Cache-Control für statische Assets (JS, CSS, Bilder, etc.)
-    # Da Flutter Hashes im Dateinamen verwendet, können diese lange gecached werden.
-    # Wenn du nicht-gehashte Assets hast, die sich ändern könnten,
-    # müsstest du hier spezifischer werden oder kürzere Cache-Zeiten wählen.
-    header *.js Cache-Control "public, max-age=31536000, immutable"
-    header *.css Cache-Control "public, max-age=31536000, immutable"
-    header *.png Cache-Control "public, max-age=31536000, immutable"
-    header *.jpg Cache-Control "public, max-age=31536000, immutable"
-    header *.jpeg Cache-Control "public, max-age=31536000, immutable"
-    header *.gif Cache-Control "public, max-age=31536000, immutable"
-    header *.ico Cache-Control "public, max-age=31536000, immutable"
-    header *.svg Cache-Control "public, max-age=31536000, immutable"
-    header *.woff Cache-Control "public, max-age=31536000, immutable"
-    header *.woff2 Cache-Control "public, max-age=31536000, immutable"
-    header *.ttf Cache-Control "public, max-age=31536000, immutable"
-    header *.eot Cache-Control "public, max-age=31536000, immutable"
+    # Cache-Control: statische Assets lange cachen
+    # Flutter verwendet Content-Hashes im Dateinamen → immutable sicher
+    @static {
+        path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg \
+             *.woff *.woff2 *.ttf *.eot *.wasm
+    }
+    header @static Cache-Control "public, max-age=31536000, immutable"
 
     # SPA-Routing: unbekannte Pfade → /index.html
-    # (Flutter Router übernimmt clientseitig)
-
-
     try_files {path} /index.html
+
     file_server
-
-
-
-
-
 }

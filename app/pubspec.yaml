@@ -7,7 +7,7 @@ description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 # Flutter erwartet version: major.minor.patch+build.
 # Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
 # da versionCode (Android) bzw. CFBundleVersion (iOS) fehlt.
-version: 0.3.0+3
+version: 0.3.0+4
 
 # Fix: SDK-Constraint präzisiert —
 # ">=3.0.0 <4.0.0" erlaubt theoretisch Dart 4.x sobald es erscheint.
@@ -72,12 +72,14 @@ dependencies:
   crop_your_image: ^2.0.0
 
   # ==================== DATEIEN ====================
-
+  file_selector: ^1.0.4
+  file_selector_platform_interface: ^2.7.0
   file_picker: ^10.1.0
   path_provider: ^2.0.11
   path: ^1.9.0
   mime: ^2.0.0
   share_plus: ^10.1.2
+  web: ^1.1.0        # Ersatz für dart:html
 
   # Fix: open_file nur auf Mobile/Desktop verfügbar —
   # Kommentar präzisiert: Web wird nicht unterstützt.
@@ -149,12 +151,6 @@ dev_dependencies:
   # mockito behalten wenn @GenerateMocks bereits im Code genutzt wird.
 
   build_runner: ^2.4.6
-
- 
-  file_selector: ^1.0.4
-  file_selector_platform_interface: ^2.7.0
-  
-  
   flutter_native_splash: ^2.3.10
   flutter_launcher_icons: ^0.13.1
 

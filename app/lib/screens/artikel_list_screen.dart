@@ -4,6 +4,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
@@ -23,17 +24,21 @@ import 'list_screen_io.dart'
     if (dart.library.html) 'list_screen_stub.dart' as platform;
 
 import 'list_screen_mobile_actions.dart'
-    if (dart.library.html) 'list_screen_mobile_actions_stub.dart'
+    if (dart.library.html) 'list_screen_web_actions.dart'
     as mobile_actions;
 
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
+  // ✅ Kein Logger hier — StatefulWidget bleibt sauber
 
   @override
   State<ArtikelListScreen> createState() => _ArtikelListScreenState();
 }
 
 class _ArtikelListScreenState extends State<ArtikelListScreen> {
+  // ✅ Logger gehört in die State-Klasse
+  final Logger _logger = AppLogService.logger;
+
   List<Artikel> _artikelListe = [];
   String _suchbegriff = '';
   String _filterOrt = '';
@@ -65,7 +70,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _nextcloudService = NextcloudConnectionService();
         _nextcloudService!.startPeriodicCheck();
       } catch (e, st) {
-        debugPrint('[ArtikelList] Nextcloud-Init fehlgeschlagen: $e\n$st');
+        // ✅ debugPrint ersetzt
+        _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
       }
     }
   }
@@ -107,7 +113,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _artikelListe = await _db.getAlleArtikel();
       }
     } catch (e, st) {
-      debugPrint('[ArtikelList] Fehler beim Laden: $e\n$st');
+      // ✅ debugPrint ersetzt
+      _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -276,7 +283,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           width: 50,
           height: 50,
           fit: BoxFit.cover,
-          // Fix: loadingBuilder — Spinner statt leerer Fläche während Laden
           loadingBuilder: (_, child, progress) {
             if (progress == null) return child;
             return SizedBox(
@@ -454,8 +460,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(artikel.beschreibung,
-              maxLines: 2, overflow: TextOverflow.ellipsis,),
+          Text(
+            artikel.beschreibung,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           Text(
             '${artikel.ort.trim()} • ${artikel.fach.trim()}',
             style: const TextStyle(
@@ -491,7 +500,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('PDF-Export ist im Web nicht verfügbar'),),
+              content: Text('PDF-Export ist im Web nicht verfügbar'),
+            ),
           );
         } else {
           await _showPdfReportsDialog();
@@ -502,7 +512,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('ZIP-Backup ist im Web nicht verfügbar'),),
+              content: Text('ZIP-Backup ist im Web nicht verfügbar'),
+            ),
           );
         } else {
           await mobile_actions.showZipBackupDialog(context, _ladeArtikel);
@@ -541,7 +552,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Datenbank-Reset ist im Web nicht verfügbar'),),
+          content: Text('Datenbank-Reset ist im Web nicht verfügbar'),
+        ),
       );
       return;
     }
@@ -574,7 +586,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       await _ladeArtikel();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Lokale Datenbank wurde zurückgesetzt')),
+        const SnackBar(
+          content: Text('Lokale Datenbank wurde zurückgesetzt'),
+        ),
       );
     }
   }
@@ -668,14 +682,18 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 await ArtikelImportService.importArtikel(
-                    context, _ladeArtikel,);
+                  context,
+                  _ladeArtikel,
+                );
                 if (!mounted) return;
               },
-              child: const Row(children: [
-                Icon(Icons.file_upload, color: Colors.blue),
-                SizedBox(width: 8),
-                Expanded(child: Text('Artikel importieren (JSON/CSV)')),
-              ],),
+              child: const Row(
+                children: [
+                  Icon(Icons.file_upload, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Artikel importieren (JSON/CSV)')),
+                ],
+              ),
             ),
             SimpleDialogOption(
               onPressed: () async {
@@ -684,11 +702,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 await ArtikelExportService().showExportDialog(context);
                 if (!mounted) return;
               },
-              child: const Row(children: [
-                Icon(Icons.file_download, color: Colors.green),
-                SizedBox(width: 8),
-                Expanded(child: Text('Artikel exportieren (JSON/CSV)')),
-              ],),
+              child: const Row(
+                children: [
+                  Icon(Icons.file_download, color: Colors.green),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Artikel exportieren (JSON/CSV)')),
+                ],
+              ),
             ),
           ],
         );
@@ -708,28 +728,36 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 await mobile_actions.generateArtikelListePdf(
-                    context, _artikelListe,);
+                  context,
+                  _artikelListe,
+                );
                 if (!mounted) return;
               },
-              child: const Row(children: [
-                Icon(Icons.list_alt, color: Colors.red),
-                SizedBox(width: 8),
-                Expanded(child: Text('Komplette Artikelliste als PDF')),
-              ],),
+              child: const Row(
+                children: [
+                  Icon(Icons.list_alt, color: Colors.red),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Komplette Artikelliste als PDF')),
+                ],
+              ),
             ),
             SimpleDialogOption(
               onPressed: () async {
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 await mobile_actions.generateFilteredArtikelListePdf(
-                    context, _gefilterteArtikel(),);
+                  context,
+                  _gefilterteArtikel(),
+                );
                 if (!mounted) return;
               },
-              child: const Row(children: [
-                Icon(Icons.filter_list, color: Colors.orange),
-                SizedBox(width: 8),
-                Expanded(child: Text('Gefilterte Artikelliste als PDF')),
-              ],),
+              child: const Row(
+                children: [
+                  Icon(Icons.filter_list, color: Colors.orange),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Gefilterte Artikelliste als PDF')),
+                ],
+              ),
             ),
             const Divider(),
             SimpleDialogOption(
@@ -737,14 +765,18 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 Navigator.pop(ctx);
                 if (!mounted) return;
                 await mobile_actions.generateFilteredArtikelListePdf(
-                    context, _gefilterteArtikel(),);
+                  context,
+                  _gefilterteArtikel(),
+                );
                 if (!mounted) return;
               },
-              child: const Row(children: [
-                Icon(Icons.description_outlined, color: Colors.blue),
-                SizedBox(width: 8),
-                Expanded(child: Text('Einzelner Artikel als Detail-PDF')),
-              ],),
+              child: const Row(
+                children: [
+                  Icon(Icons.description_outlined, color: Colors.blue),
+                  SizedBox(width: 8),
+                  Expanded(child: Text('Einzelner Artikel als Detail-PDF')),
+                ],
+              ),
             ),
           ],
         );

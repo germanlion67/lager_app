@@ -4,30 +4,37 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:path/path.dart' as p;
-import 'package:connectivity_plus/connectivity_plus.dart';
+// Fix: connectivity_plus direkt entfernt — ConnectivityService übernimmt
+// den plattformspezifischen Check (kein NetworkManager auf WSL2/Linux nötig)
+import 'connectivity_service.dart';
 import 'app_log_service.dart';
 import 'artikel_db_service.dart';
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
+
+// ✅ Lokale Logger-Referenz — einmal definiert, überall nutzbar
+final Logger _logger = AppLogService.logger;
 
 /// Lädt eine ZIP-Datei zu Nextcloud hoch
 Future<void> uploadZipToNextcloud(
   String zipFilePath, {
   BuildContext? context,
 }) async {
-  final results = await Connectivity().checkConnectivity();
-  final isWifi = results.contains(ConnectivityResult.wifi);
+  final isWifi = await ConnectivityService.isWifi();
 
   if (!isWifi) {
-    await AppLogService().log('Nextcloud-Backup: Kein WLAN, übersprungen');
+    // ✅ kein await — void
+    _logger.i('Nextcloud-Backup: Kein WLAN, übersprungen');
     return;
   }
 
   try {
     final creds = await NextcloudCredentialsStore().read();
     if (creds == null) {
-      await AppLogService().log('Nextcloud-Backup: Keine Zugangsdaten');
+      // ✅ kein await — void
+      _logger.i('Nextcloud-Backup: Keine Zugangsdaten');
       return;
     }
 
@@ -42,15 +49,13 @@ Future<void> uploadZipToNextcloud(
 
     final zipFile = File(zipFilePath);
     if (!await zipFile.exists()) {
-      await AppLogService().log(
-        'Nextcloud-Backup: ZIP nicht gefunden: $zipFilePath',
-      );
+      // ✅ kein await — void
+      _logger.i('Nextcloud-Backup: ZIP nicht gefunden: $zipFilePath');
       return;
     }
 
     final zipBytes = await zipFile.readAsBytes();
 
-    // FIX: UTC-Timestamp konsistent mit restlichem Code
     final now = DateTime.now().toUtc();
     final remoteFileName =
         'backup_${now.year}${now.month.toString().padLeft(2, '0')}'
@@ -65,9 +70,8 @@ Future<void> uploadZipToNextcloud(
       contentType: 'application/zip',
     );
 
-    await AppLogService().log(
-      'Nextcloud-Backup: Upload erfolgreich: $remotePath',
-    );
+    // ✅ kein await — void
+    _logger.i('Nextcloud-Backup: Upload erfolgreich: $remotePath');
 
     if (context != null && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -78,10 +82,11 @@ Future<void> uploadZipToNextcloud(
       );
     }
   } catch (e, stack) {
-    // FIX: logError() mit StackTrace statt log()
-    await AppLogService().logError(
-      'Nextcloud-Backup: Fehler: $e',
-      stack,
+    // ✅ named parameters — kein positional StackTrace
+    _logger.e(
+      'Nextcloud-Backup: Fehler:',
+      error: e,
+      stackTrace: stack,
     );
   }
 }
@@ -89,7 +94,8 @@ Future<void> uploadZipToNextcloud(
 /// Vollständiges Backup mit Bildern zu Nextcloud
 Future<void> backupWithImagesToNextcloud(BuildContext context) async {
   try {
-    await AppLogService().log('Nextcloud Bild-Backup gestartet');
+    // ✅ kein await — void
+    _logger.i('Nextcloud Bild-Backup gestartet');
 
     final creds = await NextcloudCredentialsStore().read();
     if (creds == null) {
@@ -107,7 +113,6 @@ Future<void> backupWithImagesToNextcloud(BuildContext context) async {
 
     final artikelList = await ArtikelDbService().getAlleArtikel();
 
-    // FIX: UTC-Timestamp konsistent mit restlichem Code
     final now = DateTime.now().toUtc();
     final backupFolder =
         'backup_${now.year}${now.month.toString().padLeft(2, '0')}'
@@ -139,10 +144,13 @@ Future<void> backupWithImagesToNextcloud(BuildContext context) async {
           remoteRelativePath: remotePath,
         );
         successCount++;
-      } catch (e) {
+      } catch (e, stack) {
         failCount++;
-        await AppLogService().log(
-          'Bild-Upload Fehler (${artikel.name}): $e',
+        // ✅ named parameters — war vorher nur .i() ohne StackTrace
+        _logger.w(
+          'Bild-Upload Fehler (${artikel.name}):',
+          error: e,
+          stackTrace: stack,
         );
       }
     }
@@ -156,7 +164,8 @@ Future<void> backupWithImagesToNextcloud(BuildContext context) async {
       contentType: 'application/json',
     );
 
-    await AppLogService().log(
+    // ✅ kein await — void
+    _logger.i(
       'Nextcloud Bild-Backup fertig: $successCount OK, $failCount Fehler',
     );
 
@@ -173,9 +182,11 @@ Future<void> backupWithImagesToNextcloud(BuildContext context) async {
       );
     }
   } catch (e, stack) {
-    await AppLogService().logError(
-      'Nextcloud Bild-Backup Fehler: $e',
-      stack,
+    // ✅ named parameters — kein positional StackTrace
+    _logger.e(
+      'Nextcloud Bild-Backup Fehler:',
+      error: e,
+      stackTrace: stack,
     );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

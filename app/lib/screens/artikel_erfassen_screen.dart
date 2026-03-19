@@ -4,8 +4,9 @@ import 'dart:async' show unawaited;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:http/http.dart' as http;
+import 'package:logger/logger.dart';
 import '../models/artikel_model.dart';
 import '../services/pocketbase_service.dart';
 import '../services/artikel_db_service.dart';
@@ -23,6 +24,8 @@ class ArtikelErfassenScreen extends StatefulWidget {
 }
 
 class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
+  final Logger _logger = Logger();
+
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
   final _beschreibungCtrl = TextEditingController();
@@ -37,7 +40,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
 
-  // FIX 1 & 2: Einmalige Instanzen — nicht bei jedem Aufruf neu erstellen
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
 
@@ -68,11 +70,27 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     super.dispose();
   }
 
+  // ==================== HILFSFUNKTIONEN ====================
+
+  /// ✅ FIX: Prüft ob der Pfad eine externe Quelldatei ist
+  /// (nicht bereits ein intern kopiertes App-Bild)
+  bool _isExternalPath(String pfad) {
+    return !pfad.contains('/images/');
+  }
+
+  /// ✅ FIX: State nach Speichern vollständig zurücksetzen
+  void _resetBildState() {
+    setState(() {
+      _bildPfad = null;
+      _bildBytes = null;
+      _bildDateiname = null;
+    });
+  }
+
   // ==================== BILD AUSWAHL ====================
 
   Future<void> _pickImageFile() async {
     final picked = await ImagePickerService.pickImageFile(context);
-    // FIX 6: mounted-Guard nach async ImagePicker-Aufruf
     if (!mounted) return;
     if (!picked.hasImage) return;
     setState(() {
@@ -86,7 +104,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   Future<void> _pickImageCamera() async {
     if (!ImagePickerService.isCameraAvailable) return;
     final picked = await ImagePickerService.pickImageCamera(context);
-    // FIX 6: mounted-Guard nach async ImagePicker-Aufruf
     if (!mounted) return;
     if (!picked.hasImage) return;
     setState(() {
@@ -101,7 +118,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
   Future<void> _handleCancel() async {
     if (!_hasUnsavedChanges) {
-      // FIX 8: mounted-Guard auch im synchronen Pfad
       if (!mounted) return;
       Navigator.pop(context);
       return;
@@ -136,12 +152,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   // ==================== SPEICHERN ====================
 
   Future<void> _save() async {
-    print('DEBUG: _save() gestartet.'); // <-- DEBUG-PRINT
+    _logger.d('_save() gestartet.');
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final menge = int.tryParse(_mengeCtrl.text.trim()) ?? 0;
     setState(() => _isSaving = true);
-    print('DEBUG: _isSaving auf true gesetzt.'); // <-- DEBUG-PRINT
+    _logger.d('_isSaving auf true gesetzt.');
 
     try {
       final artikel = Artikel(
@@ -156,17 +172,16 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         aktualisiertAm: DateTime.now(),
       );
 
-      print('DEBUG: Artikel-Objekt erstellt. kIsWeb: $kIsWeb'); // <-- DEBUG-PRINT
+      _logger.d('Artikel-Objekt erstellt. kIsWeb: $kIsWeb');
       if (kIsWeb) {
         await _saveWeb(artikel);
-        print('DEBUG: _saveWeb() abgeschlossen.'); // <-- DEBUG-PRINT
+        _logger.d('_saveWeb() abgeschlossen.');
       } else {
         await _saveMobile(artikel);
-        print('DEBUG: _saveMobile() abgeschlossen.'); // <-- DEBUG-PRINT
+        _logger.d('_saveMobile() abgeschlossen.');
       }
     } catch (e, st) {
-      // FIX 7: StackTrace mitloggen
-      debugPrint('[Erfassen] Fehler beim Speichern: $e\n$st');
+      _logger.e('Fehler beim Speichern:', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Speichern: $e')),
@@ -174,12 +189,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
-      print('DEBUG: _isSaving auf false gesetzt. _save() beendet.'); // <-- DEBUG-PRINT
+      _logger.d('_isSaving auf false gesetzt. _save() beendet.');
     }
   }
 
   Future<void> _saveWeb(Artikel artikel) async {
-    print('DEBUG: _saveWeb() gestartet.'); // <-- DEBUG-PRINT
+    _logger.d('_saveWeb() gestartet.');
     final pb = _pbService.client;
     final body = artikel.toPocketBaseMap();
 
@@ -190,45 +205,58 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         _bildBytes!,
         filename: _bildDateiname,
       ),);
-      print('DEBUG: Bilddatei für Upload hinzugefügt: $_bildDateiname'); // <-- DEBUG-PRINT
+      _logger.d('Bilddatei für Upload hinzugefügt: $_bildDateiname');
     }
 
     final record = await pb.collection('artikel').create(
       body: body,
       files: files,
-      
     );
-    print('DEBUG: PocketBase create-Request abgeschlossen. Record ID: ${record.id}'); // <--- DEBUG-PRINT
+    _logger.d(
+      'PocketBase create-Request abgeschlossen. Record ID: ${record.id}',
+    );
 
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
-      // FIX 4: record.id verwenden — PocketBase vergibt eigene IDs
       Navigator.of(context).pop(artikel.copyWith(
         remotePath: record.id,
         remoteBildPfad: record.data['bild'] as String? ?? '',
       ),);
-      print('DEBUG: Navigator.pop() aufgerufen.'); // <--- DEBUG-PRINT
+      _logger.d('Navigator.pop() aufgerufen.');
     }
   }
 
   Future<void> _saveMobile(Artikel artikel) async {
     final artikelId = await _db.insertArtikel(artikel);
+    debugPrint('[DEBUG] artikelId: $artikelId');
+    debugPrint('[DEBUG] _bildBytes null: ${_bildBytes == null}');
+    debugPrint('[DEBUG] _bildPfad (raw): $_bildPfad');
+
+    // ✅ FIX 1: Nur externe Pfade als Quelle erlauben.
+    // Verhindert dass ein bereits intern kopiertes Bild
+    // (z.B. /home/.../images/1006_name-7.jpg) als Quelle
+    // für einen neuen Artikel verwendet wird.
+    final String? quellPfad = _bildPfad != null && _isExternalPath(_bildPfad!)
+        ? _bildPfad
+        : null;
+
+    debugPrint('[DEBUG] quellPfad (nach Filter): $quellPfad');
 
     String? localImagePath;
-    if (_bildBytes != null || _bildPfad != null) {
+    if (_bildBytes != null || quellPfad != null) {
       localImagePath = await platform.copyImageToLocalDirectory(
         bildBytes: _bildBytes,
-        bildPfad: _bildPfad,
+        bildPfad: quellPfad,
         artikelId: artikelId,
         artikelName: _nameCtrl.text.trim(),
       );
 
       if (localImagePath != null) {
         await _db.updateBildPfad(artikelId, localImagePath);
+        debugPrint('[DEBUG] localImagePath gespeichert: $localImagePath');
       }
     }
 
-    // FIX 3: unawaited() — Fire-and-Forget explizit kennzeichnen
     if (localImagePath != null || _bildBytes != null) {
       unawaited(_uploadImageToPocketBase(
         artikel: artikel,
@@ -237,6 +265,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         localImagePath: localImagePath,
       ),);
     }
+
+    // ✅ FIX 2: Bild-State zurücksetzen BEVOR Navigator.pop()
+    // Verhindert dass _bildPfad in einem Folge-Aufruf noch
+    // auf die alte Datei zeigt.
+    _resetBildState();
 
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
@@ -284,9 +317,13 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       );
 
       await _db.markSynced(artikel.uuid, recordId);
-      debugPrint('[Upload] Bild zu PocketBase hochgeladen: $filename');
+      _logger.i('Bild zu PocketBase hochgeladen: $filename');
     } catch (e, st) {
-      debugPrint('[Upload] PocketBase Bild-Upload fehlgeschlagen: $e\n$st');
+      _logger.e(
+        'PocketBase Bild-Upload fehlgeschlagen:',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -397,9 +434,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                   ],
                 ),
 
-                // Bild-Vorschau — FIX 10: nur _bildBytes
-                // Beim Erfassen sind Bytes immer verfügbar wenn ein Bild
-                // gewählt wurde. Pfad-Fallback gehört in den Edit-Screen.
                 if (_bildBytes != null) ...[
                   const SizedBox(height: spacing),
                   AspectRatio(
@@ -431,7 +465,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                                 width: 18,
                                 height: 18,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2,),
+                                  strokeWidth: 2,
+                                ),
                               )
                             : const Icon(Icons.save),
                         label: const Text('Speichern'),

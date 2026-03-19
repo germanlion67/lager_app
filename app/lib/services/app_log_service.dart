@@ -1,187 +1,281 @@
 // lib/services/app_log_service.dart
+//
+// Stellt den globalen Logger + In-App Log-Viewer bereit.
+//
+// VERWENDUNG:
+//   import '../services/app_log_service.dart';
+//   final Logger _logger = AppLogService.logger;
+//
+// LOG-LEVEL REFERENZ:
+//   _logger.t('Trace')   → Sehr detailliert, z.B. jeden HTTP-Header
+//   _logger.d('Debug')   → Normales Debugging, Methodenaufrufe
+//   _logger.i('Info')    → Wichtige Ereignisse, z.B. "Artikel gespeichert"
+//   _logger.w('Warning') → Unerwartet, aber kein Absturz
+//   _logger.e('Error')   → Fehler in catch-Blöcken, immer mit error+stackTrace
+//   _logger.f('Fatal')   → Kritisch, App kann nicht weiterlaufen
 
-import 'dart:async';
+import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart';
+import 'package:logger/logger.dart';
 
-// Conditional import für Datei-Operationen
-import 'app_log_io.dart'
-    if (dart.library.html) 'app_log_stub.dart' as platform;
+// ─────────────────────────────────────────────────────────────────────────────
+// Interner Puffer — max. 500 Events im RAM
+//
+// Bewusste Entscheidung:
+//   500 Events ≈ ~200 KB RAM bei ausführlichen Logs — vertretbar.
+//   Bei langen Sessions (z.B. Dauerbetrieb im Lager) können älteste
+//   Logs verloren gehen. Für Crash-Diagnose ist das akzeptabel,
+//   da kritische Fehler (Level.error / Level.fatal) selten sind.
+//   Anpassen auf z.B. 1000 falls nötig.
+// ─────────────────────────────────────────────────────────────────────────────
+final MemoryOutput _memoryOutput = MemoryOutput(bufferSize: 500);
 
-class AppLogService {
-  static final AppLogService _instance = AppLogService._internal();
-  factory AppLogService() => _instance;
-  AppLogService._internal();
+// ─────────────────────────────────────────────────────────────────────────────
+// AppLogService
+// ─────────────────────────────────────────────────────────────────────────────
+abstract final class AppLogService {
+  /// Globale Logger-Instanz — in jeder Datei direkt verwenden.
+  static final Logger logger = Logger(
+    level: kReleaseMode ? Level.warning : Level.debug,
+    output: MultiOutput([ConsoleOutput(), _memoryOutput]),
+    printer: PrettyPrinter(
+      methodCount: 1,
+      errorMethodCount: 8,
+      lineLength: 80,
+      colors: true,
+      printEmojis: true,
+      dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+    ),
+  );
 
-  // FIX #14: Mutex-Queue — verhindert Race Conditions beim Schreiben.
-  // Alle Schreiboperationen werden sequenziell abgearbeitet.
-  Future<void> _lastOperation = Future.value();
+  // Öffentlicher Getter — ermöglicht externen Zugriff auf den Puffer falls nötig.
+  static MemoryOutput get memoryOutput => _memoryOutput;
 
-  // FIX #13: Maximale Log-Dateigröße in Bytes (Standard: 512 KB)
-  static const int _maxLogSizeBytes = 512 * 1024;
-
-  // FIX #14: Unmodifiable — verhindert externe Mutation der Liste
-  final List<String> _webLogs = [];
-  List<String> get webLogs => List.unmodifiable(_webLogs);
-
-  // ==================== SCHREIBEN ====================
-
-  Future<void> log(String message) async {
-    // Konsistent mit Fix #8: UTC-Timestamps überall
-    final now = DateTime.now().toUtc().toIso8601String();
-    final logLine = '[$now] $message';
-
-    if (kIsWeb) {
-      // FIX #13: Web-Rotation bei zu vielen Einträgen
-      _rotateWebLogsIfNeeded();
-      _webLogs.add(logLine);
-      debugPrint(logLine);
-      return;
-    }
-
-    // FIX #14: Schreiboperation in die Mutex-Queue einreihen
-    _lastOperation = _lastOperation.then((_) async {
-      try {
-        // FIX #13: Vor dem Schreiben Größe prüfen und ggf. rotieren
-        await _rotateIfNeeded();
-        await platform.appendToLogFile(logLine);
-      } catch (e) {
-        debugPrint('⚠️ AppLogService.log Fehler: $e');
-      }
-    });
-    await _lastOperation;
-  }
-
-  Future<void> logError(String error, [StackTrace? stack]) async {
-    final now = DateTime.now().toUtc().toIso8601String();
-    final stackStr = stack != null ? '\n$stack' : '';
-    final logLine = '[$now] ERROR: $error$stackStr';
-
-    if (kIsWeb) {
-      // FIX #13: Web-Rotation bei zu vielen Einträgen
-      _rotateWebLogsIfNeeded();
-      _webLogs.add(logLine);
-      debugPrint(logLine);
-      return;
-    }
-
-    // FIX #14: Schreiboperation in die Mutex-Queue einreihen
-    _lastOperation = _lastOperation.then((_) async {
-      try {
-        // FIX #13: Vor dem Schreiben Größe prüfen und ggf. rotieren
-        await _rotateIfNeeded();
-        await platform.appendToLogFile(logLine);
-      } catch (e) {
-        debugPrint('⚠️ AppLogService.logError Fehler: $e');
-      }
-    });
-    await _lastOperation;
-  }
-
-  // ==================== LESEN ====================
-
-  Future<String> readLog() async {
-    if (kIsWeb) {
-      return _webLogs.isEmpty
-          ? 'Keine Logeinträge vorhanden.'
-          : _webLogs.join('\n');
-    }
-
-    try {
-      return await platform.readLogFile();
-    } catch (e) {
-      return 'Fehler beim Lesen des Logs: $e';
-    }
-  }
-
-  // ==================== LÖSCHEN ====================
-
-  Future<void> clearLog() async {
-    if (kIsWeb) {
-      _webLogs.clear();
-      return;
-    }
-
-    // FIX #14: Auch clearLog in die Mutex-Queue einreihen
-    _lastOperation = _lastOperation.then((_) async {
-      try {
-        await platform.clearLogFile();
-      } catch (e) {
-        debugPrint('⚠️ AppLogService.clearLog Fehler: $e');
-      }
-    });
-    await _lastOperation;
-  }
-
-  // ==================== LOG-ROTATION ====================
-
-  // FIX #13: Web-Rotation — bei >1000 Einträgen werden
-  // die ältesten 200 entfernt
-  void _rotateWebLogsIfNeeded() {
-    if (_webLogs.length >= 1000) {
-      _webLogs.removeRange(0, 200);
-      _webLogs.insert(
-        0,
-        '[...Log rotiert — ${DateTime.now().toUtc().toIso8601String()}...]',
-      );
-    }
-  }
-
-  // FIX #13: Native Rotation — prüft Dateigröße via platform,
-  // delegiert Rotation an app_log_io.dart
-  Future<void> _rotateIfNeeded() async {
-    try {
-      final sizeBytes = await platform.getLogFileSizeBytes();
-      if (sizeBytes >= _maxLogSizeBytes) {
-        await platform.rotateLogFile();
-        debugPrint(
-          '🔄 AppLogService: Log rotiert '
-          '(Größe war ${sizeBytes ~/ 1024} KB)',
-        );
-      }
-    } catch (e) {
-      // Rotation-Fehler sind nicht kritisch — weiter loggen
-      debugPrint('⚠️ AppLogService._rotateIfNeeded Fehler: $e');
-    }
-  }
-
-  // ==================== DIALOG ====================
-
-  static Future<void> showLogDialog(BuildContext context) async {
-    final logContent = await AppLogService().readLog();
-    if (!context.mounted) return;
-
-    await showDialog<bool>(
+  /// Öffnet den In-App Log-Viewer als Dialog.
+  static Future<void> showLogDialog(BuildContext context) {
+    return showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('App-Log'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Text(
-              logContent.isEmpty
-                  ? 'Keine Logeinträge vorhanden.'
-                  : logContent,
-              style: const TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
+      builder: (_) => const _LogViewerDialog(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Level-Metadaten
+// ─────────────────────────────────────────────────────────────────────────────
+const _levelMeta = <Level, (String label, Color color, String emoji)>{
+  Level.trace:   ('TRACE',   Color(0xFF9E9E9E), '🔍'),
+  Level.debug:   ('DEBUG',   Color(0xFF2196F3), '🐛'),
+  Level.info:    ('INFO',    Color(0xFF4CAF50), 'ℹ️'),
+  Level.warning: ('WARNING', Color(0xFFFF9800), '⚠️'),
+  Level.error:   ('ERROR',   Color(0xFFF44336), '❌'),
+  Level.fatal:   ('FATAL',   Color(0xFF9C27B0), '💀'),
+};
+
+String _label(Level l) => _levelMeta[l]?.$1 ?? l.name.toUpperCase();
+Color  _color(Level l) => _levelMeta[l]?.$2 ?? const Color(0xFF9E9E9E);
+String _emoji(Level l) => _levelMeta[l]?.$3 ?? '';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Log-Viewer Dialog (privat — nur via AppLogService.showLogDialog erreichbar)
+// ─────────────────────────────────────────────────────────────────────────────
+class _LogViewerDialog extends StatefulWidget {
+  const _LogViewerDialog();
+
+  @override
+  State<_LogViewerDialog> createState() => _LogViewerDialogState();
+}
+
+class _LogViewerDialogState extends State<_LogViewerDialog> {
+  Level _selectedLevel = Level.trace; // standardmäßig alles anzeigen
+
+  List<OutputEvent> get _filtered => _memoryOutput.buffer
+      .where((e) => e.level.index >= _selectedLevel.index)
+      .toList()
+      .reversed
+      .toList(); // neueste zuerst
+
+  void _copyAll() {
+    final text = _filtered.map((e) => e.lines.join('\n')).join('\n---\n');
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Logs in Zwischenablage kopiert')),
+    );
+  }
+
+  void _clearLogs() {
+    _memoryOutput.buffer.clear();
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final events = _filtered;
+    final screenSize = MediaQuery.sizeOf(context);
+
+    return Dialog(
+      insetPadding: const EdgeInsets.all(12),
+      child: SizedBox(
+        width: screenSize.width,
+        height: screenSize.height * 0.85,
+        child: Column(
+          children: [
+            // ── Titelzeile ───────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+              child: Row(
+                children: [
+                  const Icon(Icons.article_outlined),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Log-Ansicht',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.copy_outlined),
+                    tooltip: 'Alle sichtbaren Logs kopieren',
+                    onPressed: _copyAll,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Logs löschen',
+                    onPressed: _clearLogs,
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Schließen',
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
               ),
             ),
-          ),
+
+            const Divider(height: 8),
+
+            // ── Filter-Chips ─────────────────────────────────────────
+            SizedBox(
+              height: 44,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                children: _levelMeta.entries.map((entry) {
+                  final isSelected = _selectedLevel == entry.key;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: FilterChip(
+                      label: Text(
+                        '${entry.value.$3} ${entry.value.$1}',
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : entry.value.$2,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                      selected: isSelected,
+                      selectedColor: entry.value.$2,
+                      checkmarkColor: Colors.white,
+                      visualDensity: VisualDensity.compact,
+                      onSelected: (_) =>
+                          setState(() => _selectedLevel = entry.key),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+
+            // ── Zähler ───────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              child: Row(
+                children: [
+                  Text(
+                    '${events.length} Einträge',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const Spacer(),
+                  Text(
+                    'ab ${_label(_selectedLevel)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+
+            const Divider(height: 4),
+
+            // ── Log-Liste ────────────────────────────────────────────
+            Expanded(
+              child: events.isEmpty
+                  ? Center(
+                      child: Text(
+                        'Keine Logs auf diesem Level.',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: events.length,
+                      separatorBuilder: (_, __) => const Divider(
+                        height: 1,
+                        indent: 8,
+                        endIndent: 8,
+                      ),
+                      itemBuilder: (context, index) {
+                        final event = events[index];
+                        final color = _color(event.level);
+                        final emoji = _emoji(event.level);
+                        final label = _label(event.level);
+
+                        return ExpansionTile(
+                          dense: true,
+                          leading: Container(
+                            width: 4,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          title: Text(
+                            '$emoji  ${event.lines.first}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: color,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            label,
+                            style: TextStyle(fontSize: 10, color: color),
+                          ),
+                          // Stack-Trace & weitere Zeilen aufklappbar
+                          children: event.lines.skip(1).map((line) {
+                            return Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                              child: SelectableText(
+                                line,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await AppLogService().clearLog();
-              if (ctx.mounted) Navigator.of(ctx).pop(true);
-            },
-            child: const Text('Log löschen'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Schließen'),
-          ),
-        ],
       ),
     );
   }

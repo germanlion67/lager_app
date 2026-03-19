@@ -2,10 +2,14 @@
 // Nextcloud-spezifische Import-Funktionen (nur Mobile)
 
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'app_log_service.dart';
 import 'artikel_import_service.dart';
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
+
+// ✅ Lokale Logger-Referenz — einmal definiert, überall nutzbar
+final Logger _logger = AppLogService.logger;
 
 /// ZIP-Backup von Nextcloud importieren mit Dateiauswahl
 Future<void> importZipBackupAuto(
@@ -64,16 +68,17 @@ Future<void> importZipBackupAuto(
           }
         }
       } catch (e, stack) {
-        // FIX: StackTrace ergänzt
-        await AppLogService().logError(
-          'Ordner "$folder" lesen: $e',
-          stack,
+        // ✅ named parameters — kein positional StackTrace, kein await
+        _logger.e(
+          'Ordner "$folder" konnte nicht gelesen werden:',
+          error: e,
+          stackTrace: stack,
         );
       }
     }
   } catch (e, stack) {
-    // FIX: StackTrace ergänzt
-    await AppLogService().logError('Dateien auflisten: $e', stack);
+    // ✅ named parameters — kein positional StackTrace, kein await
+    _logger.e('Fehler beim Auflisten der Dateien:', error: e, stackTrace: stack);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -160,8 +165,8 @@ Future<void> importZipBackupAuto(
       ArtikelImportService.showImportErrors(context, errors);
     }
   } catch (e, stack) {
-    // FIX: StackTrace ergänzt
-    await AppLogService().logError('Download-Fehler: $e', stack);
+    // ✅ named parameters — kein positional StackTrace, kein await
+    _logger.e('Download-Fehler:', error: e, stackTrace: stack);
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart' show ArchiveFile, ZipDecoder;
-import 'package:csv/csv.dart'; // FIX #12: RFC-4180-konformer CSV-Parser
+import 'package:csv/csv.dart';
+import 'package:logger/logger.dart';
 import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'pocketbase_service.dart';
@@ -19,11 +20,12 @@ import 'import_io.dart'
 // Nextcloud-Import (nur Mobile)
 import 'import_nextcloud.dart' as nextcloud_import;
 
+// ✅ Lokale Logger-Referenz — einmal definiert, überall nutzbar
+final Logger _logger = AppLogService.logger;
+
 class ArtikelImportService {
   // ==================== JSON/CSV PARSING ====================
 
-  // FIX #11: Erweiterte JSON-Schema-Validierung
-  // Prüft alle Pflichtfelder + Typen vor dem Parsen
   static const _requiredFields = ['name', 'ort', 'fach', 'menge'];
 
   static String? _validateArtikelMap(Map<String, dynamic> map) {
@@ -32,7 +34,6 @@ class ArtikelImportService {
         return 'Pflichtfeld "$field" fehlt oder ist null';
       }
     }
-    // Typ-Validierung
     if (map['name'] is! String || (map['name'] as String).trim().isEmpty) {
       return '"name" muss ein nicht-leerer String sein';
     }
@@ -42,7 +43,6 @@ class ArtikelImportService {
     if (map['fach'] is! String) {
       return '"fach" muss ein String sein';
     }
-    // menge: int oder parsebarer String
     final mengeRaw = map['menge'];
     if (mengeRaw is! int) {
       final parsed = int.tryParse(mengeRaw?.toString() ?? '');
@@ -50,26 +50,29 @@ class ArtikelImportService {
         return '"menge" muss eine Ganzzahl sein (Wert: $mengeRaw)';
       }
     }
-    return null; // null = gültig
+    return null;
   }
 
   /// Importiert Artikel aus einem JSON-String
   Future<List<Artikel>> importFromJson(String jsonString) async {
-    // FIX #11: Top-Level-Typ prüfen
     dynamic decoded;
     try {
       decoded = json.decode(jsonString);
-    } catch (e) {
-      await AppLogService().logError('JSON-Parse-Fehler: $e');
+    } catch (e, stack) {
+      // ✅ named parameters
+      _logger.e('JSON-Parse-Fehler:', error: e, stackTrace: stack);
       throw FormatException('Ungültiges JSON: $e');
     }
 
     if (decoded is! List) {
-      await AppLogService().logError(
-        'JSON-Schema-Fehler: Erwartet eine Liste, erhalten: ${decoded.runtimeType}',
+      // ✅ kein await — void
+      _logger.e(
+        'JSON-Schema-Fehler: Erwartet eine Liste, '
+        'erhalten: ${decoded.runtimeType}',
       );
       throw FormatException(
-        'JSON muss eine Liste von Artikeln sein, nicht ${decoded.runtimeType}',
+        'JSON muss eine Liste von Artikeln sein, '
+        'nicht ${decoded.runtimeType}',
       );
     }
 
@@ -79,29 +82,26 @@ class ArtikelImportService {
     for (int i = 0; i < jsonList.length; i++) {
       final item = jsonList[i];
       try {
-        // FIX #11: Typ des einzelnen Eintrags prüfen
         if (item is! Map<String, dynamic>) {
-          await AppLogService().logError(
+          // ✅ kein await — void
+          _logger.e(
             'Artikel[$i] übersprungen — kein Objekt: ${item.runtimeType}',
           );
           continue;
         }
 
-        // FIX #11: Schema-Validierung
         final validationError = _validateArtikelMap(item);
         if (validationError != null) {
-          await AppLogService().logError(
-            'Artikel[$i] übersprungen — $validationError: $item',
-          );
+          // ✅ kein await — void
+          _logger.e('Artikel[$i] übersprungen — $validationError: $item');
           continue;
         }
 
         item['bildPfad'] ??= '';
         artikelList.add(Artikel.fromMap(item));
-      } catch (e) {
-        await AppLogService().logError(
-          'Fehler bei Artikel[$i]: $item — $e',
-        );
+      } catch (e, stack) {
+        // ✅ named parameters
+        _logger.e('Fehler bei Artikel[$i]:', error: e, stackTrace: stack);
         continue;
       }
     }
@@ -109,41 +109,33 @@ class ArtikelImportService {
   }
 
   /// Importiert Artikel aus einem CSV-String
-  // FIX #12: RFC-4180-konformer Parser via csv-Package
-  // → unterstützt mehrzeilige Felder, Kommas in Anführungszeichen, etc.
   Future<List<Artikel>> importFromCsv(String csvString) async {
     if (csvString.trim().isEmpty) return [];
 
-    // FIX #12: Entferne UTF-8 BOM falls vorhanden (von Excel-Export)
     final cleanedCsv = csvString.startsWith('\uFEFF')
         ? csvString.substring(1)
         : csvString;
 
-    // FIX #12: RFC-4180-konformer Parser statt naivem split(',')
     List<List<dynamic>> rows;
     try {
       rows = const CsvToListConverter(
         eol: '\n',
-        shouldParseNumbers: false, // Wir parsen Typen selbst
+        shouldParseNumbers: false,
       ).convert(cleanedCsv);
-    } catch (e) {
-      await AppLogService().logError('CSV-Parse-Fehler: $e');
+    } catch (e, stack) {
+      // ✅ named parameters
+      _logger.e('CSV-Parse-Fehler:', error: e, stackTrace: stack);
       throw FormatException('Ungültiges CSV-Format: $e');
     }
 
     if (rows.isEmpty) return [];
 
-    // Erste Zeile = Header
-    final header = rows.first
-        .map((h) => h.toString().trim())
-        .toList();
+    final header = rows.first.map((h) => h.toString().trim()).toList();
 
-    // FIX #11: Pflichtfelder im CSV-Header prüfen
     for (final field in _requiredFields) {
       if (!header.contains(field)) {
-        await AppLogService().logError(
-          'CSV-Schema-Fehler: Pflichtfeld "$field" fehlt im Header',
-        );
+        // ✅ kein await — void
+        _logger.e('CSV-Schema-Fehler: Pflichtfeld "$field" fehlt im Header');
         throw FormatException(
           'CSV-Header enthält nicht das Pflichtfeld "$field"',
         );
@@ -155,10 +147,8 @@ class ArtikelImportService {
     for (int i = 1; i < rows.length; i++) {
       final values = rows[i];
 
-      // Überspringe leere Zeilen
       if (values.every((v) => v.toString().trim().isEmpty)) continue;
 
-      // FIX #12: Fehlende Spalten mit Leerstring auffüllen
       final paddedValues = List<String>.generate(
         header.length,
         (idx) => idx < values.length ? values[idx].toString().trim() : '',
@@ -166,30 +156,25 @@ class ArtikelImportService {
 
       final map = Map<String, String>.fromIterables(header, paddedValues);
 
-      // menge normalisieren
       final mengeStr = map['menge'] ?? '';
       map['menge'] = (int.tryParse(mengeStr) ?? 0).toString();
 
-      // bildPfad sicherstellen
       map['bildPfad'] ??= '';
       if (map['bildPfad']!.isEmpty) map['bildPfad'] = '';
 
-      // FIX #11: Schema-Validierung auch für CSV-Zeilen
       final mapDynamic = Map<String, dynamic>.from(map);
       final validationError = _validateArtikelMap(mapDynamic);
       if (validationError != null) {
-        await AppLogService().logError(
-          'CSV-Zeile[$i] übersprungen — $validationError',
-        );
+        // ✅ kein await — void
+        _logger.e('CSV-Zeile[$i] übersprungen — $validationError');
         continue;
       }
 
       try {
         artikelList.add(Artikel.fromMap(mapDynamic));
-      } catch (e) {
-        await AppLogService().logError(
-          'Fehler bei CSV-Zeile[$i]: $map — $e',
-        );
+      } catch (e, stack) {
+        // ✅ named parameters
+        _logger.e('Fehler bei CSV-Zeile[$i]:', error: e, stackTrace: stack);
         continue;
       }
     }
@@ -215,14 +200,14 @@ class ArtikelImportService {
         await db.insertArtikel(artikel);
         insertedCount++;
       } else {
-        await AppLogService().logError(
-          'Artikel nicht eingefügt - isValid() false: ${artikel.name}',
+        // ✅ kein await — void
+        _logger.e(
+          'Artikel nicht eingefügt — isValid() false: ${artikel.name}',
         );
       }
     }
-    await AppLogService().log(
-      'Artikel eingefügt: $insertedCount von ${artikelList.length}',
-    );
+    // ✅ kein await — void
+    _logger.i('Artikel eingefügt: $insertedCount von ${artikelList.length}');
   }
 
   Future<void> _insertArtikelListWeb(List<Artikel> artikelList) async {
@@ -235,14 +220,18 @@ class ArtikelImportService {
           body.remove('id');
           await pb.collection('artikel').create(body: body);
           insertedCount++;
-        } catch (e) {
-          await AppLogService().logError(
-            'PocketBase Insert Fehler (${artikel.name}): $e',
+        } catch (e, stack) {
+          // ✅ named parameters
+          _logger.e(
+            'PocketBase Insert Fehler (${artikel.name}):',
+            error: e,
+            stackTrace: stack,
           );
         }
       }
     }
-    await AppLogService().log(
+    // ✅ kein await — void
+    _logger.i(
       'Artikel in PocketBase eingefügt: '
       '$insertedCount von ${artikelList.length}',
     );
@@ -266,7 +255,6 @@ class ArtikelImportService {
     final file = result.files.single;
     final ext = file.extension?.toLowerCase();
 
-    // Datei-Inhalt lesen (Web: aus bytes, Mobile: aus Datei)
     String content;
     if (file.bytes != null) {
       content = utf8.decode(file.bytes!, allowMalformed: true);
@@ -288,17 +276,15 @@ class ArtikelImportService {
 
     try {
       if (ext == 'json') {
-        await AppLogService().log('JSON-Import gestartet');
-        artikelList =
-            await ArtikelImportService().importFromJson(content);
-        importMsg =
-            'Importierte Artikel aus JSON: ${artikelList.length}';
+        // ✅ kein await — void
+        _logger.i('JSON-Import gestartet');
+        artikelList = await ArtikelImportService().importFromJson(content);
+        importMsg = 'Importierte Artikel aus JSON: ${artikelList.length}';
       } else if (ext == 'csv') {
-        await AppLogService().log('CSV-Import gestartet');
-        artikelList =
-            await ArtikelImportService().importFromCsv(content);
-        importMsg =
-            'Importierte Artikel aus CSV: ${artikelList.length}';
+        // ✅ kein await — void
+        _logger.i('CSV-Import gestartet');
+        artikelList = await ArtikelImportService().importFromCsv(content);
+        importMsg = 'Importierte Artikel aus CSV: ${artikelList.length}';
       } else {
         importMsg = 'Dateiformat nicht unterstützt.';
       }
@@ -308,10 +294,12 @@ class ArtikelImportService {
         await reloadArtikel();
       }
 
-      await AppLogService().log(importMsg);
+      // ✅ kein await — void
+      _logger.i(importMsg);
     } catch (e, stack) {
       importMsg = 'Fehler beim Import: $e';
-      await AppLogService().logError(importMsg, stack);
+      // ✅ named parameters — war positional
+      _logger.e('Fehler beim Import:', error: e, stackTrace: stack);
     }
 
     if (!context.mounted) return;
@@ -349,12 +337,16 @@ class ArtikelImportService {
 
     List<Artikel> artikelList;
     try {
-      // FIX #11: importFromJson wirft jetzt FormatException bei
-      // Schema-Fehlern → wird hier korrekt gefangen
       artikelList =
           await ArtikelImportService().importFromJson(jsonContent);
-    } catch (e) {
+    } catch (e, stack) {
       errors?.add('Fehler beim Verarbeiten der JSON: $e');
+      // ✅ named parameters
+      _logger.e(
+        'ZIP JSON-Verarbeitung fehlgeschlagen:',
+        error: e,
+        stackTrace: stack,
+      );
       throw StateError('JSON im ZIP konnte nicht verarbeitet werden');
     }
 
@@ -423,7 +415,6 @@ class ArtikelImportService {
       return (false, errors);
     }
 
-    // Bilder lokal speichern (nur Mobile)
     if (!kIsWeb) {
       artikelList = await platform.extractImagesToLocal(
         artikelList,
@@ -432,7 +423,6 @@ class ArtikelImportService {
       );
     }
 
-    // In Datenbank importieren
     try {
       if (kIsWeb) {
         await _replaceArtikelInPocketBase(artikelList, errors: errors);
@@ -440,8 +430,10 @@ class ArtikelImportService {
         await _replaceArtikelInSqlite(artikelList, errors: errors);
       }
       if (reloadArtikel != null) await reloadArtikel();
-    } catch (e) {
+    } catch (e, stack) {
       errors.add('Fehler beim DB-Import: $e');
+      // ✅ named parameters
+      _logger.e('DB-Import fehlgeschlagen:', error: e, stackTrace: stack);
       return (false, errors);
     }
 
@@ -459,17 +451,19 @@ class ArtikelImportService {
     for (final artikel in artikelList) {
       try {
         await dbService.insertArtikel(artikel);
-      } catch (e) {
+      } catch (e, stack) {
         errors?.add('Fehler beim Einfügen: ${artikel.name}: $e');
-        await AppLogService().logError(
-          'DB Insert Fehler (${artikel.name}): $e',
+        // ✅ named parameters
+        _logger.e(
+          'DB Insert Fehler (${artikel.name}):',
+          error: e,
+          stackTrace: stack,
         );
       }
     }
 
-    await AppLogService().log(
-      'Artikel in SQLite importiert: ${artikelList.length}',
-    );
+    // ✅ kein await — void
+    _logger.i('Artikel in SQLite importiert: ${artikelList.length}');
   }
 
   /// Ersetzt alle Artikel in PocketBase (Web)
@@ -479,28 +473,39 @@ class ArtikelImportService {
   }) async {
     final pb = PocketBaseService().client;
 
-    // Bestehende Artikel löschen
     try {
       final existing = await pb.collection('artikel').getFullList();
       for (final record in existing) {
         await pb.collection('artikel').delete(record.id);
       }
-    } catch (e) {
+    } catch (e, stack) {
       errors?.add('Fehler beim Löschen bestehender Artikel: $e');
+      // ✅ named parameters
+      _logger.e(
+        'PocketBase Löschen fehlgeschlagen:',
+        error: e,
+        stackTrace: stack,
+      );
     }
 
-    // Neue Artikel einfügen
     for (final artikel in artikelList) {
       try {
         final body = artikel.toMap();
         body.remove('id');
         await pb.collection('artikel').create(body: body);
-      } catch (e) {
+      } catch (e, stack) {
         errors?.add('PB Insert Fehler (${artikel.name}): $e');
+        // ✅ named parameters
+        _logger.e(
+          'PocketBase Insert Fehler (${artikel.name}):',
+          error: e,
+          stackTrace: stack,
+        );
       }
     }
 
-    await AppLogService().log(
+    // ✅ kein await — void
+    _logger.i(
       'Artikel in PocketBase importiert: ${artikelList.length}',
     );
   }
@@ -517,8 +522,7 @@ class ArtikelImportService {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('Nextcloud-Import im Web nicht verfügbar'),
+            content: Text('Nextcloud-Import im Web nicht verfügbar'),
           ),
         );
       }
@@ -567,12 +571,9 @@ class ArtikelImportService {
     return warnungen;
   }
 
-  static const String placeholderImagePath =
-      'assets/images/placeholder.jpg';
+  static const String placeholderImagePath = 'assets/images/placeholder.jpg';
 
-  static List<Artikel> setzePlatzhalterBilder(
-    List<Artikel> artikelList,
-  ) {
+  static List<Artikel> setzePlatzhalterBilder(List<Artikel> artikelList) {
     return artikelList.map((a) {
       if (a.bildPfad.isEmpty) {
         return a.copyWith(bildPfad: placeholderImagePath);

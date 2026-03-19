@@ -686,6 +686,13 @@ class ArtikelDbService {
       );
 
       if (existing.isNotEmpty) {
+        // Lokalen bildPfad schützen — Remote kennt nur remoteBildPfad,
+        // niemals den gerätespezifischen lokalen Dateipfad.
+        final existingBildPfad = existing.first['bildPfad'] as String? ?? '';
+        if (existingBildPfad.isNotEmpty &&
+            (data['bildPfad'] as String? ?? '').isEmpty) {
+          data['bildPfad'] = existingBildPfad;
+        }
         await db.update(
           'artikel',
           data,
@@ -719,7 +726,9 @@ class ArtikelDbService {
   ) async {
     try {
       final artikelData = json.decode(jsonBody) as Map<String, dynamic>;
-      final artikel = Artikel.fromMap(artikelData);
+      // FIX: fromPocketBase statt fromMap —
+      // fromMap würde bildPfad='' setzen und lokalen Pfad überschreiben.
+      final artikel = Artikel.fromPocketBase(artikelData, artikelData['id']?.toString() ?? '');
       await upsertArtikel(artikel, etag: etag);
       _logger.d(
         '✅ Artikel von Remote über upsertArtikel() verarbeitet.',

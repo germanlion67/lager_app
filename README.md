@@ -24,7 +24,8 @@ Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
 - [Architektur](#architektur)
 - [Voraussetzungen](#voraussetzungen)
 - [Installation](#installation)
-  - [Docker (Web)](#docker-web)
+  - [Docker (Web) — Dev/Test](#docker-web--devtest)
+  - [Docker (Web) — Produktion](#docker-web--produktion)
   - [Lokale Entwicklung](#lokale-entwicklung)
   - [Mobile (Android)](#mobile-android)
 - [Konfiguration](#konfiguration)
@@ -81,12 +82,17 @@ Flutter Web kommuniziert **direkt** mit PocketBase — kein interner
 Reverse Proxy. Die PocketBase-URL wird zur **Build-Zeit** eingebrannt
 (`--dart-define=POCKETBASE_URL=...`).
 
+> ⚠️ **Wichtig**: `POCKETBASE_URL` muss eine vom **Browser** erreichbare
+> Adresse sein — nicht die interne Docker-Adresse. Der Flutter Web Build
+> läuft im Browser des Nutzers, nicht im Container. `localhost` funktioniert
+> in Dev/Test nur weil Port `8080` nach außen gemappt ist.
+
 ### Produktions-Setup
 
 ```
 Internet
   │
-  └──→ Nginx Proxy Manager           SSL, Header, Routing
+  └──→ Nginx Proxy Manager :80/:443  SSL, Header, Routing
          │
          ├──→ Flutter Web (Caddy :8081)
          │
@@ -96,6 +102,9 @@ Internet
 Der vorgeschaltete **Nginx Proxy Manager** übernimmt in Produktion:
 SSL/HTTPS, Sicherheits-Header, Gzip-Kompression und Zugriffskontrolle
 für die PocketBase Admin UI.
+
+PocketBase und Frontend sind in Produktion **nicht** direkt von außen
+erreichbar — nur über den Nginx Proxy Manager.
 
 > **Warum kein nginx im Container?**
 > Da in Produktion ein Nginx Proxy Manager vorgeschaltet ist, wäre
@@ -168,7 +177,7 @@ für die PocketBase Admin UI.
 
 ## Installation
 
-### Docker (Web)
+### Docker (Web) — Dev/Test
 
 ```bash
 # 1. Repository klonen
@@ -189,6 +198,68 @@ docker compose up -d --build
 
 > ⚠️ **Wichtig**: Nach dem ersten Start muss die PocketBase Collection
 > `artikel` manuell angelegt werden. Siehe [PocketBase Setup](#pocketbase-setup).
+
+---
+
+### Docker (Web) — Produktion
+
+```bash
+# 1. Repository klonen
+git clone https://github.com/germanlion67/lager_app.git
+cd lager_app
+
+# 2. Produktions-.env anlegen
+cp .env.example .env.production
+nano .env.production
+# → POCKETBASE_URL=https://api.deine-domain.de setzen
+
+# 3. Stack starten (baut Flutter Web mit Produktions-URL)
+docker compose \
+  -f docker-compose.prod.yml \
+  --env-file .env.production \
+  up -d --build
+
+# 4. Nginx Proxy Manager Admin UI öffnen
+#    http://dein-server-ip:81
+#    Standard-Login: admin@example.com / changeme
+#    → Sofort Passwort ändern!
+```
+
+#### Nginx Proxy Manager — Proxy Hosts einrichten
+
+Nach dem ersten Login zwei Proxy Hosts anlegen:
+
+**Flutter Web Frontend:**
+
+| Feld | Wert |
+|---|---|
+| Domain | `deine-domain.de` |
+| Scheme | `http` |
+| Forward Hostname | `lager_frontend` |
+| Forward Port | `8081` |
+| SSL | Let's Encrypt ✅ |
+| Force SSL | ✅ |
+
+**PocketBase API:**
+
+| Feld | Wert |
+|---|---|
+| Domain | `api.deine-domain.de` |
+| Scheme | `http` |
+| Forward Hostname | `pocketbase` |
+| Forward Port | `8080` |
+| SSL | Let's Encrypt ✅ |
+| Force SSL | ✅ |
+
+> ⚠️ **Wichtig**: Nach URL-Änderung muss der Frontend-Container neu gebaut
+> werden — `POCKETBASE_URL` wird zur Build-Zeit eingebrannt:
+> ```bash
+> docker compose -f docker-compose.prod.yml \
+>   --env-file .env.production \
+>   up -d --build app
+> ```
+
+---
 
 ### Lokale Entwicklung
 
@@ -280,22 +351,47 @@ Beim ersten Start:
 > müssen diese Regeln in der Admin UI eingeschränkt werden:
 > **Collection → artikel → API Rules**
 
+---
+
 ### Umgebungsvariablen
 
-Datei: `.env` im Projekt-Root (Vorlage: `.env.example`)
+#### Dev/Test — `.env`
 
-```env
+Vorlage: `.env.example`
+
+```dotenv
 # Port für Flutter Web App (Caddy)
 WEB_PORT=8081
 
 # Port für PocketBase (API + Admin UI)
 PB_PORT=8080
+
+# Vom Browser erreichbare PocketBase URL
+# localhost funktioniert nur weil Port 8080 nach außen gemappt ist!
+POCKETBASE_URL=http://localhost:8080
 ```
+
+#### Produktion — `.env.production`
+
+```dotenv
+# Öffentliche PocketBase URL (vom Browser erreichbar!)
+# Muss von außen erreichbar sein — kein localhost!
+POCKETBASE_URL=https://api.deine-domain.de
+
+# Interne Ports (nur Docker-intern, kein Port-Mapping in Prod)
+PB_PORT=8080
+WEB_PORT=8081
+```
+
+> ⚠️ **Wichtig**: Beide `.env`-Dateien **nicht** ins Git committen!
+> Nur `.env.example` (ohne echte Werte) gehört ins Repository.
 
 > ⚠️ **Wichtig**: Die PocketBase-URL für Flutter Web wird zur
 > **Build-Zeit** eingebrannt. Wenn sich die URL ändert (z.B. für
 > Produktion), muss der Container neu gebaut werden:
 > `docker compose up -d --build app`
+
+---
 
 ### App-Einstellungen
 
@@ -321,16 +417,24 @@ In der App unter **Einstellungen** konfigurierbar:
 ### Quick Start
 
 ```bash
+# Dev/Test
 docker compose up -d --build
 # Web-App:    http://localhost:8081
 # PocketBase: http://localhost:8080/_/
+
+# Produktion
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# Nginx Proxy Manager Admin: http://dein-server-ip:81
 ```
 
 ### Kommandozeile
 
 ```bash
-# Starten
+# Starten (Dev)
 docker compose up -d --build
+
+# Starten (Prod)
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 
 # Stoppen
 docker compose down
@@ -347,7 +451,7 @@ docker compose logs -f pocketbase
 # Frontend neu bauen (nach Code-Änderungen)
 docker compose up -d --build app
 
-# PocketBase-Daten sichern (named volume)
+# PocketBase-Daten sichern
 docker run --rm \
   -v lager_app_pb_data:/pb_data \
   -v $(pwd):/backup \
@@ -457,6 +561,30 @@ In der PocketBase Admin UI:
 
 Für Produktion: Produktions-Domain eintragen.
 
+### 🟡 "Frontend zeigt alte Version nach Rebuild"
+
+`POCKETBASE_URL` wird zur Build-Zeit eingebrannt — ein einfaches
+`docker compose restart app` reicht nicht:
+
+```bash
+# Zwingend neu bauen
+docker compose up -d --build app
+```
+
+### 🟡 "Nginx Proxy Manager Admin UI nicht erreichbar" (Prod)
+
+```bash
+# Container-Status prüfen
+docker compose -f docker-compose.prod.yml ps
+
+# Logs prüfen
+docker compose -f docker-compose.prod.yml logs nginx-proxy-manager
+```
+
+> ⚠️ Der NPM Admin-Port `81` ist in Produktion nur auf `127.0.0.1`
+> gebunden — kein direkter Zugriff von außen. SSH-Tunnel nutzen:
+> `ssh -L 81:localhost:81 user@server`
+
 ---
 
 ## Entwicklung
@@ -484,12 +612,18 @@ lager_app/
 ├── server/
 │   ├── pb_data/                 # PocketBase Datenbank (gitignored)
 │   ├── pb_migrations/           # Schema-Referenz (nicht auto-gemountet)
-│   └── pb_public/               # Öffentliche Dateien
+│   ├── pb_public/               # Öffentliche Dateien
+│   ├── pb_backups/              # Backups — nur Produktion (gitignored)
+│   └── npm/                     # Nginx Proxy Manager — nur Produktion
+│       ├── data/                # NPM Konfiguration & Datenbank (gitignored)
+│       └── letsencrypt/         # SSL-Zertifikate (gitignored)
 ├── .github/
 │   └── workflows/               # CI/CD Pipelines
-├── docker-compose.yml
-├── .env                         # Umgebungsvariablen (gitignored)
-├── .env.example                 # Vorlage
+├── docker-compose.yml           # Dev/Test
+├── docker-compose.prod.yml      # Produktion
+├── .env                         # Dev-Umgebungsvariablen (gitignored)
+├── .env.production              # Prod-Umgebungsvariablen (gitignored)
+├── .env.example                 # Vorlage (im Git)
 └── README.md
 ```
 
@@ -518,10 +652,11 @@ import 'feature_io.dart'
 | **PocketBase** | Einfach, eingebettete DB, File Storage, Admin UI |
 | **Caddy statt nginx** | 4 Zeilen statt 200, kein Proxy nötig in Dev/Test |
 | **Nginx Proxy Manager (Prod)** | Übernimmt SSL, Header, Routing zentral |
+| **`POCKETBASE_URL` zur Build-Zeit** | Kein Runtime-Config-Server nötig; SharedPreferences als Override |
+| **`expose` statt `ports` in Prod** | PocketBase & Frontend nicht direkt von außen erreichbar |
 | **Conditional Imports** | Saubere Trennung ohne `kIsWeb`-Checks mit `dart:io` |
 | **Soft-Delete** | Sync-Kompatibilität, Daten-Recovery |
 | **UUID statt Auto-Increment** | Eindeutige IDs über Geräte hinweg |
-| **URL zur Build-Zeit** | Kein Runtime-Config-Server nötig; SharedPreferences als Override |
 
 ### Features hinzufügen
 
@@ -578,23 +713,50 @@ curl http://localhost:8080/api/health
 ### Phase 1 — Linux 🐧
 
 ```bash
-flutter build linux --release
+# 1. PocketBase im Hintergrund starten
+cd ~/lager_app
+docker compose up pocketbase -d
+
+# 2. Health-Check
+curl http://localhost:8080/api/health
+
+# 3. App bauen
+cd app
+flutter build linux --release \
+  --dart-define=POCKETBASE_URL=http://localhost:8080
+
+# 4. App starten
 ./build/linux/x64/release/bundle/lager_app
 ```
 
-- [ ] Artikel anlegen, ändern, löschen
-- [ ] Suche & Filter (Ort / Fach / Kombination)
-- [ ] PDF Export — Alle Artikel (FilePicker + xdg-open)
-- [ ] PDF Export — Gefilterte Artikel
-- [ ] PDF Export — Artikel-Detail (mit & ohne Bild)
-- [ ] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
+- [x] Artikel anlegen, ändern, löschen
+- [x] Suche & Filter (Ort / ~~Fach~~ / Kombination)
+- [x] PDF Export — Alle Artikel (FilePicker + xdg-open)
+- [x] PDF Export — Gefilterte Artikel
+- [x] PDF Export — Artikel-Detail (mit & ohne Bild)
+- [x] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
 - [ ] ZIP-Backup lokal exportieren & importieren
 - [ ] ZIP-Backup Nextcloud exportieren & importieren
 
 > **Stolperstellen:**
 > - `xdg-open` benötigt einen laufenden Desktop-Session-Bus — im reinen TTY-Modus schlägt es lautlos fehl
 > - FilePicker braucht `xdg-desktop-portal` + passendes Backend (`xdg-desktop-portal-gtk` o.ä.) — ohne Portal greift der `~/Downloads/`-Fallback
+
+```
+sudo apt update && sudo apt install -y \
+  xdg-desktop-portal \
+  xdg-desktop-portal-gtk
+```
+
 > - `sqflite_common_ffi` benötigt `libsqlite3-dev` als System-Paket (`sudo apt install libsqlite3-dev`)
+
+> **Bekannte Einschränkungen:**
+> - Kamera-Funktion auf Desktop (Linux/Windows) und Web nicht verfügbar
+  (kein `cameraDelegate` für `image_picker`).
+  Der Kamera-Button wird auf diesen Plattformen automatisch ausgeblendet
+  (`ImagePickerService.isCameraAvailable`).
+  Nur Dateiauswahl verfügbar.
+> - Kamera auf iOS: technisch vorbereitet, aktuell nicht aktiv getestet.
 
 ---
 
@@ -717,7 +879,7 @@ docker compose down
 > - `POCKETBASE_URL` wird zur **Build-Zeit** eingebrannt (`--dart-define`) — nach URL-Änderung zwingend `docker compose up --build app` ausführen, `restart` allein reicht nicht
 > - PocketBase Schema muss vor dem ersten App-Start manuell angelegt sein — Admin UI unter `http://localhost:8080/_/` prüfen, sonst schlagen alle API-Calls lautlos fehl
 > - Browser blockiert `http://localhost:8080` wenn die App über `https://` ausgeliefert wird (Mixed Content) — in Dev/Test beide Dienste auf `http` halten
-> - CORS: PocketBase erlaubt in Dev standardmäßig alle Origins — in Produktion hinter Nginx Proxy Manager explizit einschränken
+> - CORS: PocketBase erlaubt in Dev standardmäßig alle Origins — in Produktion hinter Nginx Proxy Manager explizit einschränken (**Settings → Application → Allowed Origins**)
 > - `dart:io` (`File`, `Directory`, `Platform`) existiert im Browser **nicht** — PDF- und ZIP-Funktionen benötigen eine Web-spezifische Implementierung (`dart:html` / `package:web`)
 > - Caddy liefert nur statische Assets aus — SPA-Routing (alle Routen → `/index.html`) muss im `Caddyfile` korrekt konfiguriert sein, sonst gibt es `404` bei direktem URL-Aufruf
 

@@ -1,14 +1,17 @@
 // lib/main.dart
 
 import 'dart:async';
+import 'dart:ui';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
+import 'services/connectivity_service.dart';
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/artikel_list_screen.dart';
 import 'screens/settings_screen.dart';
+import 'services/app_log_service.dart';
 import 'services/artikel_db_service.dart';
 import 'services/pocketbase_service.dart';
 import 'services/pocketbase_sync_service.dart';
@@ -16,8 +19,30 @@ import 'services/sync_orchestrator.dart';
 
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
+// Punkt 1 — Kurzreferenz auf den globalen Logger
+final _log = AppLogService.logger;
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── Punkt 2 — Unbehandelte Flutter-Framework-Fehler fangen ──────────────
+  FlutterError.onError = (details) {
+    _log.e(
+      'Flutter Framework Fehler',
+      error: details.exception,
+      stackTrace: details.stack,
+    );
+  };
+
+  // ── Punkt 2 — Unbehandelte Dart-Fehler fangen (async, isolates) ─────────
+  PlatformDispatcher.instance.onError = (error, stack) {
+    _log.f(
+      'Unbehandelter Dart-Fehler',
+      error: error,
+      stackTrace: stack,
+    );
+    return true; // true = Fehler als behandelt markieren
+  };
 
   if (!kIsWeb) {
     platform.initDesktopDatabase();
@@ -29,14 +54,13 @@ void main() async {
     // Bewusst fire-and-forget — blockiert den App-Start nicht
     unawaited(
       PocketBaseService().checkHealth().then((ok) {
-        debugPrint(
-          ok
-              ? '[Main] ✅ PocketBase erreichbar'
-              : '[Main] ⚠️ PocketBase nicht erreichbar beim Start',
-        );
+        if (ok) {
+          _log.i('[Main] PocketBase erreichbar');
+        } else {
+          _log.w('[Main] PocketBase nicht erreichbar beim Start');
+        }
       }).catchError((Object e, StackTrace st) {
-        // Fix: catchError — unbehandelte Exception im fire-and-forget verhindert
-        debugPrint('[Main] ⚠️ PocketBase Health-Check Fehler: $e\n$st');
+        _log.e('[Main] PocketBase Health-Check Fehler', error: e, stackTrace: st);
       }),
     );
   }
@@ -63,8 +87,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late final SyncOrchestrator _orchestrator;
 
   bool _cleanupDone = false;
-
-  // Fix: Sync-Lauf-Guard — verhindert parallele Sync-Läufe
   bool _syncRunning = false;
 
   @override
@@ -95,18 +117,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _runInitialSync() async {
-    // Fix: Sync-Guard prüfen
     if (_syncRunning) return;
     _syncRunning = true;
 
     try {
-      debugPrint('[Sync] Initialer Sync startet...');
+      _log.i('[Sync] Initialer Sync startet...');
       await _orchestrator.runOnce();
-      debugPrint('[Sync] Initialer Sync abgeschlossen');
+      _log.i('[Sync] Initialer Sync abgeschlossen');
     } catch (e, st) {
-      debugPrint('[Sync] Initialer Sync fehlgeschlagen: $e\n$st');
+      _log.e('[Sync] Initialer Sync fehlgeschlagen', error: e, stackTrace: st);
     } finally {
-      // Fix: Guard in finally — auch bei Exception zurücksetzen
       _syncRunning = false;
     }
   }
@@ -122,29 +142,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Future<void> _syncIfConnected() async {
     if (kIsWeb) return;
 
-    // Fix: Sync-Guard — kein paralleler Sync wenn vorheriger noch läuft
     if (_syncRunning) {
-      debugPrint('[Sync] Übersprungen: Sync läuft bereits');
+      _log.d('[Sync] Übersprungen: Sync läuft bereits');
       return;
     }
     _syncRunning = true;
 
     try {
-      final results = await Connectivity().checkConnectivity();
-      final isWifi = results.contains(ConnectivityResult.wifi);
+      // Fix: ConnectivityService statt connectivity_plus direkt —
+      // verhindert NetworkManager DBus-Fehler auf WSL2/Linux
+      final isWifi = await ConnectivityService.isWifi();
 
       if (_wifiOnlySync && !isWifi) {
-        debugPrint('[Sync] Übersprungen: Nicht im WLAN');
+        _log.d('[Sync] Übersprungen: Nicht im WLAN');
         return;
       }
 
-      debugPrint('[Sync] Periodischer Sync startet um ${DateTime.now()}');
+      _log.i('[Sync] Periodischer Sync startet um ${DateTime.now()}');
       await _orchestrator.runOnce();
-      debugPrint('[Sync] Periodischer Sync beendet um ${DateTime.now()}');
+      _log.i('[Sync] Periodischer Sync beendet um ${DateTime.now()}');
     } catch (e, st) {
-      debugPrint('[Sync] Fehler beim periodischen Sync: $e\n$st');
+      _log.e('[Sync] Fehler beim periodischen Sync', error: e, stackTrace: st);
     } finally {
-      // Fix: Guard in finally — auch bei Exception zurücksetzen
       _syncRunning = false;
     }
   }
@@ -154,6 +173,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _syncTimer?.cancel();
     _orchestrator.dispose();
+
+    // ── Punkt 5 — Logger sauber schließen ───────────────────────────────────
+    AppLogService.logger.close();
+
     super.dispose();
   }
 
@@ -161,7 +184,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
-        // Fix: _cleanupDone zurücksetzen — App kann nach paused wieder resumed werden
         _cleanupDone = false;
         if (!kIsWeb) {
           unawaited(_syncIfConnected());
@@ -182,7 +204,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     try {
       await _db.closeDatabase();
     } catch (e, st) {
-      debugPrint('Cleanup error: $e\n$st');
+      _log.e('Cleanup Fehler', error: e, stackTrace: st);
     }
   }
 

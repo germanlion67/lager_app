@@ -1,0 +1,124 @@
+# docker-compose.prod.yml
+#
+# Produktions-Setup:
+#   - Nginx Proxy Manager übernimmt SSL, Sicherheits-Header und Routing
+#   - PocketBase und Flutter Web sind NICHT direkt von außen erreichbar
+#   - Ports nur intern im Docker-Netzwerk
+#
+#
+# Architektur-Übersicht:
+# Internet
+#     │
+#     ▼
+# Nginx Proxy Manager :80/:443  (SSL, Header, Routing)
+#     │
+#     ├──→ lager_frontend :8081  (Caddy, Flutter Web)
+#     │
+#     └──→ pocketbase :8080      (PocketBase API + Admin UI)
+# Starten:
+#   POCKETBASE_URL=https://api.deine-domain.de \
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Oder mit .env.production:
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+
+services:
+
+  # ============================================================
+  # Nginx Proxy Manager
+  # Übernimmt: SSL/HTTPS, Sicherheits-Header, Reverse Proxy
+  # ============================================================
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx_proxy_manager
+    restart: unless-stopped
+    ports:
+      # HTTP/HTTPS — nach außen erreichbar
+      - "80:80"
+      - "443:443"
+      # Admin UI — NUR lokal erreichbar, nie öffentlich exponieren!
+      - "127.0.0.1:81:81"
+    volumes:
+      - ./server/npm/data:/data
+      - ./server/npm/letsencrypt:/etc/letsencrypt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:81/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    networks:
+      - lager_network
+
+  # ============================================================
+  # PocketBase Backend
+  # In Produktion: kein Port-Mapping nach außen!
+  # Nur über Nginx Proxy Manager erreichbar.
+  # ============================================================
+  pocketbase:
+    image: ghcr.io/muchobien/pocketbase:0.36.6
+    command:
+      - serve
+      - --http=0.0.0.0:8080
+      - --dir=/pb_data
+    container_name: pocketbase
+    restart: unless-stopped
+    # ❌ Kein ports: — nicht direkt von außen erreichbar!
+    expose:
+      - "8080"
+    volumes:
+      - ./server/pb_data:/pb_data
+      - ./server/pb_public:/pb_public
+      # Tägliches Backup-Verzeichnis
+      - ./server/pb_backups:/pb_backups
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - lager_network
+
+  # ============================================================
+  # Flutter Web Frontend (Caddy)
+  # In Produktion: kein Port-Mapping nach außen!
+  # Nur über Nginx Proxy Manager erreichbar.
+  # ============================================================
+  app:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      args:
+        # In Produktion: öffentliche API-Domain des Browsers
+        # Der Browser ruft diese URL auf — muss von außen erreichbar sein!
+        - POCKETBASE_URL=${POCKETBASE_URL:?POCKETBASE_URL muss gesetzt sein!}
+    container_name: lager_frontend
+    restart: unless-stopped
+    # ❌ Kein ports: — nicht direkt von außen erreichbar!
+    expose:
+      - "8081"
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    networks:
+      - lager_network
+
+networks:
+  lager_network:
+    driver: bridge
+
+volumes:
+  pb_data:
+  pb_backups:

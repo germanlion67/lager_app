@@ -1,4 +1,4 @@
-# Build-Artefakte
+# Flutter Build-Artefakte
 build/
 .dart_tool/
 .packages
@@ -35,8 +35,9 @@ CHANGELOG
 # Docker
 Dockerfile
 .dockerignore
+docker-compose*.yml
 
-# Nicht mehr benötigt (nginx entfernt)
+# Nicht mehr benötigt
 nginx.conf
 
 # Entwicklungs-Tools

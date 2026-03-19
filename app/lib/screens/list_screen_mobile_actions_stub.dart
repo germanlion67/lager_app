@@ -1,4 +1,9 @@
 // lib/screens/list_screen_mobile_actions_stub.dart
+//
+// Stub-Implementierung — wird verwendet wenn weder dart:io noch dart:html
+// verfügbar sind (theoretischer Fall, z.B. Tests ohne Plattform-Kontext).
+//
+// Alle Methoden zeigen einen "nicht verfügbar"-Hinweis.
 
 import 'package:flutter/material.dart';
 
@@ -11,7 +16,7 @@ Future<void> generateArtikelListePdf(
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
-      content: Text('PDF-Export ist im Web nicht verfügbar.'),
+      content: Text('PDF-Export ist auf dieser Plattform nicht verfügbar.'),
       backgroundColor: Colors.orange,
       duration: Duration(seconds: 3),
     ),
@@ -25,21 +30,7 @@ Future<void> generateFilteredArtikelListePdf(
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
-      content: Text('PDF-Export ist im Web nicht verfügbar.'),
-      backgroundColor: Colors.orange,
-      duration: Duration(seconds: 3),
-    ),
-  );
-}
-
-Future<void> generateArtikelDetailPdf(
-  BuildContext context,
-  Artikel artikel,
-) async {
-  if (!context.mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('PDF-Export ist im Web nicht verfügbar.'),
+      content: Text('PDF-Export ist auf dieser Plattform nicht verfügbar.'),
       backgroundColor: Colors.orange,
       duration: Duration(seconds: 3),
     ),
@@ -53,7 +44,23 @@ Future<void> showZipBackupDialog(
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(
     const SnackBar(
-      content: Text('ZIP-Backup ist im Web nicht verfügbar.'),
+      content: Text('ZIP-Backup ist auf dieser Plattform nicht verfügbar.'),
+      backgroundColor: Colors.orange,
+      duration: Duration(seconds: 3),
+    ),
+  );
+}
+
+/// Signatur korrigiert: [artikelListe] ist `List<Artikel>`, nicht Artikel.
+/// Konsistent mit list_screen_mobile_actions.dart und list_screen_web_actions.dart.
+Future<void> generateArtikelDetailPdf(
+  BuildContext context,
+  List<Artikel> artikelListe, // ← Korrigiert (war: Artikel artikel)
+) async {
+  if (!context.mounted) return;
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text('PDF-Export ist auf dieser Plattform nicht verfügbar.'),
       backgroundColor: Colors.orange,
       duration: Duration(seconds: 3),
     ),

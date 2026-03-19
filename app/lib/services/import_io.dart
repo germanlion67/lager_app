@@ -5,16 +5,23 @@ import 'dart:typed_data';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:archive/archive.dart' show ArchiveFile;
+import 'package:logger/logger.dart';
 import '../models/artikel_model.dart';
 import 'app_log_service.dart';
+
+// ✅ Lokale Logger-Referenz — einmal definiert, überall nutzbar
+final Logger _logger = AppLogService.logger;
 
 /// Liest eine Datei als String
 Future<String> readFileAsString(String path) async {
   try {
     return await File(path).readAsString();
-  } catch (e) {
-    await AppLogService().logError(
-      'readFileAsString fehlgeschlagen (Pfad: $path): $e',
+  } catch (e, stack) {
+    // ✅ named parameters — kein await, catch mit StackTrace
+    _logger.e(
+      'readFileAsString fehlgeschlagen (Pfad: $path):',
+      error: e,
+      stackTrace: stack,
     );
     rethrow;
   }
@@ -24,9 +31,12 @@ Future<String> readFileAsString(String path) async {
 Future<Uint8List> readFileBytes(String path) async {
   try {
     return await File(path).readAsBytes();
-  } catch (e) {
-    await AppLogService().logError(
-      'readFileBytes fehlgeschlagen (Pfad: $path): $e',
+  } catch (e, stack) {
+    // ✅ named parameters — kein await, catch mit StackTrace
+    _logger.e(
+      'readFileBytes fehlgeschlagen (Pfad: $path):',
+      error: e,
+      stackTrace: stack,
     );
     rethrow;
   }
@@ -60,15 +70,19 @@ Future<List<Artikel>> extractImagesToLocal(
         final outFile = File(localImagePath);
         await outFile.writeAsBytes(imageFile.content as List<int>);
         result[i] = artikel.copyWith(bildPfad: localImagePath);
-      } catch (e) {
+      } catch (e, stack) {
         errors.add('Bild-Fehler (${artikel.name}): $e');
-        await AppLogService().logError(
-          'Bild schreiben fehlgeschlagen (${artikel.name}): $e',
+        // ✅ named parameters — kein await, catch mit StackTrace
+        _logger.e(
+          'Bild schreiben fehlgeschlagen (${artikel.name}):',
+          error: e,
+          stackTrace: stack,
         );
         result[i] = artikel.copyWith(bildPfad: '');
       }
     } else {
-      await AppLogService().log('${artikel.name}: Kein Bild im ZIP');
+      // ✅ kein await — void
+      _logger.i('${artikel.name}: Kein Bild im ZIP');
       result[i] = artikel.copyWith(bildPfad: '');
     }
   }

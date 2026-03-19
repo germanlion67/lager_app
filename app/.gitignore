@@ -30,3 +30,6 @@ analyze_output.txt
 info._js # Wenn es sich um eine temporäre oder lokale Notiz handelt
 prompt.txt # Wenn es sich um eine temporäre oder lokale Notiz handelt
 tool/Erklärung.txt # Wenn es sich um eine temporäre oder lokale Notiz handelt
+
+# VSCode spezifische Dateien
+.vscode/

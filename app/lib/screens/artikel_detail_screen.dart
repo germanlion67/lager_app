@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:logger/logger.dart';
 import 'package:path/path.dart' as p;
 
 import '../models/artikel_model.dart';
@@ -31,6 +32,8 @@ class ArtikelDetailScreen extends StatefulWidget {
 }
 
 class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
+  final Logger _logger = AppLogService.logger;
+
   late final TextEditingController _beschreibungController;
   late final TextEditingController _ortController;
   late final TextEditingController _fachController;
@@ -45,7 +48,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
 
-  // Fix: Lade-Zustand für Remote-Bild — Spinner statt leere Fläche
   bool _isLoadingRemoteBild = false;
 
   @override
@@ -72,7 +74,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   }
 
   Future<void> _loadRemoteBildUrl() async {
-    // Fix: Lade-Zustand setzen
     if (mounted) setState(() => _isLoadingRemoteBild = true);
 
     try {
@@ -92,9 +93,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         }
       }
     } catch (e, st) {
-      debugPrint('[Detail] Bild-URL laden fehlgeschlagen: $e\n$st');
+      _logger.e('Bild-URL laden fehlgeschlagen:', error: e, stackTrace: st);
     } finally {
-      // Fix: Lade-Zustand immer zurücksetzen — auch bei Exception
       if (mounted) setState(() => _isLoadingRemoteBild = false);
     }
   }
@@ -126,7 +126,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   }
 
   Future<void> _pickImageCamera() async {
-    if (kIsWeb) return;
+    // ← GEÄNDERT: isCameraAvailable statt kIsWeb
+    if (!ImagePickerService.isCameraAvailable) return;
     final picked = await ImagePickerService.pickImageCamera(context);
     if (picked.pfad == null && picked.bytes == null) return;
     setState(() {
@@ -157,7 +158,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-                content: Text('Artikel nicht in PocketBase gefunden'),),
+              content: Text('Artikel nicht in PocketBase gefunden'),
+            ),
           );
         }
         return;
@@ -206,7 +208,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       Navigator.pop(context, gespeicherterArtikel);
     } catch (e, st) {
-      debugPrint('[Detail] Speichern (Web) fehlgeschlagen: $e\n$st');
+      _logger.e('Speichern (Web) fehlgeschlagen:', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
@@ -237,7 +239,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Bild konnte nicht gespeichert werden'),),
+            content: Text('Bild konnte nicht gespeichert werden'),
+          ),
         );
         return;
       }
@@ -256,15 +259,14 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       await _db.updateArtikel(artikelMitAenderungen);
 
       if (hasNewImage) {
-              // Bewusst fire-and-forget — Upload läuft im Hintergrund
-              unawaited(
-                _uploadImageToPocketBase(
-                  uuid: widget.artikel.uuid,
-                  localImagePath: localImagePath,
-                  bildBytes: _bildBytes,
-                ),
-              );
-            }
+        unawaited(
+          _uploadImageToPocketBase(
+            uuid: widget.artikel.uuid,
+            localImagePath: localImagePath,
+            bildBytes: _bildBytes,
+          ),
+        );
+      }
 
       if (!mounted) return;
       setState(() {
@@ -278,7 +280,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       Navigator.pop(context, artikelMitAenderungen);
     } catch (e, st) {
-      debugPrint('[Detail] Speichern (Mobile) fehlgeschlagen: $e\n$st');
+      _logger.e('Speichern (Mobile) fehlgeschlagen:', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
@@ -321,9 +323,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       );
 
       await _db.markSynced(uuid, recordId);
-      debugPrint('[Upload] Bild zu PocketBase hochgeladen: $filename');
+      _logger.i('Bild zu PocketBase hochgeladen: $filename');
     } catch (e, st) {
-      debugPrint('[Upload] PocketBase Bild-Upload fehlgeschlagen: $e\n$st');
+      _logger.e(
+        'PocketBase Bild-Upload fehlgeschlagen:',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -371,7 +377,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       if (!mounted) return;
       Navigator.pop(context, null);
     } catch (e, st) {
-      debugPrint('[Detail] Löschen fehlgeschlagen: $e\n$st');
+      _logger.e('Löschen fehlgeschlagen:', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Löschen fehlgeschlagen: $e')),
@@ -387,15 +393,16 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('PDF-Export ist im Web noch nicht verfügbar'),),
+            content: Text('PDF-Export ist im Web noch nicht verfügbar'),
+          ),
         );
       }
       return;
     }
 
     try {
-      await AppLogService()
-          .log('PDF-Export gestartet für Artikel: ${widget.artikel.name}');
+      _logger.i('PDF-Export gestartet für Artikel: ${widget.artikel.name}');
+
       final pdfService = PdfService();
 
       final aktuellerArtikel = widget.artikel.copyWith(
@@ -411,22 +418,29 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           await pdfService.generateArtikelDetailPdf(aktuellerArtikel);
 
       if (pdfFile != null) {
-        await AppLogService().log('Artikel-PDF erstellt: ${pdfFile.path}');
+        _logger.i('Artikel-PDF erstellt: $pdfFile');
+
         if (!mounted) return;
 
         final messenger = ScaffoldMessenger.of(context);
+        messenger.clearSnackBars();
         messenger.showSnackBar(
           SnackBar(
-            content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
+            content: Text('PDF gespeichert:\n$pdfFile'),
+            // Fix: 5 Sekunden — danach automatisch schließen
             duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'Öffnen',
               onPressed: () async {
-                final success = await PdfService.openPdf(pdfFile.path);
-                if (!success) {
+                // Snackbar sofort schließen wenn Nutzer drückt
+                messenger.clearSnackBars();
+                final success = await PdfService.openPdf(pdfFile);
+                 if (!success && mounted) {
+                  messenger.clearSnackBars();
                   messenger.showSnackBar(
                     const SnackBar(
                       content: Text('PDF konnte nicht geöffnet werden'),
+                      duration: Duration(seconds: 3),
                     ),
                   );
                 }
@@ -436,10 +450,15 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         );
       }
     } catch (e, st) {
-      await AppLogService().logError('Fehler beim PDF-Export: $e', st);
+      _logger.e('Fehler beim PDF-Export:', error: e, stackTrace: st);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim PDF-Export: $e')),
+        ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim PDF-Export: $e'),
+            duration: const Duration(seconds: 4),
+          ),
         );
       }
     }
@@ -518,7 +537,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
 
     if (kIsWeb) {
-      // Fix: Spinner während Remote-Bild geladen wird
       if (_isLoadingRemoteBild) {
         return Container(
           height: 200,
@@ -542,7 +560,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               height: 200,
               width: double.infinity,
               fit: BoxFit.cover,
-              // Fix: loadingBuilder — Fortschrittsanzeige beim Netzwerk-Laden
               loadingBuilder: (_, child, progress) {
                 if (progress == null) return child;
                 return SizedBox(
@@ -594,7 +611,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: const Icon(
-          Icons.image_not_supported, size: 48, color: Colors.grey,),
+        Icons.image_not_supported,
+        size: 48,
+        color: Colors.grey,
+      ),
     );
   }
 
@@ -616,8 +636,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Änderungen verwerfen?'),
-            content:
-                const Text('Ungespeicherte Änderungen gehen verloren.'),
+            content: const Text('Ungespeicherte Änderungen gehen verloren.'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -645,8 +664,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.delete),
-              // Fix: Löschen während Bearbeitung deaktivieren —
-              // verhindert Datenverlust bei ungespeicherten Änderungen
               onPressed: _isEditing ? null : _loeschen,
               tooltip: _isEditing
                   ? 'Erst speichern oder Bearbeitung abbrechen'
@@ -720,6 +737,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               ),
               const SizedBox(height: 20),
 
+              // ← GEÄNDERT: !kIsWeb → isCameraAvailable
               Row(
                 children: [
                   FilledButton.tonalIcon(
@@ -727,7 +745,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                     icon: const Icon(Icons.image),
                     label: const Text('Bild wählen'),
                   ),
-                  if (!kIsWeb) ...[
+                  if (ImagePickerService.isCameraAvailable) ...[
                     const SizedBox(width: 12),
                     FilledButton.tonalIcon(
                       onPressed: _isEditing ? _pickImageCamera : null,
@@ -752,9 +770,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                 child: Text(
                   !_isEditing
                       ? 'Ändern'
-                      : (_hasChanged
-                          ? 'Speichern'
-                          : 'Speichern (inaktiv)'),
+                      : (_hasChanged ? 'Speichern' : 'Speichern (inaktiv)'),
                 ),
               ),
             ],

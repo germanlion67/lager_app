@@ -1,6 +1,10 @@
 // lib/screens/list_screen_mobile_actions.dart
+//
+// IO-Implementierung der Screen-Actions (Mobile & Desktop).
+// Wird per conditional import in artikel_list_screen.dart eingebunden.
 
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
@@ -8,6 +12,9 @@ import '../services/artikel_db_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/artikel_import_service.dart';
 import '../services/pdf_service.dart';
+
+// ✅ Lokale Logger-Referenz — kein await, kein AppLogService()
+final Logger _logger = AppLogService.logger;
 
 // ---------------------------------------------------------------------------
 // PDF-Export: Alle Artikel
@@ -18,11 +25,12 @@ Future<void> generateArtikelListePdf(
   BuildContext context,
   List<Artikel> artikelListe,
 ) async {
-  // messenger VOR erstem await holen — context nach await evtl. ungültig
   final messenger = ScaffoldMessenger.of(context);
 
   try {
-    await AppLogService().log('PDF-Export gestartet: Komplette Artikelliste');
+    // ✅ kein await — void
+    _logger.i('PDF-Export gestartet: Komplette Artikelliste');
+
     final alleArtikel = await ArtikelDbService().getAlleArtikel();
 
     if (alleArtikel.isEmpty) {
@@ -37,25 +45,24 @@ Future<void> generateArtikelListePdf(
       return;
     }
 
-    final pdfFile = await PdfService().generateArtikelListePdf(alleArtikel);
+    final pdfPath = await PdfService().generateArtikelListePdf(alleArtikel);
 
-    if (pdfFile != null && context.mounted) {
+    if (pdfPath != null && context.mounted) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('PDF erstellt!\nPfad: ${pdfFile.path}'),
+          content: Text('PDF erstellt!\nPfad: $pdfPath'),
           duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'Öffnen',
             onPressed: () async {
-              // Erste Snackbar sofort schließen bevor neue erscheint
               messenger.hideCurrentSnackBar();
-              final success = await PdfService.openPdf(pdfFile.path);
+              final success = await PdfService.openPdf(pdfPath);
               if (!success && context.mounted) {
                 messenger.showSnackBar(
                   const SnackBar(
                     content: Text('PDF konnte nicht geöffnet werden'),
                     backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 3), // ← Fix: kein ewiges Hängen
+                    duration: Duration(seconds: 3),
                   ),
                 );
               }
@@ -65,7 +72,8 @@ Future<void> generateArtikelListePdf(
       );
     }
   } catch (e, stack) {
-    await AppLogService().logError('PDF-Export Fehler: $e', stack);
+    // ✅ named parameters — kein positional StackTrace
+    _logger.e('PDF-Export Fehler:', error: e, stackTrace: stack);
     if (context.mounted) {
       messenger.showSnackBar(
         SnackBar(
@@ -102,26 +110,28 @@ Future<void> generateFilteredArtikelListePdf(
       return;
     }
 
-    final pdfFile =
+    final pdfPath =
         await PdfService().generateArtikelListePdf(gefilterteArtikel);
 
-    if (pdfFile != null && context.mounted) {
+    if (pdfPath != null && context.mounted) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('PDF erstellt! (${gefilterteArtikel.length} Artikel)'),
+          content: Text(
+            'PDF erstellt! (${gefilterteArtikel.length} Artikel)\n'
+            'Pfad: $pdfPath',
+          ),
           duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'Öffnen',
             onPressed: () async {
-              // Erste Snackbar sofort schließen bevor neue erscheint
               messenger.hideCurrentSnackBar();
-              final success = await PdfService.openPdf(pdfFile.path);
+              final success = await PdfService.openPdf(pdfPath);
               if (!success && context.mounted) {
                 messenger.showSnackBar(
                   const SnackBar(
                     content: Text('PDF konnte nicht geöffnet werden'),
                     backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 3), // ← Fix: kein ewiges Hängen
+                    duration: Duration(seconds: 3),
                   ),
                 );
               }
@@ -131,7 +141,8 @@ Future<void> generateFilteredArtikelListePdf(
       );
     }
   } catch (e, stack) {
-    await AppLogService().logError('PDF-Export Fehler: $e', stack);
+    // ✅ named parameters
+    _logger.e('PDF-Export (gefiltert) Fehler:', error: e, stackTrace: stack);
     if (context.mounted) {
       messenger.showSnackBar(
         SnackBar(
@@ -320,33 +331,30 @@ Future<void> generateArtikelDetailPdf(
 
   if (selected == null || !context.mounted) return;
 
-  // messenger NACH dem Dialog-await holen — context ist hier noch gültig
   final messenger = ScaffoldMessenger.of(context);
 
   try {
-    await AppLogService().log(
-      'PDF-Export gestartet: Artikel-Detail "${selected.name}"',
-    );
+    // ✅ kein await — void
+    _logger.i('PDF-Export gestartet: Artikel-Detail "${selected.name}"');
 
-    final pdfFile = await PdfService().generateArtikelDetailPdf(selected);
+    final pdfPath = await PdfService().generateArtikelDetailPdf(selected);
 
-    if (pdfFile != null && context.mounted) {
+    if (pdfPath != null && context.mounted) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Detail-PDF erstellt!\nPfad: ${pdfFile.path}'),
+          content: Text('Detail-PDF erstellt!\nPfad: $pdfPath'),
           duration: const Duration(seconds: 5),
           action: SnackBarAction(
             label: 'Öffnen',
             onPressed: () async {
-              // Erste Snackbar sofort schließen bevor neue erscheint
               messenger.hideCurrentSnackBar();
-              final success = await PdfService.openPdf(pdfFile.path);
+              final success = await PdfService.openPdf(pdfPath);
               if (!success && context.mounted) {
                 messenger.showSnackBar(
                   const SnackBar(
                     content: Text('PDF konnte nicht geöffnet werden'),
                     backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 3), // ← Fix: kein ewiges Hängen
+                    duration: Duration(seconds: 3),
                   ),
                 );
               }
@@ -356,7 +364,8 @@ Future<void> generateArtikelDetailPdf(
       );
     }
   } catch (e, stack) {
-    await AppLogService().logError('Detail-PDF Fehler: $e', stack);
+    // ✅ named parameters
+    _logger.e('Detail-PDF Fehler:', error: e, stackTrace: stack);
     if (context.mounted) {
       messenger.showSnackBar(
         SnackBar(

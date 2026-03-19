@@ -49,7 +49,6 @@ class DokumenteButtonState extends State<DokumenteButton> {
     _loadCount();
   }
 
-  // 🔴 FIX 1: dispose() — stopPeriodicCheck damit kein Timer-Leak entsteht
   @override
   void dispose() {
     _connectionService.stopPeriodicCheck();
@@ -58,9 +57,7 @@ class DokumenteButtonState extends State<DokumenteButton> {
 
   Future<void> _loadCount() async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-    });
+    setState(() => _loading = true);
 
     final creds = widget.credentialsReader != null
         ? await widget.credentialsReader!()
@@ -87,9 +84,7 @@ class DokumenteButtonState extends State<DokumenteButton> {
 
     try {
       final files = await client.listFiles(widget.artikelId.toString());
-
       if (!mounted) return;
-
       setState(() {
         _count = files.length;
         _dirExists = true;
@@ -105,7 +100,6 @@ class DokumenteButtonState extends State<DokumenteButton> {
     }
   }
 
-  // 🔵 FIX 4: _showDokumenteSheet schlank — Logik in _DokumenteSheet ausgelagert
   void _showDokumenteSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -157,7 +151,6 @@ class DokumenteButtonState extends State<DokumenteButton> {
 
 // ─────────────────────────────────────────────
 // _DokumenteSheet — Privates StatefulWidget
-// 🔵 FIX 4: Aus StatefulBuilder ausgelagert
 // ─────────────────────────────────────────────
 
 class _DokumenteSheet extends StatefulWidget {
@@ -177,7 +170,6 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
   List<String> _files = [];
   bool _loading = true;
 
-  // 🟡 FIX 2: Dateiname als Key statt Index — korrekt nach Sortierung
   final Map<String, bool> _downloading = {};
 
   NextcloudConfig? _currentConfig;
@@ -192,7 +184,6 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
     if (!mounted) return;
     setState(() => _loading = true);
 
-    // messenger vor async-Gap cachen
     final messenger = ScaffoldMessenger.maybeOf(context);
 
     try {
@@ -207,10 +198,9 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
           _files = [];
           _loading = false;
         });
-        unawaited(
-          AppLogService().log(
-            'Dokumente: keine Credentials oder artikelId, Abbruch',
-          ),
+        // ✅ void — kein unawaited, kein Future
+        AppLogService.logger.w(
+          'Dokumente: keine Credentials oder artikelId, Abbruch',
         );
         return;
       }
@@ -232,11 +222,10 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
 
       setState(() => _files = fetched);
 
-      unawaited(
-        AppLogService().log(
-          'Dokumente: Fetched ${fetched.length} '
-          'dokumente für artikel ${widget.artikelId}',
-        ),
+      // ✅ void — kein unawaited
+      AppLogService.logger.d(
+        'Dokumente: ${fetched.length} Dateien geladen '
+        'für Artikel ${widget.artikelId}',
       );
     } catch (e, stack) {
       if (mounted) {
@@ -245,8 +234,11 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
           _loading = false;
         });
       }
-      unawaited(
-        AppLogService().logError('Dokumente: Fehler beim Laden: $e', stack),
+      // ✅ named parameters error: / stackTrace:
+      AppLogService.logger.e(
+        'Dokumente: Fehler beim Laden:',
+        error: e,
+        stackTrace: stack,
       );
       if (mounted) {
         messenger?.showSnackBar(
@@ -254,9 +246,7 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -265,23 +255,17 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
 
     setState(() => _downloading[file] = true);
 
-    // messenger vor async-Gap cachen
     final messenger = ScaffoldMessenger.maybeOf(context);
     final cfg = _currentConfig;
 
-    unawaited(
-      AppLogService().log(
-        'Dokumente: Download gestartet für $file (artikel $artikelId)',
-      ),
+    // ✅ void — kein unawaited
+    AppLogService.logger.d(
+      'Dokumente: Download gestartet — $file (Artikel $artikelId)',
     );
 
     if (cfg == null) {
       setState(() => _downloading.remove(file));
-      unawaited(
-        AppLogService().log(
-          'Dokumente: Abbruch Download - keine Config',
-        ),
-      );
+      AppLogService.logger.w('Dokumente: Abbruch Download — keine Config');
       return;
     }
 
@@ -292,10 +276,8 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
 
       await client.downloadFile('$artikelId/$file', tempPath);
 
-      unawaited(
-        AppLogService().log(
-          'Dokumente: Download erfolgreich für $file -> $tempPath',
-        ),
+      AppLogService.logger.d(
+        'Dokumente: Download erfolgreich — $file → $tempPath',
       );
 
       if (!mounted) return;
@@ -305,18 +287,14 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
       if (!mounted) return;
 
       if (result.type == ResultType.done) {
-        unawaited(
-          AppLogService().log('Dokumente: Datei geöffnet: $file'),
-        );
+        AppLogService.logger.i('Dokumente: Datei geöffnet — $file');
         messenger?.showSnackBar(
           SnackBar(content: Text('Datei geöffnet: $file')),
         );
       } else {
-        unawaited(
-          AppLogService().logError(
-            'Dokumente: Datei konnte nicht geöffnet werden: ${result.message}',
-            StackTrace.current,
-          ),
+        // ✅ Kein StackTrace.current nötig — kein echter Fehler, nur ein Status
+        AppLogService.logger.w(
+          'Dokumente: Datei konnte nicht geöffnet werden — ${result.message}',
         );
         messenger?.showSnackBar(
           SnackBar(
@@ -328,26 +306,23 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
       }
     } catch (e, st) {
       if (!mounted) return;
-      unawaited(
-        AppLogService().logError(
-          'Dokumente: Fehler beim Download/Öffnen: $e',
-          st,
-        ),
+      // ✅ named parameters
+      AppLogService.logger.e(
+        'Dokumente: Fehler beim Download/Öffnen:',
+        error: e,
+        stackTrace: st,
       );
       messenger?.showSnackBar(
         SnackBar(content: Text('Fehler beim Öffnen: $e')),
       );
     } finally {
-      if (mounted) {
-        setState(() => _downloading.remove(file));
-      }
+      if (mounted) setState(() => _downloading.remove(file));
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      // 🟢 FIX 3: context aus build() — korrekt für dieses Widget
       height: MediaQuery.of(context).size.height * 0.6,
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
@@ -513,7 +488,6 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
                                 subtitleWidget = null;
                               }
 
-                              // 🟡 FIX 2: file als Key statt i
                               final isDownloading = _downloading[file] == true;
 
                               return Card(
