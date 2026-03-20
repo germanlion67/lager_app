@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/artikel_db_service.dart';
 import '../services/pocketbase_service.dart';
 
+import 'package:package_info_plus/package_info_plus.dart';
+
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -583,7 +585,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
-            _infoRow('Version', '1.5.0'),
+            FutureBuilder<String>(
+              future: _getAppVersion(),
+              builder: (context, snapshot) {
+                final version = snapshot.data ?? 'Laden...';
+                return _infoRow('Version', version);
+              },
+            ),
             _infoRow('Plattform', kIsWeb ? 'Web' : 'Mobile/Desktop'),
             _infoRow(
               'Datenbank',
@@ -596,6 +604,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  // ==================== VERSION LADEN ====================
+
+  Future<String> _getAppVersion() async {
+    try {
+      final PackageInfo info = await PackageInfo.fromPlatform();
+      return '${info.version}+${info.buildNumber}';
+    } catch (e) {
+      debugPrint('[Settings] Fehler beim Laden der App-Version: $e');
+      return 'Unbekannt';
+    }
   }
 
   Widget _infoRow(String label, String value) {

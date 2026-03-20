@@ -760,31 +760,39 @@ sudo apt update && sudo apt install -y \
 
 ---
 
-### Phase 1 — Windows 🪟
+### Phase 2 — Web 🌐
 
-```powershell
-flutter build windows --release
-.\build\windows\x64\runner\Release\lager_app.exe
+```bash
+# 1. PocketBase im Hintergrund starten
+cd ~/lager_app
+docker compose up pocketbase -d
+
+# 2. Health-Check
+curl http://localhost:8080/api/health
+
+# 3. App starten
+cd app
+flutter run -d chrome \
+    --dart-define=POCKETBASE_URL=http://localhost:8080
+
 ```
 
 - [ ] Artikel anlegen, ändern, löschen
 - [ ] Suche & Filter (Ort / Fach / Kombination)
-- [ ] PDF Export — Alle Artikel (FilePicker + url_launcher)
-- [ ] PDF Export — Gefilterte Artikel
-- [ ] PDF Export — Artikel-Detail (mit & ohne Bild)
-- [ ] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
-- [ ] ZIP-Backup lokal exportieren & importieren
-- [ ] ZIP-Backup Nextcloud exportieren & importieren
+- [ ] PDF Export — Download via Browser
+- [ ] ZIP-Backup exportieren & importieren
 
 > **Stolperstellen:**
-> - Pfad-Trenner: `\` statt `/` — `Platform.environment['USERPROFILE']` statt `HOME` für den Downloads-Fallback prüfen
-> - `url_launcher` benötigt zwingend `LaunchMode.externalApplication`, sonst öffnet sich nichts
-> - Dateinamen mit Umlauten (`äöüÄÖÜß`) können auf NTFS-Partitionen zu Encoding-Problemen führen — Regex im `cleanName` testen
-> - SQLite-DLL (`sqlite3.dll`) muss im App-Verzeichnis liegen — wird bei `flutter build windows` automatisch kopiert, bei manuellem Deployment prüfen
+> - `POCKETBASE_URL` wird zur **Build-Zeit** eingebrannt (`--dart-define`) — nach URL-Änderung zwingend `docker compose up --build app` ausführen, `restart` allein reicht nicht
+> - PocketBase Schema muss vor dem ersten App-Start manuell angelegt sein — Admin UI unter `http://localhost:8080/_/` prüfen, sonst schlagen alle API-Calls lautlos fehl
+> - Browser blockiert `http://localhost:8080` wenn die App über `https://` ausgeliefert wird (Mixed Content) — in Dev/Test beide Dienste auf `http` halten
+> - CORS: PocketBase erlaubt in Dev standardmäßig alle Origins — in Produktion hinter Nginx Proxy Manager explizit einschränken (**Settings → Application → Allowed Origins**)
+> - `dart:io` (`File`, `Directory`, `Platform`) existiert im Browser **nicht** — PDF- und ZIP-Funktionen benötigen eine Web-spezifische Implementierung (`dart:html` / `package:web`)
+> - Caddy liefert nur statische Assets aus — SPA-Routing (alle Routen → `/index.html`) muss im `Caddyfile` korrekt konfiguriert sein, sonst gibt es `404` bei direktem URL-Aufruf
 
 ---
 
-### Phase 2 — Android 🤖
+### Phase 3 — Android 🤖
 
 ```bash
 # Debug auf angeschlossenem Gerät / Emulator
@@ -815,7 +823,31 @@ flutter build appbundle --release
 
 ---
 
-### Phase 3 — iOS 🍎
+### Phase 4 — Windows 🪟
+
+```powershell
+flutter build windows --release
+.\build\windows\x64\runner\Release\lager_app.exe
+```
+
+- [ ] Artikel anlegen, ändern, löschen
+- [ ] Suche & Filter (Ort / Fach / Kombination)
+- [ ] PDF Export — Alle Artikel (FilePicker + url_launcher)
+- [ ] PDF Export — Gefilterte Artikel
+- [ ] PDF Export — Artikel-Detail (mit & ohne Bild)
+- [ ] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
+- [ ] ZIP-Backup lokal exportieren & importieren
+- [ ] ZIP-Backup Nextcloud exportieren & importieren
+
+> **Stolperstellen:**
+> - Pfad-Trenner: `\` statt `/` — `Platform.environment['USERPROFILE']` statt `HOME` für den Downloads-Fallback prüfen
+> - `url_launcher` benötigt zwingend `LaunchMode.externalApplication`, sonst öffnet sich nichts
+> - Dateinamen mit Umlauten (`äöüÄÖÜß`) können auf NTFS-Partitionen zu Encoding-Problemen führen — Regex im `cleanName` testen
+> - SQLite-DLL (`sqlite3.dll`) muss im App-Verzeichnis liegen — wird bei `flutter build windows` automatisch kopiert, bei manuellem Deployment prüfen
+
+---
+
+### Phase 5 — iOS 🍎
 
 ```bash
 # Debug auf Simulator
@@ -842,46 +874,6 @@ open ios/Runner.xcworkspace
 > - `NSPhotoLibraryUsageDescription` + `NSCameraUsageDescription` müssen in `Info.plist` eingetragen sein, sonst Crash beim Bildpicker
 > - Share-Sheet auf iOS gibt **immer** `ShareResultStatus.dismissed` zurück, nie `success` — Erfolgs-Logik entsprechend anpassen
 > - TestFlight / physisches Gerät nötig für vollständigen Test — Simulator hat keinen Share-Sheet-Flow
-
----
-
-### Phase 3 — Web 🌐
-
-```bash
-# Stack starten (PocketBase + Flutter Web via Caddy)
-docker compose up --build
-
-# Nur PocketBase neu starten (z.B. nach Schema-Änderung)
-docker compose restart pocketbase
-
-# Nur Frontend neu bauen (z.B. nach Code-Änderung)
-docker compose up --build app
-
-# Logs live verfolgen
-docker compose logs -f
-
-# PocketBase Admin UI
-# → http://localhost:8080/_/
-
-# Flutter Web App
-# → http://localhost:8081/
-
-# Stack stoppen
-docker compose down
-```
-
-- [ ] Artikel anlegen, ändern, löschen
-- [ ] Suche & Filter (Ort / Fach / Kombination)
-- [ ] PDF Export — Download via Browser
-- [ ] ZIP-Backup exportieren & importieren
-
-> **Stolperstellen:**
-> - `POCKETBASE_URL` wird zur **Build-Zeit** eingebrannt (`--dart-define`) — nach URL-Änderung zwingend `docker compose up --build app` ausführen, `restart` allein reicht nicht
-> - PocketBase Schema muss vor dem ersten App-Start manuell angelegt sein — Admin UI unter `http://localhost:8080/_/` prüfen, sonst schlagen alle API-Calls lautlos fehl
-> - Browser blockiert `http://localhost:8080` wenn die App über `https://` ausgeliefert wird (Mixed Content) — in Dev/Test beide Dienste auf `http` halten
-> - CORS: PocketBase erlaubt in Dev standardmäßig alle Origins — in Produktion hinter Nginx Proxy Manager explizit einschränken (**Settings → Application → Allowed Origins**)
-> - `dart:io` (`File`, `Directory`, `Platform`) existiert im Browser **nicht** — PDF- und ZIP-Funktionen benötigen eine Web-spezifische Implementierung (`dart:html` / `package:web`)
-> - Caddy liefert nur statische Assets aus — SPA-Routing (alle Routen → `/index.html`) muss im `Caddyfile` korrekt konfiguriert sein, sonst gibt es `404` bei direktem URL-Aufruf
 
 ---
 

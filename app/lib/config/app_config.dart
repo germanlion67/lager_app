@@ -35,7 +35,7 @@ class AppConfig {
 
     if (kIsWeb) {
       return kDebugMode
-          ? 'http://localhost:8090'
+          ? 'http://localhost:8080'
           : 'https://your-production-server.com';
     }
 
