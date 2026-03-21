@@ -1,0 +1,117 @@
+# ============================================================
+# Docker Stack für Produktions-Deployment
+# 
+# Verwendung:
+#   docker stack deploy -c docker-stack.yml lager_app
+#
+# Hinweise:
+# - Erfordert Docker Swarm Mode
+# - Umgebungsvariablen via Docker Secrets setzen
+# - Für einzelne Server: docker-compose.prod.yml nutzen
+# ============================================================
+
+version: "3.8"
+
+services:
+
+  # ============================================================
+  # Nginx Proxy Manager
+  # Übernimmt: SSL/HTTPS, Sicherheits-Header, Reverse Proxy
+  # ============================================================
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:81:81"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    networks:
+      - lager_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role == manager
+
+  # ============================================================
+  # PocketBase Backend with Auto-Initialization
+  # ============================================================
+  pocketbase:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_USERNAME:-germanlion67}/lager_app_pocketbase:${VERSION:-latest}
+    environment:
+      - PB_ADMIN_EMAIL
+      - PB_ADMIN_PASSWORD
+      - PB_DATA_DIR=/pb_data
+      - PB_MIGRATIONS_DIR=/pb_migrations
+    volumes:
+      - pb_data:/pb_data
+      - pb_public:/pb_public
+      - pb_backups:/pb_backups
+    networks:
+      - lager_network
+    deploy:
+      mode: replicated
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      placement:
+        constraints:
+          - node.role == manager
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ============================================================
+  # Flutter Web Frontend (Caddy)
+  # ============================================================
+  app:
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_USERNAME:-germanlion67}/lager_app_web:${VERSION:-latest}
+    networks:
+      - lager_network
+    deploy:
+      mode: replicated
+      replicas: 2
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      update_config:
+        parallelism: 1
+        delay: 10s
+        failure_action: rollback
+        order: start-first
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+
+networks:
+  lager_network:
+    driver: overlay
+    attachable: true
+
+volumes:
+  npm_data:
+    driver: local
+  npm_letsencrypt:
+    driver: local
+  pb_data:
+    driver: local
+  pb_public:
+    driver: local
+  pb_backups:
+    driver: local

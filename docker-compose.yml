@@ -18,14 +18,21 @@
 services:
 
   # ============================================================
-  # PocketBase Backend
+  # PocketBase Backend with Auto-Initialization
+  # 
+  # Features:
+  # - Automatische Admin-User-Erstellung beim ersten Start
+  # - Automatische Migration-Anwendung
+  # - Konfiguration über Umgebungsvariablen
   # ============================================================
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:0.36.6
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     command:
-      - serve
-      - --http=0.0.0.0:8080
-      - --dir=/pb_data
+      - sh
+      - -c
+      - '/pb/pocketbase serve --http=0.0.0.0:8080 --dir=/pb_data & PB_PID=$$ && sleep 3 && /pb/init-pocketbase.sh && wait $PB_PID'
     container_name: pocketbase
     restart: unless-stopped
     ports:
@@ -33,15 +40,22 @@ services:
       # Admin UI: http://localhost:8080/_/
       # API:      http://localhost:8080/api/
       - "${PB_PORT:-8080}:8080"
+    environment:
+      # Admin-Zugangsdaten für Dev/Test
+      - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-admin@example.com}
+      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD:-changeme123}
+      - PB_DATA_DIR=/pb_data
+      - PB_MIGRATIONS_DIR=/pb_migrations
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
+      - ./server/pb_migrations:/pb_migrations:ro
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
       retries: 5          # ← erhöht: PocketBase braucht beim ersten Start länger
-      start_period: 10s   # ← neu: gibt PocketBase Zeit zum initialisieren
+      start_period: 15s   # ← erhöht: gibt PocketBase Zeit zum initialisieren
     networks:
       - lager_network
 

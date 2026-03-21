@@ -56,24 +56,34 @@ services:
       - lager_network
 
   # ============================================================
-  # PocketBase Backend
+  # PocketBase Backend with Auto-Initialization
   # In Produktion: kein Port-Mapping nach außen!
   # Nur über Nginx Proxy Manager erreichbar.
+  # 
+  # Features:
+  # - Automatische Admin-User-Erstellung beim ersten Start
+  # - Automatische Migration-Anwendung
+  # - Konfiguration über Umgebungsvariablen
   # ============================================================
   pocketbase:
-    image: ghcr.io/muchobien/pocketbase:0.36.6
-    command:
-      - serve
-      - --http=0.0.0.0:8080
-      - --dir=/pb_data
+    build:
+      context: ./server
+      dockerfile: Dockerfile
     container_name: pocketbase
     restart: unless-stopped
     # ❌ Kein ports: — nicht direkt von außen erreichbar!
     expose:
       - "8080"
+    environment:
+      # Admin-Zugangsdaten (WICHTIG: In Produktion ändern!)
+      - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-admin@example.com}
+      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD:-changeme123}
+      - PB_DATA_DIR=/pb_data
+      - PB_MIGRATIONS_DIR=/pb_migrations
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
+      - ./server/pb_migrations:/pb_migrations:ro
       # Tägliches Backup-Verzeichnis
       - ./server/pb_backups:/pb_backups
     healthcheck:
@@ -81,7 +91,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 10s
+      start_period: 15s
     networks:
       - lager_network
 
