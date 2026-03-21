@@ -32,7 +32,7 @@ services:
     command:
       - sh
       - -c
-      - '/pb/pocketbase serve --http=0.0.0.0:8080 --dir=/pb_data & PB_PID=$$ && sleep 3 && /pb/init-pocketbase.sh && wait $PB_PID'
+      - '/pb/pocketbase serve --http=0.0.0.0:8080 --dir=/pb_data & PB_PID=$$! && sleep 3 && /pb/init-pocketbase.sh && wait $$PB_PID'
     container_name: pocketbase
     restart: unless-stopped
     ports:
