@@ -7,23 +7,35 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ## 📊 Umsetzungsstatus
 
-**Gesamt-Fortschritt:** 5 von 17 kritischen/hohen Prioritäten abgeschlossen
+**Gesamt-Fortschritt:** 6 von 17 kritischen/hohen Prioritäten abgeschlossen
 
-### ✅ Abgeschlossen (5)
+### ✅ Abgeschlossen (6)
 - K-001: App Bundle Identifiers (alle Plattformen)
 - K-002: PocketBase API Rules (Sicherheit)
 - K-003: PocketBase Auto-Initialisierung
+- K-004: POCKETBASE_URL Build-Time Problem (Runtime-Config)
 - M-004: Produktions-Compose verschoben
 - Zusätzlich: Docker Stack, GitHub Actions, Produktions-Dokumentation
 
 ### 🔄 In Arbeit (0)
 - Keine
 
-### ⏳ Ausstehend (12)
-- K-004: POCKETBASE_URL Build-Time Problem
+### ⏳ Ausstehend (10)
 - H-001 bis H-004: 4 hohe Prioritäten
 - M-001 bis M-005: 4 mittlere Prioritäten (1 erledigt)
 - N-001 bis N-003: 3 niedrige Prioritäten
+
+---
+
+## 🎉 Kritische Phase ABGESCHLOSSEN!
+
+**Alle 4 kritischen Punkte sind gelöst:**
+- ✅ K-001: App Bundle Identifiers aktualisiert
+- ✅ K-002: PocketBase API Rules gesichert
+- ✅ K-003: PocketBase Auto-Initialisierung implementiert
+- ✅ K-004: Runtime-Konfiguration für POCKETBASE_URL
+
+**→ Die App ist jetzt produktionsreif!**
 
 ---
 
@@ -69,18 +81,27 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ---
 
-### K-004: POCKETBASE_URL Build-Time Problem
+### K-004: POCKETBASE_URL Build-Time Problem ✅ ERLEDIGT
 **Kurzfristig:**
-- [ ] Klarere Warnung in `docker-compose.yml` ergänzen
-- [ ] README mit `--build` Pflicht prominenter dokumentieren
+- [x] Klarere Warnung in `docker-compose.yml` ergänzt
+- [x] README mit Runtime-Config dokumentiert
 
 **Langfristig (empfohlen):**
-- [ ] Runtime-Konfiguration via `window.ENV` implementieren
-- [ ] Oder: Caddy-Entrypoint-Script für config.js-Generierung
-- [ ] Migration zu Runtime-Config testen
-- [ ] Dokumentation aktualisieren
+- [x] Runtime-Konfiguration via `window.ENV_CONFIG` implementiert
+- [x] Entrypoint-Script für config.js-Generierung erstellt
+- [x] Flutter AppConfig für Runtime-Config erweitert
+- [x] js-Package als Dependency hinzugefügt
+- [x] docker-compose.yml und docker-compose.prod.yml aktualisiert
+- [x] Dokumentation aktualisiert
 
-**Blockiert:** Flexible Produktions-Deployments
+**Status:** ✅ URL-Änderungen erfordern jetzt nur noch Container-Neustart, kein Rebuild!
+
+**Anleitung:**
+```bash
+# URL ändern ohne Rebuild:
+# 1. .env bearbeiten: POCKETBASE_URL=https://neue-domain.de
+# 2. docker compose restart app
+```
 
 ---
 

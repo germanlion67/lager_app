@@ -26,6 +26,7 @@ dependencies:
 
   pocketbase: ^0.23.2
   uuid: ^4.5.1
+  js: ^0.7.1  # For web runtime configuration
 
   # Fix: sqflite + sqflite_common_ffi mit flutter_web_plugins-Kompatibilität —
   # sqflite läuft NUR auf Mobile/Desktop, nicht auf Web.

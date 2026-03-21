@@ -1,10 +1,10 @@
 # docker-compose.prod.yml
 #
-# Produktions-Setup:
+# Produktions-Setup mit Runtime-Konfiguration:
 #   - Nginx Proxy Manager übernimmt SSL, Sicherheits-Header und Routing
 #   - PocketBase und Flutter Web sind NICHT direkt von außen erreichbar
 #   - Ports nur intern im Docker-Netzwerk
-#
+#   - POCKETBASE_URL wird zur Laufzeit konfiguriert (kein Rebuild nötig!)
 #
 # Architektur-Übersicht:
 # Internet
@@ -15,12 +15,17 @@
 #     ├──→ lager_frontend :8081  (Caddy, Flutter Web)
 #     │
 #     └──→ pocketbase :8080      (PocketBase API + Admin UI)
-# Starten:
-#   POCKETBASE_URL=https://api.deine-domain.de \
-#   docker compose -f docker-compose.prod.yml up -d --build
 #
-# Oder mit .env.production:
-#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+# Starten (mit Runtime-Config):
+#   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
+#
+# URL ändern (kein Rebuild):
+#   1. .env.production bearbeiten
+#   2. docker compose -f docker-compose.prod.yml restart app
+#
+# Oder mit Umgebungsvariablen:
+#   POCKETBASE_URL=https://api.deine-domain.de \
+#   docker compose -f docker-compose.prod.yml up -d
 
 services:
 
@@ -96,20 +101,24 @@ services:
       - lager_network
 
   # ============================================================
-  # Flutter Web Frontend (Caddy)
+  # Flutter Web Frontend (Caddy) with Runtime Configuration
   # In Produktion: kein Port-Mapping nach außen!
   # Nur über Nginx Proxy Manager erreichbar.
+  # Runtime-Config: URL-Änderung ohne Rebuild möglich
   # ============================================================
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
+      # Build-Zeit-URL nur als Fallback
       args:
-        # In Produktion: öffentliche API-Domain des Browsers
-        # Der Browser ruft diese URL auf — muss von außen erreichbar sein!
         - POCKETBASE_URL=${POCKETBASE_URL:?POCKETBASE_URL muss gesetzt sein!}
     container_name: lager_frontend
     restart: unless-stopped
+    environment:
+      # Runtime-Konfiguration: Wird beim Container-Start in config.js geschrieben
+      # URL-Änderung: .env bearbeiten + docker compose restart app
+      - POCKETBASE_URL=${POCKETBASE_URL:?POCKETBASE_URL muss gesetzt sein!}
     # ❌ Kein ports: — nicht direkt von außen erreichbar!
     expose:
       - "8081"
