@@ -45,13 +45,11 @@ RUN flutter build web --release \
     --no-source-maps
 
 # ============================================================
-# Stage 2: Caddy Static File Server
+# Stage 2: Caddy Static File Server with Runtime Config
 # Ersetzt nginx vollständig.
 # Caddy übernimmt nur das Ausliefern der Flutter Web Assets
 # und das SPA-Routing (alle Routen → /index.html).
-# Reverse Proxy, SSL und Sicherheits-Header werden in
-# Dev/Test nicht benötigt und in Produktion vom
-# vorgeschalteten Nginx Proxy Manager übernommen.
+# Runtime-Konfiguration wird beim Start aus Umgebungsvariablen generiert.
 # ============================================================
 FROM caddy:2-alpine
 
@@ -61,7 +59,14 @@ COPY --from=build-env /app/build/web /srv
 # Caddyfile für SPA-Routing
 COPY Caddyfile /etc/caddy/Caddyfile
 
+# Entrypoint-Script für Runtime-Config
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 EXPOSE 8081
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD wget -q --spider http://localhost:8081/ || exit 1
+
+# Verwende Entrypoint für Runtime-Config-Generierung
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

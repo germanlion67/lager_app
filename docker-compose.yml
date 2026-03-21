@@ -5,15 +5,16 @@
 #   - PocketBase direkt auf Port 8080
 #   - Kein interner Reverse Proxy (nginx entfernt)
 #
+# RUNTIME-KONFIGURATION:
+#   Die POCKETBASE_URL wird jetzt zur Laufzeit aus Umgebungsvariablen gelesen.
+#   Es ist KEIN Rebuild mehr nötig bei URL-Änderungen!
+#   → Setze einfach POCKETBASE_URL in .env oder als Umgebungsvariable
+#   → docker compose restart app genügt
+#
 # WICHTIG: POCKETBASE_URL muss eine vom Browser erreichbare Adresse sein.
 #   Der Flutter Web Build läuft im Browser des Nutzers — nicht im Container!
 #   → localhost funktioniert nur weil Port 8080 nach außen gemappt ist.
 #   → In Produktion: echte Domain angeben (kein localhost).
-#
-# Produktion:
-#   - Nginx Proxy Manager vorgeschaltet (übernimmt SSL, Header, Routing)
-#   - POCKETBASE_URL auf Produktions-Domain setzen und neu bauen:
-#     POCKETBASE_URL=https://api.deine-domain.de docker compose up --build
 
 services:
 
@@ -61,22 +62,27 @@ services:
       - lager_network
 
   # ============================================================
-  # Flutter Web Frontend (Caddy)
+  # Flutter Web Frontend (Caddy) with Runtime Configuration
+  # 
+  # Features:
+  # - Runtime-Konfiguration: POCKETBASE_URL wird beim Start generiert
+  # - Kein Rebuild bei URL-Änderungen nötig
+  # - Einfach POCKETBASE_URL ändern und Container neustarten
   # ============================================================
   app:
     build:
       context: ./app
       dockerfile: Dockerfile
+      # Build-Zeit-URL nur als Fallback wenn Runtime-Config fehlt
       args:
-        # WICHTIG: localhost hier ist korrekt — aber nur weil Port 8080
-        # nach außen gemappt ist. Der Browser des Nutzers ruft
-        # localhost:8080 auf seinem eigenen Rechner auf.
-        # Für Produktion: echte Domain verwenden.
         - POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:${PB_PORT:-8080}}
     container_name: lager_frontend
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-8081}:8081"
+    environment:
+      # Runtime-Konfiguration: Wird beim Container-Start in config.js geschrieben
+      - POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:${PB_PORT:-8080}}
     depends_on:
       pocketbase:
         condition: service_healthy
