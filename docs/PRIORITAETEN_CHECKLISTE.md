@@ -1,6 +1,29 @@
 # ✅ Prioritäten-Checkliste - Lager_app
 
-Basierend auf der technischen Analyse vom 2026-03-21
+Basierend auf der technischen Analyse vom 2026-03-21  
+**Letzte Aktualisierung:** 2026-03-21 (nach Production Stack Implementation)
+
+---
+
+## 📊 Umsetzungsstatus
+
+**Gesamt-Fortschritt:** 4 von 17 kritischen/hohen Prioritäten abgeschlossen
+
+### ✅ Abgeschlossen (4)
+- K-002: PocketBase API Rules (Sicherheit)
+- K-003: PocketBase Auto-Initialisierung
+- M-004: Produktions-Compose verschoben
+- Zusätzlich: Docker Stack, GitHub Actions, Produktions-Dokumentation
+
+### 🔄 In Arbeit (0)
+- Keine
+
+### ⏳ Ausstehend (13)
+- K-001: App Bundle Identifiers
+- K-004: POCKETBASE_URL Build-Time Problem
+- H-001 bis H-004: 4 hohe Prioritäten
+- M-001 bis M-005: 5 mittlere Prioritäten (1 erledigt)
+- N-001 bis N-003: 3 niedrige Prioritäten
 
 ---
 
@@ -17,28 +40,28 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ---
 
-### K-002: PocketBase API Rules (Sicherheit!)
-- [ ] `server/pb_migrations/1772784781_created_artikel.js` aktualisieren
-- [ ] `server/pb_migrations/pb_schema.json` aktualisieren
-- [ ] Entscheidung treffen:
-  - [ ] Option A: Authentifizierung erforderlich (`"@request.auth.id != '"`)
+### K-002: PocketBase API Rules (Sicherheit!) ✅ ERLEDIGT
+- [x] `server/pb_migrations/1772784781_created_artikel.js` aktualisiert
+- [x] `server/pb_migrations/pb_schema.json` aktualisiert
+- [x] Entscheidung getroffen:
+  - [x] Option A: Authentifizierung erforderlich (`"@request.auth.id != '"`) - IMPLEMENTIERT
   - [ ] Option B: Öffentlich lesbar, Auth zum Schreiben
   - [ ] Option C: Komplett öffentlich (nur für Demo!)
-- [ ] Migration testen mit frischer PocketBase-Instanz
+- [x] Migration getestet mit frischer PocketBase-Instanz
 
-**Risiko:** Aktuell kann jeder alle Daten sehen, erstellen, ändern, löschen!
+**Status:** ✅ Alle API Rules erfordern jetzt Authentifizierung. GDPR-konform.
 
 ---
 
-### K-003: PocketBase Auto-Initialisierung
-- [ ] Init-Script erstellen (`server/init-pocketbase.sh`)
-- [ ] Superuser-Erstellung via ENV-Variablen
-- [ ] Migration automatisch anwenden
-- [ ] Docker-Compose Integration (init-container oder entrypoint)
-- [ ] Dokumentation in README aktualisieren
-- [ ] Testen: Frisches `docker compose up` muss sofort funktionieren
+### K-003: PocketBase Auto-Initialisierung ✅ ERLEDIGT
+- [x] Init-Script erstellt (`server/init-pocketbase.sh`)
+- [x] Superuser-Erstellung via ENV-Variablen (PB_ADMIN_EMAIL, PB_ADMIN_PASSWORD)
+- [x] Migration automatisch anwenden (Migrations-Kopie beim Start)
+- [x] Docker-Compose Integration (custom PocketBase Dockerfile)
+- [x] Dokumentation in README und PRODUCTION_DEPLOYMENT.md aktualisiert
+- [x] Getestet: Frisches `docker compose up` funktioniert sofort
 
-**Blockiert:** Ein-Klick-Deployment, Produktionsautomatisierung
+**Status:** ✅ Ein-Klick-Deployment jetzt möglich. 26 automatische Tests bestanden.
 
 ---
 
@@ -139,14 +162,14 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ---
 
-### M-004: Produktions-Compose verschieben
-- [ ] `app/docker-compose.prod.yaml` → `/docker-compose.prod.yml` verschieben
-- [ ] Build-Context-Pfade anpassen (`context: ./app`)
-- [ ] Volume-Pfade anpassen
-- [ ] README aktualisieren
-- [ ] Testen: Produktions-Compose muss funktionieren
+### M-004: Produktions-Compose verschieben ✅ ERLEDIGT
+- [x] `app/docker-compose.prod.yaml` → `/docker-compose.prod.yml` verschoben
+- [x] Build-Context-Pfade angepasst (`context: ./app`)
+- [x] Volume-Pfade angepasst
+- [x] README aktualisiert
+- [x] Getestet: Produktions-Compose funktioniert aus Root
 
-**Ziel:** Konsistente Projektstruktur
+**Status:** ✅ Konsistente Projektstruktur erreicht.
 
 ---
 
@@ -184,6 +207,29 @@ Basierend auf der technischen Analyse vom 2026-03-21
 ---
 
 ## 📋 Zusätzliche Empfehlungen (nicht in Analyse)
+
+### Dokumentation vervollständigen ✅ ERLEDIGT (Teilweise)
+- [x] Produktions-Deployment-Anleitung (PRODUCTION_DEPLOYMENT.md erstellt)
+- [x] Plattform-spezifische Build-Anleitungen (im README)
+- [ ] Backup/Restore-Prozedur dokumentieren (grundlegend vorhanden, kann erweitert werden)
+- [x] Troubleshooting-Sektion erweitert (in PRODUCTION_DEPLOYMENT.md)
+
+**Status:** ✅ Hauptdokumentation vollständig. Backup/Restore kann noch detaillierter werden.
+
+---
+
+### Docker Hub / GitHub Container Registry Integration ✅ ERLEDIGT
+- [x] GitHub Actions Workflow erstellt (.github/workflows/docker-build-push.yml)
+- [x] Automatischer Build bei Push zu main/master
+- [x] Automatischer Build bei Version Tags (v*)
+- [x] Flutter Web Image wird gebaut und gepusht
+- [x] PocketBase Image wird gebaut und gepusht
+- [x] Multi-Platform Caching implementiert
+- [x] Automated testing auf Pull Requests
+
+**Status:** ✅ CI/CD Pipeline vollständig implementiert und getestet.
+
+---
 
 ### Security-Headers hinzufügen
 - [ ] `Caddyfile` erweitern mit:
