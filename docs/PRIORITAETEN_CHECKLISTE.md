@@ -7,9 +7,10 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ## 📊 Umsetzungsstatus
 
-**Gesamt-Fortschritt:** 4 von 17 kritischen/hohen Prioritäten abgeschlossen
+**Gesamt-Fortschritt:** 5 von 17 kritischen/hohen Prioritäten abgeschlossen
 
-### ✅ Abgeschlossen (4)
+### ✅ Abgeschlossen (5)
+- K-001: App Bundle Identifiers (alle Plattformen)
 - K-002: PocketBase API Rules (Sicherheit)
 - K-003: PocketBase Auto-Initialisierung
 - M-004: Produktions-Compose verschoben
@@ -18,25 +19,28 @@ Basierend auf der technischen Analyse vom 2026-03-21
 ### 🔄 In Arbeit (0)
 - Keine
 
-### ⏳ Ausstehend (13)
-- K-001: App Bundle Identifiers
+### ⏳ Ausstehend (12)
 - K-004: POCKETBASE_URL Build-Time Problem
 - H-001 bis H-004: 4 hohe Prioritäten
-- M-001 bis M-005: 5 mittlere Prioritäten (1 erledigt)
+- M-001 bis M-005: 4 mittlere Prioritäten (1 erledigt)
 - N-001 bis N-003: 3 niedrige Prioritäten
 
 ---
 
 ## 🔴 KRITISCH (Vor Produktionseinsatz zwingend erforderlich)
 
-### K-001: App Bundle Identifiers aktualisieren
-- [ ] `android/app/build.gradle.kts` → applicationId ändern
-- [ ] `android/build.gradle.kts` → namespace ändern  
-- [ ] `ios/Runner.xcodeproj/project.pbxproj` → PRODUCT_BUNDLE_IDENTIFIER ändern
-- [ ] `macos/Runner.xcodeproj/project.pbxproj` → PRODUCT_BUNDLE_IDENTIFIER ändern
-- [ ] **Entscheidung:** Welcher Bundle Identifier? (z.B. `com.germanlion67.lagerverwaltung`)
+### K-001: App Bundle Identifiers aktualisieren ✅ ERLEDIGT
+- [x] `android/app/build.gradle.kts` → applicationId geändert zu `com.germanlion67.lagerverwaltung`
+- [x] `android/app/build.gradle.kts` → namespace geändert zu `com.germanlion67.lagerverwaltung`
+- [x] `android/.../MainActivity.kt` → Package verschoben nach `com.germanlion67.lagerverwaltung`
+- [x] `ios/Runner.xcodeproj/project.pbxproj` → PRODUCT_BUNDLE_IDENTIFIER geändert
+- [x] `macos/Runner.xcodeproj/project.pbxproj` → PRODUCT_BUNDLE_IDENTIFIER (Tests) geändert
+- [x] `macos/Runner/Configs/AppInfo.xcconfig` → PRODUCT_BUNDLE_IDENTIFIER geändert
+- [x] `linux/CMakeLists.txt` → APPLICATION_ID geändert
+- [x] `windows/runner/Runner.rc` → CompanyName und Produktinfo aktualisiert
+- [x] **Bundle Identifier festgelegt:** `com.germanlion67.lagerverwaltung`
 
-**Blockiert:** Google Play Store, Apple App Store Veröffentlichung
+**Status:** ✅ App Store Veröffentlichung jetzt möglich. Alle Plattformen aktualisiert.
 
 ---
 
