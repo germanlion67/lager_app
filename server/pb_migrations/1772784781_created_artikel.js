@@ -1,8 +1,8 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const collection = new Collection({
-    "createRule": "",
-    "deleteRule": "",
+    "createRule": "@request.auth.id != ''",
+    "deleteRule": "@request.auth.id != ''",
     "fields": [
       {
         "autogeneratePattern": "[a-z0-9]{15}",
@@ -263,12 +263,12 @@ migrate((app) => {
     ],
     "id": "pbc_895755225",
     "indexes": [],
-    "listRule": "",
+    "listRule": "@request.auth.id != ''",
     "name": "artikel",
     "system": false,
     "type": "base",
-    "updateRule": "",
-    "viewRule": ""
+    "updateRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''"
   });
 
   return app.save(collection);
