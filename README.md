@@ -8,11 +8,15 @@ Verfügbar als mobile App (Android) und als Web-App im Docker-Container.
 ![PocketBase](https://img.shields.io/badge/PocketBase-0.36.6-green?logo=pocketbase)
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
-![Test Status](https://img.shields.io/badge/Tests-⚠️%20ungetestet-orange)
 
-> ⚠️ **Teststatus**: Stand März 2026 – Nicht für Produktionseinsatz empfohlen.
-> Manuelles Testing läuft. Siehe [Prüfplan](#prüfplan).
-> Nextcloud: Implementierung vorhanden (WebDAV-Client, Upload/Backup-Workflow).
+> 🎉 **Update März 2026**: Kritische Sicherheits- und Deployment-Probleme behoben!
+> - ✅ Automatische PocketBase-Initialisierung
+> - ✅ API Rules mit Authentifizierung (K-002 behoben)
+> - ✅ Produktions-Deployment vereinfacht
+> 
+> Siehe [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) für Details.
+> 
+> **Nextcloud**: Implementierung vorhanden (WebDAV-Client, Upload/Backup-Workflow).
 > Integration ist als experimentell/ungeprüft gekennzeichnet.
 
 ---
@@ -196,12 +200,22 @@ docker compose up -d --build
 #    PocketBase:    http://localhost:8080/_/
 ```
 
-> ⚠️ **Wichtig**: Nach dem ersten Start muss die PocketBase Collection
-> `artikel` manuell angelegt werden. Siehe [PocketBase Setup](#pocketbase-setup).
+> ✅ **Automatische Initialisierung**: PocketBase wird beim ersten Start
+> automatisch konfiguriert:
+> - Admin-Benutzer wird erstellt (Standard: admin@example.com / changeme123)
+> - Collections werden angelegt
+> - Migrationen werden angewendet
+> 
+> **WICHTIG**: Ändern Sie das Admin-Passwort sofort nach dem ersten Login!
 
 ---
 
 ### Docker (Web) — Produktion
+
+**Für vollständige Produktions-Deployment-Anleitung siehe:**
+📘 **[PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md)**
+
+**Schnellstart:**
 
 ```bash
 # 1. Repository klonen
@@ -209,11 +223,11 @@ git clone https://github.com/germanlion67/lager_app.git
 cd lager_app
 
 # 2. Produktions-.env anlegen
-cp .env.example .env.production
+cp .env.production.example .env.production
 nano .env.production
-# → POCKETBASE_URL=https://api.deine-domain.de setzen
+# → Wichtig: POCKETBASE_URL, PB_ADMIN_EMAIL, PB_ADMIN_PASSWORD setzen
 
-# 3. Stack starten (baut Flutter Web mit Produktions-URL)
+# 3. Stack starten (mit automatischer PocketBase-Initialisierung)
 docker compose \
   -f docker-compose.prod.yml \
   --env-file .env.production \
@@ -224,6 +238,13 @@ docker compose \
 #    Standard-Login: admin@example.com / changeme
 #    → Sofort Passwort ändern!
 ```
+
+**Neu: Automatische PocketBase-Initialisierung**
+- ✅ Admin-Benutzer wird automatisch erstellt (konfigurierbar via ENV)
+- ✅ Collections werden automatisch angelegt
+- ✅ Migrationen werden automatisch angewendet
+- ✅ API Rules sind vorkonfiguriert (Authentifizierung erforderlich)
+- ✅ Keine manuelle Konfiguration nach dem Start nötig
 
 #### Nginx Proxy Manager — Proxy Hosts einrichten
 
@@ -306,16 +327,33 @@ flutter build apk --release \
 
 ### PocketBase Setup
 
-Beim ersten Start:
+**Automatische Initialisierung (Neu ab März 2026):**
 
-1. **Admin-UI öffnen**: `http://localhost:8080/_/`
-2. **Admin-Account erstellen** (E-Mail + Passwort)
-3. **Collection `artikel` manuell erstellen**:
+Beim ersten Start von PocketBase (sowohl Dev/Test als auch Produktion) werden automatisch:
 
-> 💡 Ein Migrations-Script (`server/pb_migrations/1772784781_created_artikel.js`)
-> liegt im Repository und dient als Referenz für das Schema.
-> Da der Migrations-Ordner nicht automatisch gemountet wird,
-> muss die Collection beim ersten Start manuell angelegt werden.
+1. ✅ **Admin-Account erstellt** - Zugangsdaten konfigurierbar via ENV-Variablen
+2. ✅ **Collection `artikel` angelegt** - mit vollständigem Schema
+3. ✅ **Migrationen angewendet** - alle Felder und Rules werden konfiguriert
+4. ✅ **API Rules gesetzt** - Authentifizierung erforderlich für alle Operationen
+
+**Standard-Zugangsdaten (Dev/Test):**
+- E-Mail: `admin@example.com`
+- Passwort: `changeme123`
+- Admin UI: `http://localhost:8080/_/`
+
+**⚠️ WICHTIG:** Ändern Sie das Passwort sofort nach dem ersten Login!
+
+**Produktions-Konfiguration:**
+
+Setzen Sie in `.env.production`:
+```dotenv
+PB_ADMIN_EMAIL=admin@your-domain.com
+PB_ADMIN_PASSWORD=IhrSicheresPasswort123!
+```
+
+### Collection `artikel` - Schema
+
+Das Schema wird automatisch erstellt. Zur Referenz:
 
 | Feld | Typ | Pflicht | Hinweise |
 |---|---|---|---|
@@ -343,13 +381,31 @@ Beim ersten Start:
 > für ein noch nicht implementiertes Thumbnail-Feature angelegt. Das
 > PocketBase-Schema benötigt diese Felder daher **nicht**.
 
-4. **API Rules konfigurieren**:
+### API Rules & Sicherheit
 
-> ⚠️ **Sicherheitshinweis:** Standardmäßig sind alle API-Regeln der
-> `artikel`-Collection auf `""` gesetzt — das bedeutet **öffentlich
-> zugänglich ohne Authentifizierung**. Für den Produktionsbetrieb
-> müssen diese Regeln in der Admin UI eingeschränkt werden:
-> **Collection → artikel → API Rules**
+**Automatische Konfiguration (Neu ab März 2026):**
+
+Die Collection `artikel` wird automatisch mit sicheren API Rules erstellt:
+
+```json
+{
+  "listRule": "@request.auth.id != ''",
+  "viewRule": "@request.auth.id != ''",
+  "createRule": "@request.auth.id != ''",
+  "updateRule": "@request.auth.id != ''",
+  "deleteRule": "@request.auth.id != ''"
+}
+```
+
+**Das bedeutet:**
+- ✅ Nur authentifizierte Benutzer können Artikel lesen, erstellen, ändern oder löschen
+- ✅ Keine öffentlichen API-Zugriffe ohne Login
+- ✅ Produktionssicher out-of-the-box
+
+**Falls öffentlicher Lesezugriff gewünscht:**
+1. Öffne PocketBase Admin UI: `http://localhost:8080/_/`
+2. Navigiere zu Collections → artikel → API Rules
+3. Ändere `listRule` und `viewRule` zu `""` (leerer String)
 
 ---
 
@@ -369,14 +425,24 @@ PB_PORT=8080
 # Vom Browser erreichbare PocketBase URL
 # localhost funktioniert nur weil Port 8080 nach außen gemappt ist!
 POCKETBASE_URL=http://localhost:8080
+
+# PocketBase Admin-Account (wird beim ersten Start erstellt)
+PB_ADMIN_EMAIL=admin@example.com
+PB_ADMIN_PASSWORD=changeme123
 ```
 
 #### Produktion — `.env.production`
+
+Vorlage: `.env.production.example`
 
 ```dotenv
 # Öffentliche PocketBase URL (vom Browser erreichbar!)
 # Muss von außen erreichbar sein — kein localhost!
 POCKETBASE_URL=https://api.deine-domain.de
+
+# PocketBase Admin-Account (wird beim ersten Start erstellt)
+PB_ADMIN_EMAIL=admin@your-domain.com
+PB_ADMIN_PASSWORD=IhrSicheresPasswort123!
 
 # Interne Ports (nur Docker-intern, kein Port-Mapping in Prod)
 PB_PORT=8080
