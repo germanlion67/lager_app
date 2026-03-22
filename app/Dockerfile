@@ -8,12 +8,12 @@ ARG FLUTTER_VERSION=3.41.4
 
 # Install dependencies and cleanup in one layer for smaller image
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl=7.88.1-10+deb12u6 \
-    git=1:2.39.2-1.1 \
-    unzip=6.0-28 \
-    xz-utils=5.4.1-0.2 \
-    zip=3.0-13 \
-    ca-certificates=20230311 \
+    curl \
+    git \
+    unzip \
+    xz-utils \
+    zip \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
