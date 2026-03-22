@@ -16,6 +16,7 @@ import 'services/artikel_db_service.dart';
 import 'services/pocketbase_service.dart';
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
+import 'config/app_config.dart';
 
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
@@ -24,6 +25,10 @@ final _log = AppLogService.logger;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ── Punkt 1 — App-Konfiguration validieren ──────────────────────────────
+  // Wirft Error bei Release-Build mit Placeholder-URLs
+  AppConfig.validateConfig();
 
   // ── Punkt 2 — Unbehandelte Flutter-Framework-Fehler fangen ──────────────
   FlutterError.onError = (details) {
