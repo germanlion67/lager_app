@@ -24,10 +24,25 @@ Basierend auf der technischen Analyse vom 2026-03-21
 ### 🔄 In Arbeit (1)
 - M-002: Debug-Prints entfernen (Linter aktiv, manuelle Cleanup ausstehend)
 
-### ⏳ Ausstehend (6)
+### ⏳ Ausstehend (16)
 - H-001: Platform Builds in CI/CD (iOS, macOS, Linux)
+- H-005: Prod-Stack nutzt vorgebautes Frontend-Image (kein lokaler Build)
+- H-006: Healthchecks für App/PocketBase/Proxy
+- H-007: Exponierte Ports & Netzwerk-Trennung (public vs internal)
+
 - M-001, M-005: 2 mittlere Prioritäten
+- M-006: Docker Stack Deploy "Happy Path" dokumentieren & testen
+- M-007: PocketBase Indizes/Constraints prüfen (Migrations)
+- M-008: Docker Reproducibility/Caching/Hardening verbessern
+- M-009: Scan-Funktion allgemein (Fallback/UX/Fehlerfälle) plattformübergreifend prüfen
+- M-010: QR-Scanning plattformübergreifend (Web/Mobile/Desktop)
+- M-011: Artikelbilder optimieren (Thumbnails/Performance/Darstellung)
+- M-012: Dokumentenanhänge pro Artikel (mehrere Dateien, Typen/Limit/UX)
+- M-013: Backup & Restore vollständig (DB + Uploads/Bilder/Dokumente) + Restore-Test
+
 - N-001 bis N-003: 3 niedrige Prioritäten
+- N-004: Roboto-Fontwechsel (Assets/pubspec/Theme/Test)
+- N-005: PocketBase Admin Reset/Reinit-Prozedur (sicher) dokumentieren/implementieren
 
 ---
 
@@ -180,6 +195,37 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 
 ---
 
+
+### H-005: Prod-Stack nutzt vorgebautes Frontend-Image (kein lokaler Build)
+- [ ] Sicherstellen: `docker-compose.prod.yml` / Stack-Datei nutzt ausschließlich `image:` (kein `build:`) für das Frontend
+- [ ] Image-Tagging-Strategie definieren (z.B. SemVer Tags `v*` + optional `latest`)
+- [ ] Dokumentieren: Welche Tags Endnutzer verwenden sollen
+- [ ] Verifizieren: Frisches Setup ohne Flutter/Build-Tools auf Server funktioniert
+
+**Ziel:** Produktion nutzt nur veröffentlichte Images, keine lokalen Builds.
+
+---
+
+### H-006: Healthchecks für App/PocketBase/Proxy
+- [ ] Healthcheck für PocketBase (z.B. `/api/health`)
+- [ ] Healthcheck für Frontend/Proxy (HTTP 200 auf `/`)
+- [ ] Optional: Compose/Stack so konfigurieren, dass abhängige Services korrekt warten/restarten
+
+**Ziel:** Stabilerer Betrieb + schnellere Fehlerdiagnose.
+
+---
+
+### H-007: Exponierte Ports & Netzwerk-Trennung (public vs internal)
+- [ ] Prüfen: Welche Ports müssen wirklich nach außen veröffentlicht werden
+- [ ] Interne Services (z.B. PocketBase) ggf. nur im internen Docker-Netz erreichbar machen
+- [ ] Dokumentieren: Öffentliche Endpunkte vs. interne Services
+- [ ] Security-Check: Keine unnötigen Admin/Debug Ports öffentlich
+
+**Ziel:** Minimale Angriffsfläche im Produktivbetrieb.
+
+
+---
+
 ## 🟡 MITTEL (Verbesserungen für Wartbarkeit)
 
 ### M-001: Testabdeckung erhöhen
@@ -237,6 +283,74 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 
 ---
 
+### M-006: Docker Stack Deploy "Happy Path" dokumentieren & testen
+- [ ] Installationsweg für Endnutzer als Standard: `docker stack deploy ...`
+- [ ] Minimal-Schritte dokumentieren: Repo klonen → `.env`/Secrets setzen → deploy
+- [ ] Test: Deployment auf frischem System (ohne lokale Build-Toolchain)
+
+**Ziel:** Wirklich “Endnutzer-fähige” Prod-Installation.
+
+---
+
+### M-007: PocketBase Indizes/Constraints prüfen (Migrations)
+- [ ] Prüfen ob Indizes/Constraints für wichtige Felder nötig sind (Eindeutigkeit, Performance)
+- [ ] Falls nötig: Über Migrationen ergänzen
+- [ ] Dokumentieren: Welche Indizes/Constraints warum existieren
+
+**Ziel:** Datenintegrität + Performance.
+
+---
+
+### M-008: Docker Reproducibility/Caching/Hardening verbessern
+- [ ] Prüfen: Version-Pinning (Base Images), deterministische Builds
+- [ ] Caching optimieren (Multi-stage, Layer-Reihenfolge)
+- [ ] Optional: Non-root runtime, minimale Rechte
+- [ ] Dokumentieren: Build-Strategie (lokal/CI) und Erwartungen
+
+**Ziel:** Stabilere CI/CD + schnellere Builds + sicherere Images.
+
+---
+
+### M-009: Scan-Funktion allgemein (Fallback/UX/Fehlerfälle) plattformübergreifend prüfen
+- [ ] Scan-Funktion im Repo lokalisieren und End-to-End prüfen (Web/Android/Windows/Linux)
+- [ ] Manuelle Eingabe als Fallback (wenn Scan nicht möglich)
+- [ ] Fehlerfälle: Abbruch, Berechtigungen, kein Gerät, ungültige Codes
+- [ ] UX verbessern (Feedback, Retry, klare Meldungen)
+
+---
+
+### M-010: QR-Scanning plattformübergreifend (Web/Mobile/Desktop)
+- [ ] Prüfen: Existiert QR-Scanning bereits? Wenn ja: Qualität/Abdeckung
+- [ ] Falls nein: Architektur ergänzen (Kamera, Berechtigungen, Fallback)
+- [ ] Definieren: Welche Entitäten QR nutzen (Artikel / Ort / Fach / Dokument)
+- [ ] Testmatrix: Web + Android + Desktop
+
+---
+
+### M-011: Artikelbilder optimieren (Thumbnails/Performance/Darstellung)
+- [ ] Ladeverhalten und Bildgrößen prüfen
+- [ ] Thumbnails/Vorschaukonzept (Performance, Bandbreite)
+- [ ] Darstellung in Listen/Details (Web/Mobile/Desktop)
+
+---
+
+### M-012: Dokumentenanhänge pro Artikel (mehrere Dateien, Typen/Limit/UX)
+- [ ] Konzept: Mehrere Attachments je Artikel
+- [ ] Dateitypen/Größenlimits/Validierung
+- [ ] UX: Upload, Liste, Download, Metadaten/Beschriftung
+- [ ] Plattformtest (Web/Mobile/Desktop)
+
+---
+
+### M-013: Backup & Restore vollständig (DB + Uploads/Bilder/Dokumente) + Restore-Test
+- [ ] Backup umfasst: `pb_data` + Uploads/Anhänge (alles Relevante)
+- [ ] Restore-Prozess dokumentieren und testen (Fresh System Restore)
+- [ ] Integritätscheck: Backup ist vollständig und wiederherstellbar
+- [ ] Optional: Script/Automatisierung für Backups
+
+
+---
+
 ## 🟢 NIEDRIG (Nice-to-Have)
 
 ### N-001: Mocking-Libraries bereinigen
@@ -259,6 +373,22 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 - [ ] Scopes dokumentieren (`repo`)
 
 ---
+
+### N-004: Roboto-Fontwechsel (Assets/pubspec/Theme/Test)
+- [ ] Roboto Fonts einbinden (Assets)
+- [ ] `pubspec.yaml` Fonts-Sektion aktualisieren
+- [ ] Theme/`fontFamily` auf Roboto umstellen
+- [ ] Test: Web Build + Umlaute + keine Font-Errors
+
+---
+
+### N-005: PocketBase Admin Reset/Reinit-Prozedur (sicher) dokumentieren/implementieren
+- [ ] Sicherer Reset/Reinit-Weg für Admins definieren (ohne “aus Versehen” Daten zu löschen)
+- [ ] Dokumentation: Wann nutzen, wie nutzen, welche Risiken
+- [ ] Optional: Script/Anleitung (mit Schutzmechanismen)
+
+---
+
 
 ## 📋 Zusätzliche Empfehlungen (nicht in Analyse)
 
