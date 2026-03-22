@@ -12,9 +12,9 @@ FROM alpine:3.19.1
 
 # Install dependencies with pinned versions for reproducibility
 RUN apk add --no-cache \
-    ca-certificates=20240226-r0 \
-    wget=1.21.4-r0 \
-    unzip=6.0-r14
+    ca-certificates \
+    wget \
+    unzip
 
 # Download and install PocketBase
 ARG POCKETBASE_VERSION=0.36.6
