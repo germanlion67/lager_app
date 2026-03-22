@@ -383,29 +383,51 @@ Das Schema wird automatisch erstellt. Zur Referenz:
 
 ### API Rules & Sicherheit
 
-**Automatische Konfiguration (Neu ab März 2026):**
+**Umgebungsgesteuertes Sicherheitsmodell (ab April 2026):**
 
-Die Collection `artikel` wird automatisch mit sicheren API Rules erstellt:
+Die Collection `artikel` unterstützt zwei Modi, gesteuert durch `PB_DEV_MODE`:
+
+#### Dev-Modus (`PB_DEV_MODE=1`, Standard für dev/test)
+
+Alle Regeln sind offen — kein Login erforderlich:
 
 ```json
 {
-  "listRule": "@request.auth.id != ''",
-  "viewRule": "@request.auth.id != ''",
-  "createRule": "@request.auth.id != ''",
-  "updateRule": "@request.auth.id != ''",
-  "deleteRule": "@request.auth.id != ''"
+  "listRule": "",
+  "viewRule": "",
+  "createRule": "",
+  "updateRule": "",
+  "deleteRule": ""
 }
 ```
 
-**Das bedeutet:**
-- ✅ Nur authentifizierte Benutzer können Artikel lesen, erstellen, ändern oder löschen
-- ✅ Keine öffentlichen API-Zugriffe ohne Login
-- ✅ Produktionssicher out-of-the-box
+Vorteile: Quickstart ohne Benutzerverwaltung, kein 400-Fehler bei unauthentifizierten Zugriffen.
 
-**Falls öffentlicher Lesezugriff gewünscht:**
-1. Öffne PocketBase Admin UI: `http://localhost:8080/_/`
-2. Navigiere zu Collections → artikel → API Rules
-3. Ändere `listRule` und `viewRule` zu `""` (leerer String)
+#### Prod-Modus (`PB_DEV_MODE=0`, Standard für production)
+
+Sichere Regeln mit Eigentümer- und Rollen-Prüfung:
+
+- **Lesen** (list/view): Eingeloggt UND (Eigentümer ODER in `sharedWith`)
+- **Erstellen** (create): Eingeloggt + Rolle `writer` + `owner` = eigene User-ID
+- **Ändern/Löschen**: Eingeloggt + Rolle `writer` + Eigentümer des Records
+
+### Collection `users` — Benutzer & Rollen
+
+Die Auth-Collection `users` wird automatisch erstellt:
+
+| Feld | Typ | Werte | Beschreibung |
+|---|---|---|---|
+| `email` | Email | — | Anmeldungs-E-Mail |
+| `role` | Text | `reader`, `writer` | Globale Berechtigung |
+
+**Benutzer anlegen (Admin UI):**
+1. Öffne `http://localhost:8080/_/` → Collections → users → „New record"
+2. Trage E-Mail, Passwort und `role` ein (`writer` für Schreibrecht)
+
+### Sharing — `sharedWith`
+
+Artikel können mit anderen Benutzern geteilt werden über das Feld `sharedWith`
+(Mehrfach-Relation zur `users` Collection). Nur der Eigentümer kann `sharedWith` setzen.
 
 ---
 
@@ -429,6 +451,9 @@ POCKETBASE_URL=http://localhost:8080
 # PocketBase Admin-Account (wird beim ersten Start erstellt)
 PB_ADMIN_EMAIL=admin@example.com
 PB_ADMIN_PASSWORD=changeme123
+
+# Dev-Modus: 1 = offene Regeln (kein Login), 0 = Produktions-Regeln
+PB_DEV_MODE=1
 ```
 
 #### Produktion — `.env.production`

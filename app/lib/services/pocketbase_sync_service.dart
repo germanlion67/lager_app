@@ -76,9 +76,13 @@ class PocketBaseSyncService {
 
         if (list.items.isNotEmpty) {
           final recId = list.items.first.id;
+          final body = artikel.toPocketBaseMap();
+          if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
+            body['owner'] = _pbService.currentUserId;
+          }
           final updated = await _pbService.client
               .collection(collectionName)
-              .update(recId, body: artikel.toPocketBaseMap());
+              .update(recId, body: body);
 
           // FIX Finding 1: PocketBase-Record-ID in remote_path,
           // vorhandenen Nextcloud-ETag in etag-Spalte NICHT überschreiben.
@@ -91,9 +95,13 @@ class PocketBaseSyncService {
             'Updated PB record ${updated.id} for uuid ${artikel.uuid}',
           );
         } else {
+          final body = artikel.toPocketBaseMap();
+          if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
+            body['owner'] = _pbService.currentUserId;
+          }
           final created = await _pbService.client
               .collection(collectionName)
-              .create(body: artikel.toPocketBaseMap());
+              .create(body: body);
 
           // FIX Finding 1: PocketBase-Record-ID in remote_path,
           // vorhandenen Nextcloud-ETag in etag-Spalte NICHT überschreiben.
