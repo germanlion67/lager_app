@@ -5,7 +5,7 @@
 // Ziele:
 // - Artikelnummer-Feld hinzufügen (eindeutig, auto-increment)
 // - Unique Constraint für Datenintegrität
-// - Index für Performance (bis 10000 Artikel)
+// - Indexes für Performance (bis 10000 Artikel)
 // - Volltextsuche-Unterstützung für name, beschreibung, artikelnummer
 
 migrate(
@@ -16,51 +16,60 @@ migrate(
       throw new Error('Collection "artikel" nicht gefunden!');
     }
 
-    // Artikelnummer-Feld hinzufügen
-    //
-    // WICHTIG: PocketBase erwartet hier ein core.Field Objekt.
-    // Daher muss das Feld via `new Field({...})` erstellt werden.
-    collection.fields.add(
-      1,
-      new Field({
-        autogeneratePattern: "",
-        hidden: false,
-        id: "number_artikelnummer",
-        max: 99999, // Bis 10000 Artikel (mit Puffer)
-        min: 1,
-        name: "artikelnummer",
-        onlyInt: true,
-        presentable: true, // Wird als Anzeige-Name verwendet
-        required: false, // Bestehende Artikel haben keine Nummer
-        system: false,
-        type: "number",
-      }),
-    );
+    // Idempotent: skip if field already exists.
+    const hasArtikelnummer = collection.fields.some((f) => f.name === "artikelnummer");
+    if (!hasArtikelnummer) {
+      // IMPORTANT: PocketBase expects a core.Field object.
+      // Do NOT use addAt(...) or add(index, ...) because not all PocketBase versions
+      // support it in JS migrations and it can cause:
+      // "could not convert [object Object] to core.Field"
+      collection.fields.add(
+        new Field({
+          autogeneratePattern: "",
+          hidden: false,
+          id: "number_artikelnummer",
+          max: 99999, // Bis 10000 Artikel (mit Puffer)
+          min: 1,
+          name: "artikelnummer",
+          onlyInt: true,
+          presentable: true, // Wird als Anzeige-Name verwendet
+          required: false, // Bestehende Artikel haben keine Nummer
+          system: false,
+          type: "number",
+        }),
+      );
+    }
 
-    // Indexes hinzufügen
+    // Indexes hinzufügen (idempotent)
+    const addIndexIfMissing = (sql) => {
+      if (!collection.indexes.includes(sql)) {
+        collection.indexes.push(sql);
+      }
+    };
+
     // 1. Unique Index für Artikelnummer (Datenintegrität)
-    collection.indexes.push(
+    addIndexIfMissing(
       "CREATE UNIQUE INDEX `idx_unique_artikelnummer` ON `artikel` (`artikelnummer`) WHERE `artikelnummer` IS NOT NULL AND `deleted` = FALSE",
     );
 
     // 2. Performance-Index für Volltextsuche
     // SQLite FTS (Full-Text Search) via name + beschreibung
-    collection.indexes.push(
+    addIndexIfMissing(
       "CREATE INDEX `idx_search_name` ON `artikel` (`name`) WHERE `deleted` = FALSE",
     );
 
-    collection.indexes.push(
+    addIndexIfMissing(
       "CREATE INDEX `idx_search_beschreibung` ON `artikel` (`beschreibung`) WHERE `deleted` = FALSE",
     );
 
     // 3. Composite Index für häufige Abfragen (deleted + updated_at)
     // Wird für Sync-Abfragen verwendet
-    collection.indexes.push(
+    addIndexIfMissing(
       "CREATE INDEX `idx_sync_deleted_updated` ON `artikel` (`deleted`, `updated_at`)",
     );
 
     // 4. Index für UUID-basierte Lookups (häufig beim Sync)
-    collection.indexes.push("CREATE INDEX `idx_uuid` ON `artikel` (`uuid`)");
+    addIndexIfMissing("CREATE INDEX `idx_uuid` ON `artikel` (`uuid`)");
 
     return app.save(collection);
   },
@@ -72,8 +81,12 @@ migrate(
       throw new Error('Collection "artikel" nicht gefunden!');
     }
 
-    // Artikelnummer-Feld entfernen
-    collection.fields.removeById("number_artikelnummer");
+    // Artikelnummer-Feld entfernen (falls vorhanden)
+    try {
+      collection.fields.removeById("number_artikelnummer");
+    } catch (_) {
+      // ignore
+    }
 
     // Indexes entfernen (SQLite DROP INDEX)
     collection.indexes = collection.indexes.filter(
