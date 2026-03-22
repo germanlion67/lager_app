@@ -3,6 +3,8 @@
 name: lager_app
 description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 
+publish_to: none
+
 # Fix: version mit Build-Nummer ergänzt —
 # Flutter erwartet version: major.minor.patch+build.
 # Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
@@ -125,6 +127,9 @@ dependencies:
   # ==================== SYSTEM ====================
 
   device_info_plus: ^10.1.0
+
+  runtime_env_config:
+    path: ../packages/runtime_env_config
 
   # Fix: flutter_local_notifications nur auf Mobile/Desktop —
   # auf Web nicht verfügbar. Für Web-Benachrichtigungen wird

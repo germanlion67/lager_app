@@ -26,7 +26,11 @@ final _log = AppLogService.logger;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Punkt 1 — App-Konfiguration validieren ──────────────────────────────
+  // ── Punkt 1 — Runtime-Konfiguration laden (Web) ───────────────────────────
+  // Muss vor validateConfig() passieren, damit window.ENV_CONFIG berücksichtigt wird.
+  await AppConfig.init();
+
+  // ── Punkt 2 — App-Konfiguration validieren ───────────────────────────────
   // Wirft Error bei Release-Build mit Placeholder-URLs
   AppConfig.validateConfig();
 

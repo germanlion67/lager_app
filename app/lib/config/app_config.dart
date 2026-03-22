@@ -11,7 +11,7 @@
 // aus Umgebungsvariablen generiert (docker-entrypoint.sh).
 
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
-import 'dart:js' as js;
+import 'package:runtime_env_config/runtime_env_config.dart';
 
 class AppConfig {
   AppConfig._();
@@ -22,6 +22,23 @@ class AppConfig {
     'POCKETBASE_URL',
     defaultValue: '',
   );
+
+  // Runtime-Config Cache (nur Web sinnvoll).
+  //
+  // Wird über init() befüllt, damit pocketBaseUrl synchron bleiben kann.
+  static String? _runtimePocketBaseUrl;
+
+  /// Muss beim App-Start aufgerufen werden (vor validateConfig() und idealerweise
+  /// vor der ersten Nutzung von pocketBaseUrl).
+  static Future<void> init() async {
+    if (!kIsWeb) return;
+
+    try {
+      _runtimePocketBaseUrl = await RuntimeEnvConfig.pocketBaseUrl();
+    } catch (_) {
+      _runtimePocketBaseUrl = null;
+    }
+  }
 
   /// Liefert die PocketBase-Basis-URL passend zur aktuellen Umgebung.
   ///
@@ -34,15 +51,9 @@ class AppConfig {
   /// 6. Mobile/Desktop + Release → https://your-production-server.com
   static String get pocketBaseUrl {
     // Priorität 1: Runtime-Config (nur Web)
-    if (kIsWeb) {
-      try {
-        final runtimeUrl = js.context['ENV_CONFIG']?['POCKETBASE_URL'];
-        if (runtimeUrl != null && runtimeUrl.toString().isNotEmpty) {
-          return runtimeUrl.toString();
-        }
-      } catch (e) {
-        // ENV_CONFIG nicht verfügbar, fahre mit Fallbacks fort
-      }
+    final runtimeUrl = _runtimePocketBaseUrl;
+    if (runtimeUrl != null && runtimeUrl.isNotEmpty) {
+      return runtimeUrl;
     }
 
     // Priorität 2: Explizites Build-Argument
@@ -69,23 +80,17 @@ class AppConfig {
 
   /// Validiert die Konfiguration und wirft einen Error bei ungültiger
   /// Release-Konfiguration (z.B. Placeholder-URLs in Produktion).
-  /// 
+  ///
   /// Sollte beim App-Start aufgerufen werden.
   static void validateConfig() {
     // Nur in Release-Builds validieren
     if (kDebugMode) return;
 
     // Runtime-Config (Web) ist OK - wird zur Laufzeit gesetzt
-    if (kIsWeb) {
-      try {
-        final runtimeUrl = js.context['ENV_CONFIG']?['POCKETBASE_URL'];
-        if (runtimeUrl != null && runtimeUrl.toString().isNotEmpty) {
-          // Runtime-Config vorhanden, keine weitere Validierung nötig
-          return;
-        }
-      } catch (e) {
-        // Fallthrough zu Build-Time-Validierung
-      }
+    final runtimeUrl = _runtimePocketBaseUrl;
+    if (kIsWeb && runtimeUrl != null && runtimeUrl.isNotEmpty) {
+      // Runtime-Config vorhanden, keine weitere Validierung nötig
+      return;
     }
 
     // Build-Time-Validierung für Release-Builds
