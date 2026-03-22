@@ -1,22 +1,25 @@
 import 'dart:js_interop';
 
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:web/web.dart' as web;
+
 import 'runtime_env_config_platform_interface.dart';
 
-@JS('ENV_CONFIG')
-external JSAny? get _envConfig;
-
 class RuntimeEnvConfigWeb extends RuntimeEnvConfigPlatform {
+  /// Wird vom Flutter Web Plugin-Registrator aufgerufen.
+  static void registerWith(Registrar registrar) {
+    RuntimeEnvConfigPlatform.instance = RuntimeEnvConfigWeb();
+  }
+
   @override
   Future<String?> pocketBaseUrl() async {
     try {
-      final env = _envConfig;
-      if (env == null) return null;
+      // Erwartet: window.ENV_CONFIG = { POCKETBASE_URL: "..." }
+      final dynamic envConfig = (web.window as dynamic).ENV_CONFIG;
+      if (envConfig == null) return null;
 
-      final obj = env as JSObject;
-      final urlAny = obj.getProperty('POCKETBASE_URL'.toJS);
-
-      final url = urlAny?.dartify();
-      if (url is String && url.isNotEmpty) return url;
+      final dynamic value = envConfig.POCKETBASE_URL;
+      if (value is String && value.isNotEmpty) return value;
 
       return null;
     } catch (_) {
