@@ -147,15 +147,10 @@ dev_dependencies:
   
   flutter_lints: ^6.0.0
 
+  # N-001: Mocking-Library
+  # Entscheidung: mockito (mit @GenerateMocks Code-Generation)
+  # mocktail wurde entfernt da es nicht genutzt wurde
   mockito: ^5.4.2
-  mocktail: ^1.0.4
-
-  # Fix: mockito + mocktail gleichzeitig —
-  # beide Libraries erfüllen denselben Zweck (Mocking).
-  # Im Projekt sollte nur eine verwendet werden um Verwirrung
-  # und doppelte Abhängigkeiten zu vermeiden.
-  # Empfehlung: mocktail (kein build_runner nötig, modernere API).
-  # mockito behalten wenn @GenerateMocks bereits im Code genutzt wird.
 
   build_runner: ^2.4.6
   flutter_native_splash: ^2.3.10
@@ -193,12 +188,31 @@ flutter_launcher_icons:
     background_color: "#1976d2"
     theme_color: "#1976d2"
 
-# Fix: dependency_overrides mit Begründung und Version präzisiert —
-# dependency_overrides sind ein letztes Mittel und sollten
-# dokumentiert werden. "any" oder vage Constraints sind gefährlich.
-# Beim nächsten flutter pub upgrade prüfen ob der Override noch nötig ist.
+# ============================================================
+# N-002: Dependency Overrides
+# 
+# ⚠️ WICHTIG: Dependency Overrides sind ein letztes Mittel!
+# Sie sollten minimal gehalten und gut dokumentiert werden.
+# 
+# Bei jedem Major Update prüfen:
+#   flutter pub upgrade --major-versions
+#   → Dann testen ob Override noch nötig ist
+# 
+# ============================================================
 dependency_overrides:
-  # Wird benötigt weil connectivity_plus ^6.1.1 eine neuere
-  # platform_interface erwartet als andere Packages bereitstellen.
-  # Prüfen bei: flutter pub upgrade --major-versions
-  connectivity_plus_platform_interface: ^2.0.0
+  # Override: connectivity_plus_platform_interface
+  # 
+  # Grund:     connectivity_plus ^6.1.1 erwartet ^2.0.0, aber andere
+  #            Packages (z.B. path_provider) nutzen ältere Versionen
+  #            → Versionskonflikte beim pub get
+  # 
+  # Version:   2.0.0 (exakt, nicht ^2.0.0 für Reproduzierbarkeit)
+  # 
+  # Issue:     https://github.com/fluttercommunity/plus_plugins/issues/2847
+  # 
+  # Prüfen:    Bei flutter pub upgrade --major-versions
+  #            Wenn connectivity_plus >= 7.0.0: Override testen ohne
+  # 
+  # Letzte Prüfung: 2026-03-22
+  # 
+  connectivity_plus_platform_interface: 2.0.0
