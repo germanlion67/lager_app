@@ -61,8 +61,8 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
-      retries: 5          # ← erhöht: PocketBase braucht beim ersten Start länger
-      start_period: 15s   # ← erhöht: gibt PocketBase Zeit zum initialisieren
+      retries: 30          # ← erhöht: PocketBase braucht beim ersten Start länger
+      start_period: 60s   # ← erhöht: gibt PocketBase Zeit zum initialisieren
     networks:
       - lager_network
 
