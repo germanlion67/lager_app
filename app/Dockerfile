@@ -1,12 +1,12 @@
 # ============================================================
 # Stage 1: Flutter Web Build
 # ============================================================
-# Pinned base image für Reproducibility
+# Pinned base image for reproducibility
 FROM debian:bookworm-20240513-slim AS build-env
 
 ARG FLUTTER_VERSION=3.41.4
 
-# Install dependencies und cleanup in einem Layer für kleineres Image
+# Install dependencies and cleanup in one layer for smaller image
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl=7.88.1-10+deb12u6 \
     git=1:2.39.2-1.1 \
@@ -49,12 +49,11 @@ RUN flutter build web --release \
 
 # ============================================================
 # Stage 2: Caddy Static File Server with Runtime Config
-# Ersetzt nginx vollständig.
-# Caddy übernimmt nur das Ausliefern der Flutter Web Assets
-# und das SPA-Routing (alle Routen → /index.html).
-# Runtime-Konfiguration wird beim Start aus Umgebungsvariablen generiert.
+# Replaces nginx completely.
+# Caddy serves Flutter Web assets and handles SPA routing (all routes → /index.html).
+# Runtime configuration is generated from environment variables at startup.
 # ============================================================
-# Pinned Caddy version für Reproducibility
+# Pinned Caddy version for reproducibility
 FROM caddy:2.7.6-alpine
 
 # Flutter Web Build aus Stage 1 kopieren

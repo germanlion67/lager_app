@@ -7,7 +7,7 @@
 # - Configuration via environment variables
 # ============================================================
 
-# Pinned base image für Reproducibility
+# Pinned base image for reproducibility
 FROM alpine:3.19.1
 
 # Install dependencies with pinned versions for reproducibility
