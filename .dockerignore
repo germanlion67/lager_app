@@ -1,0 +1,49 @@
+# Docker build context exclusions for repo-root context (docker build -f app/Dockerfile .)
+# Only app/ and packages/ are needed for the Flutter web build.
+
+# Flutter build artifacts and tooling
+app/build/
+app/.dart_tool/
+app/.packages
+
+# IDE
+app/.idea/
+app/.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Platform-specific folders not needed for web build
+app/android/
+app/ios/
+app/macos/
+app/windows/
+app/linux/
+
+# Tests
+app/test/
+app/integration_test/
+
+# Development tools and docs in app/
+app/tool/
+app/*.md
+app/setup_flutter_wsl.sh
+
+# Docker files (not needed inside the image)
+app/Dockerfile
+app/.dockerignore
+app/docker-compose*.yml
+
+# Git
+.git/
+.gitignore
+
+# Server directory (not needed for Flutter web build)
+server/
+
+# Repo-level docs and configs (not needed for Flutter web build)
+docs/
+*.md
+docker-compose*.yml
+docker-stack.yml

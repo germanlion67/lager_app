@@ -163,8 +163,8 @@ services:
   # ============================================================
   app:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: app/Dockerfile
       # Build-Zeit-URL nur als Fallback
       args:
         - POCKETBASE_URL=${POCKETBASE_URL:?POCKETBASE_URL muss gesetzt sein!}
