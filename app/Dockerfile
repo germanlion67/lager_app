@@ -31,9 +31,13 @@ RUN git config --global --add safe.directory /usr/local/flutter \
 WORKDIR /app
 
 # Layer-Caching: Dependencies vor Code
-# (Build-Context ist Repo-Root, daher liegen die Dateien unter app/)
+# Build-Context ist Repo-Root:
+#   - app/pubspec.yaml liegt unter app/ im Context
+#   - packages/ liegt auf Root-Ebene (eine Ebene über app/)
+#   - pubspec.yaml referenziert: path: ../packages/runtime_env_config
+#     → im Container muss das Paket unter /packages/ liegen (außerhalb WORKDIR /app)
 COPY app/pubspec.yaml app/pubspec.lock ./
-COPY app/packages/runtime_env_config ./packages/runtime_env_config
+COPY packages/runtime_env_config /packages/runtime_env_config
 
 RUN flutter pub get
 

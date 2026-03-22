@@ -76,8 +76,8 @@ services:
   # ============================================================
   app:
     build:
-      context: ./app
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: app/Dockerfile
       # Build-Zeit-URL nur als Fallback wenn Runtime-Config fehlt
       args:
         - POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:${PB_PORT:-8080}}
