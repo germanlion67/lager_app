@@ -4,15 +4,42 @@
 #   - Flutter Web Assets ausliefern (/srv)
 #   - SPA-Routing: unbekannte Pfade → /index.html
 #     (Flutter Router übernimmt clientseitig)
+#   - Security-Headers für grundlegenden Schutz
 #
-# Nicht hier (wird vom Nginx Proxy Manager übernommen):
+# Hinweis: Nginx Proxy Manager kann zusätzliche Header hinzufügen
 #   - SSL/HTTPS
-#   - Sicherheits-Header
+#   - Weitere Sicherheits-Header
 #   - Reverse Proxy zu PocketBase
 
 :8081 {
     root * /srv
     encode gzip
+
+    # Security Headers
+    # Diese Header schützen vor gängigen Angriffen und verbessern die Sicherheit
+    header {
+        # Verhindert MIME-Type Sniffing
+        X-Content-Type-Options "nosniff"
+        
+        # Schützt vor Clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        
+        # Aktiviert XSS-Filter in älteren Browsern
+        X-XSS-Protection "1; mode=block"
+        
+        # Kontrolliert welche Referrer-Informationen gesendet werden
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # Content Security Policy - strikt für bessere Sicherheit
+        # Flutter Web benötigt 'unsafe-inline' für Styles und 'unsafe-eval' für Dart
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'self';"
+        
+        # Permissions Policy - schränkt Browser-Features ein
+        Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
+        
+        # Deaktiviert Browser-Features die nicht benötigt werden
+        X-Permitted-Cross-Domain-Policies "none"
+    }
 
     # Cache-Control: index.html nie cachen
     header /index.html Cache-Control "no-cache, no-store, must-revalidate"

@@ -1,18 +1,21 @@
 # ============================================================
 # Stage 1: Flutter Web Build
 # ============================================================
-FROM debian:bookworm-slim AS build-env
+# Pinned base image für Reproducibility
+FROM debian:bookworm-20240513-slim AS build-env
 
 ARG FLUTTER_VERSION=3.41.4
 
+# Install dependencies und cleanup in einem Layer für kleineres Image
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    unzip \
-    xz-utils \
-    zip \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    curl=7.88.1-10+deb12u6 \
+    git=1:2.39.2-1.1 \
+    unzip=6.0-28 \
+    xz-utils=5.4.1-0.2 \
+    zip=3.0-13 \
+    ca-certificates=20230311 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 RUN git clone https://github.com/flutter/flutter.git \
     --branch ${FLUTTER_VERSION} \
@@ -51,7 +54,8 @@ RUN flutter build web --release \
 # und das SPA-Routing (alle Routen → /index.html).
 # Runtime-Konfiguration wird beim Start aus Umgebungsvariablen generiert.
 # ============================================================
-FROM caddy:2-alpine
+# Pinned Caddy version für Reproducibility
+FROM caddy:2.7.6-alpine
 
 # Flutter Web Build aus Stage 1 kopieren
 COPY --from=build-env /app/build/web /srv

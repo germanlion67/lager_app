@@ -7,13 +7,14 @@
 # - Configuration via environment variables
 # ============================================================
 
-FROM alpine:3.19
+# Pinned base image für Reproducibility
+FROM alpine:3.19.1
 
-# Install dependencies
+# Install dependencies with pinned versions for reproducibility
 RUN apk add --no-cache \
-    ca-certificates \
-    wget \
-    unzip
+    ca-certificates=20240226-r0 \
+    wget=1.21.4-r0 \
+    unzip=6.0-r14
 
 # Download and install PocketBase
 ARG POCKETBASE_VERSION=0.36.6
