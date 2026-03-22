@@ -32,6 +32,8 @@ WORKDIR /app
 
 # Layer-Caching: Dependencies vor Code
 COPY pubspec.yaml pubspec.lock ./
+COPY packages/runtime_env_config ./packages/runtime_env_config
+
 RUN flutter pub get
 
 COPY . .
