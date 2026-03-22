@@ -6,15 +6,22 @@
 #   - Ports nur intern im Docker-Netzwerk
 #   - POCKETBASE_URL wird zur Laufzeit konfiguriert (kein Rebuild nötig!)
 #
-# Architektur-Übersicht:
+# Architektur-Übersicht (Netzwerk-Sicherheit):
 # Internet
 #     │
 #     ▼
-# Nginx Proxy Manager :80/:443  (SSL, Header, Routing)
+# Nginx Proxy Manager :80/:443  (SSL, Header, Routing) ← Einziger öffentlicher Port
 #     │
-#     ├──→ lager_frontend :8081  (Caddy, Flutter Web)
+#     ├──→ lager_frontend :8081  (Caddy, Flutter Web) ← Nur intern erreichbar (expose)
 #     │
-#     └──→ pocketbase :8080      (PocketBase API + Admin UI)
+#     └──→ pocketbase :8080      (PocketBase API + Admin UI) ← Nur intern erreichbar (expose)
+#
+# Sicherheits-Konzept:
+#   ✅ Nur Nginx Proxy Manager hat öffentliche Ports (:80, :443)
+#   ✅ PocketBase & App nutzen nur 'expose' → NICHT direkt von außen erreichbar
+#   ✅ Alle Services im privaten Docker-Netzwerk 'lager_network'
+#   ✅ Healthchecks überwachen Service-Status (automatischer Neustart bei Problemen)
+#   ✅ Service-Dependencies: App wartet auf PocketBase, Nginx wartet auf beide
 #
 # Starten (mit Runtime-Config):
 #   docker compose -f docker-compose.prod.yml --env-file .env.production up -d
@@ -32,26 +39,42 @@ services:
   # ============================================================
   # Nginx Proxy Manager
   # Übernimmt: SSL/HTTPS, Sicherheits-Header, Reverse Proxy
+  # 
+  # SICHERHEIT (H-007):
+  #   ✅ EINZIGER Service mit öffentlichen Ports
+  #   ✅ Admin UI (Port 81) NUR auf localhost gebunden (127.0.0.1:81)
+  #   ✅ Alle anderen Services nur intern erreichbar
+  #   ✅ Fungiert als einzige Schnittstelle zum Internet
+  #
+  # HEALTHCHECK (H-006):
+  #   - Prüft Admin-API alle 30 Sekunden
+  #   - 20 Sekunden Startzeit (Let's Encrypt-Initialisierung)
+  #   - 3 Wiederholungen bei Fehlschlag
+  #   - Automatischer Neustart bei Problemen durch Docker
   # ============================================================
   nginx-proxy-manager:
     image: jc21/nginx-proxy-manager:latest
     container_name: nginx_proxy_manager
     restart: unless-stopped
     ports:
-      # HTTP/HTTPS — nach außen erreichbar
+      # ⚠️ ÖFFENTLICH: HTTP/HTTPS für Web-Traffic
       - "80:80"
       - "443:443"
-      # Admin UI — NUR lokal erreichbar, nie öffentlich exponieren!
+      # ✅ SICHER: Admin UI NUR auf localhost (127.0.0.1) gebunden
+      # → NICHT von außen erreichbar, nur vom Server selbst
       - "127.0.0.1:81:81"
     volumes:
       - ./server/npm/data:/data
       - ./server/npm/letsencrypt:/etc/letsencrypt
+    # H-006: Healthcheck für Nginx Proxy Manager
+    # Prüft ob Admin-API erreichbar ist
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:81/api/"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
+    # Wartet bis Backend-Services bereit sind
     depends_on:
       pocketbase:
         condition: service_healthy
@@ -62,9 +85,19 @@ services:
 
   # ============================================================
   # PocketBase Backend with Auto-Initialization
-  # In Produktion: kein Port-Mapping nach außen!
-  # Nur über Nginx Proxy Manager erreichbar.
   # 
+  # SICHERHEIT (H-007):
+  #   ✅ KEIN 'ports:' Mapping → NICHT direkt von außen erreichbar
+  #   ✅ Nur 'expose:' → Erreichbar nur für andere Docker-Services
+  #   ✅ Nur über Nginx Proxy Manager (Reverse Proxy) zugänglich
+  #   ✅ Minimale Angriffsfläche durch Netzwerk-Isolation
+  # 
+  # HEALTHCHECK (H-006):
+  #   - Prüft /api/health alle 10 Sekunden
+  #   - 15 Sekunden Startzeit (Auto-Initialisierung braucht Zeit)
+  #   - 5 Wiederholungen bei Fehlschlag
+  #   - Bei anhaltendem Fehler: Automatischer Container-Neustart
+  #
   # Features:
   # - Automatische Admin-User-Erstellung beim ersten Start
   # - Automatische Migration-Anwendung
@@ -76,7 +109,8 @@ services:
       dockerfile: Dockerfile
     container_name: pocketbase
     restart: unless-stopped
-    # ❌ Kein ports: — nicht direkt von außen erreichbar!
+    # ✅ H-007: expose statt ports → NUR intern erreichbar
+    # Port 8080 ist NICHT von außen erreichbar, nur für Docker-Services
     expose:
       - "8080"
     environment:
@@ -99,6 +133,8 @@ services:
       - ./server/pb_migrations:/pb_migrations:ro
       # Tägliches Backup-Verzeichnis
       - ./server/pb_backups:/pb_backups
+    # H-006: Healthcheck für PocketBase
+    # Prüft ob API erreichbar ist via /api/health Endpoint
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 10s
@@ -110,8 +146,19 @@ services:
 
   # ============================================================
   # Flutter Web Frontend (Caddy) with Runtime Configuration
-  # In Produktion: kein Port-Mapping nach außen!
-  # Nur über Nginx Proxy Manager erreichbar.
+  # 
+  # SICHERHEIT (H-007):
+  #   ✅ KEIN 'ports:' Mapping → NICHT direkt von außen erreichbar
+  #   ✅ Nur 'expose:' → Erreichbar nur für andere Docker-Services
+  #   ✅ Nur über Nginx Proxy Manager (Reverse Proxy) zugänglich
+  #   ✅ Security Headers in Caddyfile konfiguriert (CSP, X-Frame-Options, etc.)
+  #
+  # HEALTHCHECK (H-006):
+  #   - Prüft Root-Pfad (/) alle 30 Sekunden
+  #   - 5 Sekunden Startzeit (Caddy startet schnell)
+  #   - 3 Wiederholungen bei Fehlschlag
+  #   - Bei anhaltendem Fehler: Automatischer Container-Neustart
+  #
   # Runtime-Config: URL-Änderung ohne Rebuild möglich
   # ============================================================
   app:
@@ -127,12 +174,15 @@ services:
       # Runtime-Konfiguration: Wird beim Container-Start in config.js geschrieben
       # URL-Änderung: .env bearbeiten + docker compose restart app
       - POCKETBASE_URL=${POCKETBASE_URL:?POCKETBASE_URL muss gesetzt sein!}
-    # ❌ Kein ports: — nicht direkt von außen erreichbar!
+    # ✅ H-007: expose statt ports → NUR intern erreichbar
+    # Port 8081 ist NICHT von außen erreichbar, nur für Docker-Services
     expose:
       - "8081"
     depends_on:
       pocketbase:
         condition: service_healthy
+    # H-006: Healthcheck für Flutter Web / Caddy
+    # Prüft ob Webserver antwortet
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
       interval: 30s

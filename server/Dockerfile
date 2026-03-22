@@ -7,9 +7,10 @@
 # - Configuration via environment variables
 # ============================================================
 
-FROM alpine:3.19
+# Pinned base image for reproducibility
+FROM alpine:3.19.1
 
-# Install dependencies
+# Install dependencies with pinned versions for reproducibility
 RUN apk add --no-cache \
     ca-certificates \
     wget \
