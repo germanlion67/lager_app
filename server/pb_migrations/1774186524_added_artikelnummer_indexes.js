@@ -20,7 +20,7 @@ migrate(
     //
     // WICHTIG: PocketBase erwartet hier ein core.Field Objekt.
     // Daher muss das Feld via `new Field({...})` erstellt werden.
-    collection.fields.addAt(
+    collection.fields.add(
       1,
       new Field({
         autogeneratePattern: "",
