@@ -222,6 +222,54 @@ class PocketBaseService {
   /// Gibt die Default-URL aus AppConfig zurück.
   static String get defaultUrl => AppConfig.pocketBaseUrl;
 
+  // ---------------------------------------------------------------------------
+  // Authentication
+  // ---------------------------------------------------------------------------
+
+  /// Gibt zurück, ob aktuell ein Benutzer eingeloggt ist.
+  bool get isAuthenticated {
+    final c = _client;
+    if (c == null) return false;
+    return c.authStore.isValid;
+  }
+
+  /// Gibt die ID des aktuell eingeloggten Benutzers zurück, oder null.
+  String? get currentUserId {
+    final c = _client;
+    if (c == null) return null;
+    if (!c.authStore.isValid) return null;
+    return c.authStore.record?.id;
+  }
+
+  /// Loggt einen Benutzer mit E-Mail und Passwort ein.
+  ///
+  /// Gibt [true] zurück bei Erfolg, [false] bei Fehler.
+  Future<bool> login(String email, String password) async {
+    final c = _client;
+    if (c == null) {
+      _logger.w('⚠️ PocketBaseService.login(): Client nicht initialisiert.');
+      return false;
+    }
+    try {
+      await c.collection('users').authWithPassword(email, password);
+      _logger.i('✅ Login erfolgreich: $email');
+      return true;
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Login fehlgeschlagen für $email',
+        error: e,
+        stackTrace: stack,
+      );
+      return false;
+    }
+  }
+
+  /// Loggt den aktuellen Benutzer aus.
+  void logout() {
+    _client?.authStore.clear();
+    _logger.i('✅ Logout durchgeführt.');
+  }
+
   // FIX Problem 3: Testing-Override — ermöglicht Mocking in Unit-Tests.
   // Nur in Tests aufrufen, nie in Produktionscode.
   // ignore: use_setters_to_change_properties

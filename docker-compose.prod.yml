@@ -85,6 +85,8 @@ services:
       - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD:-changeme123}
       - PB_DATA_DIR=/pb_data
       - PB_MIGRATIONS_DIR=/pb_migrations
+      - PB_FORCE_SUPERUSER_UPSERT=${PB_FORCE_SUPERUSER_UPSERT:-0}
+      - PB_DEV_MODE=${PB_DEV_MODE:-0}
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public

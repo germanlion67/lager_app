@@ -100,7 +100,7 @@ class Artikel {
       'beschreibung': beschreibung,
       'uuid': uuid,
       'deleted': deleted,
-      'deviceId': deviceId,
+      'device_id': deviceId,
       // FIX: remote_path ergänzt — PocketBase speichert den Bild-Pfad
       // im Record. Ohne dieses Feld bleibt nach einem Upload der alte
       // Pfad im Record stehen.

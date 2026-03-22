@@ -198,6 +198,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     final pb = _pbService.client;
     final body = artikel.toPocketBaseMap();
 
+    // Prod mode: include owner field when authenticated
+    if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
+      body['owner'] = _pbService.currentUserId;
+    }
+
     final List<http.MultipartFile> files = [];
     if (_bildBytes != null && _bildDateiname != null) {
       files.add(http.MultipartFile.fromBytes(

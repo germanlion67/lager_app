@@ -1,13 +1,87 @@
-{
-  "id": "pbc_895755225",
-  "listRule": "@request.auth.id != ''",
-  "viewRule": "@request.auth.id != ''",
-  "createRule": "@request.auth.id != ''",
-  "updateRule": "@request.auth.id != ''",
-  "deleteRule": "@request.auth.id != ''",
-  "name": "artikel",
-  "type": "base",
-  "fields": [
+[
+  {
+    "id": "pbc_users_auth",
+    "listRule": "@request.auth.id != ''",
+    "viewRule": "@request.auth.id != ''",
+    "createRule": null,
+    "updateRule": "@request.auth.id = id",
+    "deleteRule": null,
+    "name": "users",
+    "type": "auth",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "exceptDomains": null,
+        "hidden": false,
+        "id": "email374637678",
+        "name": "email",
+        "onlyDomains": null,
+        "presentable": false,
+        "required": true,
+        "system": true,
+        "type": "email"
+      },
+      {
+        "hidden": false,
+        "id": "bool1547992806",
+        "name": "emailVisibility",
+        "presentable": false,
+        "required": false,
+        "system": true,
+        "type": "bool"
+      },
+      {
+        "hidden": false,
+        "id": "bool256245529",
+        "name": "verified",
+        "presentable": false,
+        "required": false,
+        "system": true,
+        "type": "bool"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text_role_field",
+        "max": 0,
+        "min": 0,
+        "name": "role",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": false,
+        "system": false,
+        "type": "text"
+      }
+    ],
+    "indexes": [
+      "CREATE UNIQUE INDEX `idx_email_users` ON `users` (`email`)"
+    ],
+    "system": false
+  },
+  {
+    "id": "pbc_895755225",
+    "listRule": "",
+    "viewRule": "",
+    "createRule": "",
+    "updateRule": "",
+    "deleteRule": "",
+    "name": "artikel",
+    "type": "base",
+    "fields": [
     {
       "autogeneratePattern": "[a-z0-9]{15}",
       "hidden": false,
@@ -263,8 +337,35 @@
       "presentable": false,
       "system": false,
       "type": "autodate"
+    },
+    {
+      "cascadeDelete": false,
+      "collectionId": "pbc_users_auth",
+      "hidden": false,
+      "id": "relation_owner_field",
+      "maxSelect": 1,
+      "minSelect": 0,
+      "name": "owner",
+      "presentable": false,
+      "required": false,
+      "system": false,
+      "type": "relation"
+    },
+    {
+      "cascadeDelete": false,
+      "collectionId": "pbc_users_auth",
+      "hidden": false,
+      "id": "relation_shared_field",
+      "maxSelect": 99,
+      "minSelect": 0,
+      "name": "sharedWith",
+      "presentable": false,
+      "required": false,
+      "system": false,
+      "type": "relation"
     }
   ],
   "indexes": [],
   "system": false
-}
+  }
+]
