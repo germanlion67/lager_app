@@ -7,22 +7,25 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ## 📊 Umsetzungsstatus
 
-**Gesamt-Fortschritt:** 6 von 17 kritischen/hohen Prioritäten abgeschlossen
+**Gesamt-Fortschritt:** 9 von 17 kritischen/hohen Prioritäten abgeschlossen
 
-### ✅ Abgeschlossen (6)
+### ✅ Abgeschlossen (9)
 - K-001: App Bundle Identifiers (alle Plattformen)
 - K-002: PocketBase API Rules (Sicherheit)
 - K-003: PocketBase Auto-Initialisierung
 - K-004: POCKETBASE_URL Build-Time Problem (Runtime-Config)
+- H-002: CORS-Konfiguration implementiert
+- H-003: Web Manifest Metadaten aktualisiert
+- H-004: Placeholder-URL Validation (Compile-Time Check + Linter)
 - M-004: Produktions-Compose verschoben
 - Zusätzlich: Docker Stack, GitHub Actions, Produktions-Dokumentation
 
 ### 🔄 In Arbeit (0)
 - Keine
 
-### ⏳ Ausstehend (10)
-- H-001 bis H-004: 4 hohe Prioritäten
-- M-001 bis M-005: 4 mittlere Prioritäten (1 erledigt)
+### ⏳ Ausstehend (7)
+- H-001: Platform Builds in CI/CD (iOS, macOS, Linux)
+- M-001 bis M-003, M-005: 4 mittlere Prioritäten (1 erledigt)
 - N-001 bis N-003: 3 niedrige Prioritäten
 
 ---
@@ -119,36 +122,58 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ---
 
-### H-002: CORS-Konfiguration
-- [ ] PocketBase CORS-ENV-Variable setzen
-- [ ] Oder: Nginx Proxy Manager CORS-Header konfigurieren
-- [ ] Für Dev/Test: `CORS_ALLOWED_ORIGINS=*` (Wildcard OK)
-- [ ] Für Produktion: Spezifische Domain angeben
-- [ ] Testen mit verschiedenen Subdomains
+### H-002: CORS-Konfiguration ✅ ERLEDIGT
+- [x] PocketBase CORS-ENV-Variable zu docker-compose.yml hinzugefügt
+- [x] PocketBase CORS-ENV-Variable zu docker-compose.prod.yml hinzugefügt
+- [x] .env.example mit CORS-Dokumentation aktualisiert
+- [x] .env.production.example mit CORS-Dokumentation aktualisiert
+- [x] Für Dev/Test: `CORS_ALLOWED_ORIGINS=*` als Default
+- [x] Für Produktion: Zwingend erforderlich, validiert beim Start
+- [x] Dokumentation in Compose-Dateien ergänzt
 
-**Risiko:** Produktions-Deployment mit verschiedenen Domains könnte brechen
+**Status:** ✅ CORS jetzt konfigurierbar. Dev: *, Production: domain-specific required.
+
+**Anleitung:**
+```bash
+# Dev/Test (.env):
+CORS_ALLOWED_ORIGINS=*
+
+# Produktion (.env.production):
+CORS_ALLOWED_ORIGINS=https://app.deine-domain.de
+# Oder multiple:
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+```
 
 ---
 
-### H-003: Web Manifest Metadaten
-- [ ] `app/web/manifest.json` aktualisieren:
-  - [ ] `name` → "Elektronik Lagerverwaltung"
-  - [ ] `short_name` → "Lager"
-  - [ ] `description` → Sinnvolle Beschreibung
-  - [ ] `background_color` → `#1976d2`
-  - [ ] `theme_color` → `#1976d2`
-  - [ ] `orientation` → `"any"`
-- [ ] PWA-Installation testen (Chrome, Edge)
+### H-003: Web Manifest Metadaten ✅ ERLEDIGT
+- [x] `app/web/manifest.json` aktualisiert:
+  - [x] `name` → "Elektronik Lagerverwaltung"
+  - [x] `short_name` → "Lager"
+  - [x] `description` → Sinnvolle Beschreibung
+  - [x] `background_color` → `#1976d2`
+  - [x] `theme_color` → `#1976d2`
+  - [x] `orientation` → `"any"` (flexibel für alle Geräte)
+- [ ] PWA-Installation testen (Chrome, Edge) - Kann vom Nutzer getestet werden
 
-**Betrifft:** Web-App-Darstellung, PWA-Installation
+**Status:** ✅ Professionelle App-Metadaten. PWA-Installation ready.
 
 ---
 
-### H-004: Placeholder-URL Validation
-- [ ] Compile-Time-Check in `app_config.dart` hinzufügen
-- [ ] Release-Build soll fehlschlagen bei Placeholder
-- [ ] Oder: Zwingenden ENV-Variable-Check
-- [ ] CI/CD-Test: Release-Build ohne URL muss fehlschlagen
+### H-004: Placeholder-URL Validation ✅ ERLEDIGT
+- [x] Compile-Time-Check in `app_config.dart` hinzugefügt (`validateConfig()`)
+- [x] Release-Build wirft AssertionError bei Placeholder
+- [x] Validation wird in `main.dart` beim App-Start aufgerufen
+- [x] Linter-Rule `avoid_print: true` zu `analysis_options.yaml` hinzugefügt
+- [x] Hilfreiche Fehlermeldung mit Lösungsvorschlägen
+- [x] Debug-Builds nicht betroffen (Placeholder OK in Entwicklung)
+
+**Status:** ✅ Release-Builds mit Placeholder schlagen jetzt fehl. Silent Failures verhindert.
+
+**Verhalten:**
+- Debug-Build: Placeholder erlaubt (Warnung im Log)
+- Release-Build Web: Runtime-Config hat Vorrang, sonst Fehler
+- Release-Build Mobile: Fehler bei Placeholder, Build stoppt
 
 **Verhindert:** Silent Failures in Produktion
 

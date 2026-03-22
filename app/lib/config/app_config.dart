@@ -66,4 +66,42 @@ class AppConfig {
   static bool get hasPlaceholderUrl =>
       pocketBaseUrl.contains('192.168.178.XX') ||
       pocketBaseUrl.contains('your-production-server.com');
+
+  /// Validiert die Konfiguration und wirft einen Error bei ungültiger
+  /// Release-Konfiguration (z.B. Placeholder-URLs in Produktion).
+  /// 
+  /// Sollte beim App-Start aufgerufen werden.
+  static void validateConfig() {
+    // Nur in Release-Builds validieren
+    if (kDebugMode) return;
+
+    // Runtime-Config (Web) ist OK - wird zur Laufzeit gesetzt
+    if (kIsWeb) {
+      try {
+        final runtimeUrl = js.context['ENV_CONFIG']?['POCKETBASE_URL'];
+        if (runtimeUrl != null && runtimeUrl.toString().isNotEmpty) {
+          // Runtime-Config vorhanden, keine weitere Validierung nötig
+          return;
+        }
+      } catch (e) {
+        // Fallthrough zu Build-Time-Validierung
+      }
+    }
+
+    // Build-Time-Validierung für Release-Builds
+    if (hasPlaceholderUrl) {
+      throw AssertionError(
+        '❌ INVALID CONFIGURATION: Release build with placeholder URL!\n'
+        '\n'
+        'Current URL: $pocketBaseUrl\n'
+        '\n'
+        'LÖSUNG:\n'
+        '• Web: Setze POCKETBASE_URL Umgebungsvariable (Runtime-Config)\n'
+        '• Mobile/Desktop: Setze --dart-define=POCKETBASE_URL=https://...\n'
+        '• Oder: Ändere die Fallback-URLs in app_config.dart\n'
+        '\n'
+        'Siehe: docs/PRODUCTION_DEPLOYMENT.md\n',
+      );
+    }
+  }
 }

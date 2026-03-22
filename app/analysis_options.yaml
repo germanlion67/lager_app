@@ -58,6 +58,10 @@ linter:
     prefer_final_locals: true
     prefer_final_fields: true
 
+    # Verhindert debugPrint/print in Release-Builds
+    # Verwende stattdessen AppLogService.logger
+    avoid_print: true
+
     # ============================================================
     # Flutter-spezifisch
     # ============================================================
