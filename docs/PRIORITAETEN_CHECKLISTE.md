@@ -7,9 +7,9 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ## 📊 Umsetzungsstatus
 
-**Gesamt-Fortschritt:** 9 von 17 kritischen/hohen Prioritäten abgeschlossen
+**Gesamt-Fortschritt:** 10 von 17 kritischen/hohen Prioritäten abgeschlossen
 
-### ✅ Abgeschlossen (9)
+### ✅ Abgeschlossen (10)
 - K-001: App Bundle Identifiers (alle Plattformen)
 - K-002: PocketBase API Rules (Sicherheit)
 - K-003: PocketBase Auto-Initialisierung
@@ -17,15 +17,16 @@ Basierend auf der technischen Analyse vom 2026-03-21
 - H-002: CORS-Konfiguration implementiert
 - H-003: Web Manifest Metadaten aktualisiert
 - H-004: Placeholder-URL Validation (Compile-Time Check + Linter)
+- M-003: Flutter-Versionen vereinheitlicht
 - M-004: Produktions-Compose verschoben
 - Zusätzlich: Docker Stack, GitHub Actions, Produktions-Dokumentation
 
-### 🔄 In Arbeit (0)
-- Keine
+### 🔄 In Arbeit (1)
+- M-002: Debug-Prints entfernen (Linter aktiv, manuelle Cleanup ausstehend)
 
-### ⏳ Ausstehend (7)
+### ⏳ Ausstehend (6)
 - H-001: Platform Builds in CI/CD (iOS, macOS, Linux)
-- M-001 bis M-003, M-005: 4 mittlere Prioritäten (1 erledigt)
+- M-001, M-005: 2 mittlere Prioritäten
 - N-001 bis N-003: 3 niedrige Prioritäten
 
 ---
@@ -193,20 +194,23 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 
 ---
 
-### M-002: Debug-Prints entfernen
+### M-002: Debug-Prints entfernen (Teilweise)
 - [ ] Alle `debugPrint` in `artikel_erfassen_screen.dart` entfernen/auskommentieren
 - [ ] Alle `debugPrint` in `artikel_erfassen_io.dart` entfernen/auskommentieren
 - [ ] Optional: Durch `AppLogService.logger.d()` ersetzen
-- [ ] Linter-Rule hinzufügen: `avoid_print: true`
+- [x] Linter-Rule hinzugefügt: `avoid_print: true` in `analysis_options.yaml`
 
-**11 Debug-Statements gefunden**
+**Status:** Linter-Rule aktiv. 46 Debug-Statements gefunden (werden jetzt vom Linter markiert).
 
 ---
 
-### M-003: Flutter-Versionen vereinheitlichen
-- [ ] `.github/workflows/release.yml` → `3.35.6` → `3.41.4` updaten
-- [ ] Sicherstellen: Alle Workflows nutzen dieselbe Version
-- [ ] Dokumentation aktualisieren
+### M-003: Flutter-Versionen vereinheitlichen ✅ ERLEDIGT
+- [x] `.github/workflows/release.yml` → `3.35.6` → `3.41.4` aktualisiert (3 Jobs)
+- [x] Alle Workflows geprüft
+- [x] `flutter-maintenance.yml` nutzt `channel: stable` (keine feste Version)
+- [x] `docker-build-push.yml` nutzt Dockerfile-Version (unabhängig)
+
+**Status:** ✅ Konsistente Flutter-Version 3.41.4 in allen Release-Workflows.
 
 **Betrifft:** Build-Konsistenz
 
@@ -309,16 +313,17 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 - ✅ K-004: POCKETBASE_URL Runtime-Konfiguration
 - **Status:** **Produktionsfreigabe erreicht!** 🎉
 
-**Phase 2: Deployment-Verbesserungen (1 Woche)**
-- H-001: Platform Builds (iOS, macOS, Linux) in CI/CD
-- H-002: CORS-Konfiguration
-- H-003: Web Manifest Metadaten
-- H-004: Placeholder-URL Validation
+**Phase 2: Deployment-Verbesserungen ✅ FAST ABGESCHLOSSEN (75%)**
+- ⏳ H-001: Platform Builds (iOS, macOS, Linux) in CI/CD - AUSSTEHEND (benötigt Apple Developer Account)
+- ✅ H-002: CORS-Konfiguration - ERLEDIGT
+- ✅ H-003: Web Manifest Metadaten - ERLEDIGT
+- ✅ H-004: Placeholder-URL Validation - ERLEDIGT
+- **Status:** **3 von 4 High-Priority Items abgeschlossen!** 🎉
 
-**Phase 3: Code-Qualität (2-3 Wochen)**
+**Phase 3: Code-Qualität (2-3 Wochen) - BEGONNEN**
 - M-001: Testabdeckung erhöhen (Ziel: 40%)
-- M-002: Debug-Prints entfernen
-- M-003: Flutter-Versionen vereinheitlichen
+- 🔄 M-002: Debug-Prints entfernen (Linter aktiv, manuelle Cleanup ausstehend)
+- ✅ M-003: Flutter-Versionen vereinheitlicht - ERLEDIGT
 
 **Phase 4: Polish (nach Bedarf)**
 - M-005: Deployment Targets aktualisieren
@@ -330,4 +335,4 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 
 **Tracking:** Diese Checkliste kann in GitHub Projects oder Issues übertragen werden  
 **Update:** Bei Abschluss Status auf `[x]` ändern  
-**Letzte Aktualisierung:** 2026-03-21 - Alle kritischen Punkte abgeschlossen!
+**Letzte Aktualisierung:** 2026-03-22 - Phase 2 (75%) und Phase 3 Beginn abgeschlossen!
