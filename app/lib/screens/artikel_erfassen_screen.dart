@@ -4,12 +4,12 @@ import 'dart:async' show unawaited;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
-import 'package:logger/logger.dart';
 import '../models/artikel_model.dart';
 import '../services/pocketbase_service.dart';
 import '../services/artikel_db_service.dart';
+import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
 import '../widgets/article_icons.dart';
 
@@ -24,7 +24,8 @@ class ArtikelErfassenScreen extends StatefulWidget {
 }
 
 class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
-  final Logger _logger = Logger();
+  // M-002: Verwende AppLogService statt lokalem Logger
+  final _logger = AppLogService.logger;
 
   final _formKey = GlobalKey<FormState>();
   final _nameCtrl = TextEditingController();
@@ -233,9 +234,9 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
   Future<void> _saveMobile(Artikel artikel) async {
     final artikelId = await _db.insertArtikel(artikel);
-    debugPrint('[DEBUG] artikelId: $artikelId');
-    debugPrint('[DEBUG] _bildBytes null: ${_bildBytes == null}');
-    debugPrint('[DEBUG] _bildPfad (raw): $_bildPfad');
+    _logger.d('artikelId: $artikelId');
+    _logger.d('_bildBytes null: ${_bildBytes == null}');
+    _logger.d('_bildPfad (raw): $_bildPfad');
 
     // ✅ FIX 1: Nur externe Pfade als Quelle erlauben.
     // Verhindert dass ein bereits intern kopiertes Bild
@@ -245,7 +246,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         ? _bildPfad
         : null;
 
-    debugPrint('[DEBUG] quellPfad (nach Filter): $quellPfad');
+    _logger.d('quellPfad (nach Filter): $quellPfad');
 
     String? localImagePath;
     if (_bildBytes != null || quellPfad != null) {
@@ -258,7 +259,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
       if (localImagePath != null) {
         await _db.updateBildPfad(artikelId, localImagePath);
-        debugPrint('[DEBUG] localImagePath gespeichert: $localImagePath');
+        _logger.d('localImagePath gespeichert: $localImagePath');
       }
     }
 
