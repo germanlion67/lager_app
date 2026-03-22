@@ -33,7 +33,7 @@ WORKDIR /app
 # Layer-Caching: Dependencies vor Code
 # (Build-Context ist Repo-Root, daher liegen die Dateien unter app/)
 COPY app/pubspec.yaml app/pubspec.lock ./
-COPY app/packages/runtime_env_config ./packages/runtime_env_config
+COPY packages/runtime_env_config /packages/runtime_env_config
 
 RUN flutter pub get
 
