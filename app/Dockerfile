@@ -31,12 +31,14 @@ RUN git config --global --add safe.directory /usr/local/flutter \
 WORKDIR /app
 
 # Layer-Caching: Dependencies vor Code
-COPY pubspec.yaml pubspec.lock ./
-COPY packages/runtime_env_config ./packages/runtime_env_config
+# (Build-Context ist Repo-Root, daher liegen die Dateien unter app/)
+COPY app/pubspec.yaml app/pubspec.lock ./
+COPY app/packages/runtime_env_config ./packages/runtime_env_config
 
 RUN flutter pub get
 
-COPY . .
+# Restlichen App-Code kopieren (nur app/, nicht das ganze Repo)
+COPY app/ .
 
 # PocketBase URL wird zur Build-Zeit eingebrannt.
 # Dev/Test:   http://localhost:8080  (PocketBase direkt, kein Proxy)
@@ -61,11 +63,11 @@ FROM caddy:2.7.6-alpine
 # Flutter Web Build aus Stage 1 kopieren
 COPY --from=build-env /app/build/web /srv
 
-# Caddyfile für SPA-Routing
-COPY Caddyfile /etc/caddy/Caddyfile
+# Caddyfile für SPA-Routing (liegt im Repo unter app/Caddyfile)
+COPY app/Caddyfile /etc/caddy/Caddyfile
 
-# Entrypoint-Script für Runtime-Config
-COPY docker-entrypoint.sh /usr/local/bin/
+# Entrypoint-Script für Runtime-Config (liegt im Repo unter app/docker-entrypoint.sh)
+COPY app/docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 EXPOSE 8081
