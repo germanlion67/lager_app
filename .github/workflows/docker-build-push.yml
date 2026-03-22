@@ -134,11 +134,12 @@ jobs:
       - name: Start services with Docker Compose
         run: |
           docker compose -f docker-compose.yml --env-file .env.test up -d --build
-          
-      - name: Wait for services to be healthy
+
+      # NEW: wait for actual HTTP endpoints instead of Docker "healthy" status
+      - name: Wait for PocketBase health endpoint
         run: |
-          timeout 120 sh -c 'until docker compose ps | grep -q "healthy"; do sleep 2; done'
-          
+          timeout 180 sh -c 'until curl -fsS http://localhost:8080/api/health; do sleep 2; done'
+         
       - name: Check PocketBase health
         run: |
           curl -f http://localhost:8080/api/health || exit 1
