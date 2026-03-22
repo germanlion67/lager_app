@@ -111,6 +111,19 @@
       "type": "text"
     },
     {
+      "autogeneratePattern": "",
+      "hidden": false,
+      "id": "number_artikelnummer",
+      "max": 99999,
+      "min": 1,
+      "name": "artikelnummer",
+      "onlyInt": true,
+      "presentable": true,
+      "required": false,
+      "system": false,
+      "type": "number"
+    },
+    {
       "hidden": false,
       "id": "number4267035981",
       "max": null,
@@ -365,7 +378,13 @@
       "type": "relation"
     }
   ],
-  "indexes": [],
+  "indexes": [
+    "CREATE UNIQUE INDEX `idx_unique_artikelnummer` ON `artikel` (`artikelnummer`) WHERE `artikelnummer` IS NOT NULL AND `deleted` = FALSE",
+    "CREATE INDEX `idx_search_name` ON `artikel` (`name`) WHERE `deleted` = FALSE",
+    "CREATE INDEX `idx_search_beschreibung` ON `artikel` (`beschreibung`) WHERE `deleted` = FALSE",
+    "CREATE INDEX `idx_sync_deleted_updated` ON `artikel` (`deleted`, `updated_at`)",
+    "CREATE INDEX `idx_uuid` ON `artikel` (`uuid`)"
+  ],
   "system": false
   }
 ]

@@ -7,6 +7,7 @@ import 'services/connectivity_service.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart'; // N-004: Roboto Font
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'screens/artikel_list_screen.dart';
@@ -223,13 +224,16 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       title: 'Elektronik Verwaltung',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        // N-004: Roboto Font als Standard-Schriftart
+        textTheme: GoogleFonts.robotoTextTheme(
+          ThemeData.light().textTheme.copyWith(
+            bodyLarge: const TextStyle(color: Colors.black),
+            bodyMedium: const TextStyle(color: Colors.black),
+            bodySmall: const TextStyle(color: Colors.black),
+          ),
+        ),
         inputDecorationTheme: const InputDecorationTheme(
           labelStyle: TextStyle(color: Colors.black),
-        ),
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.black),
-          bodyMedium: TextStyle(color: Colors.black),
-          bodySmall: TextStyle(color: Colors.black),
         ),
       ),
       initialRoute: '/',

@@ -13,6 +13,7 @@ const _undefined = _Undefined();
 class Artikel {
   final int? id;
   final String name;
+  final int? artikelnummer; // M-007: Eindeutige Artikelnummer (optional für Abwärtskompatibilität)
   final int menge;
   final String ort;
   final String fach;
@@ -37,6 +38,7 @@ class Artikel {
   Artikel({
     this.id,
     required this.name,
+    this.artikelnummer, // M-007: Optional für Abwärtskompatibilität
     required this.menge,
     required this.ort,
     required this.fach,
@@ -63,6 +65,7 @@ class Artikel {
   Map<String, dynamic> toMap() {
     final map = <String, dynamic>{
       'name': name,
+      'artikelnummer': artikelnummer, // M-007
       'menge': menge,
       'ort': ort,
       'fach': fach,
@@ -94,6 +97,7 @@ class Artikel {
   Map<String, dynamic> toPocketBaseMap() {
     return {
       'name': name,
+      'artikelnummer': artikelnummer, // M-007
       'menge': menge,
       'ort': ort,
       'fach': fach,
@@ -135,6 +139,7 @@ class Artikel {
     return Artikel(
       id: parsedId,
       name: map['name']?.toString() ?? '',
+      artikelnummer: _parseIntNullable(map['artikelnummer']), // M-007: null wenn nicht vorhanden
       menge: parsedMenge,
       ort: map['ort']?.toString() ?? '',
       fach: map['fach']?.toString() ?? '',
@@ -182,6 +187,7 @@ class Artikel {
     return Artikel(
       id: null,
       name: data['name']?.toString() ?? '',
+      artikelnummer: _parseIntNullable(data['artikelnummer']), // M-007
       menge: parsedMenge,
       ort: data['ort']?.toString() ?? '',
       fach: data['fach']?.toString() ?? '',
@@ -267,11 +273,20 @@ class Artikel {
     return parsed ?? 0;
   }
 
+  // M-007: Helper für nullable int parsing
+  static int? _parseIntNullable(dynamic value) {
+    if (value == null) return null;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    return int.tryParse(value.toString());
+  }
+
   // ==================== COPY WITH ====================
 
   Artikel copyWith({
     Object? id = _undefined,
     String? name,
+    Object? artikelnummer = _undefined, // M-007: nullable field
     int? menge,
     String? ort,
     String? fach,
@@ -292,6 +307,7 @@ class Artikel {
     return Artikel(
       id: id is _Undefined ? this.id : id as int?,
       name: name ?? this.name,
+      artikelnummer: artikelnummer is _Undefined ? this.artikelnummer : artikelnummer as int?, // M-007
       menge: menge ?? this.menge,
       ort: ort ?? this.ort,
       fach: fach ?? this.fach,
@@ -343,7 +359,7 @@ class Artikel {
 
   @override
   String toString() {
-    return 'Artikel(uuid: $uuid, name: $name, menge: $menge, '
+    return 'Artikel(uuid: $uuid, artikelnummer: $artikelnummer, name: $name, menge: $menge, '
         'ort: $ort, fach: $fach, deleted: $deleted)';
   }
 

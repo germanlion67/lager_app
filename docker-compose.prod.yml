@@ -104,9 +104,8 @@ services:
   # - Konfiguration über Umgebungsvariablen
   # ============================================================
   pocketbase:
-    build:
-      context: ./server
-      dockerfile: Dockerfile
+    # H-005: Verwende vorgebautes Image statt lokalem Build
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_USERNAME:-germanlion67}/lager_app_pocketbase:${VERSION:-latest}
     container_name: pocketbase
     restart: unless-stopped
     # ✅ H-007: expose statt ports → NUR intern erreichbar
@@ -162,12 +161,9 @@ services:
   # Runtime-Config: URL-Änderung ohne Rebuild möglich
   # ============================================================
   app:
-    build:
-      context: .
-      dockerfile: app/Dockerfile
-      # Build-Zeit-URL nur als Fallback
-      args:
-        - POCKETBASE_URL=${POCKETBASE_URL:?POCKETBASE_URL muss gesetzt sein!}
+    # H-005: Verwende vorgebautes Image statt lokalem Build
+    # Runtime-Config: URL wird beim Container-Start dynamisch gesetzt
+    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_USERNAME:-germanlion67}/lager_app_web:${VERSION:-latest}
     container_name: lager_frontend
     restart: unless-stopped
     environment:

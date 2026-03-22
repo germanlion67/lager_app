@@ -3,9 +3,12 @@
 
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart' show debugPrint; // ← FIX
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import '../services/app_log_service.dart';
+
+// M-002: Verwende AppLogService statt debugPrint
+final _logger = AppLogService.logger;
 
 /// Liest Datei-Bytes von einem lokalen Pfad.
 Future<Uint8List> readFileBytes(String path) async {
@@ -34,13 +37,13 @@ Future<String?> copyImageToLocalDirectory({
 
   try {
     final appDir = await getApplicationDocumentsDirectory();
-    debugPrint('[DEBUG] appDir: ${appDir.path}');  //DEBUG-PRINT
+    _logger.d('appDir: ${appDir.path}');
 
     final imagesDir = Directory(p.join(appDir.path, 'images'));
-    debugPrint('[DEBUG] imagesDir: ${imagesDir.path}');   //DEBUG-PRINT
-    debugPrint('[DEBUG] imagesDir exists: ${await imagesDir.exists()}');   //DEBUG-PRINT
-    debugPrint('[DEBUG] bildBytes null: ${bildBytes == null}');   //DEBUG-PRINT
-    debugPrint('[DEBUG] bildPfad: $bildPfad');   //DEBUG-PRINT
+    _logger.d('imagesDir: ${imagesDir.path}');
+    _logger.d('imagesDir exists: ${await imagesDir.exists()}');
+    _logger.d('bildBytes null: ${bildBytes == null}');
+    _logger.d('bildPfad: $bildPfad');
       await imagesDir.create(recursive: true);
 
     final nameSlug = _slug(artikelName.isEmpty ? 'artikel' : artikelName);
@@ -60,7 +63,7 @@ Future<String?> copyImageToLocalDirectory({
 
     return localImagePath;
   } catch (e, st) {
-    debugPrint('[copyImageToLocalDirectory] Fehler: $e\n$st');
+    _logger.e('[copyImageToLocalDirectory] Fehler', error: e, stackTrace: st);
     return null;
   }
 }

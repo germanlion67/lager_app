@@ -2,6 +2,87 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [1.2.0] - 2026-03-22
+
+### 🎉 Hauptfeatures
+
+#### H-001 & H-005: Release-Automatisierung & Image-Strategie
+- **Automatische Release-Notes**: GitHub Release enthält automatisch generierte Release-Notes mit Download-Links
+- **Image-Tagging-Strategie**: Vollständige Dokumentation für SemVer-Tags und Docker-Images
+- **Production-Images**: docker-compose.prod.yml nutzt jetzt vorgebaute Images (kein lokaler Build)
+
+#### M-007: Artikelnummer & Datenbank-Optimierung
+- **Artikelnummer-Feld**: Eindeutige Artikelnummer (1-99999) für jeden Artikel
+- **Unique Constraint**: Verhindert doppelte Artikelnummern
+- **Performance-Indizes**: 5 neue Indizes für schnelle Abfragen (bis 10.000 Artikel)
+- **Volltextsuche**: Optimierte Suche über Name, Beschreibung und Artikelnummer
+
+### ✨ Neue Features
+
+#### M-002: AppLogService Integration
+- Debug-Prints in artikel_erfassen_screen.dart durch AppLogService ersetzt
+- Debug-Prints in artikel_erfassen_io.dart durch AppLogService ersetzt
+- Konsistente Logging-Strategie im gesamten Projekt
+
+#### N-004: Roboto Font
+- Roboto als Standard-Schriftart implementiert (via google_fonts)
+- Funktioniert auf allen Plattformen (Web, Mobile, Desktop)
+- Automatisches Font-Loading ohne Asset-Downloads
+
+### 🔧 Verbesserungen
+
+#### Dokumentation
+- `docs/IMAGE_TAGGING_STRATEGIE.md` - Vollständige Image-Tagging-Dokumentation
+- `docs/M-007_ARTIKELNUMMER_INDIZES.md` - Detaillierte Datenbank-Optimierungen
+- `.env.production.example` erweitert mit VERSION-Variable
+- `PRIORITAETEN_CHECKLISTE.md` aktualisiert (20/30 Punkte abgeschlossen)
+
+#### Dependencies (N-001, N-002)
+- `mocktail` entfernt (wurde nicht genutzt, mockito beibehalten)
+- `dependency_overrides` ausführlich dokumentiert (Grund, Issue-Link, Prüfplan)
+- Exakte Version für connectivity_plus_platform_interface (2.0.0)
+
+#### CI/CD (H-001)
+- Release-Notes werden automatisch generiert
+- Download-Links für Android APK, AAB und Windows-Build
+- Plattform-spezifische Installationsanleitungen
+
+### 📚 Dokumentation
+
+- Vollständige Image-Tagging-Strategie dokumentiert
+- Performance-Analyse für 10.000 Artikel (O(log n) via B-Tree)
+- Verifizierungs-Anleitung für produktionsbereite Deployments
+- Dependency-Override mit Issue-Tracking und Wartungsplan
+
+### 🔒 Datenintegrität
+
+- **Unique Constraint**: Artikelnummern sind eindeutig (WHERE NOT deleted)
+- **Performance-Indizes**: 
+  - `idx_unique_artikelnummer` - Eindeutigkeit garantieren
+  - `idx_search_name` - Namens-Suche optimieren
+  - `idx_search_beschreibung` - Beschreibungs-Suche optimieren
+  - `idx_sync_deleted_updated` - Sync-Abfragen beschleunigen
+  - `idx_uuid` - UUID-Lookups optimieren
+
+### ⚙️ Technische Details
+
+**Datenbank-Migration:**
+- Neue Migration: `1774186524_added_artikelnummer_indexes.js`
+- Rollback-fähig (up/down migration)
+- Automatische Ausführung beim PocketBase-Start
+
+**Flutter-Model:**
+- `Artikel.artikelnummer` (int?, optional für Abwärtskompatibilität)
+- Vollständige Serialisierung (toMap, fromMap, toPocketBaseMap)
+- Nullable int parsing (_parseIntNullable helper)
+
+**Docker-Compose:**
+- `docker-compose.prod.yml` nutzt nur `image:` (kein `build:`)
+- ENV-Variable `VERSION` für flexible Image-Tags
+- Unterstützt GHCR und Docker Hub
+
+---
+
 ## [1.1.0] - 2026-03-21
 
 ### 🎉 Hauptfeatures
