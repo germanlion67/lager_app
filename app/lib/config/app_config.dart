@@ -131,7 +131,8 @@ class AppConfig {
   static const BoxFit artikelListBildFit = BoxFit.cover;
 
   /// BoxFit für Artikel-Bilder in der Detailansicht.
-  /// Geändert von cover zu contain für bessere Darstellung.
+  /// WICHTIG: Wert explizit von BoxFit.cover zu BoxFit.contain geändert
+  /// für bessere Darstellung (siehe Aufgabenbeschreibung).
   static const BoxFit artikelDetailBildFit = BoxFit.contain;
 
   /// PocketBase Thumbnail-Größe (Query-Parameter ?thumb=WxH).

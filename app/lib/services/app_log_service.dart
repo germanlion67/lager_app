@@ -19,6 +19,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 
+import '../config/app_theme.dart';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Interner Puffer — max. 500 Events im RAM
 //

@@ -247,7 +247,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
                 // Fallback wenn Bild nicht gefunden wird
-                return Container(color: AppTheme.hintergrundFarbeHell);
+                // Respektiert aktuelles Theme (Light/Dark)
+                return Container(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                );
               },
             ),
           ),
