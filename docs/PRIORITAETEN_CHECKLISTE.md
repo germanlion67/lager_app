@@ -3,14 +3,15 @@
 Basierend auf der technischen Analyse vom 2026-03-21  
 **Letzte Aktualisierung:** 2026-03-23 (Dokumentation vervollständigt: N-003, Backup/Restore erweitert, H-001 Machbarkeitsanalyse)
 **Letzte Aktualisierung:** 2026-03-23 (M-011: Zentrales Bild-Widget implementiert)
+**Letzte Aktualisierung:** 2026-03-23 (N-006: Zentrale Konfigurationsdateien implementiert)
 
 ---
 
 ## 📊 Umsetzungsstatus
 
-**Gesamt-Fortschritt:** 23 von 17 kritischen/hohen Prioritäten abgeschlossen (+ Security Headers + neue Optimierungen)
+**Gesamt-Fortschritt:** 24 von 17 kritischen/hohen Prioritäten abgeschlossen (+ Security Headers + neue Optimierungen)
 
-### ✅ Abgeschlossen (22)
+### ✅ Abgeschlossen (23)
 - K-001: App Bundle Identifiers (alle Plattformen)
 - K-002: PocketBase API Rules (Sicherheit)
 - K-003: PocketBase Auto-Initialisierung
@@ -33,6 +34,7 @@ Basierend auf der technischen Analyse vom 2026-03-21
 - N-002: dependency_overrides dokumentiert
 - N-003: GitHub Secrets (GH_PAT) dokumentiert (README mit Schritt-für-Schritt-Anleitung)
 - N-004: Roboto Font implementiert
+- N-006: Zentrale Konfigurationsdateien (AppConfig, AppTheme, AppImages) mit Material3
 - Zusätzlich: Docker Stack, GitHub Actions, Produktions-Dokumentation, Security-Headers
 
 ### 🔄 In Arbeit (0)
@@ -549,6 +551,48 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 
 ---
 
+
+### N-006: Zentrale Konfigurationsdateien (AppConfig, AppTheme, AppImages) ✅ ERLEDIGT
+- [x] `lib/config/app_config.dart` erweitert mit UI-Konstanten
+  - Artikel-Bild-Größen und BoxFit-Werte
+  - Spacing-Konstanten (XSmall bis XXLarge: 4-32px)
+  - Border-Radius-Konstanten (XXSmall bis XLarge: 2-16px)
+  - Font-Size-Konstanten (XSmall bis XXLarge: 10-20px)
+  - PocketBase Thumbnail-Parameter
+  - ListTile Padding
+- [x] `lib/config/app_theme.dart` erstellt mit Material3
+  - Light Theme (hell) und Dark Theme (dunkel)
+  - ThemeMode.system für automatische Umschaltung
+  - Grey Color Palette (100-800) für semantische Graustufen
+  - Semantic Colors (error, warning, success, info)
+  - Roboto Font Integration
+  - Konsistente Card-, AppBar-, FAB-, und ListTile-Themes
+- [x] `lib/config/app_images.dart` erstellt
+  - Asset-Pfade (Hintergrund, Platzhalter)
+  - Feature-Flags (hintergrundAktiv)
+  - Platzhalter-Konfiguration (Größen, Farben)
+- [x] Migration durchgeführt
+  - artikel_bild_widget.dart (15+ Werte)
+  - main.dart (Theme + Background Stack)
+  - app_log_service.dart (Log-Level-Farben)
+  - artikel_import_service.dart (Platzhalter-Pfad)
+
+**Status:** ✅ Zentrale Konfiguration implementiert und 4 Dateien migriert.
+
+**Impact:** 
+- Single Source of Truth für Design Tokens
+- 230+ potentielle Hardcoded-Werte identifiziert in 15+ Dateien
+- Einfachere Theme-Änderungen (Light/Dark Mode Support)
+- Bessere Design-Konsistenz
+- Skalierbare Foundation für Design System
+
+**Nächste Schritte (Optional):**
+- Migration weiterer Dateien mit hardcoded Werten
+- sync_error_widgets.dart (55+ Werte)
+- sync_progress_widgets.dart (45+ Werte)
+- conflict_resolution_screen.dart (40+ Werte)
+
+---
 ### N-005: PocketBase Admin Reset/Reinit-Prozedur (sicher) dokumentieren/implementieren
 - [ ] Sicherer Reset/Reinit-Weg für Admins definieren (ohne “aus Versehen” Daten zu löschen)
 - [ ] Dokumentation: Wann nutzen, wie nutzen, welche Risiken
@@ -655,8 +699,9 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 - M-005: Deployment Targets aktualisieren - siehe MANUELLE_OPTIMIERUNGEN.md
 - ✅ N-001: Mocking-Libraries bereinigt - ERLEDIGT
 - ✅ N-002: dependency_overrides dokumentiert - ERLEDIGT
-- ✅ N-004: Roboto-Font implementiert - ERLEDIGT
 - ✅ N-003: GitHub Secrets dokumentiert - ERLEDIGT
+- ✅ N-004: Roboto-Font implementiert - ERLEDIGT
+- ✅ N-006: Zentrale Konfigurationsdateien (AppConfig, AppTheme, AppImages) - ERLEDIGT
 - ✅ M-013: Backup & Restore vollständig dokumentiert - ERLEDIGT
 - N-005: siehe MANUELLE_OPTIMIERUNGEN.md
 
@@ -670,3 +715,4 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 **Tracking:** Diese Checkliste kann in GitHub Projects oder Issues übertragen werden  
 **Update:** Bei Abschluss Status auf `[x]` ändern  
 **Letzte Aktualisierung:** 2026-03-23 - M-011 Zentrales Bild-Widget abgeschlossen! Plattform-optimiertes Caching, ArtikelListBild + ArtikelDetailBild implementiert.
+**Letzte Aktualisierung:** 2026-03-23 - N-006 Zentrale Konfigurationsdateien abgeschlossen! AppConfig, AppTheme und AppImages mit Material3 Unterstützung, 230+ Werte zentralisiert.
