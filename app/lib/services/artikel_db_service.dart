@@ -38,7 +38,7 @@ class ArtikelDbService {
   Future<Database> _initDb() async {
     try {
       return await platform.openArtikelDatabase(
-        version: 3,
+        version: 4,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -58,6 +58,7 @@ class ArtikelDbService {
     CREATE TABLE artikel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,
+      artikelnummer INTEGER,
       menge INTEGER,
       ort TEXT,
       fach TEXT,
@@ -136,6 +137,15 @@ class ArtikelDbService {
           '✅ Migration: UUIDs generiert, Sync-Metadaten und Indizes erstellt.',
         );
       }
+
+      // NEU: M-007 — artikelnummer
+      if (oldVersion < 4) {
+        await db.execute(
+          'ALTER TABLE artikel ADD COLUMN artikelnummer INTEGER',
+        );
+        _logger.i("✅ Migration v4: Spalte 'artikelnummer' hinzugefügt.");
+      }
+
     } catch (e, stack) {
       _logger.e(
         '❌ Fehler bei der Datenbank-Migration von Version '

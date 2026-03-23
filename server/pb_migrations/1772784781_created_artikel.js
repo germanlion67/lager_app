@@ -33,6 +33,20 @@ migrate((app) => {
         "type": "text"
       },
       {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text1234567890",
+        "max": 0,
+        "min": 0,
+        "name": "artikelnummer",
+        "pattern": "",
+        "presentable": true,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
         "hidden": false,
         "id": "number4267035981",
         "max": null,
