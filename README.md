@@ -687,7 +687,9 @@ lager_app/
 ├── app/                         # Flutter App
 │   ├── lib/                     # Dart Source Code
 │   │   ├── config/
-│   │   │   └── app_config.dart  # URL-Konfiguration
+│   │   │   ├── app_config.dart  # URL-Konfiguration + UI-Konstanten
+│   │   │   ├── app_theme.dart   # Material3 Themes (Light/Dark)
+│   │   │   └── app_images.dart  # Asset-Pfade & Platzhalter
 │   │   ├── models/              # Datenmodelle
 │   │   ├── screens/             # UI Screens
 │   │   ├── services/            # Business Logic
@@ -716,6 +718,33 @@ lager_app/
 ├── .env.production              # Prod-Umgebungsvariablen (gitignored)
 ├── .env.example                 # Vorlage (im Git)
 └── README.md
+```
+
+#### Zentrale Konfigurationsdateien
+
+Das Projekt nutzt zentrale Konfigurationsdateien für Design-Tokens und Themes:
+
+| Datei | Zweck |
+|---|---|
+| `app_config.dart` | URL-Konfiguration, UI-Konstanten (Spacing, Border-Radius, Font-Sizes) |
+| `app_theme.dart` | Material3 Themes (Light/Dark), Farben, Typografie |
+| `app_images.dart` | Asset-Pfade, Feature-Flags, Platzhalter-Konfiguration |
+
+**Vorteile:**
+- ✅ Single Source of Truth für Design Tokens
+- ✅ Einfache Theme-Änderungen (Light/Dark Mode Support)
+- ✅ Bessere Design-Konsistenz
+- ✅ Skalierbare Foundation für Design System
+
+**Beispiel:**
+```dart
+// Statt hardcoded:
+BorderRadius.circular(12)
+Colors.grey[200]
+
+// Jetzt:
+BorderRadius.circular(AppConfig.cardBorderRadiusLarge)
+AppImages.platzhalterHintergrund
 ```
 
 ### Plattform-Architektur

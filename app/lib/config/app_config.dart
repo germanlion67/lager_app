@@ -9,8 +9,15 @@
 //
 // Für Produktion: Runtime-Config wird automatisch beim Container-Start
 // aus Umgebungsvariablen generiert (docker-entrypoint.sh).
+//
+// UI-Konfiguration:
+// - Artikel-Bild-Größen und BoxFit-Werte
+// - Border-Radius-Werte
+// - PocketBase Thumbnail-Parameter
+// - Padding-Werte
 
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/material.dart' show BoxFit, EdgeInsets;
 import 'package:runtime_env_config/runtime_env_config.dart';
 
 class AppConfig {
@@ -109,4 +116,98 @@ class AppConfig {
       );
     }
   }
+
+  // ============================================================================
+  // UI-Konfiguration
+  // ============================================================================
+
+  /// Größe des Artikel-Thumbnails in der Listenansicht (quadratisch).
+  static const double artikelListBildSize = 50.0;
+
+  /// Höhe des Artikel-Bildes in der Detailansicht.
+  static const double artikelDetailBildHoehe = 200.0;
+
+  /// BoxFit für Artikel-Bilder in der Listenansicht.
+  static const BoxFit artikelListBildFit = BoxFit.cover;
+
+  /// BoxFit für Artikel-Bilder in der Detailansicht.
+  /// WICHTIG: Wert explizit von BoxFit.cover zu BoxFit.contain geändert
+  /// für bessere Darstellung (siehe Aufgabenbeschreibung).
+  static const BoxFit artikelDetailBildFit = BoxFit.contain;
+
+  /// PocketBase Thumbnail-Größe (Query-Parameter ?thumb=WxH).
+  /// Verwendet in _buildThumbnailUrl() für serverseitiges Thumbnail.
+  static const String pbThumbGroesse = '60x60';
+
+  /// Border-Radius für kleine Cards (z.B. Artikel-List-Thumbnails).
+  static const double cardBorderRadiusSmall = 6.0;
+
+  /// Border-Radius für größere Cards (z.B. Artikel-Detail-Bilder).
+  static const double cardBorderRadiusLarge = 12.0;
+
+  /// Standard-Padding für ListTiles.
+  static const EdgeInsets listTilePadding = EdgeInsets.symmetric(
+    horizontal: 16.0,
+    vertical: 8.0,
+  );
+
+  // ============================================================================
+  // Spacing-Konstanten
+  // ============================================================================
+
+  /// Extra kleiner Abstand (4px).
+  static const double spacingXSmall = 4.0;
+
+  /// Kleiner Abstand (8px).
+  static const double spacingSmall = 8.0;
+
+  /// Mittlerer Abstand (12px).
+  static const double spacingMedium = 12.0;
+
+  /// Großer Abstand (16px) - am häufigsten verwendet.
+  static const double spacingLarge = 16.0;
+
+  /// Extra großer Abstand (24px).
+  static const double spacingXLarge = 24.0;
+
+  /// Extra extra großer Abstand (32px).
+  static const double spacingXXLarge = 32.0;
+
+  // ============================================================================
+  // Border-Radius-Konstanten
+  // ============================================================================
+
+  /// Extra kleiner Border-Radius (2px).
+  static const double borderRadiusXXSmall = 2.0;
+
+  /// Extra kleiner Border-Radius (4px).
+  static const double borderRadiusXSmall = 4.0;
+
+  /// Mittlerer Border-Radius (8px) - am häufigsten verwendet.
+  static const double borderRadiusMedium = 8.0;
+
+  /// Extra großer Border-Radius (16px).
+  static const double borderRadiusXLarge = 16.0;
+
+  // ============================================================================
+  // Font-Size-Konstanten
+  // ============================================================================
+
+  /// Extra kleine Schriftgröße (10px).
+  static const double fontSizeXSmall = 10.0;
+
+  /// Kleine Schriftgröße (12px) - häufig für Body-Text.
+  static const double fontSizeSmall = 12.0;
+
+  /// Mittlere Schriftgröße (14px).
+  static const double fontSizeMedium = 14.0;
+
+  /// Große Schriftgröße (16px).
+  static const double fontSizeLarge = 16.0;
+
+  /// Extra große Schriftgröße (18px).
+  static const double fontSizeXLarge = 18.0;
+
+  /// Extra extra große Schriftgröße (20px).
+  static const double fontSizeXXLarge = 20.0;
 }
