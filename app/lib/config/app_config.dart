@@ -149,4 +149,64 @@ class AppConfig {
     horizontal: 16.0,
     vertical: 8.0,
   );
+
+  // ============================================================================
+  // Spacing-Konstanten
+  // ============================================================================
+
+  /// Extra kleiner Abstand (4px).
+  static const double spacingXSmall = 4.0;
+
+  /// Kleiner Abstand (8px).
+  static const double spacingSmall = 8.0;
+
+  /// Mittlerer Abstand (12px).
+  static const double spacingMedium = 12.0;
+
+  /// Großer Abstand (16px) - am häufigsten verwendet.
+  static const double spacingLarge = 16.0;
+
+  /// Extra großer Abstand (24px).
+  static const double spacingXLarge = 24.0;
+
+  /// Extra extra großer Abstand (32px).
+  static const double spacingXXLarge = 32.0;
+
+  // ============================================================================
+  // Border-Radius-Konstanten
+  // ============================================================================
+
+  /// Extra kleiner Border-Radius (2px).
+  static const double borderRadiusXXSmall = 2.0;
+
+  /// Extra kleiner Border-Radius (4px).
+  static const double borderRadiusXSmall = 4.0;
+
+  /// Mittlerer Border-Radius (8px) - am häufigsten verwendet.
+  static const double borderRadiusMedium = 8.0;
+
+  /// Extra großer Border-Radius (16px).
+  static const double borderRadiusXLarge = 16.0;
+
+  // ============================================================================
+  // Font-Size-Konstanten
+  // ============================================================================
+
+  /// Extra kleine Schriftgröße (10px).
+  static const double fontSizeXSmall = 10.0;
+
+  /// Kleine Schriftgröße (12px) - häufig für Body-Text.
+  static const double fontSizeSmall = 12.0;
+
+  /// Mittlere Schriftgröße (14px).
+  static const double fontSizeMedium = 14.0;
+
+  /// Große Schriftgröße (16px).
+  static const double fontSizeLarge = 16.0;
+
+  /// Extra große Schriftgröße (18px).
+  static const double fontSizeXLarge = 18.0;
+
+  /// Extra extra große Schriftgröße (20px).
+  static const double fontSizeXXLarge = 20.0;
 }
