@@ -7,9 +7,11 @@ import 'services/connectivity_service.dart';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // N-004: Roboto Font
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'config/app_config.dart';
+import 'config/app_theme.dart';
+import 'config/app_images.dart';
 import 'screens/artikel_list_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/app_log_service.dart';
@@ -17,7 +19,6 @@ import 'services/artikel_db_service.dart';
 import 'services/pocketbase_service.dart';
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
-import 'config/app_config.dart';
 
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
@@ -222,25 +223,41 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Elektronik Verwaltung',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        // N-004: Roboto Font als Standard-Schriftart
-        textTheme: GoogleFonts.robotoTextTheme(
-          ThemeData.light().textTheme.copyWith(
-            bodyLarge: const TextStyle(color: Colors.black),
-            bodyMedium: const TextStyle(color: Colors.black),
-            bodySmall: const TextStyle(color: Colors.black),
-          ),
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          labelStyle: TextStyle(color: Colors.black),
-        ),
-      ),
+      theme: AppTheme.hell,
+      darkTheme: AppTheme.dunkel,
+      themeMode: ThemeMode.system,
       initialRoute: '/',
       routes: {
-        '/': (context) => const ArtikelListScreen(),
+        '/': (context) => _buildHomeWithBackground(),
         '/settings': (context) => const SettingsScreen(),
       },
     );
+  }
+
+  /// Baut die Home-Seite optional mit Hintergrundbild.
+  Widget _buildHomeWithBackground() {
+    // Wenn Hintergrundbild aktiv ist, zeige es als Background-Stack
+    if (AppImages.hintergrundAktiv) {
+      return Stack(
+        children: [
+          // Hintergrundbild
+          Positioned.fill(
+            child: Image.asset(
+              AppImages.hintergrundPfad,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                // Fallback wenn Bild nicht gefunden wird
+                return Container(color: AppTheme.hintergrundFarbeHell);
+              },
+            ),
+          ),
+          // App-Inhalt
+          const ArtikelListScreen(),
+        ],
+      );
+    }
+    
+    // Ohne Hintergrundbild: Standard-Screen
+    return const ArtikelListScreen();
   }
 }

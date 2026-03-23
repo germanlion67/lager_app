@@ -17,6 +17,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
+import '../config/app_images.dart';
 import '../models/artikel_model.dart';
 import '../services/pocketbase_service.dart';
 
@@ -34,14 +36,14 @@ class ArtikelListBild extends StatelessWidget {
   const ArtikelListBild({
     super.key,
     required this.artikel,
-    this.size = 50,
+    this.size = AppConfig.artikelListBildSize,
   });
 
   @override
   Widget build(BuildContext context) {
     return RepaintBoundary(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusSmall),
         child: SizedBox(
           width: size,
           height: size,
@@ -79,7 +81,7 @@ class ArtikelDetailBild extends StatelessWidget {
     this.pendingBytes,
     this.remoteBildUrl,
     this.onTap,
-    this.height = 200,
+    this.height = AppConfig.artikelDetailBildHoehe,
   });
 
   @override
@@ -88,7 +90,7 @@ class ArtikelDetailBild extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
           child: SizedBox(
             height: height,
             width: double.infinity,
@@ -106,7 +108,7 @@ class ArtikelDetailBild extends StatelessWidget {
         pendingBytes!,
         height: height,
         width: double.infinity,
-        fit: BoxFit.cover,
+        fit: AppConfig.artikelDetailBildFit,
       );
     }
 
@@ -117,7 +119,7 @@ class ArtikelDetailBild extends StatelessWidget {
           imageUrl: remoteBildUrl!,
           height: height,
           width: double.infinity,
-          fit: BoxFit.cover,
+          fit: AppConfig.artikelDetailBildFit,
           placeholder: (_, __) => _LoadingPlaceholder(height: height),
           errorWidget: (_, __, ___) => _Placeholder(height: height),
         );
@@ -132,7 +134,7 @@ class ArtikelDetailBild extends StatelessWidget {
         File(pfad),
         height: height,
         width: double.infinity,
-        fit: BoxFit.cover,
+        fit: AppConfig.artikelDetailBildFit,
         cacheWidth: 800, // M-011: Speicher-Limit für Dekodierung
         errorBuilder: (_, __, ___) => _Placeholder(height: height),
       );
@@ -165,7 +167,7 @@ class _LocalThumbnail extends StatelessWidget {
         File(thumbPfad),
         width: size,
         height: size,
-        fit: BoxFit.cover,
+        fit: AppConfig.artikelListBildFit,
         // M-011: cacheWidth = physische Pixel → Flutter dekodiert nur so groß
         // wie nötig → weniger RAM
         cacheWidth: (size * 2).toInt(), // ×2 für High-DPI
@@ -180,7 +182,7 @@ class _LocalThumbnail extends StatelessWidget {
         File(bildPfad),
         width: size,
         height: size,
-        fit: BoxFit.cover,
+        fit: AppConfig.artikelListBildFit,
         cacheWidth: (size * 2).toInt(),
         errorBuilder: (_, __, ___) => _BildPlaceholder(size: size),
       );
@@ -196,7 +198,7 @@ class _LocalThumbnail extends StatelessWidget {
         File(bildPfad),
         width: size,
         height: size,
-        fit: BoxFit.cover,
+        fit: AppConfig.artikelListBildFit,
         cacheWidth: (size * 2).toInt(),
         errorBuilder: (_, __, ___) => _BildPlaceholder(size: size),
       );
@@ -222,7 +224,7 @@ class _WebThumbnail extends StatelessWidget {
       imageUrl: url,
       width: size,
       height: size,
-      fit: BoxFit.cover,
+      fit: AppConfig.artikelListBildFit,
       // M-011: Memory-Cache auf Thumbnail-Größe begrenzen
       memCacheWidth: (size * 2).toInt(),
       memCacheHeight: (size * 2).toInt(),
@@ -249,7 +251,7 @@ class _WebThumbnail extends StatelessWidget {
     return baseUri
         .resolve(
           '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}'
-          '?thumb=60x60',
+          '?thumb=${AppConfig.pbThumbGroesse}',
         )
         .toString();
   }
@@ -264,7 +266,7 @@ class _LoadingPlaceholder extends StatelessWidget {
     return Container(
       height: height,
       width: double.infinity,
-      color: Colors.grey[200],
+      color: AppImages.ladePlatzhalterHintergrund,
       alignment: Alignment.center,
       child: const CircularProgressIndicator(strokeWidth: 2),
     );
@@ -280,9 +282,13 @@ class _Placeholder extends StatelessWidget {
     return Container(
       height: height,
       width: double.infinity,
-      color: Colors.grey[200],
+      color: AppImages.platzhalterHintergrund,
       alignment: Alignment.center,
-      child: const Icon(Icons.image_not_supported, size: 48, color: Colors.grey),
+      child: Icon(
+        Icons.image_not_supported,
+        size: AppImages.platzhalterIconGroesse,
+        color: Colors.grey,
+      ),
     );
   }
 }
@@ -297,7 +303,7 @@ class _BildPlaceholder extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      color: Colors.grey[300],
+      color: AppImages.platzhalterHintergrundKlein,
       alignment: Alignment.center,
       child: loading
           ? const CircularProgressIndicator(strokeWidth: 1.5)

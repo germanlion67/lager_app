@@ -9,8 +9,15 @@
 //
 // Für Produktion: Runtime-Config wird automatisch beim Container-Start
 // aus Umgebungsvariablen generiert (docker-entrypoint.sh).
+//
+// UI-Konfiguration:
+// - Artikel-Bild-Größen und BoxFit-Werte
+// - Border-Radius-Werte
+// - PocketBase Thumbnail-Parameter
+// - Padding-Werte
 
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/material.dart' show BoxFit, EdgeInsets;
 import 'package:runtime_env_config/runtime_env_config.dart';
 
 class AppConfig {
@@ -109,4 +116,37 @@ class AppConfig {
       );
     }
   }
+
+  // ============================================================================
+  // UI-Konfiguration
+  // ============================================================================
+
+  /// Größe des Artikel-Thumbnails in der Listenansicht (quadratisch).
+  static const double artikelListBildSize = 50.0;
+
+  /// Höhe des Artikel-Bildes in der Detailansicht.
+  static const double artikelDetailBildHoehe = 200.0;
+
+  /// BoxFit für Artikel-Bilder in der Listenansicht.
+  static const BoxFit artikelListBildFit = BoxFit.cover;
+
+  /// BoxFit für Artikel-Bilder in der Detailansicht.
+  /// Geändert von cover zu contain für bessere Darstellung.
+  static const BoxFit artikelDetailBildFit = BoxFit.contain;
+
+  /// PocketBase Thumbnail-Größe (Query-Parameter ?thumb=WxH).
+  /// Verwendet in _buildThumbnailUrl() für serverseitiges Thumbnail.
+  static const String pbThumbGroesse = '60x60';
+
+  /// Border-Radius für kleine Cards (z.B. Artikel-List-Thumbnails).
+  static const double cardBorderRadiusSmall = 6.0;
+
+  /// Border-Radius für größere Cards (z.B. Artikel-Detail-Bilder).
+  static const double cardBorderRadiusLarge = 12.0;
+
+  /// Standard-Padding für ListTiles.
+  static const EdgeInsets listTilePadding = EdgeInsets.symmetric(
+    horizontal: 16.0,
+    vertical: 8.0,
+  );
 }
