@@ -120,24 +120,93 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   // ==================== BILD AUSWAHL ====================
 
   Future<void> _pickImageFile() async {
-    final picked = await ImagePickerService.pickImageFile(context);
-    if (!picked.hasImage) return;
-    setState(() {
-      _pendingBytes = picked.bytes;
-      _bildPfad = picked.pfad;
-      _hasChanged = true;
-    });
+    _logger.i('Bildauswahl (Datei) gestartet');
+
+    final PickedImage picked = await ImagePickerService.pickImageFile(context); // ✅ Typ explizit
+    if (!picked.hasImage) {
+      _logger.w('Bildauswahl abgebrochen – kein Bild gewählt');
+      return;
+    }
+
+    _logger.d('Bild gewählt – Pfad: ${picked.pfad}, Bytes: ${picked.bytes?.length ?? 0}');
+    await _applyPickedImage(picked);
   }
 
   Future<void> _pickImageCamera() async {
-    if (!ImagePickerService.isCameraAvailable) return;
-    final picked = await ImagePickerService.pickImageCamera(context);
-    if (!picked.hasImage) return;
-    setState(() {
-      _pendingBytes = picked.bytes;
-      _bildPfad = picked.pfad;
-      _hasChanged = true;
-    });
+    if (!ImagePickerService.isCameraAvailable) {
+      _logger.w('Kamera nicht verfügbar');
+      return;
+    }
+
+    _logger.i('Bildauswahl (Kamera) gestartet');
+
+    final PickedImage picked = await ImagePickerService.pickImageCamera(context); // ✅ Typ explizit
+    if (!picked.hasImage) {
+      _logger.w('Kameraaufnahme abgebrochen');
+      return;
+    }
+
+    _logger.d('Kamerabild aufgenommen – Bytes: ${picked.bytes?.length ?? 0}');
+    await _applyPickedImage(picked);
+  }
+
+  Future<void> _applyPickedImage(PickedImage picked) async { // ✅ dynamic → PickedImage
+    final artikelId = widget.artikel.id;
+
+    if (!kIsWeb && artikelId != null && picked.pfad != null) {
+      _logger.d('Starte persistentes Speichern des Bildes...');
+
+      try {
+        final persistenterPfad = await platform.persistSelectedImage(
+          bildBytes: picked.bytes,   // ✅ Uint8List? – kein Cast nötig
+          bildPfad: picked.pfad,     // ✅ String? – kein Cast nötig
+          artikelId: artikelId,
+          artikelName: widget.artikel.name,
+          onThumbnailSaved: (thumbPath) async {
+            await _db.setThumbnailPfadByUuid(widget.artikel.uuid, thumbPath);
+            _logger.d('Thumbnail sofort gespeichert: $thumbPath');
+          },
+        );
+
+        _logger.i('Bild persistent gespeichert: $persistenterPfad');
+        _clearImageCache();
+
+        setState(() {
+          _pendingBytes = picked.bytes;
+          _bildPfad = persistenterPfad;
+          _hasChanged = true;
+        });
+
+      } catch (e, st) {
+        _logger.e('Persistentes Speichern fehlgeschlagen', error: e, stackTrace: st);
+        setState(() {
+          _pendingBytes = picked.bytes;
+          _bildPfad = null;
+          _hasChanged = true;
+        });
+      }
+
+    } else {
+      _logger.d('Web-Modus: Bild als Bytes gemerkt (${picked.bytes?.length ?? 0} bytes)');
+      setState(() {
+        _pendingBytes = picked.bytes;
+        _bildPfad = picked.pfad;
+        _hasChanged = true;
+      });
+    }
+  }
+
+  void _clearImageCache() {
+    _logger.d('Image-Cache wird geleert');
+    imageCache.clear();
+    imageCache.clearLiveImages();
+
+    if (_remoteBildUrl != null) {
+      CachedNetworkImage.evictFromCache(_remoteBildUrl!);
+      _logger.t('CachedNetworkImage-Cache geleert: $_remoteBildUrl');
+    }
+
+    _logger.d('Image-Cache geleert');
   }
 
   // ==================== SPEICHERN ====================
@@ -224,59 +293,39 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     final artikelId = widget.artikel.id;
     if (artikelId == null) return;
 
-    final hasNewImage = _pendingBytes != null ||
-        (_bildPfad != null && _bildPfad != widget.artikel.bildPfad);
+    _logger.i('Speichern (Mobile) gestartet');
 
-    String? localImagePath =
-        widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
+    final hasNewImage = _bildPfad != null &&
+        _bildPfad != widget.artikel.bildPfad;
 
-    if (hasNewImage) {
-      // M-011: onThumbnailSaved-Callback → thumbnailPfad in DB setzen
-      localImagePath = await platform.persistSelectedImage(
-        bildBytes: _pendingBytes,
-        bildPfad: _bildPfad,
-        artikelId: artikelId,
-        artikelName: widget.artikel.name,
-        onThumbnailSaved: (thumbPath) async {
-          await _db.setThumbnailPfadByUuid(widget.artikel.uuid, thumbPath);
-          _logger.d('Thumbnail gespeichert und in DB eingetragen: $thumbPath');
-        },
-      );
-
-      if (localImagePath == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Bild konnte nicht gespeichert werden'),
-          ),
-        );
-        return;
-      }
-    }
+    _logger.d('Neues Bild vorhanden: $hasNewImage – Pfad: $_bildPfad');
 
     final artikelMitAenderungen = widget.artikel.copyWith(
       menge: _menge,
       ort: _ortController.text,
       fach: _fachController.text,
       beschreibung: _beschreibungController.text,
-      bildPfad: localImagePath ?? '',
+      bildPfad: _bildPfad ?? widget.artikel.bildPfad,
       aktualisiertAm: DateTime.now().toUtc(),
     );
 
     try {
       await _db.updateArtikel(artikelMitAenderungen);
+      _logger.i('Artikel in DB gespeichert: ${artikelMitAenderungen.name}');
 
       if (hasNewImage) {
+        _logger.d('Starte PocketBase Bild-Upload im Hintergrund...');
         unawaited(
           _uploadImageToPocketBase(
             uuid: widget.artikel.uuid,
-            localImagePath: localImagePath,
+            localImagePath: _bildPfad,
             bildBytes: _pendingBytes,
           ),
         );
       }
 
       if (!mounted) return;
+
       setState(() {
         _isEditing = false;
         _hasChanged = false;
@@ -286,9 +335,11 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             : null;
       });
 
+      _logger.i('Speichern abgeschlossen – kehre zurück');
       Navigator.pop(context, artikelMitAenderungen);
+
     } catch (e, st) {
-      _logger.e('Speichern (Mobile) fehlgeschlagen:', error: e, stackTrace: st);
+      _logger.e('Speichern (Mobile) fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Speichern fehlgeschlagen: $e')),

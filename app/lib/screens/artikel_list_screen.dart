@@ -6,6 +6,8 @@
 
 import 'dart:async';
 
+
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
@@ -21,7 +23,8 @@ import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
 // M-011: Neues zentrales Bild-Widget
 import '../widgets/artikel_bild_widget.dart';
-import 'artikel_detail_screen.dart';
+
+import 'artikel_detail_screen.dart'; // ✅ NEU – für _openDetailScreen
 import 'artikel_erfassen_screen.dart';
 import 'nextcloud_settings_screen.dart';
 import 'settings_screen.dart';
@@ -396,17 +399,67 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         ],
       ),
       isThreeLine: true,
-      onTap: () async {
-        await Navigator.of(context).push<Artikel>(
-          MaterialPageRoute(
-            builder: (_) => ArtikelDetailScreen(artikel: artikel),
-          ),
-        );
-        if (!mounted) return;
-        await _ladeArtikel();
-      },
+      onTap: () => _openDetailScreen(artikel), // ← ausgelagert für Übersicht
     );
   }
+
+  // ==================== DETAIL SCREEN ====================  ← NEU
+
+  Future<void> _openDetailScreen(Artikel artikel) async {
+    _logger.d('Detail-Screen öffnen: ${artikel.name} (uuid: ${artikel.uuid})');
+
+    final result = await Navigator.of(context).push<Artikel?>(
+      MaterialPageRoute(
+        builder: (_) => ArtikelDetailScreen(artikel: artikel),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (result == null) {
+      _logger.i('Artikel gelöscht oder kein Rückgabewert → neu laden');
+      await _ladeArtikel();
+      return;
+    }
+
+    _logger.i('Artikel zurückgekehrt: ${result.name} – gezielt aktualisieren');
+
+    _clearImageCache(result);
+
+    setState(() {
+      final index = _artikelListe.indexWhere((a) => a.uuid == result.uuid);
+      if (index != -1) {
+        _artikelListe[index] = result;
+        _logger.d('Artikel in Liste ersetzt – Index $index: ${result.name}');
+      } else {
+        _logger.w('Artikel uuid nicht in Liste gefunden → Fallback: neu laden');
+        _ladeArtikel();
+      }
+    });
+  }
+
+  void _clearImageCache(Artikel result) {
+    final alterArtikel = _artikelListe.firstWhere(
+      (a) => a.uuid == result.uuid,
+      orElse: () => result,
+    );
+
+    final bildHatSichGeaendert = alterArtikel.bildPfad != result.bildPfad;
+
+    if (!bildHatSichGeaendert) {
+      _logger.t('Bildpfad unverändert – kein Cache-Clear nötig');
+      return;
+    }
+
+    _logger.d('Bildpfad geändert → Image-Cache leeren');
+    _logger.t('Alt: ${alterArtikel.bildPfad}');
+    _logger.t('Neu: ${result.bildPfad}');
+
+    imageCache.clear();
+    imageCache.clearLiveImages();
+    _logger.d('Image-Cache geleert');
+  }
+
 
   // ==================== MENÜ ====================
 
