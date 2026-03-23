@@ -13,9 +13,9 @@ import '../services/nextcloud_webdav_client.dart';
 import '../services/nextcloud_connection_service.dart';
 import '../services/app_log_service.dart';
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // DokumenteButton — Mobile Widget
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 class DokumenteButton extends StatefulWidget {
   final int? artikelId;
@@ -149,9 +149,9 @@ class DokumenteButtonState extends State<DokumenteButton> {
   }
 }
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // _DokumenteSheet — Privates StatefulWidget
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _DokumenteSheet extends StatefulWidget {
   final int? artikelId;
@@ -177,7 +177,9 @@ class _DokumenteSheetState extends State<_DokumenteSheet> {
   @override
   void initState() {
     super.initState();
-    _loadFiles();
+    // FIX: Verzögere _loadFiles() bis nach initState() abgeschlossen ist
+    // → ScaffoldMessenger.maybeOf() ist dann verfügbar
+    Future.microtask(_loadFiles);
   }
 
   Future<void> _loadFiles() async {

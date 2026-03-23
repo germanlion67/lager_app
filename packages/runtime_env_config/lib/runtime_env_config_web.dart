@@ -1,4 +1,5 @@
-import 'dart:js_interop';
+//../packages/runtime_env_config/lib/runtime_env_config_web.dart
+
 
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'package:web/web.dart' as web;

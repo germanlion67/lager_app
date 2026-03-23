@@ -1,3 +1,5 @@
+//../packages/runtime_env_config/lib/runtime_env_config_web_plugin.dart
+
 import 'runtime_env_config_platform_interface.dart';
 import 'runtime_env_config_web.dart';
 

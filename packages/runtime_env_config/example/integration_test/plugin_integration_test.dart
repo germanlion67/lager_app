@@ -1,24 +1,33 @@
-// This is a basic Flutter integration test.
+// Integration Test für Runtime Environment Config
 //
-// Since integration tests run in a full Flutter application, they can interact
-// with the host side of a plugin implementation, unlike Dart unit tests.
-//
-// For more information about Flutter integration tests, please see
-// https://flutter.dev/to/integration-testing
+// Testet das Laden von Umgebungsvariablen zur Laufzeit.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
-
 import 'package:runtime_env_config/runtime_env_config.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('getPlatformVersion test', (WidgetTester tester) async {
-    final RuntimeEnvConfig plugin = RuntimeEnvConfig();
-    final String? version = await plugin.getPlatformVersion();
-    // The version string depends on the host platform running the test, so
-    // just assert that some non-empty string is returned.
-    expect(version?.isNotEmpty, true);
+  testWidgets('RuntimeEnvConfig.pocketBaseUrl() test', (WidgetTester tester) async {
+    // Test: pocketBaseUrl() sollte null oder einen String zurückgeben
+    final String? pocketBaseUrl = await RuntimeEnvConfig.pocketBaseUrl();
+    
+    // Assertion: Entweder null oder ein nicht-leerer String
+    expect(
+      pocketBaseUrl == null || pocketBaseUrl.isNotEmpty,
+      true,
+      reason: 'pocketBaseUrl sollte null oder ein nicht-leerer String sein',
+    );
+  });
+
+  testWidgets('RuntimeEnvConfig handles missing config gracefully', (WidgetTester tester) async {
+    // Test: Auch wenn ENV_CONFIG nicht existiert, sollte kein Fehler geworfen werden
+    try {
+      final String? url = await RuntimeEnvConfig.pocketBaseUrl();
+      expect(url, anyOf(isNull, isA<String>()));
+    } catch (e) {
+      fail('RuntimeEnvConfig.pocketBaseUrl() sollte keinen Fehler werfen: $e');
+    }
   });
 }

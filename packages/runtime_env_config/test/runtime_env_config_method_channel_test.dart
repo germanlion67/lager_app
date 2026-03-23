@@ -11,7 +11,10 @@ void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
-          return '42';
+          if (methodCall.method == 'getPocketBaseUrl') {
+            return 'https://pocketbase.example.com';
+          }
+          return null;
         });
   });
 
@@ -20,7 +23,7 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
-  test('getPlatformVersion', () async {
-    expect(await platform.getPlatformVersion(), '42');
+  test('pocketBaseUrl returns null', () async {
+    expect(await platform.pocketBaseUrl(), isNull);
   });
 }

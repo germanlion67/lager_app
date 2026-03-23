@@ -1,4 +1,4 @@
-/// runtime_env_config
+////../packages/runtime_env_config/lib/runtime_env_config.dart
 ///
 /// Kleines Flutter-Plugin, das (nur im Web) Runtime-Konfiguration
 /// aus `window.ENV_CONFIG` liest.
@@ -7,6 +7,7 @@
 /// - In App-Code soll weder `dart:js` noch `dart:html` importiert werden.
 /// - Lint-Regel `avoid_web_libraries_in_flutter` bleibt dadurch sauber.
 /// - Web-only Code lebt im Web-Plugin (best practice).
+library;
 
 import 'runtime_env_config_platform_interface.dart';
 

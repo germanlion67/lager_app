@@ -213,10 +213,10 @@ packages:
     dependency: "direct overridden"
     description:
       name: connectivity_plus_platform_interface
-      sha256: "42657c1715d48b167930d5f34d00222ac100475f73d10162ddf43e714932f204"
+      sha256: b6a56efe1e6675be240de39107281d4034b64ac23438026355b4234042a35adb
       url: "https://pub.dev"
     source: hosted
-    version: "2.0.1"
+    version: "2.0.0"
   convert:
     dependency: transitive
     description:
@@ -824,14 +824,6 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.6.3"
-  mocktail:
-    dependency: "direct dev"
-    description:
-      name: mocktail
-      sha256: "890df3f9688106f25755f26b1c60589a92b3ab91a22b8b224947ad041bf172d8"
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.4"
   native_toolchain_c:
     dependency: transitive
     description:

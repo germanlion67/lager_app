@@ -37,12 +37,11 @@ void main() {
       }
     });
 
-
     test('importFromJson should correctly parse valid JSON', () async {
       final jsonString = '''
       [
-        {"id": 1, "name": "Artikel 1", "bildPfad": "path/to/image1.jpg"},
-        {"id": 2, "name": "Artikel 2", "bildPfad": "path/to/image2.jpg"}
+        {"id": 1, "name": "Artikel 1", "menge": 10, "ort": "Ort 1", "fach": "Fach 1", "beschreibung": "", "bildPfad": "path/to/image1.jpg"},
+        {"id": 2, "name": "Artikel 2", "menge": 5, "ort": "Ort 2", "fach": "Fach 2", "beschreibung": "", "bildPfad": "path/to/image2.jpg"}
       ]
       ''';
 
@@ -58,8 +57,8 @@ void main() {
     test('importFromJson should skip invalid entries', () async {
       final jsonString = '''
       [
-        {"id": 1, "name": "Artikel 1", "ort": "Ort 1", "fach": "Fach 1", "bildPfad": "path/to/image1.jpg"},
-        {"id": 2, "name": "Artikel 2", "ort": "", "fach": "Fach 2", "bildPfad": "path/to/image2.jpg"}
+        {"id": 1, "name": "Artikel 1", "menge": 10, "ort": "Ort 1", "fach": "Fach 1", "beschreibung": "", "bildPfad": "path/to/image1.jpg"},
+        {"id": 2, "name": "Artikel 2", "menge": 5, "ort": "", "fach": "Fach 2", "beschreibung": "", "bildPfad": "path/to/image2.jpg"}
       ]
       ''';
 

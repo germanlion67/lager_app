@@ -4,13 +4,22 @@ import 'package:lager_app/screens/_dokumente_button.dart';
 
 void main() {
   testWidgets('DokumenteButton öffnet BottomSheet und zeigt leeren Zustand bei fehlenden Credentials', (WidgetTester tester) async {
-  await tester.pumpWidget(MaterialApp(home: Scaffold(body: DokumenteButton(artikelId: 1, credentialsReader: () async => null))));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DokumenteButton(
+            artikelId: 1,
+            credentialsReader: () async => null,
+          ),
+        ),
+      ),
+    );
 
     // Button ist sichtbar
     expect(find.textContaining('zusätzliche Dokumente'), findsOneWidget);
 
     // Tippe den Button (via sichtbaren Label-Text)
-    await tester.tap(find.textContaining('zusätzliche Dokumente'));
+    await tester.tap(find.byType(ElevatedButton));
     await tester.pump();
 
     // Warte bis das BottomSheet aufgebaut ist
