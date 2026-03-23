@@ -302,3 +302,99 @@ This implementation successfully transforms the Lager App from a development-foc
 **Review Status:** Pending  
 **Estimated Review Time:** 15-30 minutes  
 **Merge Priority:** High (Critical security fixes)
+---
+
+# 🖼️ M-011 – Zentrales Bild-Widget für Artikel
+
+**Date:** March 23, 2026  
+**Status:** ✅ Complete
+
+---
+
+## 📊 Overview
+
+Implementierung eines einheitlichen, wiederverwendbaren Widget-Systems für die Darstellung von Artikelbildern – optimiert für Speicher, Performance und Plattformkompatibilität (lokal & Web).
+
+### Key Achievements
+
+✅ **Einheitliches Bild-Widget** für Listen- und Detailansicht  
+✅ **Plattform-abhängige Strategie** (lokal vs. Web/PocketBase)  
+✅ **Memory-optimiertes Caching** via `cacheWidth` und `CachedNetworkImage`  
+✅ **Pending-Bild-Unterstützung** (noch nicht gespeicherte Bilder)  
+✅ **Saubere Analyse** – `flutter analyze` ohne Fehler
+
+---
+
+## 📦 New File: `lib/widgets/artikel_bild_widget.dart`
+
+### Öffentliche Widgets
+
+#### `ArtikelListBild`
+- Für die **Listenansicht** (Standard: 50×50px Thumbnail)
+- Runde Ecken via `ClipRRect`
+- Automatische Auswahl zwischen Web- und lokaler Quelle
+
+#### `ArtikelDetailBild`
+- Für die **Detailansicht** (Standard-Höhe: 200px)
+- Unterstützt `pendingBytes` (`Uint8List?`) – neu gewähltes Bild vor dem Speichern
+- Tippbar via `onTap` (z.B. für Vollbild-Overlay)
+- Automatische Auswahl zwischen Web- und lokaler Quelle
+
+---
+
+## ⚙️ Plattform-Strategie
+
+| | **Liste (Thumbnail)** | **Detail (Vollbild)** |
+|---|---|---|
+| **Lokal** | `thumbnailPfad` → Fallback: `bildPfad` | `bildPfad` |
+| **Web** | PocketBase-URL mit `?thumb=60x60` | Remote-URL via `CachedNetworkImage` |
+
+---
+
+## 💾 Caching-Strategie
+
+| Plattform | Methode | Detail |
+|---|---|---|
+| **Lokal** | `Image.file` | `cacheWidth` begrenzt RAM-Nutzung bei Dekodierung |
+| **Web** | `CachedNetworkImage` | Disk- + Memory-Cache, `memCacheWidth/Height` begrenzt |
+| **Web Thumbnail** | PocketBase `?thumb=60x60` | Serverseitiges Thumbnail → weniger Datentransfer |
+
+---
+
+## 🧩 Private Hilfs-Widgets
+
+| Widget | Zweck |
+|---|---|
+| `_LocalThumbnail` | Lokales Thumbnail für Listenansicht |
+| `_WebThumbnail` | Web-Thumbnail via PocketBase-URL |
+| `_LoadingPlaceholder` | Ladeindikator (Vollbreite) |
+| `_Placeholder` | Fallback bei fehlendem Bild (Vollbreite) |
+| `_BildPlaceholder` | Fallback für quadratische Listen-Thumbnails |
+
+---
+
+## 📈 Impact & Benefits
+
+### Für Entwickler
+- ✅ **Wiederverwendbar**: Ein Widget für alle Bild-Kontexte
+- ✅ **Wartbar**: Bild-Logik zentral an einem Ort
+- ✅ **Erweiterbar**: Neue Plattformen/Strategien einfach ergänzbar
+
+### Für die App
+- ✅ **Weniger RAM-Verbrauch**: Thumbnails werden klein dekodiert
+- ✅ **Schnellere Listen**: Serverseitige Thumbnails via PocketBase
+- ✅ **Konsistentes UI**: Einheitliche Darstellung in Liste & Detail
+
+---
+
+## ✅ Verification
+
+- [x] `flutter analyze` – No issues found
+- [x] `import 'dart:typed_data'` korrekt gesetzt
+- [x] Kein fehlplatzierter `export` in Dart-Dateien
+- [x] Widget in Liste und Detail integriert
+
+---
+
+**Implementation by:** GitHub Copilot Agent + SiemensGPT  
+**Merge Priority:** Medium (Performance & Maintainability)

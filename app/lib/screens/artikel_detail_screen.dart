@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart'; // ← NEU
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,8 @@ import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
 import '../services/image_picker.dart';
 import '../services/pocketbase_service.dart';
+// M-011: Zentrales Bild-Widget
+import '../widgets/artikel_bild_widget.dart';
 
 import 'detail_screen_io.dart'
     if (dart.library.html) 'detail_screen_stub.dart' as platform;
@@ -41,8 +44,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   bool _isEditing = false;
   bool _hasChanged = false;
 
+  // M-011: pendingBytes für neu gewähltes (noch nicht gespeichertes) Bild
+  Uint8List? _pendingBytes;
   String? _bildPfad;
-  Uint8List? _bildBytes;
   String? _remoteBildUrl;
 
   late final ArtikelDbService _db;
@@ -117,22 +121,21 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   Future<void> _pickImageFile() async {
     final picked = await ImagePickerService.pickImageFile(context);
-    if (picked.pfad == null && picked.bytes == null) return;
+    if (!picked.hasImage) return;
     setState(() {
+      _pendingBytes = picked.bytes;
       _bildPfad = picked.pfad;
-      _bildBytes = picked.bytes;
       _hasChanged = true;
     });
   }
 
   Future<void> _pickImageCamera() async {
-    // ← GEÄNDERT: isCameraAvailable statt kIsWeb
     if (!ImagePickerService.isCameraAvailable) return;
     final picked = await ImagePickerService.pickImageCamera(context);
-    if (picked.pfad == null && picked.bytes == null) return;
+    if (!picked.hasImage) return;
     setState(() {
+      _pendingBytes = picked.bytes;
       _bildPfad = picked.pfad;
-      _bildBytes = picked.bytes;
       _hasChanged = true;
     });
   }
@@ -178,10 +181,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       };
 
       final List<http.MultipartFile> files = [];
-      if (_bildBytes != null) {
+      if (_pendingBytes != null) {
         files.add(http.MultipartFile.fromBytes(
           'bild',
-          _bildBytes!,
+          _pendingBytes!,
           filename: 'bild_${widget.artikel.uuid}.jpg',
         ),);
       }
@@ -203,7 +206,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       setState(() {
         _isEditing = false;
         _hasChanged = false;
-        _bildBytes = null;
+        _pendingBytes = null;
       });
 
       Navigator.pop(context, gespeicherterArtikel);
@@ -221,18 +224,23 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     final artikelId = widget.artikel.id;
     if (artikelId == null) return;
 
-    final hasNewImage = _bildBytes != null ||
+    final hasNewImage = _pendingBytes != null ||
         (_bildPfad != null && _bildPfad != widget.artikel.bildPfad);
 
     String? localImagePath =
         widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
 
     if (hasNewImage) {
+      // M-011: onThumbnailSaved-Callback → thumbnailPfad in DB setzen
       localImagePath = await platform.persistSelectedImage(
-        bildBytes: _bildBytes,
+        bildBytes: _pendingBytes,
         bildPfad: _bildPfad,
         artikelId: artikelId,
         artikelName: widget.artikel.name,
+        onThumbnailSaved: (thumbPath) async {
+          await _db.setThumbnailPfadByUuid(widget.artikel.uuid, thumbPath);
+          _logger.d('Thumbnail gespeichert und in DB eingetragen: $thumbPath');
+        },
       );
 
       if (localImagePath == null) {
@@ -263,7 +271,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           _uploadImageToPocketBase(
             uuid: widget.artikel.uuid,
             localImagePath: localImagePath,
-            bildBytes: _bildBytes,
+            bildBytes: _pendingBytes,
           ),
         );
       }
@@ -272,7 +280,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       setState(() {
         _isEditing = false;
         _hasChanged = false;
-        _bildBytes = null;
+        _pendingBytes = null;
         _bildPfad = artikelMitAenderungen.bildPfad.isNotEmpty
             ? artikelMitAenderungen.bildPfad
             : null;
@@ -427,15 +435,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         messenger.showSnackBar(
           SnackBar(
             content: Text('PDF gespeichert:\n$pdfFile'),
-            // Fix: 5 Sekunden — danach automatisch schließen
             duration: const Duration(seconds: 5),
             action: SnackBarAction(
               label: 'Öffnen',
               onPressed: () async {
-                // Snackbar sofort schließen wenn Nutzer drückt
                 messenger.clearSnackBars();
                 final success = await PdfService.openPdf(pdfFile);
-                 if (!success && mounted) {
+                if (!success && mounted) {
                   messenger.clearSnackBars();
                   messenger.showSnackBar(
                     const SnackBar(
@@ -453,13 +459,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       _logger.e('Fehler beim PDF-Export:', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim PDF-Export: $e'),
-            duration: const Duration(seconds: 4),
-          ),
-        );
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Text('Fehler beim PDF-Export: $e'),
+              duration: const Duration(seconds: 4),
+            ),
+          );
       }
     }
   }
@@ -489,133 +495,62 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     });
   }
 
-  // ==================== BILD VOLLBILD ====================
+  // ==================== VOLLBILD ====================
 
+  /// M-011: Vollbild-Overlay mit InteractiveViewer.
   void _zeigeBildVollbild() {
-    Widget bildWidget;
+    // Kein Bild vorhanden → nichts tun
+    final hasPending = _pendingBytes != null;
+    final hasRemote = kIsWeb && _remoteBildUrl != null;
+    final hasLocal = !kIsWeb && _bildPfad != null;
 
-    if (_bildBytes != null) {
-      bildWidget = Image.memory(_bildBytes!, fit: BoxFit.contain);
-    } else if (kIsWeb && _remoteBildUrl != null) {
-      bildWidget = Image.network(_remoteBildUrl!, fit: BoxFit.contain);
-    } else if (!kIsWeb && _bildPfad != null) {
-      bildWidget = platform.buildFileImage(_bildPfad!, fit: BoxFit.contain);
-    } else {
-      return;
-    }
+    if (!hasPending && !hasRemote && !hasLocal) return;
 
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black,
+      barrierColor: Colors.black87,
       builder: (dialogCtx) => GestureDetector(
         onTap: () => Navigator.pop(dialogCtx),
-        child: Container(
-          color: Colors.black,
-          alignment: Alignment.center,
-          child: InteractiveViewer(child: bildWidget),
-        ),
-      ),
-    );
-  }
-
-  // ==================== BILD WIDGET ====================
-
-  Widget _buildBildAnzeige() {
-    if (_bildBytes != null) {
-      return GestureDetector(
-        onTap: _zeigeBildVollbild,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.memory(
-            _bildBytes!,
-            height: 200,
-            width: double.infinity,
-            fit: BoxFit.cover,
-          ),
-        ),
-      );
-    }
-
-    if (kIsWeb) {
-      if (_isLoadingRemoteBild) {
-        return Container(
-          height: 200,
-          width: double.infinity,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const CircularProgressIndicator(),
-        );
-      }
-
-      if (_remoteBildUrl != null) {
-        return GestureDetector(
-          onTap: _zeigeBildVollbild,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Image.network(
-              _remoteBildUrl!,
-              height: 200,
-              width: double.infinity,
-              fit: BoxFit.cover,
-              loadingBuilder: (_, child, progress) {
-                if (progress == null) return child;
-                return SizedBox(
-                  height: 200,
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      value: progress.expectedTotalBytes != null
-                          ? progress.cumulativeBytesLoaded /
-                              progress.expectedTotalBytes!
-                          : null,
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (_, __, ___) => _buildPlaceholder(),
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: Text(
+              widget.artikel.name,
+              style: const TextStyle(color: Colors.white),
             ),
           ),
-        );
-      }
-      return _buildPlaceholder();
-    }
-
-    if (_bildPfad != null && platform.fileExists(_bildPfad!)) {
-      return GestureDetector(
-        onTap: _zeigeBildVollbild,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: platform.buildFileImage(
-            _bildPfad!,
-            height: 200,
-            width: double.infinity,
-            fit: BoxFit.cover,
+          body: Center(
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 5.0,
+              child: _buildVollbildContent(),
+            ),
           ),
         ),
-      );
-    }
-
-    return _buildPlaceholder();
-  }
-
-  Widget _buildPlaceholder() {
-    return Container(
-      height: 200,
-      width: double.infinity,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: const Icon(
-        Icons.image_not_supported,
-        size: 48,
-        color: Colors.grey,
       ),
     );
+  }
+
+  Widget _buildVollbildContent() {
+    if (_pendingBytes != null) {
+      return Image.memory(_pendingBytes!, fit: BoxFit.contain);
+    }
+    if (kIsWeb && _remoteBildUrl != null) {
+      return CachedNetworkImage(
+        imageUrl: _remoteBildUrl!,
+        fit: BoxFit.contain,
+        placeholder: (_, __) =>
+            const Center(child: CircularProgressIndicator()),
+        errorWidget: (_, __, ___) =>
+            const Icon(Icons.image_not_supported, color: Colors.white, size: 64),
+      );
+    }
+    if (!kIsWeb && _bildPfad != null) {
+      return platform.buildFileImage(_bildPfad!, fit: BoxFit.contain);
+    }
+    return const Icon(Icons.image_not_supported, color: Colors.white, size: 64);
   }
 
   // ==================== UI ====================
@@ -737,7 +672,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               ),
               const SizedBox(height: 20),
 
-              // ← GEÄNDERT: !kIsWeb → isCameraAvailable
               Row(
                 children: [
                   FilledButton.tonalIcon(
@@ -760,7 +694,26 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               DokumenteButton(artikelId: artikel.id),
               const SizedBox(height: 20),
 
-              _buildBildAnzeige(),
+              // M-011: Zentrales Bild-Widget mit Vollbild-Tap
+              if (_isLoadingRemoteBild)
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const CircularProgressIndicator(),
+                )
+              else
+                ArtikelDetailBild(
+                  artikel: artikel,
+                  pendingBytes: _pendingBytes,
+                  remoteBildUrl: _remoteBildUrl,
+                  onTap: _zeigeBildVollbild,
+                ),
+
               const SizedBox(height: 20),
 
               ElevatedButton(

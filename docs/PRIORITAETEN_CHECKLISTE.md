@@ -2,12 +2,13 @@
 
 Basierend auf der technischen Analyse vom 2026-03-21  
 **Letzte Aktualisierung:** 2026-03-23 (Dokumentation vervollständigt: N-003, Backup/Restore erweitert, H-001 Machbarkeitsanalyse)
+**Letzte Aktualisierung:** 2026-03-23 (M-011: Zentrales Bild-Widget implementiert)
 
 ---
 
 ## 📊 Umsetzungsstatus
 
-**Gesamt-Fortschritt:** 22 von 17 kritischen/hohen Prioritäten abgeschlossen (+ Security Headers + neue Optimierungen)
+**Gesamt-Fortschritt:** 23 von 17 kritischen/hohen Prioritäten abgeschlossen (+ Security Headers + neue Optimierungen)
 
 ### ✅ Abgeschlossen (22)
 - K-001: App Bundle Identifiers (alle Plattformen)
@@ -26,6 +27,7 @@ Basierend auf der technischen Analyse vom 2026-03-21
 - M-004: Produktions-Compose verschoben
 - M-007: Artikelnummer + Performance-Indizes + Volltextsuche
 - M-008: Docker Reproducibility/Caching/Hardening (Teilweise)
+- M-011: Artikelbilder optimieren – Zentrales Bild-Widget (Thumbnails/Caching/Plattform-Strategie)
 - M-013: Backup & Restore vollständig dokumentiert (3 Methoden, Cron, Notfall-Recovery, Restore-Test)
 - N-001: Mocking-Libraries bereinigt
 - N-002: dependency_overrides dokumentiert
@@ -36,14 +38,13 @@ Basierend auf der technischen Analyse vom 2026-03-21
 ### 🔄 In Arbeit (0)
 - Keine
 
-### ⏳ Ausstehend (8)
+### ⏳ Ausstehend (7)
 - H-001: Platform Builds in CI/CD - **Linux: umsetzbar (~1h)**, **iOS: benötigt Apple Developer Account (3-5h)**
 
 - M-001, M-005: 2 mittlere Prioritäten
 - M-006: Docker Stack Deploy "Happy Path" dokumentieren & testen
 - M-009: Scan-Funktion allgemein (Fallback/UX/Fehlerfälle) plattformübergreifend prüfen
 - M-010: QR-Scanning plattformübergreifend (Web/Mobile/Desktop)
-- M-011: Artikelbilder optimieren (Thumbnails/Performance/Darstellung)
 - M-012: Dokumentenanhänge pro Artikel (mehrere Dateien, Typen/Limit/UX)
 
 - N-005: PocketBase Admin Reset/Reinit-Prozedur (sicher) dokumentieren/implementieren
@@ -439,10 +440,17 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 
 ---
 
-### M-011: Artikelbilder optimieren (Thumbnails/Performance/Darstellung)
-- [ ] Ladeverhalten und Bildgrößen prüfen
-- [ ] Thumbnails/Vorschaukonzept (Performance, Bandbreite)
-- [ ] Darstellung in Listen/Details (Web/Mobile/Desktop)
+### M-011: Artikelbilder optimieren (Thumbnails/Performance/Darstellung) ✅ ERLEDIGT
+- [x] Zentrales Bild-Widget erstellt: `lib/widgets/artikel_bild_widget.dart`
+- [x] `ArtikelListBild` – Thumbnail (50×50px) für Listenansicht mit `ClipRRect`
+- [x] `ArtikelDetailBild` – Vollbild (200px Höhe) für Detailansicht mit `onTap` + `pendingBytes`
+- [x] Plattform-Strategie: lokal (`Image.file` + `cacheWidth`) vs. Web (`CachedNetworkImage`)
+- [x] Serverseitige Thumbnails via PocketBase `?thumb=60x60`
+- [x] Memory-optimiertes Caching (`cacheWidth`, `memCacheWidth/Height`)
+- [x] Private Hilfs-Widgets: `_LocalThumbnail`, `_WebThumbnail`, `_LoadingPlaceholder`, `_Placeholder`, `_BildPlaceholder`
+- [x] `flutter analyze` – No issues found
+
+**Status:** ✅ Einheitliches, wiederverwendbares Bild-Widget. Optimiertes Caching auf allen Plattformen.
 
 ---
 
@@ -652,8 +660,13 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 - ✅ M-013: Backup & Restore vollständig dokumentiert - ERLEDIGT
 - N-005: siehe MANUELLE_OPTIMIERUNGEN.md
 
+**Phase 5: Feature-Optimierungen 🔄 IN ARBEIT**
+- ✅ M-011: Artikelbilder – Zentrales Bild-Widget implementiert - ERLEDIGT
+- M-009: Scan-Funktion allgemein prüfen - ausstehend
+- M-010: QR-Scanning plattformübergreifend - ausstehend
+- M-012: Dokumentenanhänge pro Artikel - ausstehend
 ---
 
 **Tracking:** Diese Checkliste kann in GitHub Projects oder Issues übertragen werden  
 **Update:** Bei Abschluss Status auf `[x]` ändern  
-**Letzte Aktualisierung:** 2026-03-23 - Phase 5 Dokumentation abgeschlossen! N-003, M-013, H-001 Machbarkeitsanalyse, vollständige Backup/Restore- und GitHub Actions-Dokumentation!
+**Letzte Aktualisierung:** 2026-03-23 - M-011 Zentrales Bild-Widget abgeschlossen! Plattform-optimiertes Caching, ArtikelListBild + ArtikelDetailBild implementiert.

@@ -1,4 +1,8 @@
 // lib/screens/artikel_list_screen.dart
+//
+// M-011: _buildArtikelBild() und _buildPocketBaseBild() ersetzt durch
+//        ArtikelListBild-Widget aus artikel_bild_widget.dart.
+//        Alle anderen Methoden unverändert.
 
 import 'dart:async';
 
@@ -15,13 +19,12 @@ import '../services/nextcloud_connection_service.dart';
 import '../services/pocketbase_service.dart';
 import '../services/scan_service.dart';
 import '../widgets/article_icons.dart';
+// M-011: Neues zentrales Bild-Widget
+import '../widgets/artikel_bild_widget.dart';
 import 'artikel_detail_screen.dart';
 import 'artikel_erfassen_screen.dart';
 import 'nextcloud_settings_screen.dart';
 import 'settings_screen.dart';
-
-import 'list_screen_io.dart'
-    if (dart.library.html) 'list_screen_stub.dart' as platform;
 
 import 'list_screen_mobile_actions.dart'
     if (dart.library.html) 'list_screen_web_actions.dart'
@@ -29,14 +32,12 @@ import 'list_screen_mobile_actions.dart'
 
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
-  // ✅ Kein Logger hier — StatefulWidget bleibt sauber
 
   @override
   State<ArtikelListScreen> createState() => _ArtikelListScreenState();
 }
 
 class _ArtikelListScreenState extends State<ArtikelListScreen> {
-  // ✅ Logger gehört in die State-Klasse
   final Logger _logger = AppLogService.logger;
 
   List<Artikel> _artikelListe = [];
@@ -70,7 +71,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _nextcloudService = NextcloudConnectionService();
         _nextcloudService!.startPeriodicCheck();
       } catch (e, st) {
-        // ✅ debugPrint ersetzt
         _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
       }
     }
@@ -113,7 +113,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _artikelListe = await _db.getAlleArtikel();
       }
     } catch (e, st) {
-      // ✅ debugPrint ersetzt
       _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -239,86 +238,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
-  // ==================== BILD-WIDGET ====================
-
-  Widget _buildArtikelBild(Artikel artikel) {
-    if (kIsWeb) {
-      return _buildPocketBaseBild(artikel);
-    }
-
-    if (artikel.bildPfad.isNotEmpty && platform.fileExists(artikel.bildPfad)) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: platform.buildFileImage(
-          artikel.bildPfad,
-          width: 50,
-          height: 50,
-          fit: BoxFit.cover,
-        ),
-      );
-    }
-
-    return _buildBildPlaceholder();
-  }
-
-  Widget _buildPocketBaseBild(Artikel artikel) {
-    final recordId = artikel.remotePath;
-    final bildField = artikel.remoteBildPfad;
-
-    if (recordId != null &&
-        recordId.isNotEmpty &&
-        bildField != null &&
-        bildField.isNotEmpty) {
-      final baseUri = Uri.parse(_pbService.url);
-      final url = baseUri
-          .resolve(
-            '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}',
-          )
-          .toString();
-
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(6),
-        child: Image.network(
-          url,
-          width: 50,
-          height: 50,
-          fit: BoxFit.cover,
-          loadingBuilder: (_, child, progress) {
-            if (progress == null) return child;
-            return SizedBox(
-              width: 50,
-              height: 50,
-              child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  value: progress.expectedTotalBytes != null
-                      ? progress.cumulativeBytesLoaded /
-                          progress.expectedTotalBytes!
-                      : null,
-                ),
-              ),
-            );
-          },
-          errorBuilder: (_, __, ___) => _buildBildPlaceholder(),
-        ),
-      );
-    }
-
-    return _buildBildPlaceholder();
-  }
-
-  Widget _buildBildPlaceholder() {
-    return Container(
-      width: 50,
-      height: 50,
-      decoration: BoxDecoration(
-        color: Colors.grey[300],
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: const Icon(Icons.image_not_supported, color: Colors.grey),
-    );
-  }
-
   // ==================== UI ====================
 
   @override
@@ -440,7 +359,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   Widget _buildArtikelTile(Artikel artikel) {
     return ListTile(
-      leading: _buildArtikelBild(artikel),
+      // M-011: Zentrales Bild-Widget statt inline Image.network / Image.file
+      leading: ArtikelListBild(artikel: artikel),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
