@@ -284,7 +284,7 @@ class _Placeholder extends StatelessWidget {
       width: double.infinity,
       color: AppImages.platzhalterHintergrund,
       alignment: Alignment.center,
-      child: Icon(
+      child: const Icon(
         Icons.image_not_supported,
         size: AppImages.platzhalterIconGroesse,
         color: Colors.grey,
