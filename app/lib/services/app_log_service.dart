@@ -65,16 +65,16 @@ abstract final class AppLogService {
 // Level-Metadaten
 // ─────────────────────────────────────────────────────────────────────────────
 const _levelMeta = <Level, (String label, Color color, String emoji)>{
-  Level.trace:   ('TRACE',   Color(0xFF9E9E9E), '🔍'),
-  Level.debug:   ('DEBUG',   Color(0xFF2196F3), '🐛'),
-  Level.info:    ('INFO',    Color(0xFF4CAF50), 'ℹ️'),
-  Level.warning: ('WARNING', Color(0xFFFF9800), '⚠️'),
-  Level.error:   ('ERROR',   Color(0xFFF44336), '❌'),
+  Level.trace:   ('TRACE',   AppTheme.greyNeutral600, '🔍'),
+  Level.debug:   ('DEBUG',   AppTheme.infoColor, '🐛'),
+  Level.info:    ('INFO',    AppTheme.successColor, 'ℹ️'),
+  Level.warning: ('WARNING', AppTheme.warningColor, '⚠️'),
+  Level.error:   ('ERROR',   AppTheme.errorColor, '❌'),
   Level.fatal:   ('FATAL',   Color(0xFF9C27B0), '💀'),
 };
 
 String _label(Level l) => _levelMeta[l]?.$1 ?? l.name.toUpperCase();
-Color  _color(Level l) => _levelMeta[l]?.$2 ?? const Color(0xFF9E9E9E);
+Color  _color(Level l) => _levelMeta[l]?.$2 ?? AppTheme.greyNeutral600;
 String _emoji(Level l) => _levelMeta[l]?.$3 ?? '';
 
 // ─────────────────────────────────────────────────────────────────────────────

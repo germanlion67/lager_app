@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart' show ArchiveFile, ZipDecoder;
 import 'package:csv/csv.dart';
 import 'package:logger/logger.dart';
+import '../config/app_images.dart';
 import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'pocketbase_service.dart';
@@ -571,12 +572,10 @@ class ArtikelImportService {
     return warnungen;
   }
 
-  static const String placeholderImagePath = 'assets/images/placeholder.jpg';
-
   static List<Artikel> setzePlatzhalterBilder(List<Artikel> artikelList) {
     return artikelList.map((a) {
       if (a.bildPfad.isEmpty) {
-        return a.copyWith(bildPfad: placeholderImagePath);
+        return a.copyWith(bildPfad: AppImages.platzhalterBildPfad);
       }
       return a;
     }).toList();
