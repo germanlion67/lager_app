@@ -9,6 +9,7 @@ Future<String?> persistSelectedImage({
   String? bildPfad,
   required int artikelId,
   required String artikelName,
+  Future<void> Function(String)? onThumbnailSaved,
 }) async =>
     null; // Im Web nicht nötig
 
