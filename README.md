@@ -968,6 +968,94 @@ open ios/Runner.xcworkspace
 
 ---
 
+## 🚀 GitHub Actions Setup
+
+Das Projekt nutzt GitHub Actions für automatisierte Releases, Docker-Builds und Tests. Hier erfährst du, wie du die CI/CD-Pipeline einrichtest und nutzt.
+
+### Release Workflow
+
+Der **Release-Workflow** (`.github/workflows/release.yml`) erstellt automatisch:
+- ✅ Android APK und App Bundle
+- ✅ Windows Desktop Build
+- ✅ Web Docker Images
+- ✅ GitHub Release mit Download-Links
+
+**Workflow manuell starten:**
+```bash
+# Im GitHub Repository:
+# Actions → Release - Build and Deploy → Run workflow → Version eingeben (z.B. 1.3.4)
+```
+
+### Erforderliches GitHub Secret: GH_PAT
+
+Der Release-Workflow benötigt ein **Personal Access Token (PAT)** mit `repo`-Berechtigung, um Git-Tags zu erstellen und Releases zu veröffentlichen.
+
+#### GH_PAT erstellen und konfigurieren
+
+1. **Token generieren:**
+   - Gehe zu [GitHub Settings → Developer Settings → Personal Access Tokens → Tokens (classic)](https://github.com/settings/tokens)
+   - Klicke auf **"Generate new token (classic)"**
+   - Name: `Lager App Release Workflow`
+   - Expiration: `No expiration` (oder nach Bedarf)
+   - **Scopes auswählen:**
+     - ✅ `repo` (Full control of private repositories) — benötigt für:
+       - `repo:status` - Tag-Erstellung
+       - `repo_deployment` - Release-Erstellung  
+       - `public_repo` - Zugriff auf öffentliche Repositories
+   - Klicke auf **"Generate token"**
+   - ⚠️ **Token sofort kopieren** (wird nur einmal angezeigt!)
+
+2. **Secret im Repository hinzufügen:**
+   - Gehe zu deinem Repository → **Settings → Secrets and variables → Actions**
+   - Klicke auf **"New repository secret"**
+   - Name: `GH_PAT`
+   - Value: *Eingefügtes Token aus Schritt 1*
+   - Klicke auf **"Add secret"**
+
+3. **Verifizierung:**
+   ```bash
+   # Test-Release starten (GitHub Actions → Release Workflow → Run workflow)
+   # Bei erfolgreicher Tag-Erstellung funktioniert GH_PAT korrekt
+   ```
+
+#### Warum GH_PAT statt GITHUB_TOKEN?
+
+Das eingebaute `GITHUB_TOKEN` hat **keine Berechtigung**, Git-Tags zu pushen. Der Release-Workflow muss:
+1. Version-Tag erstellen (`git tag -a v1.3.4`)
+2. Tag zum Repository pushen (`git push origin v1.3.4`)
+3. GitHub Release mit Artefakten erstellen
+
+Ohne `GH_PAT` schlägt der Workflow mit diesem Fehler fehl:
+```
+remote: Permission to germanlion67/lager_app.git denied to github-actions[bot]
+```
+
+### Weitere Workflows
+
+| Workflow | Trigger | Zweck |
+|----------|---------|-------|
+| **docker-build-push.yml** | Push zu `main`, Version-Tags | Baut und pusht Docker Images zu ghcr.io |
+| **flutter-maintenance.yml** | Täglich (Cron) | Prüft auf Flutter/Dependency-Updates |
+
+**Hinweis:** Diese Workflows nutzen das eingebaute `GITHUB_TOKEN` (keine Konfiguration nötig).
+
+### Linux & iOS Builds
+
+**Linux-Build:**
+- ✅ Kann mit minimalem Aufwand (~1 Stunde) hinzugefügt werden
+- Ubuntu Runner vorhanden, GTK-Dependencies verfügbar
+- Ausgabe: `tar.gz` Bundle (funktioniert auf allen Linux-Distros)
+
+**iOS-Build:**
+- ⚠️ Benötigt Apple Developer Account ($99/Jahr)
+- ⚠️ Code-Signing Certificates erforderlich
+- ⚠️ GitHub Actions unterstützt keine iOS-Tests (nur Builds)
+- Geschätzter Aufwand: 3-5 Stunden
+
+Siehe [docs/MANUELLE_OPTIMIERUNGEN.md](docs/MANUELLE_OPTIMIERUNGEN.md) (H-001) für Details.
+
+---
+
 ## Contributing
 
 1. **Fork** das Repository
