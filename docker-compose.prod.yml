@@ -105,7 +105,7 @@ services:
   # ============================================================
   pocketbase:
     # H-005: Verwende vorgebautes Image statt lokalem Build
-    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_USERNAME:-germanlion67}/lager_app_pocketbase:${VERSION:-latest}
+    image: ghcr.io/germanlion67/lager_app_pocketbase:latest
     container_name: pocketbase
     restart: unless-stopped
     # ✅ H-007: expose statt ports → NUR intern erreichbar
@@ -163,7 +163,7 @@ services:
   app:
     # H-005: Verwende vorgebautes Image statt lokalem Build
     # Runtime-Config: URL wird beim Container-Start dynamisch gesetzt
-    image: ${DOCKER_REGISTRY:-ghcr.io}/${DOCKER_USERNAME:-germanlion67}/lager_app_web:${VERSION:-latest}
+    image: ghcr.io/germanlion67/lager_app_web:latest
     container_name: lager_frontend
     restart: unless-stopped
     environment:
