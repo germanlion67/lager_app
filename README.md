@@ -855,7 +855,7 @@ flutter build linux --release \
 - [x] PDF Export — Gefilterte Artikel
 - [x] PDF Export — Artikel-Detail (mit & ohne Bild)
 - [x] PDF Öffnen — Fehlerfall (Snackbar max. 3 Sek., kein ewiges Hängen)
-- [ ] ZIP-Backup lokal exportieren & importieren
+- [x] ZIP-Backup lokal exportieren & importieren
 - [ ] ZIP-Backup Nextcloud exportieren & importieren
 
 > **Stolperstellen:**
@@ -897,10 +897,12 @@ flutter run -d chrome \
 
 ```
 
-- [ ] Artikel anlegen, ändern, löschen
-- [ ] Suche & Filter (Ort / Fach / Kombination)
-- [ ] PDF Export — Download via Browser
-- [ ] ZIP-Backup exportieren & importieren
+- [x] Artikelverwaltung (CRUD) via PocketBase API
+- [x] Responsive UI (Desktop- vs. Mobile-View im Browser)
+- [x] PDF Export (Blob-Download im Browser)
+- [x] Caddy SPA-Routing (Deep Linking Support)
+- [x] CORS-Konfiguration für PocketBase
+- [ ] ZIP-Backup (Web-Implementierung ausstehend)
 
 > **Stolperstellen:**
 > - `POCKETBASE_URL` wird zur **Build-Zeit** eingebrannt (`--dart-define`) — nach URL-Änderung zwingend `docker compose up --build app` ausführen, `restart` allein reicht nicht
@@ -1008,6 +1010,13 @@ Der **Release-Workflow** (`.github/workflows/release.yml`) erstellt automatisch:
 - ✅ Windows Desktop Build
 - ✅ Web Docker Images
 - ✅ GitHub Release mit Download-Links
+
+#### Warum GH_PAT statt GITHUB_TOKEN?
+
+Das standardmäßige `GITHUB_TOKEN` hat in vielen Konfigurationen keine Schreibrechte für Tags, wenn diese einen neuen Workflow-Run auslösen sollen. Der `GH_PAT` (Personal Access Token) stellt sicher, dass:
+1. Version-Tags erstellt und gepusht werden können.
+2. Der Release-Prozess die Berechtigung hat, Binaries (APK, EXE) an das Release anzuhängen.
+3. Git-Operationen innerhalb der Action nicht an Permission-Hürden scheitern.
 
 **Workflow manuell starten:**
 ```bash
