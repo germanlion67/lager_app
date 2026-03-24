@@ -58,4 +58,5 @@ flutter test test/widgets/dokumente_button_test.dart
 flutter test --verbose
 
 # Run performance tests (requires dataset)
+dart run tool/generate_import_dataset.dart --count 500
 flutter test test/performance/import_500_smoke_test.dart
