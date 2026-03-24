@@ -10,7 +10,7 @@
 
 ## 📦 Images
 
-DDie Docker Images werden manuell gebaut und zu GitHub Container Registry (GHCR) gepusht:
+Die Docker Images werden automatisch gebaut und zu GitHub Container Registry (GHCR) gepusht:
 
 - **PocketBase:** `ghcr.io/germanlion67/lager_app_pocketbase:latest`
 - **Frontend:** `ghcr.io/germanlion67/lager_app_web:latest`
@@ -21,7 +21,9 @@ DDie Docker Images werden manuell gebaut und zu GitHub Container Registry (GHCR)
 
 ### 1. Portainer öffnen
 
+```
 http://DEINE-SERVER-IP:9000
+```
 
 ### 2. Stack erstellen
 
@@ -51,8 +53,10 @@ http://DEINE-SERVER-IP:9000
 ### 4. Deploy
 
 Klicke auf **"Deploy the stack"**
-```
+
 ### 5. Stack verwalten (Portainer)
+
+```bash
 # Stack Status prüfen
 # → Portainer UI: Stacks → lager_app → Container list
 
@@ -81,10 +85,11 @@ Klicke auf **"Deploy the stack"**
 ```bash
 git clone https://github.com/germanlion67/lager_app.git
 cd lager_app
+```
 
-2. Environment Variables erstellen
+### 2. Environment Variables erstellen
 
-    
+```bash
 cat > .env << 'EOF'
 PB_ADMIN_EMAIL=admin@example.com
 PB_ADMIN_PASSWORD=SuperSecret123!
@@ -93,21 +98,23 @@ WEB_PORT=8081
 POCKETBASE_URL=http://pocketbase:8080
 CORS_ALLOWED_ORIGINS=*
 EOF
+```
 
-Wichtig: Passe die Werte in .env an deine Bedürfnisse an!
+> **Wichtig:** Passe die Werte in `.env` an deine Bedürfnisse an!
 
-3. Stack starten
+### 3. Stack starten
 
-    
+```bash
 # Stack im Hintergrund starten
 docker compose -f portainer-stack.yml up -d
 
 # Stack im Vordergrund starten (mit Logs)
 docker compose -f portainer-stack.yml up
+```
 
-4. Status prüfen
+### 4. Status prüfen
 
-    
+```bash
 # Container Status anzeigen
 docker compose -f portainer-stack.yml ps
 
@@ -132,10 +139,11 @@ docker compose -f portainer-stack.yml logs --tail=50
 
 # Container Ressourcen-Nutzung
 docker stats
+```
 
-5. Stack verwalten
+### 5. Stack verwalten
 
-    
+```bash
 # Stack stoppen (Container bleiben erhalten)
 docker compose -f portainer-stack.yml stop
 
@@ -156,10 +164,11 @@ docker compose -f portainer-stack.yml down -v
 
 # Stack herunterfahren + Images löschen
 docker compose -f portainer-stack.yml down --rmi all
+```
 
-6. Updates durchführen
+### 6. Updates durchführen
 
-    
+```bash
 # Neue Images pullen
 docker compose -f portainer-stack.yml pull
 
@@ -171,10 +180,11 @@ docker compose -f portainer-stack.yml pull && docker compose -f portainer-stack.
 
 # Alte/ungenutzte Images aufräumen
 docker image prune -a -f
+```
 
-7. Einzelne Container verwalten
+### 7. Einzelne Container verwalten
 
-    
+```bash
 # In Container einsteigen (Shell)
 docker compose -f portainer-stack.yml exec pocketbase sh
 docker compose -f portainer-stack.yml exec app sh
@@ -184,10 +194,11 @@ docker compose -f portainer-stack.yml exec pocketbase ls -la /pb_data
 
 # Container inspizieren
 docker compose -f portainer-stack.yml exec pocketbase env
+```
 
-8. Volumes verwalten
+### 8. Volumes verwalten
 
-    
+```bash
 # Volumes anzeigen
 docker volume ls
 
@@ -201,11 +212,11 @@ docker run --rm -v lager_app_pb_data:/data -v $(pwd):/backup \
 # Volume wiederherstellen
 docker run --rm -v lager_app_pb_data:/data -v $(pwd):/backup \
   alpine tar xzf /backup/pb_data_backup_YYYYMMDD_HHMMSS.tar.gz -C /data
+```
 
+### 9. Netzwerk prüfen
 
-9. Netzwerk prüfen
-
-    
+```bash
 # Netzwerke anzeigen
 docker network ls
 
@@ -214,11 +225,11 @@ docker network inspect lager_app_lager_network
 
 # Welche Container sind im Netzwerk?
 docker network inspect lager_app_lager_network --format='{{range .Containers}}{{.Name}} {{end}}'
+```
 
+### 10. Troubleshooting
 
-10. Troubleshooting
-
-    
+```bash
 # Alle Container-Prozesse anzeigen
 docker compose -f portainer-stack.yml top
 
@@ -234,12 +245,15 @@ docker compose -f portainer-stack.yml config --resolve-image-digests
 # Port-Mappings anzeigen
 docker compose -f portainer-stack.yml port pocketbase 8080
 docker compose -f portainer-stack.yml port app 8081
+```
 
+---
 
-🔄 Kompletter Update-Workflow
-Szenario: Neue Version deployen
+## 🔄 Kompletter Update-Workflow
 
-    
+**Szenario:** Neue Version deployen
+
+```bash
 # 1. Auf Entwicklungsrechner: Neue Images bauen
 cd ~/lager_app
 docker build -t ghcr.io/germanlion67/lager_app_pocketbase:latest ./server
@@ -258,12 +272,15 @@ docker compose -f portainer-stack.yml up -d
 # 4. Status prüfen
 docker compose -f portainer-stack.yml ps
 docker compose -f portainer-stack.yml logs -f --tail=50
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-🌐 Reverse Proxy Konfiguration
-Nginx (Beispiel)
+```
 
-    
+---
+
+## 🌐 Reverse Proxy Konfiguration
+
+### Nginx (Beispiel)
+
+```nginx
 # Frontend
 server {
     listen 80;
@@ -271,9 +288,9 @@ server {
     
     location / {
         proxy_pass http://localhost:8081;
-        proxy_set_header Host$host;
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 }
@@ -285,24 +302,24 @@ server {
     
     location / {
         proxy_pass http://localhost:8080;
-        proxy_set_header Host$host;
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         
         # WebSocket Support
         proxy_http_version 1.1;
-        proxy_set_header Upgrade$http_upgrade;
+        proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
     }
 }
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-Traefik (Beispiel)
-Füge diese Labels zu portainer-stack.yml hinzu:
+```
 
+### Traefik (Beispiel)
 
-    
+Füge diese Labels zu `portainer-stack.yml` hinzu:
+
+```yaml
 services:
   app:
     labels:
@@ -319,12 +336,15 @@ services:
       - "traefik.http.routers.lager-api.entrypoints=websecure"
       - "traefik.http.routers.lager-api.tls.certresolver=letsencrypt"
       - "traefik.http.services.lager-api.loadbalancer.server.port=8080"
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-🔧 Troubleshooting
-Container startet nicht
+```
 
-    
+---
+
+## 🔧 Troubleshooting
+
+### Container startet nicht
+
+```bash
 # Detaillierte Logs anzeigen
 docker compose -f portainer-stack.yml logs pocketbase
 docker compose -f portainer-stack.yml logs app
@@ -337,11 +357,11 @@ docker compose -f portainer-stack.yml up -d --force-recreate
 
 # Einzelnen Container neu erstellen
 docker compose -f portainer-stack.yml up -d --force-recreate pocketbase
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-Images nicht gefunden
+```
 
-    
+### Images nicht gefunden
+
+```bash
 # Manuell bei GHCR anmelden
 echo "DEIN_GITHUB_TOKEN" | docker login ghcr.io -u germanlion67 --password-stdin
 
@@ -351,11 +371,11 @@ docker pull ghcr.io/germanlion67/lager_app_web:latest
 
 # Image-Cache löschen und neu pullen
 docker compose -f portainer-stack.yml pull --no-cache
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-PocketBase Admin nicht erreichbar
+```
 
-    
+### PocketBase Admin nicht erreichbar
+
+```bash
 # 1. Container läuft?
 docker compose -f portainer-stack.yml ps
 
@@ -370,11 +390,11 @@ docker inspect lager_pocketbase --format='{{.State.Health.Status}}'
 
 # 5. Manuell testen
 curl http://localhost:8080/api/health
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-Volumes/Daten gehen verloren
+```
 
-    
+### Volumes/Daten gehen verloren
+
+```bash
 # Volumes vor dem Löschen sichern!
 docker run --rm -v lager_app_pb_data:/data -v $(pwd):/backup \
   alpine tar czf /backup/pb_data_backup.tar.gz -C /data .
@@ -385,11 +405,11 @@ docker volume ls | grep lager_app
 # Stack OHNE Volume-Löschung herunterfahren
 docker compose -f portainer-stack.yml down
 # NICHT: docker compose -f portainer-stack.yml down -v
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-Performance-Probleme
+```
 
-    
+### Performance-Probleme
+
+```bash
 # Ressourcen-Nutzung prüfen
 docker stats
 
@@ -402,17 +422,22 @@ docker compose -f portainer-stack.yml restart
 
 # Ungenutzte Images/Container aufräumen
 docker system prune -a -f
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-📊 Monitoring
-Via Portainer
-Container Status: Stacks → lager_app
-Logs: Containers → lager_pocketbase/lager_app → Logs
-Stats: Containers → lager_pocketbase/lager_app → Stats
-Console: Containers → lager_pocketbase/lager_app → Console
-Via CLI
+```
 
-    
+---
+
+## 📊 Monitoring
+
+### Via Portainer
+
+- **Container Status:** Stacks → lager_app
+- **Logs:** Containers → lager_pocketbase/lager_app → Logs
+- **Stats:** Containers → lager_pocketbase/lager_app → Stats
+- **Console:** Containers → lager_pocketbase/lager_app → Console
+
+### Via CLI
+
+```bash
 # Echtzeit-Monitoring
 watch -n 2 'docker compose -f portainer-stack.yml ps'
 
@@ -424,12 +449,15 @@ docker system df
 
 # Detaillierte Disk-Usage
 docker system df -v
-ⓘ
-For code that is intended to be used in Siemens products or services, the code generation features of our AI Services may only be used after prior approval of your responsible organizational unit.
-🎯 Quick Reference
-Häufigste Befehle
+```
 
-    
+---
+
+## 🎯 Quick Reference
+
+### Häufigste Befehle
+
+```bash
 # Stack starten
 docker compose -f portainer-stack.yml up -d
 
@@ -446,5 +474,6 @@ docker compose -f portainer-stack.yml pull && docker compose -f portainer-stack.
 docker compose -f portainer-stack.yml down
 
 # Backup erstellen
-docker run --rm -v lager_app_pb_data:/data -v$(pwd):/backup \
+docker run --rm -v lager_app_pb_data:/data -v $(pwd):/backup \
   alpine tar czf /backup/backup_$(date +%Y%m%d).tar.gz -C /data .
+```
