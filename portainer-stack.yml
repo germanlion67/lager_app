@@ -1,0 +1,100 @@
+# ============================================================
+# Lager App - Portainer Stack
+# 
+# Deployment:
+#   1. Portainer öffnen
+#   2. Stacks → Add stack
+#   3. Dieses YAML einfügen
+#   4. Environment Variables setzen
+#   5. Deploy!
+#
+# Images werden automatisch von GHCR gepullt
+# ============================================================
+
+version: '3.8'
+
+services:
+  # ============================================================
+  # PocketBase Backend
+  # ============================================================
+  pocketbase:
+    image: ghcr.io/germanlion67/lager_app_pocketbase:latest
+    container_name: lager_pocketbase
+    restart: unless-stopped
+    
+    environment:
+      # Admin Credentials
+      - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-admin@example.com}
+      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD}
+      
+      # PocketBase Config
+      - PB_DATA_DIR=/pb_data
+      - PB_MIGRATIONS_DIR=/pb_migrations
+      - PB_DEV_MODE=0
+      
+      # CORS (optional, falls nötig)
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
+    
+    ports:
+      - "${PB_PORT:-8080}:8080"  # PocketBase API
+    
+    volumes:
+      - pb_data:/pb_data
+      - pb_public:/pb_public
+      - pb_backups:/pb_backups
+    
+    networks:
+      - lager_network
+    
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ============================================================
+  # Flutter Web Frontend
+  # ============================================================
+  app:
+    image: ghcr.io/germanlion67/lager_app_web:latest
+    container_name: lager_app
+    restart: unless-stopped
+    
+    environment:
+      - POCKETBASE_URL=${POCKETBASE_URL:-http://pocketbase:8080}
+    
+    ports:
+      - "${WEB_PORT:-8081}:8081"  # Frontend
+    
+    networks:
+      - lager_network
+    
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+# ============================================================
+# Volumes
+# ============================================================
+volumes:
+  pb_data:
+    driver: local
+  pb_public:
+    driver: local
+  pb_backups:
+    driver: local
+
+# ============================================================
+# Networks
+# ============================================================
+networks:
+  lager_network:
+    driver: bridge
