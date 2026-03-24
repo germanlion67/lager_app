@@ -37,7 +37,6 @@ jobs:
           git tag -a "$TAG_NAME" -m "Release version ${{ github.event.inputs.version }}"
           git push https://x-access-token:${{ secrets.GH_PAT }}@github.com/germanlion67/lager_app.git "$TAG_NAME"
 
-
   test:
     name: Run Tests
     runs-on: ubuntu-latest
@@ -55,12 +54,15 @@ jobs:
           channel: 'stable'
 
       - name: Get dependencies
+        working-directory: ./app
         run: flutter pub get
 
       - name: Analyze code
+        working-directory: ./app
         run: flutter analyze
 
       - name: Run tests
+        working-directory: ./app
         run: flutter test
 
   build-android:
@@ -86,25 +88,28 @@ jobs:
           channel: 'stable'
 
       - name: Get dependencies
+        working-directory: ./app
         run: flutter pub get
 
       - name: Build APK
+        working-directory: ./app
         run: flutter build apk --release
 
       - name: Build App Bundle
+        working-directory: ./app
         run: flutter build appbundle --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-${{ github.event.inputs.version }}
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload App Bundle
         uses: actions/upload-artifact@v4
         with:
           name: android-bundle-${{ github.event.inputs.version }}
-          path: build/app/outputs/bundle/release/app-release.aab
+          path: app/build/app/outputs/bundle/release/app-release.aab
 
   build-windows:
     name: Build Windows
@@ -123,14 +128,16 @@ jobs:
           channel: 'stable'
 
       - name: Get dependencies
+        working-directory: ./app
         run: flutter pub get
 
       - name: Build Windows
+        working-directory: ./app
         run: flutter build windows --release
 
       - name: Create Windows Archive
         run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath windows-release-${{ github.event.inputs.version }}.zip
+          Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath windows-release-${{ github.event.inputs.version }}.zip
 
       - name: Upload Windows Build
         uses: actions/upload-artifact@v4
