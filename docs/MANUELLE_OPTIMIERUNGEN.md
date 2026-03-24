@@ -2,17 +2,23 @@
 
 Diese Datei dokumentiert Optimierungen aus der PRIORITAETEN_CHECKLISTE.md, die **manuelle Handlungen** oder **Klärungen** erfordern und daher nicht automatisch umgesetzt wurden.
 
-**Letzte Aktualisierung:** 2026-03-22
+**Letzte Aktualisierung:** 2026-03-24 (H-001 Linux: Implementiert, iOS/macOS: Zurückgestellt)
 
 ---
 
 ## 🟠 HOCH (Wichtig für vollständige Produktionsreife)
 
-### H-001: Fehlende Platform-Builds in CI/CD
+### H-001: Platform-Builds in CI/CD
 
-**Status:** ⏳ Ausstehend - Benötigt Apple Developer Account
+**Status Linux:** ✅ Implementiert (2026-03-24) – Linux-Build ist in `.github/workflows/release.yml` aktiv.  
+**Status iOS/macOS:** 🔴 Zurückgestellt – Benötigt Apple Developer Account
 
-**Erforderliche Klärungen:**
+**Linux-Build (ERLEDIGT):**
+- Build-Job: `build-linux` in `release.yml`
+- Dependencies: clang, cmake, ninja-build, pkg-config, libgtk-3-dev, libglu1-mesa-dev, liblzma-dev, libsecret-1-dev
+- Ausgabe: `linux-release-{version}.tar.gz` als GitHub Release Artifact
+
+**iOS/macOS – Zurückgestellt, offene Klärungen:**
 1. **Apple Developer Account:** Ist ein aktiver Apple Developer Account verfügbar?
    - Account-ID und Team-ID für iOS/macOS Signing
    - Zugriff auf App Store Connect für Veröffentlichung
@@ -21,17 +27,13 @@ Diese Datei dokumentiert Optimierungen aus der PRIORITAETEN_CHECKLISTE.md, die *
    - Sollen diese als GitHub Secrets hinterlegt werden?
    - Welche Signing-Methode: Development, Ad-Hoc, oder App Store Distribution?
 
-3. **Linux Build:**
-   - Welche Linux-Distributionen sollen unterstützt werden? (Ubuntu, Fedora, Arch?)
-   - Snap, AppImage, oder .deb/.rpm Pakete?
-
-**Nächste Schritte:**
+**Nächste Schritte für iOS (wenn bereit):**
 1. Apple Developer Account einrichten
 2. Signing Certificates generieren und in GitHub Secrets speichern
-3. Workflow `.github/workflows/release.yml` um iOS/macOS/Linux Jobs erweitern
-4. Artifacts für alle Plattformen hochladen
+3. Workflow `.github/workflows/release.yml` um iOS/macOS Jobs erweitern
+4. Artifacts für iOS/macOS hochladen
 
-**Geschätzte Komplexität:** 🔴 Hoch (3-5 Stunden)
+**Geschätzte Komplexität iOS:** 🔴 Hoch (3-5 Stunden + jährliche Wartung)
 
 ---
 

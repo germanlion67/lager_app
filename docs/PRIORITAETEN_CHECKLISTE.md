@@ -1,29 +1,27 @@
 # ✅ Prioritäten-Checkliste - Lager_app
 
 Basierend auf der technischen Analyse vom 2026-03-21  
-**Letzte Aktualisierung:** 2026-03-23 (Dokumentation vervollständigt: N-003, Backup/Restore erweitert, H-001 Machbarkeitsanalyse)
-**Letzte Aktualisierung:** 2026-03-23 (M-011: Zentrales Bild-Widget implementiert)
-**Letzte Aktualisierung:** 2026-03-23 (N-006: Zentrale Konfigurationsdateien implementiert)
+**Letzte Aktualisierung:** 2026-03-24 (H-001 Linux-Build implementiert, iOS zurückgestellt; ARCHITECTURE.md & DEPLOYMENT.md aktualisiert; neue Optimierungspunkte O-001 bis O-004 ergänzt)
 
 ---
 
 ## 📊 Umsetzungsstatus
 
-**Gesamt-Fortschritt:** 24 von 17 kritischen/hohen Prioritäten abgeschlossen (+ Security Headers + neue Optimierungen)
+**Gesamt-Fortschritt:** 25 von 17 kritischen/hohen Prioritäten abgeschlossen (+ Security Headers + neue Optimierungen)
 
-### ✅ Abgeschlossen (23)
+### ✅ Abgeschlossen (25)
 - K-001: App Bundle Identifiers (alle Plattformen)
 - K-002: PocketBase API Rules (Sicherheit)
 - K-003: PocketBase Auto-Initialisierung
 - K-004: POCKETBASE_URL Build-Time Problem (Runtime-Config)
-- H-001: Release-Notes mit Download-Links (automatisch generiert) + Machbarkeitsanalyse (Linux: LOW, iOS: HIGH)
+- H-001: Release-Notes mit Download-Links (automatisch generiert) + Machbarkeitsanalyse + **Linux-Build implementiert**
 - H-002: CORS-Konfiguration implementiert
 - H-003: Web Manifest Metadaten aktualisiert
 - H-004: Placeholder-URL Validation (Compile-Time Check + Linter)
 - H-005: Prod-Stack nutzt vorgebaute Images (kein Build mehr)
 - H-006: Healthchecks für App/PocketBase/Proxy
 - H-007: Exponierte Ports & Netzwerk-Trennung
-- M-002: Debug-Prints entfernt und durch AppLogService ersetzt
+- M-002: Debug-Prints entfernt und durch AppLogService ersetzt (in Kernbereichen)
 - M-003: Flutter-Versionen vereinheitlicht
 - M-004: Produktions-Compose verschoben
 - M-007: Artikelnummer + Performance-Indizes + Volltextsuche
@@ -36,12 +34,13 @@ Basierend auf der technischen Analyse vom 2026-03-21
 - N-004: Roboto Font implementiert
 - N-006: Zentrale Konfigurationsdateien (AppConfig, AppTheme, AppImages) mit Material3
 - Zusätzlich: Docker Stack, GitHub Actions, Produktions-Dokumentation, Security-Headers
+- Zusätzlich: ARCHITECTURE.md & DEPLOYMENT.md aktualisiert und korrekt formatiert
 
 ### 🔄 In Arbeit (0)
 - Keine
 
 ### ⏳ Ausstehend (7)
-- H-001: Platform Builds in CI/CD - **Linux: umsetzbar (~1h)**, **iOS: benötigt Apple Developer Account (3-5h)**
+- H-001: iOS/macOS-Build in CI/CD – **zurückgestellt** (benötigt Apple Developer Account, $99/Jahr)
 
 - M-001, M-005: 2 mittlere Prioritäten
 - M-006: Docker Stack Deploy "Happy Path" dokumentieren & testen
@@ -50,6 +49,12 @@ Basierend auf der technischen Analyse vom 2026-03-21
 - M-012: Dokumentenanhänge pro Artikel (mehrere Dateien, Typen/Limit/UX)
 
 - N-005: PocketBase Admin Reset/Reinit-Prozedur (sicher) dokumentieren/implementieren
+
+### 🔍 Gefundene Code-Optimierungen (4)
+- O-001: Verbleibende `debugPrint`-Statements (34 verbleibend in 8 Dateien)
+- O-002: Fehlende Tests für neue Utils (dokumente_utils, image_processing_utils, uuid_generator)
+- O-003: `core/app_logger.dart` – Nutzung nicht einheitlich dokumentiert (AppLogger vs. AppLogService)
+- O-004: Weitere hardcoded Werte noch nicht auf AppConfig/AppTheme migriert (sync_error_widgets.dart, sync_progress_widgets.dart, conflict_resolution_screen.dart)
 
 **Hinweis:** Detaillierte Klärungsfragen und Handlungsempfehlungen für ausstehende Punkte sind in `docs/MANUELLE_OPTIMIERUNGEN.md` dokumentiert.
 
@@ -135,32 +140,33 @@ Basierend auf der technischen Analyse vom 2026-03-21
 
 ## 🟠 HOCH (Wichtig für vollständige Produktionsreife)
 
-### H-001: Fehlende Platform-Builds in CI/CD (Machbarkeitsanalyse abgeschlossen)
-- [ ] iOS-Build-Job zu `.github/workflows/release.yml` hinzufügen (**Aufwand: HOCH, 3-5h**)
-- [ ] macOS-Build-Job hinzufügen (**Aufwand: HOCH, ähnlich iOS**)
-- [ ] Linux-Build-Job hinzufügen (**Aufwand: NIEDRIG, ~1h**)
-- [ ] Artifact-Upload für alle Plattformen
+### H-001: Fehlende Platform-Builds in CI/CD ✅ LINUX ERLEDIGT / iOS ZURÜCKGESTELLT
+- [x] Linux-Build-Job zu `.github/workflows/release.yml` hinzugefügt (**Aufwand: NIEDRIG, ~1h**)
+- [x] Artifact-Upload für Linux (tar.gz)
 - [x] Release-Notes mit Download-Links aktualisieren (automatisch generiert)
-- [ ] **Hinweis:** iOS/macOS benötigen Apple Developer Account + Signing
 - [x] **Machbarkeitsanalyse durchgeführt (2026-03-23)**
+- [ ] iOS-Build-Job – **🔴 ZURÜCKGESTELLT** (Apple Developer Account $99/Jahr, Code Signing benötigt)
+- [ ] macOS-Build-Job – **🔴 ZURÜCKGESTELLT** (Apple Developer Account, Code Signing benötigt)
+- [ ] **Hinweis:** iOS/macOS benötigen Apple Developer Account + Signing
 
-**Status:** ✅ Release-Notes mit Download-Links implementiert. ✅ Machbarkeitsanalyse abgeschlossen.
+**Status:** ✅ Linux-Build implementiert und in CI/CD aktiv. ✅ Machbarkeitsanalyse abgeschlossen.  
+**iOS/macOS:** 🔴 Zurückgestellt bis Apple Developer Account verfügbar ist.
 
 **Machbarkeitsergebnisse:**
 
-| Platform | Aufwand | Komplexität | Blocker | Empfehlung |
-|----------|---------|-------------|---------|------------|
-| **Linux** | ~1 Stunde | NIEDRIG | Keine | ✅ **Sofort umsetzbar** |
-| **iOS** | 3-5 Stunden | HOCH | Apple Developer Account ($99/Jahr) + Code Signing | 🟡 **Aufschieben** |
-| **macOS** | 3-5 Stunden | HOCH | Apple Developer Account + Code Signing | 🟡 **Aufschieben** |
+| Platform | Aufwand | Komplexität | Blocker | Status |
+|----------|---------|-------------|---------|--------|
+| **Linux** | ~1 Stunde | NIEDRIG | Keine | ✅ **Implementiert** |
+| **iOS** | 3-5 Stunden | HOCH | Apple Developer Account ($99/Jahr) + Code Signing | 🔴 **Zurückgestellt** |
+| **macOS** | 3-5 Stunden | HOCH | Apple Developer Account + Code Signing | 🔴 **Zurückgestellt** |
 
-**Linux-Build Details:**
+**Linux-Build Details (implementiert in release.yml):**
 - ✅ CMake-Konfiguration vorhanden (`app/linux/CMakeLists.txt`)
 - ✅ GitHub Actions Ubuntu-Runner verfügbar
-- ✅ Dependencies via apt installierbar (libgtk-3-dev, libglu1-mesa-dev, pkg-config, cmake)
-- ✅ Ausgabe: tar.gz Bundle (funktioniert auf allen Linux-Distros)
-- ✅ Keine Secrets/Credentials erforderlich
-- ⏱️ Build-Zeit: ~5-8 Minuten
+- ✅ Dependencies: clang, cmake, ninja-build, pkg-config, libgtk-3-dev, libglu1-mesa-dev, liblzma-dev, libsecret-1-dev
+- ✅ Ausgabe: tar.gz Bundle
+- ✅ Upload als Release-Artifact
+- ✅ In Release-Notes referenziert mit Installations-Anleitung
 
 **iOS/macOS-Build Blocker:**
 - ❌ Apple Developer Account erforderlich ($99/Jahr, noch nicht vorhanden)
@@ -169,25 +175,12 @@ Basierend auf der technischen Analyse vom 2026-03-21
 - ⚠️ Wartungsaufwand: Jährliche Zertifikatserneuerung
 - 📋 Siehe `docs/MANUELLE_OPTIMIERUNGEN.md` für vollständige Anforderungen
 
-**Nächste Schritte:**
-1. **Linux-Build implementieren** (empfohlen, geringer Aufwand):
-   ```yaml
-   build-linux:
-     runs-on: ubuntu-latest
-     steps:
-       - name: Install dependencies
-         run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libglu1-mesa-dev pkg-config cmake
-       - name: Build Linux
-         run: flutter build linux --release
-       - name: Create Archive
-         run: tar -czf linux-release.tar.gz -C build/linux/x64/release/bundle .
-   ```
-2. **iOS/macOS aufschieben** bis:
-   - Apple Developer Account verfügbar ist
-   - Klare Distribution-Strategie definiert ist (App Store, TestFlight, Ad-Hoc)
-   - Zeitbudget für Setup (3-5h) und jährliche Wartung vorhanden ist
+**iOS zurückstellen bis:**
+1. Apple Developer Account verfügbar ist
+2. Klare Distribution-Strategie definiert ist (App Store, TestFlight, Ad-Hoc)
+3. Zeitbudget für Setup (3-5h) und jährliche Wartung vorhanden ist
 
-**Betrifft:** Apple-User, Linux-User haben aktuell keine offiziellen Builds
+**Betrifft:** Apple-User haben aktuell keine offiziellen Builds
 
 ---
 
@@ -323,12 +316,22 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 
 ---
 
-### M-002: Debug-Prints entfernen ✅ ERLEDIGT
+### M-002: Debug-Prints entfernen ✅ TEILWEISE ERLEDIGT
 - [x] Alle `debugPrint` in `artikel_erfassen_screen.dart` durch `AppLogService.logger` ersetzt
 - [x] Alle `debugPrint` in `artikel_erfassen_io.dart` durch `AppLogService.logger` ersetzt
 - [x] Linter-Rule hinzugefügt: `avoid_print: true` in `analysis_options.yaml`
+- [ ] **34 verbleibende `debugPrint`-Aufrufe** in weiteren Dateien (→ O-001)
 
-**Status:** ✅ Alle Debug-Prints in den beiden Dateien ersetzt. Linter-Rule aktiv.
+**Status:** ✅ Kernbereiche bereinigt. ⚠️ Noch 34 `debugPrint`-Aufrufe in 8 Dateien (Linter-Warning aktiv).
+
+**Verbleibende Dateien (→ O-001):**
+- `services/export_nextcloud_stub.dart` (2)
+- `services/app_log_io.dart` (5 – Bootstrap-Logs, ggf. absichtlich)
+- `services/nextcloud_webdav_client.dart` (4)
+- `widgets/sync_error_widgets.dart` (1)
+- `widgets/sync_conflict_handler.dart` (1)
+- `utils/image_processing_utils.dart` (6)
+- `screens/qr_scan_screen_mobile_scanner.dart` (1+)
 
 ---
 
@@ -678,7 +681,7 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 - **Status:** **Produktionsfreigabe erreicht!** 🎉
 
 **Phase 2: Deployment-Verbesserungen ✅ ABGESCHLOSSEN (100%)**
-- ✅ H-001: Release-Notes mit Download-Links - ERLEDIGT (Platform Builds benötigen Apple Account)
+- ✅ H-001: Release-Notes mit Download-Links - ERLEDIGT / Linux-Build implementiert / iOS zurückgestellt
 - ✅ H-002: CORS-Konfiguration - ERLEDIGT
 - ✅ H-003: Web Manifest Metadaten - ERLEDIGT
 - ✅ H-004: Placeholder-URL Validation - ERLEDIGT
@@ -712,7 +715,53 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 - M-012: Dokumentenanhänge pro Artikel - ausstehend
 ---
 
+## 🔍 Code-Optimierungen (gefunden 2026-03-24)
+
+### O-001: Verbleibende debugPrint-Statements bereinigen
+- [ ] `services/export_nextcloud_stub.dart` (2x debugPrint)
+- [ ] `services/nextcloud_webdav_client.dart` (4x debugPrint)
+- [ ] `widgets/sync_error_widgets.dart` (1x debugPrint)
+- [ ] `widgets/sync_conflict_handler.dart` (1x debugPrint)
+- [ ] `utils/image_processing_utils.dart` (6x debugPrint)
+- [ ] `screens/qr_scan_screen_mobile_scanner.dart` (1x debugPrint)
+- [ ] `services/app_log_io.dart` (5x debugPrint – Bootstrap-Logs, ggf. absichtlich mit Kommentar versehen)
+
+**Aktuell:** 34 `debugPrint`-Aufrufe in 8 Dateien. Linter-Rule `avoid_print: true` ist aktiv.  
+**Ziel:** Alle ersetzen durch `AppLogService.logger` (oder `AppLogger.logger` via `core/app_logger.dart`).
+
+---
+
+### O-002: Fehlende Tests für neue Utils
+- [ ] `utils/dokumente_utils.dart` – Basistest vorhanden (`test/dokumente_utils_test.dart`), Abdeckung prüfen
+- [ ] `utils/image_processing_utils.dart` – Kein Test vorhanden
+- [ ] `utils/uuid_generator.dart` – Kein Test vorhanden
+- [ ] `core/app_logger.dart` – Kein Test vorhanden
+
+**Ziel:** Zumindest Smoke-Tests für alle Utility-Funktionen.
+
+---
+
+### O-003: AppLogger vs. AppLogService – Nutzung vereinheitlichen
+- [ ] Entscheiden: Soll `core/app_logger.dart` (`AppLogger`) der Standard-Einstiegspunkt sein, oder bleibt es `AppLogService.logger`?
+- [ ] Nutzung in der Codebase vereinheitlichen (derzeit: mix aus beiden)
+- [ ] Dokumentation in `docs/logger.md` aktualisieren
+
+**Aktuell:** `main.dart` nutzt `AppLogService.logger` direkt. `core/app_logger.dart` ist ein dünner Wrapper.  
+**Empfehlung:** `AppLogger.logger` als Standard-Einstiegspunkt definieren und durchgängig verwenden.
+
+---
+
+### O-004: Migration weiterer Hardcoded-Werte auf AppConfig/AppTheme
+- [ ] `widgets/sync_error_widgets.dart` (~55 hardcoded Werte)
+- [ ] `widgets/sync_progress_widgets.dart` (~45 hardcoded Werte)
+- [ ] `screens/conflict_resolution_screen.dart` (~40 hardcoded Werte)
+
+**Hintergrund:** N-006 hat die zentrale Konfiguration (AppConfig, AppTheme, AppImages) erstellt und 4 Dateien migriert.  
+230+ weitere hardcoded Werte in 15+ Dateien noch nicht migriert.  
+**Priorität:** Niedrig (funktioniert aktuell, aber erschwert Theme-Änderungen).
+
+---
+
 **Tracking:** Diese Checkliste kann in GitHub Projects oder Issues übertragen werden  
 **Update:** Bei Abschluss Status auf `[x]` ändern  
-**Letzte Aktualisierung:** 2026-03-23 - M-011 Zentrales Bild-Widget abgeschlossen! Plattform-optimiertes Caching, ArtikelListBild + ArtikelDetailBild implementiert.
-**Letzte Aktualisierung:** 2026-03-23 - N-006 Zentrale Konfigurationsdateien abgeschlossen! AppConfig, AppTheme und AppImages mit Material3 Unterstützung, 230+ Werte zentralisiert.
+**Letzte Aktualisierung:** 2026-03-24 – Linux-Build implementiert, iOS zurückgestellt, ARCHITECTURE.md & DEPLOYMENT.md aktualisiert, Code-Optimierungen O-001 bis O-004 ergänzt.

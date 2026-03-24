@@ -200,39 +200,134 @@
 
 ```
 lager_app/
-├── app/                          # Flutter Application
-│   ├── lib/                      # Dart source code
-│   ├── web/                      # Web-specific files
-│   ├── Dockerfile                # Multi-stage build
-│   └── pubspec.yaml              # Dependencies
+├── app/                              # Flutter Application
+│   ├── lib/                          # Dart source code
+│   │   ├── config/                   # Zentrale Konfiguration
+│   │   │   ├── app_config.dart       # URL, UI-Konstanten, Spacing/Radius/Font
+│   │   │   ├── app_theme.dart        # Material3 Light/Dark Theme
+│   │   │   └── app_images.dart       # Asset-Pfade, Feature-Flags
+│   │   ├── core/                     # Kern-Infrastruktur
+│   │   │   └── app_logger.dart       # Dünner Logger-Wrapper (AppLogService)
+│   │   ├── models/                   # Datenmodelle
+│   │   │   └── artikel_model.dart    # Artikel-Entity
+│   │   ├── screens/                  # UI-Screens
+│   │   │   ├── artikel_list_screen.dart
+│   │   │   ├── artikel_detail_screen.dart
+│   │   │   ├── artikel_erfassen_screen.dart
+│   │   │   ├── settings_screen.dart
+│   │   │   ├── sync_management_screen.dart
+│   │   │   ├── conflict_resolution_screen.dart
+│   │   │   ├── nextcloud_settings_screen.dart
+│   │   │   ├── qr_scan_screen_mobile_scanner.dart
+│   │   │   └── *_io.dart / *_stub.dart  # Platform-Adapter
+│   │   ├── services/                 # Business-Logik & Services
+│   │   │   ├── pocketbase_service.dart
+│   │   │   ├── pocketbase_sync_service.dart
+│   │   │   ├── artikel_db_service.dart
+│   │   │   ├── sync_orchestrator.dart
+│   │   │   ├── sync_service.dart
+│   │   │   ├── sync_progress_service.dart
+│   │   │   ├── sync_error_recovery.dart
+│   │   │   ├── app_log_service.dart
+│   │   │   ├── connectivity_service.dart
+│   │   │   ├── tag_service.dart
+│   │   │   ├── scan_service.dart
+│   │   │   ├── pdf_service.dart
+│   │   │   ├── artikel_export_service.dart
+│   │   │   ├── artikel_import_service.dart
+│   │   │   ├── nextcloud_sync_service.dart
+│   │   │   ├── nextcloud_client.dart
+│   │   │   └── *_io.dart / *_stub.dart  # Platform-Adapter
+│   │   ├── utils/                    # Hilfsfunktionen
+│   │   │   ├── dokumente_utils.dart  # Datei-Sortierung
+│   │   │   ├── image_processing_utils.dart  # Bildverarbeitung
+│   │   │   └── uuid_generator.dart   # UUID-Generierung
+│   │   ├── widgets/                  # Wiederverwendbare Widgets
+│   │   │   ├── artikel_bild_widget.dart  # Zentrales Bild-Widget
+│   │   │   ├── sync_error_widgets.dart
+│   │   │   ├── sync_progress_widgets.dart
+│   │   │   ├── sync_conflict_handler.dart
+│   │   │   ├── article_icons.dart
+│   │   │   ├── image_crop_dialog.dart
+│   │   │   └── nextcloud_resync_dialog.dart
+│   │   ├── main.dart                 # App-Einstiegspunkt
+│   │   ├── main_io.dart              # Desktop/Mobile-Initialisierung
+│   │   └── main_stub.dart            # Web-Stub
+│   ├── test/                         # Tests
+│   │   ├── models/
+│   │   ├── services/
+│   │   ├── widgets/
+│   │   └── performance/
+│   ├── web/                          # Web-spezifische Dateien
+│   │   ├── manifest.json             # PWA Manifest
+│   │   └── index.html
+│   ├── assets/images/                # App-Assets (Logo, Platzhalter)
+│   ├── Caddyfile                     # Caddy Web Server Konfiguration
+│   ├── Dockerfile                    # Multi-stage Build (Flutter→Caddy)
+│   ├── docker-entrypoint.sh          # Entrypoint: Runtime-Config Generierung
+│   ├── analysis_options.yaml         # Flutter Linter-Regeln
+│   └── pubspec.yaml                  # Dependencies
 │
-├── server/                       # Backend Configuration
-│   ├── Dockerfile                # Custom PocketBase image
-│   ├── init-pocketbase.sh        # Auto-initialization script
-│   ├── pb_migrations/            # Database migrations
+├── server/                           # Backend Konfiguration
+│   ├── Dockerfile                    # Custom PocketBase Image
+│   ├── init-pocketbase.sh            # Auto-Initialisierungsscript
+│   ├── manage_data.sh                # Daten-Management Script
+│   ├── pb_migrations/                # Datenbank-Migrationen
 │   │   ├── 1772784781_created_artikel.js
+│   │   ├── 1772784782_created_users.js
+│   │   ├── 1772784783_updated_artikel_ownership.js
+│   │   ├── 1774186524_added_artikelnummer_indexes.js
 │   │   └── pb_schema.json
-│   ├── pb_data/                  # Database (volume)
-│   ├── pb_public/                # Public files (volume)
-│   └── pb_backups/               # Backups (volume)
+│   └── pb_public/                    # Öffentliche Dateien (Volume)
 │
-├── .github/workflows/            # CI/CD
-│   └── docker-build-push.yml     # Build & push images
+├── packages/                         # Lokale Flutter Packages
+│   └── runtime_env_config/           # Runtime-Konfiguration (Web)
+│       └── lib/
 │
-├── docs/                         # Documentation
-│   ├── PRODUCTION_DEPLOYMENT.md
-│   ├── IMPLEMENTATION_SUMMARY.md
-│   └── TECHNISCHE_ANALYSE_2026-03.md
+├── .github/                          # GitHub-Konfiguration
+│   └── workflows/                    # CI/CD Workflows
+│       ├── release.yml               # Release: Test + Android + Windows + Linux
+│       ├── docker-build-push.yml     # Docker Images bauen & pushen
+│       ├── flutter-maintenance.yml   # Dependency-Updates überwachen
+│       ├── build-and-deploy.yml      # Build & Deploy
+│       ├── build-images.yml          # Images bauen
+│       └── deploy.yml                # Deployment
 │
-├── docker-compose.yml            # Dev/Test setup
-├── docker-compose.prod.yml       # Production setup
-├── docker-stack.yml              # Docker Swarm setup
-├── .env.example                  # Dev/Test template
-├── .env.production.example       # Production template
-├── test-deployment.sh            # Validation script
-├── QUICKSTART.md                 # Quick setup guide
-├── CHANGELOG.md                  # Version history
-└── README.md                     # Main documentation
+├── docs/                             # Dokumentation
+│   ├── PRIORITAETEN_CHECKLISTE.md    # Haupt-Checkliste aller Aufgaben
+│   ├── ARCHITECTURE.md               # System-Architektur (diese Datei)
+│   ├── PRODUCTION_DEPLOYMENT.md      # Produktions-Deployment-Anleitung
+│   ├── MANUELLE_OPTIMIERUNGEN.md     # Manuelle Aufgaben & Klärungsfragen
+│   ├── TECHNISCHE_ANALYSE_2026-03.md # Technische Analyse
+│   ├── IMAGE_TAGGING_STRATEGIE.md    # Docker Image-Tagging
+│   ├── M-007_ARTIKELNUMMER_INDIZES.md # Artikelnummer & Indizes
+│   ├── OPTIMIZATIONS_MARCH_2026.md   # Optimierungen März 2026
+│   ├── PHASE3_4_SUMMARY.md           # Phase 3/4 Zusammenfassung
+│   ├── IMPLEMENTATION_SUMMARY.md     # Implementierungs-Zusammenfassung
+│   ├── IMPLEMENTATION_SUMMARY_CRITICAL_PHASE.md
+│   ├── README_ANALYSE.md             # README-Analyse
+│   ├── datenkonstrukt.md             # Datenstruktur
+│   └── logger.md                     # Logging-Dokumentation
+│
+├── android/                          # Android Platform-Dateien
+├── ios/                              # iOS Platform-Dateien (zurückgestellt)
+├── linux/                            # Linux Platform-Dateien
+├── macos/                            # macOS Platform-Dateien
+├── windows/                          # Windows Platform-Dateien
+│
+├── docker-compose.yml                # Dev/Test Setup
+├── docker-compose.prod.yml           # Produktion (mit Build)
+├── docker-compose.production.yml     # Produktion (Alternative)
+├── docker-stack.yml                  # Docker Swarm Setup
+├── portainer-stack.yml               # Portainer Stack
+├── .env.example                      # Dev/Test Vorlage
+├── .env.production.example           # Produktions-Vorlage
+├── .env.production                   # Produktions-Config (nicht in Git)
+├── test-deployment.sh                # Validierungsscript
+├── DEPLOYMENT.md                     # Deployment-Anleitung (Kurzversion)
+├── QUICKSTART.md                     # Schnellstart-Anleitung
+├── CHANGELOG.md                      # Versionshistorie
+└── README.md                         # Hauptdokumentation
 ```
 
 ## Security Boundaries
