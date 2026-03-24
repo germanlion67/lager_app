@@ -758,7 +758,7 @@ Internet → Nginx Proxy Manager (Port 80, 443) → PocketBase (intern)
 
 **Hintergrund:** N-006 hat die zentrale Konfiguration (AppConfig, AppTheme, AppImages) erstellt und 4 Dateien migriert.  
 230+ weitere hardcoded Werte in 15+ Dateien noch nicht migriert.  
-**Priorität:** Niedrig (funktioniert aktuell, aber erschört Theme-Änderungen).
+**Priorität:** Niedrig (funktioniert aktuell, aber erschwert Theme-Änderungen).
 
 ---
 
