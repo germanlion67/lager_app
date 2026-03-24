@@ -1,0 +1,92 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to VPS
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          VPS_PORT: ${{ secrets.VPS_PORT }}
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          PB_ADMIN_PASSWORD: ${{ secrets.PB_ADMIN_PASSWORD }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -p $VPS_PORT $VPS_USER@$VPS_HOST << 'ENDSSH'
+            set -e
+            
+            echo "📂 Navigiere zu Projekt-Verzeichnis..."
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            echo "🔄 Update Repository..."
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/germanlion67/lager_app.git .
+            else
+              git fetch origin
+              git reset --hard origin/main
+            fi
+            
+            echo "📝 Erstelle .env.production..."
+            cat > .env.production << EOF
+          PB_ADMIN_EMAIL=admin@germanlion67.de
+          PB_ADMIN_PASSWORD=${{ secrets.PB_ADMIN_PASSWORD }}
+          DOMAIN=lager.germanlion67.de
+          EOF
+            
+            echo "🐳 Deploy Docker Stack..."
+            docker stack deploy \
+              --compose-file docker-compose.production.yml \
+              --prune \
+              lager_app
+            
+            echo "✅ Deployment erfolgreich!"
+          ENDSSH
+
+      - name: Wait for Services
+        run: |
+          echo "⏳ Warte 30 Sekunden auf Service-Start..."
+          sleep 30
+
+      - name: Verify Deployment
+        run: |
+          ssh -i ~/.ssh/deploy_key -p ${{ secrets.VPS_PORT }} ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} << 'ENDSSH'
+            echo "=== Docker Stack Status ==="
+            docker stack ps lager_app --no-trunc
+            
+            echo ""
+            echo "=== Services ==="
+            docker service ls --filter label=com.docker.stack.namespace=lager_app
+            
+            echo ""
+            echo "=== Service Logs (letzte 20 Zeilen) ==="
+            docker service logs --tail 20 lager_app_traefik
+            docker service logs --tail 20 lager_app_pocketbase
+            docker service logs --tail 20 lager_app_app
+          ENDSSH
+
+      - name: Deployment Summary
+        run: |
+          echo "🎉 Deployment abgeschlossen!"
+          echo ""
+          echo "📍 URLs:"
+          echo "   Frontend:  https://lager.germanlion67.de"
+          echo "   API:       https://lager.germanlion67.de/api"
+          echo "   Admin:     https://lager.germanlion67.de/_/"
+          echo "   Traefik:   https://traefik.lager.germanlion67.de (optional)"
