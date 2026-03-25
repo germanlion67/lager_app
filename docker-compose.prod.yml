@@ -163,7 +163,7 @@ services:
   app:
     # H-005: Verwende vorgebautes Image statt lokalem Build
     # Runtime-Config: URL wird beim Container-Start dynamisch gesetzt
-    image: ghcr.io/germanlion67/lager_app_web:latest
+    image: ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/lager_app_web:${VERSION}
     container_name: lager_frontend
     restart: unless-stopped
     environment:
