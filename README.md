@@ -7,6 +7,7 @@ Eine professionelle, plattformübergreifende Lagerverwaltung für Elektronikbaut
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
+[![Build and Push Docker Images](https://github.com/germanlion67/lager_app/actions/workflows/docker-build-push.yml/badge.svg)](https://github.com/germanlion67/lager_app/actions/workflows/docker-build-push.yml)
 ---
 
 ## 🚀 Auf einen Blick
