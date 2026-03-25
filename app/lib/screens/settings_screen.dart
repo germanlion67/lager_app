@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/artikel_db_service.dart';
 import '../services/pocketbase_service.dart';
+import '../services/app_log_service.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -63,7 +64,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _pocketBaseUrlController.text = _pbService.url;
       });
     } catch (e, st) {
-      debugPrint('[Settings] Laden fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Laden fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -80,7 +81,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(() => _isDatabaseEmpty = isEmpty);
     } catch (e, st) {
-      debugPrint('[Settings] DB-Status prüfen fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('DB-Status prüfen fehlgeschlagen', error: e, stackTrace: st);
     }
   }
 
@@ -136,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     } catch (e, st) {
-      debugPrint('[Settings] PocketBase-Test fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('PocketBase-Test fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       setState(() => _pbConnectionOk = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -183,7 +184,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _pbConnectionOk = null;
         });
       } catch (e, st) {
-        debugPrint('[Settings] URL-Reset fehlgeschlagen: $e\n$st');
+        AppLogService.logger.e('URL-Reset fehlgeschlagen', error: e, stackTrace: st);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Zurücksetzen: $e')),
@@ -238,7 +239,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       } catch (e, st) {
-        debugPrint('[Settings] DB-Löschen fehlgeschlagen: $e\n$st');
+        AppLogService.logger.e('DB-Löschen fehlgeschlagen', error: e, stackTrace: st);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Löschen: $e')),
@@ -295,7 +296,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text('✅ Einstellungen gespeichert')),
       );
     } catch (e, st) {
-      debugPrint('[Settings] Speichern fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Speichern fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Fehler beim Speichern: $e')),
@@ -612,8 +613,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final PackageInfo info = await PackageInfo.fromPlatform();
       return '${info.version}+${info.buildNumber}';
-    } catch (e) {
-      debugPrint('[Settings] Fehler beim Laden der App-Version: $e');
+    } catch (e, st) {
+      AppLogService.logger.e('Fehler beim Laden der App-Version', error: e, stackTrace: st);
       return 'Unbekannt';
     }
   }

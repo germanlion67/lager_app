@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 import '../services/nextcloud_connection_service.dart';
 import '../services/nextcloud_credentials.dart';
+import '../services/app_log_service.dart';
 
 class NextcloudSettingsScreen extends StatefulWidget {
   // FIX: Service von außen übergeben — kein neues Objekt intern erstellen
@@ -68,7 +69,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
         });
       }
     } catch (e, st) {
-      debugPrint('[NextcloudSettings] Laden fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Laden fehlgeschlagen:', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Einstellungen konnten nicht geladen werden: $e')),
@@ -103,7 +104,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
       );
     } catch (e, st) {
       // FIX: StackTrace mitloggen
-      debugPrint('[NextcloudSettings] Speichern fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Speichern fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Fehler beim Speichern: $e')),
@@ -175,7 +176,7 @@ class _NextcloudSettingsScreenState extends State<NextcloudSettingsScreen> {
       }
     } catch (e, st) {
       // FIX: StackTrace mitloggen
-      debugPrint('[NextcloudSettings] Verbindungstest fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Verbindungstest fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

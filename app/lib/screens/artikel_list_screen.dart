@@ -331,22 +331,29 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          if (ScanService.isAvailable) ...[
-            FloatingActionButton(
-              heroTag: 'scan',
-              onPressed: () async {
-                await ScanService.scanArtikel(
-                  context,
-                  _artikelListe,
-                  _ladeArtikel,
-                  setState,
-                );
-              },
-              tooltip: 'Artikel scannen',
-              child: const Icon(Icons.qr_code_scanner),
+          // B-2 FIX: isAvailable ist jetzt immer true
+          // hasCameraScanner zeigt das passende Icon
+          FloatingActionButton(
+            heroTag: 'scan',
+            onPressed: () async {
+              await ScanService.scanArtikel(
+                context,
+                _artikelListe,
+                _ladeArtikel,
+                setState,
+                _db,          // B-4 FIX: bestehende Instanz übergeben
+              );
+            },
+            tooltip: ScanService.hasCameraScanner
+                ? 'Artikel scannen'
+                : 'Artikel per UUID suchen',
+            child: Icon(
+              ScanService.hasCameraScanner
+                  ? Icons.qr_code_scanner
+                  : Icons.search,
             ),
-            const SizedBox(width: 12),
-          ],
+          ),
+          const SizedBox(width: 12),
           FloatingActionButton.extended(
             heroTag: 'new',
             onPressed: _neuenArtikelErfassen,

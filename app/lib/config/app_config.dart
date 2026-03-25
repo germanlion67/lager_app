@@ -16,7 +16,7 @@
 // - PocketBase Thumbnail-Parameter
 // - Padding-Werte
 
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode;
+import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, kReleaseMode;
 import 'package:flutter/material.dart' show BoxFit, EdgeInsets;
 import 'package:runtime_env_config/runtime_env_config.dart';
 
@@ -89,6 +89,8 @@ class AppConfig {
   /// Release-Konfiguration (z.B. Placeholder-URLs in Produktion).
   ///
   /// Sollte beim App-Start aufgerufen werden.
+  /// Für einen harten Compile-Zeit-Fehler bei Mobile/Desktop-Release-Builds
+  /// siehe auch [validateForRelease].
   static void validateConfig() {
     // Nur in Release-Builds validieren
     if (kDebugMode) return;
@@ -111,6 +113,44 @@ class AppConfig {
         '• Web: Setze POCKETBASE_URL Umgebungsvariable (Runtime-Config)\n'
         '• Mobile/Desktop: Setze --dart-define=POCKETBASE_URL=https://...\n'
         '• Oder: Ändere die Fallback-URLs in app_config.dart\n'
+        '\n'
+        'Siehe: docs/PRODUCTION_DEPLOYMENT.md\n',
+      );
+    }
+  }
+
+  /// H-004: Harter Fehler bei Placeholder-URL in Mobile/Desktop Release-Builds.
+  ///
+  /// Ergänzt [validateConfig] um einen expliziten Guard speziell für
+  /// native Plattformen, bei denen keine Runtime-Config greift.
+  /// Web-Builds werden bewusst ausgenommen, da dort [_runtimePocketBaseUrl]
+  /// die URL zur Laufzeit überschreibt.
+  ///
+  /// Aufruf-Empfehlung: direkt nach [init] in `main()`:
+  /// ```dart
+  /// await AppConfig.init();
+  /// AppConfig.validateForRelease(); // ← wirft StateError bei Placeholder
+  /// AppConfig.validateConfig();
+  /// ```
+  static void validateForRelease() {
+    // Nur in Release-Builds relevant
+    if (!kReleaseMode) return;
+
+    // Web nutzt Runtime-Config → kein harter Fehler nötig
+    if (kIsWeb) return;
+
+    // Mobile / Desktop: Kein Runtime-Fallback vorhanden.
+    // Placeholder-URL bedeutet Silent Failure → harter Fehler.
+    if (hasPlaceholderUrl) {
+      throw StateError(
+        '❌ PRODUKTIONSFEHLER: Placeholder-URL in Mobile/Desktop Release-Build!\n'
+        '\n'
+        'Current URL: $pocketBaseUrl\n'
+        '\n'
+        'LÖSUNG:\n'
+        '• Setze --dart-define=POCKETBASE_URL=https://deine-domain.de\n'
+        '• Beispiel: flutter build apk --release \\\n'
+        '    --dart-define=POCKETBASE_URL=https://api.example.com\n'
         '\n'
         'Siehe: docs/PRODUCTION_DEPLOYMENT.md\n',
       );

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../services/sync_service.dart';
 import '../widgets/sync_conflict_handler.dart';
+import '../services/app_log_service.dart';
 
 /// Screen für die erweiterte Synchronisationsverwaltung.
 class SyncManagementScreen extends StatefulWidget {
@@ -331,7 +332,7 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
       }
     } catch (e, st) {
       // Fix: Stack-Trace mitloggen
-      debugPrint('[SyncManagement] Konflikt-Suche fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Konflikt-Suche fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       nav.pop(); // Schließe Loading Dialog
       messenger.showSnackBar(

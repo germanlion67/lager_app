@@ -1,16 +1,19 @@
 // lib/screens/list_screen_io.dart
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
-/// Prüft ob eine Kamera verfügbar ist.
+/// Prüft ob eine Kamera verfügbar ist (mit Timeout).
 Future<bool> checkCamera() async {
-  // Fix: Controller nach dem Check immer disposen — sonst Ressourcenleck
   final controller = MobileScannerController();
   try {
-    await controller.start();
+    await controller.start().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => throw TimeoutException('Kamera-Start Timeout'),
+    );
     return true;
   } catch (_) {
     return false;
@@ -35,7 +38,6 @@ Widget buildFileImage(
     width: width,
     height: height,
     fit: fit,
-    // Fix: errorBuilder — zeigt Placeholder statt rotem Fehler-Widget
     errorBuilder: (_, __, ___) => Container(
       width: width,
       height: height,

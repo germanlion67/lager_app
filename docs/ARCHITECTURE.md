@@ -1,7 +1,8 @@
-# 🏗️ Architecture Overview
+# 📐 System-Architektur & Design
 
-## Production Deployment Architecture
+Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Datenstrukturen und die grundlegenden Design-Entscheidungen.
 
+---
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │                          INTERNET                              │
@@ -45,368 +46,146 @@
                         └───────────────┘
 ```
 
-## Dev/Test Deployment Architecture
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                       DEVELOPER PC                             │
-└───────────────────────┬────────────────────────────────────────┘
-                        │
-                        │ localhost
-                        │
-         ┌──────────────┴──────────────┐
-         │                             │
-         │ :8081                       │ :8080
-         │ (exposed)                   │ (exposed)
-┌────────▼──────────────┐   ┌──────────▼────────────────────────┐
-│  Flutter Web Frontend │   │  PocketBase Backend               │
-│  ┌─────────────────┐  │   │  ┌─────────────────────────────┐  │
-│  │ Caddy Server    │  │   │  │ • REST API                  │  │
-│  │ • Static Files  │  │   │  │ • Admin UI                  │  │
-│  │ • SPA Routing   │  │   │  │ • File Storage              │  │
-│  └─────────────────┘  │   │  └─────────────────────────────┘  │
-└───────────────────────┘   │  ┌─────────────────────────────┐  │
-                            │  │ Auto-Initialization         │  │
-                            │  │ • Create Admin User         │  │
-                            │  │ • Apply Migrations          │  │
-                            │  │ • Setup Collections         │  │
-                            │  └─────────────────────────────┘  │
-                            └───┬────────────────────────────────┘
-                                │
-                        ┌───────▼────────┐
-                        │  Local Volumes │
-                        │  • pb_data     │
-                        │  • pb_public   │
-                        └────────────────┘
-```
+## 🏗️ High-Level Architektur
 
-## Mobile/Desktop Architecture
+Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so konzipiert, dass sie auf mobilen Geräten ohne permanente Internetverbindung funktioniert, während die Web-Version direkt mit dem Backend kommuniziert.
 
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    Mobile/Desktop App                          │
-│  ┌──────────────────────────────────────────────────────────┐ │
-│  │                   Flutter Frontend                       │ │
-│  │  • Offline-First Architecture                           │ │
-│  │  • Local SQLite Database                                │ │
-│  │  • Image Caching                                        │ │
-│  └────────┬─────────────────────────────────────────────────┘ │
-└───────────┼────────────────────────────────────────────────────┘
-            │
-            │ Background Sync
-            │
-┌───────────▼────────────────────────────────────────────────────┐
-│                    PocketBase Server                           │
-│  • Conflict Resolution                                         │
-│  • Delta Sync                                                  │
-│  • File Upload/Download                                        │
-└────────────────────────────────────────────────────────────────┘
-```
+### Plattform-Strategie
 
-## Data Flow
+| Komponente | Mobile (Android/iOS) | Desktop (Linux/Win) | Web (Docker/Caddy) |
+|---|---|---|---|
+| **Frontend** | Flutter Native | Flutter Native | Flutter Web (SPA) |
+| **Lokale DB** | SQLite (sqflite) | SQLite (FFI) | Keine (Direktzugriff) |
+| **Dateisystem** | Pfad-basiert (Images) | Pfad-basiert (Images) | Browser Blob/Memory |
+| **Sync-Logik** | Hintergrund-Worker | Manueller/Timer Sync | Nicht erforderlich |
 
-### 1. First Start (Auto-Initialization)
+---
 
-```
-┌──────────────┐
-│ Docker Start │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────────────┐
-│ PocketBase Container │
-│ Starts               │
-└──────┬───────────────┘
-       │
-       ▼
-┌─────────────────────────────┐
-│ init-pocketbase.sh Executes │
-└──────┬──────────────────────┘
-       │
-       ├─► Check if data.db exists
-       │   └─► No? Continue
-       │
-       ├─► Wait for PocketBase API
-       │   └─► Health check loop
-       │
-       ├─► Create Admin User
-       │   └─► From ENV variables
-       │
-       ├─► Copy Migrations
-       │   └─► To pb_data/migrations/
-       │
-       └─► Apply Migrations
-           └─► Create collections
-               └─► Set API Rules
-```
+## 📂 Projektstruktur
 
-### 2. User Request Flow
+Das Repository ist als Monorepo organisiert, um Code-Teilung zwischen den Plattformen zu ermöglichen.
 
-```
-┌─────────┐
-│ Browser │
-└────┬────┘
-     │ HTTPS
-     ▼
-┌─────────────────┐
-│ Nginx Proxy Mgr │ ◄─── SSL Certificate
-└────┬────────────┘      (Let's Encrypt)
-     │
-     ├─► /         ──► Flutter Web (Caddy)
-     │                  └─► Serve static files
-     │
-     └─► /api/*    ──► PocketBase
-                        ├─► Check Authentication
-                        ├─► Process Request
-                        └─► Return JSON
-```
-
-### 3. Authentication Flow
-
-```
-┌──────────┐
-│  Client  │
-└────┬─────┘
-     │ POST /api/collections/users/auth-with-password
-     ▼
-┌────────────────┐
-│  PocketBase    │
-│  Auth Service  │
-└────┬───────────┘
-     │ Validate
-     ├─► Check email/password
-     ├─► Generate JWT token
-     └─► Return token + user
-         │
-         ▼
-┌────────────────┐
-│  Client Stores │
-│  Token         │
-└────────────────┘
-     │
-     │ Subsequent requests include:
-     │ Authorization: Bearer <token>
-     ▼
-┌────────────────┐
-│  PocketBase    │
-│  Middleware    │
-└────┬───────────┘
-     │ Verify Token
-     ├─► Valid? → Process request
-     └─► Invalid? → 401 Unauthorized
-```
-
-## File Structure
-
-```
+```text
 lager_app/
-├── app/                              # Flutter Application
-│   ├── lib/                          # Dart source code
-│   │   ├── config/                   # Zentrale Konfiguration
-│   │   │   ├── app_config.dart       # URL, UI-Konstanten, Spacing/Radius/Font
-│   │   │   ├── app_theme.dart        # Material3 Light/Dark Theme
-│   │   │   └── app_images.dart       # Asset-Pfade, Feature-Flags
-│   │   ├── core/                     # Kern-Infrastruktur
-│   │   │   └── app_logger.dart       # Dünner Logger-Wrapper (AppLogService)
-│   │   ├── models/                   # Datenmodelle
-│   │   │   └── artikel_model.dart    # Artikel-Entity
-│   │   ├── screens/                  # UI-Screens
-│   │   │   ├── artikel_list_screen.dart
-│   │   │   ├── artikel_detail_screen.dart
-│   │   │   ├── artikel_erfassen_screen.dart
-│   │   │   ├── settings_screen.dart
-│   │   │   ├── sync_management_screen.dart
-│   │   │   ├── conflict_resolution_screen.dart
-│   │   │   ├── nextcloud_settings_screen.dart
-│   │   │   ├── qr_scan_screen_mobile_scanner.dart
-│   │   │   └── *_io.dart / *_stub.dart  # Platform-Adapter
-│   │   ├── services/                 # Business-Logik & Services
-│   │   │   ├── pocketbase_service.dart
-│   │   │   ├── pocketbase_sync_service.dart
-│   │   │   ├── artikel_db_service.dart
-│   │   │   ├── sync_orchestrator.dart
-│   │   │   ├── sync_service.dart
-│   │   │   ├── sync_progress_service.dart
-│   │   │   ├── sync_error_recovery.dart
-│   │   │   ├── app_log_service.dart
-│   │   │   ├── connectivity_service.dart
-│   │   │   ├── tag_service.dart
-│   │   │   ├── scan_service.dart
-│   │   │   ├── pdf_service.dart
-│   │   │   ├── artikel_export_service.dart
-│   │   │   ├── artikel_import_service.dart
-│   │   │   ├── nextcloud_sync_service.dart
-│   │   │   ├── nextcloud_client.dart
-│   │   │   └── *_io.dart / *_stub.dart  # Platform-Adapter
-│   │   ├── utils/                    # Hilfsfunktionen
-│   │   │   ├── dokumente_utils.dart  # Datei-Sortierung
-│   │   │   ├── image_processing_utils.dart  # Bildverarbeitung
-│   │   │   └── uuid_generator.dart   # UUID-Generierung
-│   │   ├── widgets/                  # Wiederverwendbare Widgets
-│   │   │   ├── artikel_bild_widget.dart  # Zentrales Bild-Widget
-│   │   │   ├── sync_error_widgets.dart
-│   │   │   ├── sync_progress_widgets.dart
-│   │   │   ├── sync_conflict_handler.dart
-│   │   │   ├── article_icons.dart
-│   │   │   ├── image_crop_dialog.dart
-│   │   │   └── nextcloud_resync_dialog.dart
+├── app/                              # Flutter Hauptanwendung
+│   ├── lib/
+│   │   ├── config/                   # Zentrale Steuerung (Theming, Config)
+│   │   ├── core/                     # Plattform-Abstraktion (Logger, Env)
+│   │   ├── models/                   # POJO Datenklassen (Artikel, User)
+│   │   ├── screens/                  # UI-Pages (Home, Detail, Sync)
+│   │   ├── services/                 # Business Logik (API, DB, Sync)
+│   │   ├── utils/                    # Helfer (Validierung, Image-Tools)
+│   │   ├── widgets/                  # Wiederverwendbare UI-Komponenten
 │   │   ├── main.dart                 # App-Einstiegspunkt
-│   │   ├── main_io.dart              # Desktop/Mobile-Initialisierung
-│   │   └── main_stub.dart            # Web-Stub
-│   ├── test/                         # Tests
-│   │   ├── models/
-│   │   ├── services/
-│   │   ├── widgets/
-│   │   └── performance/
-│   ├── web/                          # Web-spezifische Dateien
-│   │   ├── manifest.json             # PWA Manifest
-│   │   └── index.html
-│   ├── assets/images/                # App-Assets (Logo, Platzhalter)
-│   ├── Caddyfile                     # Caddy Web Server Konfiguration
-│   ├── Dockerfile                    # Multi-stage Build (Flutter→Caddy)
-│   ├── docker-entrypoint.sh          # Entrypoint: Runtime-Config Generierung
-│   ├── analysis_options.yaml         # Flutter Linter-Regeln
-│   └── pubspec.yaml                  # Dependencies
-│
-├── server/                           # Backend Konfiguration
-│   ├── Dockerfile                    # Custom PocketBase Image
-│   ├── init-pocketbase.sh            # Auto-Initialisierungsscript
-│   ├── manage_data.sh                # Daten-Management Script
-│   ├── pb_migrations/                # Datenbank-Migrationen
-│   │   ├── 1772784781_created_artikel.js
-│   │   ├── 1772784782_created_users.js
-│   │   ├── 1772784783_updated_artikel_ownership.js
-│   │   ├── 1774186524_added_artikelnummer_indexes.js
-│   │   └── pb_schema.json
-│   └── pb_public/                    # Öffentliche Dateien (Volume)
-│
-├── packages/                         # Lokale Flutter Packages
-│   └── runtime_env_config/           # Runtime-Konfiguration (Web)
-│       └── lib/
-│
-├── .github/                          # GitHub-Konfiguration
-│   └── workflows/                    # CI/CD Workflows
-│       ├── release.yml               # Release: Test + Android + Windows + Linux
-│       ├── docker-build-push.yml     # Docker Images bauen & pushen
-│       ├── flutter-maintenance.yml   # Dependency-Updates überwachen
-│       ├── build-and-deploy.yml      # Build & Deploy
-│       ├── build-images.yml          # Images bauen
-│       └── deploy.yml                # Deployment
-│
-├── docs/                             # Dokumentation
-│   ├── PRIORITAETEN_CHECKLISTE.md    # Haupt-Checkliste aller Aufgaben
-│   ├── ARCHITECTURE.md               # System-Architektur (diese Datei)
-│   ├── PRODUCTION_DEPLOYMENT.md      # Produktions-Deployment-Anleitung
-│   ├── MANUELLE_OPTIMIERUNGEN.md     # Manuelle Aufgaben & Klärungsfragen
-│   ├── TECHNISCHE_ANALYSE_2026-03.md # Technische Analyse
-│   ├── IMAGE_TAGGING_STRATEGIE.md    # Docker Image-Tagging
-│   ├── M-007_ARTIKELNUMMER_INDIZES.md # Artikelnummer & Indizes
-│   ├── OPTIMIZATIONS_MARCH_2026.md   # Optimierungen März 2026
-│   ├── PHASE3_4_SUMMARY.md           # Phase 3/4 Zusammenfassung
-│   ├── IMPLEMENTATION_SUMMARY.md     # Implementierungs-Zusammenfassung
-│   ├── IMPLEMENTATION_SUMMARY_CRITICAL_PHASE.md
-│   ├── README_ANALYSE.md             # README-Analyse
-│   ├── datenkonstrukt.md             # Datenstruktur
-│   └── logger.md                     # Logging-Dokumentation
-│
-├── android/                          # Android Platform-Dateien
-├── ios/                              # iOS Platform-Dateien (zurückgestellt)
-├── linux/                            # Linux Platform-Dateien
-├── macos/                            # macOS Platform-Dateien
-├── windows/                          # Windows Platform-Dateien
-│
-├── docker-compose.yml                # Dev/Test Setup
-├── docker-compose.prod.yml           # Produktion (mit Build)
-├── docker-compose.production.yml     # Produktion (Alternative)
-├── docker-stack.yml                  # Docker Swarm Setup
-├── portainer-stack.yml               # Portainer Stack
-├── .env.example                      # Dev/Test Vorlage
-├── .env.production.example           # Produktions-Vorlage
-├── .env.production                   # Produktions-Config (nicht in Git)
-├── test-deployment.sh                # Validierungsscript
-├── DEPLOYMENT.md                     # Deployment-Anleitung (Kurzversion)
-├── QUICKSTART.md                     # Schnellstart-Anleitung
+│   │   ├── main_io.dart              # Einstiegspunkt für native Plattformen
+│   │   └── main_stub.dart            # Einstiegspunkt für Web (Stub)
+│   ├── android/                      # Android-spezifische Konfiguration
+│   ├── ios/                          # iOS-spezifische Konfiguration
+│   ├── linux/                        # Linux Desktop Konfiguration
+│   ├── macos/                        # macOS-spezifische Konfiguration
+│   ├── windows/                      # Windows Desktop Konfiguration
+│   ├── web/                          # Web-spezifische Assets (index.html)
+│   ├── assets/                       # Statische App-Assets (Bilder, Fonts)
+│   ├── test/                         # Unit- & Integration-Tests
+│   ├── tool/                         # Build-Hilfsskripte
+│   ├── Caddyfile                     # Caddy Webserver-Konfiguration
+│   ├── Dockerfile                    # Container-Build für Flutter Web
+│   ├── docker-entrypoint.sh          # Startskript für den Web-Container
+│   └── pubspec.yaml                  # Flutter Abhängigkeiten & Metadaten
+├── packages/                         # Geteilte lokale Dart-Pakete
+│   └── runtime_env_config/           # Paket für dynamische ENV-Injektion
+├── server/                           # Backend-Infrastruktur
+│   └── pb_migrations/                # JS-Migrationen für Schema-Versionierung
+├── docs/                             # Dokumentation & Spezifikationen
+│   ├── ARCHITECTURE.md               # Architektur & Design-Entscheidungen
+│   ├── CHECKLIST.md                  # Aktueller Implementierungsstand
+│   ├── DATABASE.md                   # Datenbank-Design & Synchronisation
+│   ├── HISTORY.md                    # Projekthistorie & Entscheidungslog
+│   ├── IMAGE_TAGGING_STRATEGIE.md    # Docker Image-Tagging Konzept
+│   ├── LOGGER.md                     # Logging-System Dokumentation
+│   ├── OPTIMIZATIONS.md              # Offene Optimierungsaufgaben
+│   ├── THEMING.md                    # AppConfig, AppTheme & Design-Tokens
+│   └── TECHNISCHE_ANALYSE_2026-03.md # Technische Tiefenanalyse (März 2026)
+├── android/                          # Root-Level Android Wrapper
+├── ios/                              # Root-Level iOS Wrapper
+├── linux/                            # Root-Level Linux Wrapper
+├── macos/                            # Root-Level macOS Wrapper
+├── windows/                          # Root-Level Windows Wrapper
+├── .github/                          # GitHub Actions & CI/CD Workflows
+├── docker-compose.yml                # Entwicklungs-Setup
+├── docker-compose.prod.yml           # Produktions-Setup (empfohlen)
+├── docker-compose.production.yml     # Alternatives Produktions-Setup
+├── docker-stack.yml                  # Docker Swarm Stack-Definition
+├── portainer-stack.yml               # Portainer Stack-Definition
+├── test-deployment.sh                # Deployment-Testskript
 ├── CHANGELOG.md                      # Versionshistorie
-└── README.md                         # Hauptdokumentation
-```
-
-## Security Boundaries
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                       PUBLIC INTERNET                          │
-│                      (Untrusted Zone)                          │
-└───────────────────────┬────────────────────────────────────────┘
-                        │
-              ┌─────────▼──────────┐
-              │   Firewall         │
-              │   • Port 80 ✓      │
-              │   • Port 443 ✓     │
-              │   • Port 8080 ✗    │
-              │   • Port 8081 ✗    │
-              │   • Port 81 ✗      │
-              └─────────┬──────────┘
-                        │
-┌───────────────────────▼────────────────────────────────────────┐
-│                       DMZ                                      │
-│  ┌────────────────────────────────────────────────────┐        │
-│  │ Nginx Proxy Manager                                │        │
-│  │ • SSL Termination                                  │        │
-│  │ • Rate Limiting                                    │        │
-│  │ • Security Headers                                 │        │
-│  └────────────────────────────────────────────────────┘        │
-└───────────────────────┬────────────────────────────────────────┘
-                        │ Internal Network
-┌───────────────────────▼────────────────────────────────────────┐
-│                  APPLICATION ZONE                              │
-│                  (Internal Only)                               │
-│  ┌──────────────────┐        ┌──────────────────────┐         │
-│  │ Flutter Web      │        │ PocketBase           │         │
-│  │ Port: 8081       │        │ Port: 8080           │         │
-│  │ (not exposed)    │        │ (not exposed)        │         │
-│  └──────────────────┘        └──────────────────────┘         │
-│                                      │                         │
-│                              ┌───────▼──────┐                  │
-│                              │  Volumes     │                  │
-│                              │  (Encrypted) │                  │
-│                              └──────────────┘                  │
-└────────────────────────────────────────────────────────────────┘
-```
-
-## Deployment States
-
-### State 1: Initial Deployment
-```
-[Fresh Server] → [Git Clone] → [Configure ENV] → [Docker Compose Up]
-                                                         ↓
-                                            [Auto-Init Runs]
-                                                         ↓
-                                            [Services Ready]
-```
-
-### State 2: Update Deployment
-```
-[Running Server] → [Git Pull] → [Docker Compose Build] → [Rolling Update]
-                                                               ↓
-                                                    [Zero Downtime]
-```
-
-### State 3: Backup & Restore
-```
-[Running Server] → [Create Backup] → [Copy to Safe Location]
-                         ↓
-                   [Disaster Occurs]
-                         ↓
-                   [Fresh Server] → [Restore Backup] → [Services Ready]
+├── DEPLOYMENT.md                     # Produktions-Setup & SSL-Anleitung
+├── INSTALL.md                        # Detaillierte Installationsanleitung
+├── README.md                         # Projektübersicht & Schnellstart
+├── .env.example                      # Vorlage für lokale Umgebungsvariablen
+└── .env.production.example           # Vorlage für Produktions-Variablen
 ```
 
 ---
 
-**Key Principles:**
+## 💾 Datenmodell (PocketBase Schema)
 
-1. **Security First**: Authentication required, no public endpoints
-2. **Automation**: Zero-configuration deployment
-3. **Simplicity**: One command to deploy
-4. **Reliability**: Health checks and auto-restart
-5. **Scalability**: Docker Stack support for multi-node
-6. **Maintainability**: Clear structure and documentation
+Das Herzstück der Anwendung ist die Collection `artikel`. Sie ist für maximale Performance und Synchronisations-Sicherheit optimiert.
+
+### Collection: `artikel`
+
+| Feld | Typ | Beschreibung | Index |
+|---|---|---|---|
+| `uuid` | Text | Client-seitige Eindeutigkeit (Primary Key) | ✅ `idx_uuid` |
+| `artikelnummer` | Number | Fortlaufende ID für Menschen (1000+) | ✅ `idx_unique_an` |
+| `name` | Text | Bezeichnung des Artikels | ✅ `idx_search_name` |
+| `menge` | Number | Aktueller Bestand (nur Ganzzahlen) | — |
+| `ort` / `fach` | Text | Lager-Hierarchie | — |
+| `bild` | File | Binärdatei in PocketBase (Max 5MB) | — |
+| `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_sync` |
+| `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_sync` |
+
+### Synchronisations-Logik (Offline-First)
+Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem **Soft-Delete** Mechanismus:
+1.  **Push**: Lokale Änderungen (SQLite) werden anhand der `uuid` zu PocketBase gepusht.
+2.  **Pull**: Datensätze, deren `updated_at` neuer als der letzte Sync-Zeitpunkt ist, werden heruntergeladen.
+3.  **Conflict**: Bei gleichzeitiger Änderung wird der Nutzer über den `ConflictResolutionScreen` zur Entscheidung aufgefordert.
+
+---
+
+## 🎨 Design-System & Konfiguration
+
+Um die Wartbarkeit zu erhöhen, nutzt die App eine dreistufige Konfiguration in `app/lib/config/`:
+
+1.  **`AppConfig`**: Hält technische Konstanten (Spacing, Border-Radius, API-Timeouts).
+2.  **`AppTheme`**: Implementiert Material 3 mit Unterstützung für `ThemeMode.system`.
+3.  **`AppImages`**: Verwaltet Asset-Pfade und Feature-Flags für Hintergrundbilder oder Platzhalter.
+
+**Vorteil**: Design-Änderungen (z.B. von 8px auf 12px Eckenradius) werden an genau einer Stelle geändert und wirken sich auf die gesamte App aus.
+
+---
+
+## 🛠️ Plattform-Abstraktion (Conditional Imports)
+
+Da `dart:io` (Dateisystem) im Web nicht existiert, nutzt die App **Conditional Imports**. Dies verhindert Compiler-Fehler auf verschiedenen Plattformen.
+
+**Beispiel**:
+*   `artikel_erfassen_io.dart`: Implementiert Kamera-Zugriff für Android/Linux.
+*   `artikel_erfassen_stub.dart`: Implementiert Datei-Upload für Web.
+*   `artikel_erfassen_screen.dart`: Importiert automatisch die richtige Version.
+
+---
+
+## 🛡️ Sicherheits-Architektur
+
+1.  **PocketBase Rules**: Der Zugriff auf die API ist im Produktionsmodus (`PB_DEV_MODE=0`) strikt an Rollen (`reader`/`writer`) gebunden.
+2.  **Caddy Security**: Der interne Webserver liefert die App mit gehärteten HTTP-Headern aus:
+    *   `Content-Security-Policy`: Verhindert XSS.
+    *   `Strict-Transport-Security`: Erzwingt HTTPS.
+    *   `X-Frame-Options`: Verhindert Clickjacking.
+3.  **Network Isolation**: In Docker-Produktions-Setups kommunizieren Frontend und Backend über ein isoliertes internes Netzwerk ohne direkte Port-Exposition.
+
+---
+
+[Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md)

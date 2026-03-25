@@ -32,6 +32,8 @@ void main() async {
   // Muss vor validateConfig() passieren, damit window.ENV_CONFIG berücksichtigt wird.
   await AppConfig.init();
 
+  AppConfig.validateForRelease(); // ← H-004: wirft StateError bei Placeholder
+  
   // ── Punkt 2 — App-Konfiguration validieren ───────────────────────────────
   // Wirft Error bei Release-Build mit Placeholder-URLs
   AppConfig.validateConfig();

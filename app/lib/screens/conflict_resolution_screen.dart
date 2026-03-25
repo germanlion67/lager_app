@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/artikel_model.dart';
 import '../services/sync_service.dart';
+import '../services/app_log_service.dart';
 
 // ─────────────────────────────────────────────
 // ConflictData
@@ -129,7 +130,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
       if (!mounted) return;
       Navigator.of(context).pop({'resolved': resolved, 'skipped': skipped});
     } catch (e, st) {
-      debugPrint('[ConflictResolution] Auflösen fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Auflösen fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -579,7 +580,7 @@ class _MergeDialogState extends State<_MergeDialog> {
       );
       widget.onMerged(mergedArtikel);
     } catch (e, st) {
-      debugPrint('[MergeDialog] Zusammenführen fehlgeschlagen: $e\n$st');
+      AppLogService.logger.e('Zusammenführen fehlgeschlagen', error: e, stackTrace: st);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Fehler beim Zusammenführen: $e'),

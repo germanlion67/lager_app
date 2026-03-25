@@ -6,12 +6,19 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../models/artikel_model.dart';
+import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
 import '../services/scan_result.dart';
 import 'artikel_detail_screen.dart';
 
 class QRScanScreen extends StatefulWidget {
-  const QRScanScreen({super.key});
+  const QRScanScreen({
+    super.key,
+    required this.db,
+  });
+
+  /// Wird von außen übergeben — keine neue Instanz pro Scan.
+  final ArtikelDbService db;
 
   @override
   State<QRScanScreen> createState() => _QRScanScreenState();
@@ -19,10 +26,11 @@ class QRScanScreen extends StatefulWidget {
 
 class _QRScanScreenState extends State<QRScanScreen>
     with WidgetsBindingObserver {
+  static final _log = AppLogService.logger;
+
   String? _scanResult;
   bool _isProcessing = false;
   final MobileScannerController _controller = MobileScannerController();
-
   StreamSubscription<BarcodeCapture>? _subscription;
 
   @override
@@ -37,8 +45,6 @@ class _QRScanScreenState extends State<QRScanScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _subscription?.cancel();
-    // Fix: stop() vor dispose() — Controller sauber herunterfahren
-    // bevor Ressourcen freigegeben werden
     _controller.stop();
     _controller.dispose();
     super.dispose();
@@ -51,12 +57,10 @@ class _QRScanScreenState extends State<QRScanScreen>
         _subscription?.pause();
         _controller.stop();
       case AppLifecycleState.resumed:
-        // Fix: Kamera nur neu starten wenn nicht gerade verarbeitet wird
         if (!_isProcessing) {
           _controller.start();
           _subscription?.resume();
         }
-      // Fix: detached — Ressourcen freigeben wenn App beendet wird
       case AppLifecycleState.detached:
         _subscription?.cancel();
         _controller.stop();
@@ -72,8 +76,6 @@ class _QRScanScreenState extends State<QRScanScreen>
     final String? code = capture.barcodes.first.rawValue;
     if (code == null || code.isEmpty) return;
 
-    // Fix: setState und stop() atomar — kein zweiter Scan möglich
-    // bevor _isProcessing gesetzt ist
     setState(() {
       _scanResult = code;
       _isProcessing = true;
@@ -83,79 +85,104 @@ class _QRScanScreenState extends State<QRScanScreen>
     await _controller.stop();
 
     try {
-      final int? artikelId = int.tryParse(code);
-
-      if (artikelId == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Ungültiger QR-Code')),
-          );
-        }
-        // Fix: explizites return — finally setzt _isProcessing zurück,
-        // Kamera wird in finally wieder gestartet
-        return;
-      }
-
-      // Fix: ArtikelDbService-Instanz einmalig erstellen — nicht bei
-      // jedem Scan neu instanziieren
-      final alleArtikel = await ArtikelDbService().getAlleArtikel();
-
-      if (!mounted) return;
-
-      final Artikel? gefunden = alleArtikel.cast<Artikel?>().firstWhere(
-            (a) => a?.id == artikelId,
-            orElse: () => null,
-          );
-
-      if (gefunden == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Artikel nicht gefunden')),
-        );
-        return;
-      }
-
-      final detailResult = await Navigator.of(context).push<Object?>(
-        MaterialPageRoute(
-          builder: (_) => ArtikelDetailScreen(artikel: gefunden),
-        ),
-      );
-
-      if (!mounted) return;
-
-      // ArtikelDetailScreen gibt zurück:
-      //   - Artikel    → Artikel wurde bearbeitet
-      //   - 'deleted'  → Artikel wurde gelöscht
-      //   - null       → Zurück ohne Änderung
-      if (detailResult is Artikel) {
-        Navigator.of(context).pop(ScanResultArtikel(detailResult));
-      } else if (detailResult == 'deleted') {
-        Navigator.of(context).pop(ScanResultDeleted(gefunden.uuid));
-      } else {
-        Navigator.of(context).pop(const ScanResultCancelled());
-      }
+      await _verarbeiteCode(code);
     } catch (e, st) {
-      // Fix: Stack-Trace mitloggen
-      debugPrint('[QRScan] Fehler beim Scannen: $e\n$st');
+      _log.e('[QRScan] Fehler beim Verarbeiten', error: e, stackTrace: st);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Scannen: $e')),
         );
       }
     } finally {
-      // Fix: _isProcessing zurücksetzen + Kamera neu starten —
-      // auch wenn ein Fehler aufgetreten ist oder artikelId null war
       if (mounted) {
-              setState(() => _isProcessing = false);
-              unawaited(_controller.start());
-              _subscription?.resume();
-            }
+        setState(() => _isProcessing = false);
+        unawaited(_controller.start());
+        _subscription?.resume();
+      }
+    }
+  }
+
+  /// Verarbeitet einen gescannten Code.
+  ///
+  /// Erwartet eine Artikelnummer (int, z.B. 1042).
+  /// Sucht den Artikel in der lokalen DB nach [artikelnummer].
+  Future<void> _verarbeiteCode(String code) async {
+    _log.d('[QRScan] Code gescannt: $code');
+
+    // Artikelnummer aus QR-Code lesen
+    final int? artikelnummer = int.tryParse(code.trim());
+    if (artikelnummer == null) {
+      _log.w('[QRScan] Kein gültiger int-Wert: "$code"');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Ungültiger QR-Code: "$code"\n'
+              'Erwartet wird eine Artikelnummer (z.B. 1042)'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    final alleArtikel = await widget.db.getAlleArtikel();
+
+    if (!mounted) return;
+
+    final Artikel? gefunden = alleArtikel.cast<Artikel?>().firstWhere(
+          (a) => a?.artikelnummer == artikelnummer,
+          orElse: () => null,
+        );
+
+    if (gefunden == null) {
+      _log.w('[QRScan] Kein Artikel mit Artikelnummer $artikelnummer');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Kein Artikel mit Artikelnummer $artikelnummer gefunden'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    _log.i('[QRScan] Artikel gefunden: ${gefunden.name} '
+        '(Nr. ${gefunden.artikelnummer})');
+
+    final detailResult = await Navigator.of(context).push<Object?>(
+      MaterialPageRoute(
+        builder: (_) => ArtikelDetailScreen(artikel: gefunden),
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (detailResult is Artikel) {
+      Navigator.of(context).pop(ScanResultArtikel(detailResult));
+    } else if (detailResult == 'deleted') {
+      Navigator.of(context).pop(ScanResultDeleted(gefunden.uuid));
+    } else {
+      Navigator.of(context).pop(const ScanResultCancelled());
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('QR-Scan')),
+      appBar: AppBar(
+        title: const Text('QR-Scan'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.flashlight_on),
+            tooltip: 'Taschenlampe',
+            onPressed: () => _controller.toggleTorch(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.flip_camera_ios),
+            tooltip: 'Kamera wechseln',
+            onPressed: () => _controller.switchCamera(),
+          ),
+        ],
+      ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           const double overlaySize = 250;
@@ -200,7 +227,7 @@ class _QRScanScreenState extends State<QRScanScreen>
                 ),
               ),
 
-              // Roter Rahmen
+              // Scan-Rahmen
               Positioned(
                 left: left,
                 top: top,
@@ -219,10 +246,8 @@ class _QRScanScreenState extends State<QRScanScreen>
                 bottom: 40,
                 left: 0,
                 right: 0,
-                // Fix: const auf Text-Widget — Positioned ist nicht const
-                // wegen left/top, aber Text selbst ist statisch
                 child: Text(
-                  'Bitte QR-Code ins Fenster halten',
+                  'Artikelnummer-QR-Code ins Fenster halten',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.white,
@@ -244,12 +269,12 @@ class _QRScanScreenState extends State<QRScanScreen>
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 16,
+                      fontSize: 14,
                     ),
                   ),
                 ),
 
-              // Lade-Indikator während Verarbeitung
+              // Lade-Indikator
               if (_isProcessing)
                 const Center(
                   child: CircularProgressIndicator(color: Colors.white),
