@@ -1,0 +1,126 @@
+🗄️ Projekt-Kontext Prompt: Lager App — Datenbank & Datenstruktur
+📋 Kopiere diesen Prompt am Anfang einer neuen Session:
+# 🗄️ Projekt-Kontext: Lager App — Datenbank & Datenstruktur
+
+## 🖥️ Systemumgebung
+
+| Parameter         | Wert                              |
+|-------------------|-----------------------------------|
+| Server            | md3kqa8c (Linux)                  |
+| User              | germanlion67                      |
+| Projektpfad       | ~/lager_app                       |
+| PocketBase Version| 0.36.6                            |
+| Deployment        | Docker Container (lager_app-pocketbase) |
+| Port              | 8080                              |
+| Admin E-Mail      | admin@example.com                 |
+| Admin Passwort    | changeme123                       |
+
+---
+
+## 🔑 API-Authentifizierung (PocketBase 0.36.x)
+
+In PocketBase 0.36.x sind Admins eine regulaere Collection.
+Der korrekte Auth-Endpoint lautet:
+
+  curl -s -X POST http://localhost:8080/api/collections/_superusers/auth-with-password \
+    -H "Content-Type: application/json" \
+    -d '{"identity":"admin@example.com","password":"changeme123"}'
+
+HINWEIS: Die alten Endpoints /api/admins/auth-with-password und
+/api/collections/users/auth-with-password geben 404 zurueck — in v0.36.x normal.
+
+---
+
+## 🗂️ Collections Uebersicht
+
+| Collection      | Typ   | Records | Status                  |
+|-----------------|-------|---------|-------------------------|
+| artikel         | base  | 0       | Existiert, leer         |
+| users           | auth  | ?       | Existiert               |
+| _superusers     | auth  | 1       | Admin vorhanden         |
+| _mfas           | base  | —       | System                  |
+| _otps           | base  | —       | System                  |
+| _externalAuths  | base  | —       | System                  |
+| _authOrigins    | base  | —       | System                  |
+| lagerorte       | —     | —       | Existiert NICHT         |
+| bewegungen      | —     | —       | Existiert NICHT         |
+
+---
+
+## 📐 artikel Collection — Vollstaendiges Schema
+
+| Feldname       | Typ      | Zweck                                      |
+|----------------|----------|--------------------------------------------|
+| id             | text     | PocketBase Record-ID                       |
+| name           | text     | Artikelname                                |
+| artikelnummer  | text     | Eindeutige Artikelnummer (indiziert)       |
+| menge          | number   | Lagerbestand                               |
+| ort            | text     | Lagerort (als Text, keine eigene Collection)|
+| fach           | text     | Lagerfach                                  |
+| beschreibung   | text     | Artikelbeschreibung                        |
+| bildPfad       | text     | Lokaler Bildpfad                           |
+| remoteBildPfad | text     | Remote Bildpfad (nach Sync)                |
+| bild           | file     | Binaere Bilddatei (PocketBase File Storage)|
+| erstelltAm     | text     | Erstellungsdatum (App-seitig)              |
+| aktualisiertAm | text     | Aktualisierungsdatum (App-seitig)          |
+| uuid           | text     | Universelle ID fuer Offline-Sync           |
+| etag           | text     | Versionierung fuer Sync-Konflikterkennung  |
+| remote_path    | text     | Remote Pfad fuer Sync                      |
+| device_id      | text     | Geraet das den Record erstellt hat         |
+| deleted        | bool     | Soft-Delete Flag (fuer Sync)               |
+| updated_at     | number   | Timestamp fuer Sync (Unix)                 |
+| created        | autodate | PocketBase Auto-Timestamp                  |
+| updated        | autodate | PocketBase Auto-Timestamp                  |
+| owner          | relation | Relation zu users (Besitzer)               |
+| sharedWith     | relation | Relation zu users (geteilt mit)            |
+
+---
+
+## 🔄 Sync-Architektur
+
+Die App ist fuer Offline-First / Multi-Device-Sync ausgelegt:
+
+| Feld        | Funktion                                                    |
+|-------------|-------------------------------------------------------------|
+| uuid        | Geraeteuebergreifende eindeutige ID (unabh. von PB-ID)      |
+| etag        | Versionshash zur Konflikterkennung beim Sync                |
+| device_id   | Welches Geraet hat den Record zuletzt geaendert             |
+| deleted     | Soft-Delete — kein hartes Loeschen, fuer Sync-Konsistenz   |
+| updated_at  | Unix-Timestamp fuer Delta-Sync (nur geaenderte Records)     |
+| remote_path | Pfad nach erfolgreichem Upload zum Server                   |
+
+---
+
+## 📁 Migrations-Dateien
+
+Pfad im Container: /pb_migrations/
+
+| Datei                                    | Inhalt                                  |
+|------------------------------------------|-----------------------------------------|
+| 1772784781_created_artikel.js            | Initiale artikel Collection             |
+| 1772784782_created_users.js              | users Collection                        |
+| 1772784783_updated_artikel_ownership.js  | owner + sharedWith Felder hinzugefuegt  |
+| 1774186524_added_artikelnummer_indexes.js| Index auf artikelnummer                 |
+| pb_schema.json                           | Vollstaendiges Schema-Snapshot          |
+
+---
+
+## ⚠️ Bekannte Probleme & Offene Punkte
+
+1. DB ist leer — artikel hat 0 Records, Ursache noch unklar
+2. lagerorte fehlt — Lagerort ist als text-Feld in artikel geloest, keine eigene Collection
+3. bewegungen fehlt — Keine Bewegungshistorie / Transaktionslog implementiert
+4. Token-Lebensdauer — JWT laeuft ab, bei neuer Session neu authentifizieren
+5. users Record-Anzahl — noch nicht geprueft
+
+---
+
+## 🚀 Naechste moegliche Schritte (noch offen)
+
+[ ] Test-Artikel via API einfuegen und pruefen
+[ ] Frontend debuggen (warum werden keine Artikel angezeigt?)
+[ ] pb_schema.json vollstaendig analysieren
+[ ] User-Anzahl und User-Schema pruefen
+[ ] Sync-Mechanismus testen
+[ ] bewegungen Collection ggf. nachtraeglich anlegen
+

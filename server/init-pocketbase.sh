@@ -59,7 +59,23 @@ mkdir -p "$PB_DATA_DIR/migrations" || true
 if [ -d "$PB_MIGRATIONS_DIR" ] && [ "$(ls -A "$PB_MIGRATIONS_DIR" 2>/dev/null)" ]; then
   echo ""
   echo "Copying migration files into $PB_DATA_DIR/migrations/ ..."
+
+  # Vorher: welche Dateien existieren bereits?
+  EXISTING_MIGRATIONS=$(ls "$PB_DATA_DIR/migrations/" 2>/dev/null || echo "")
+
   cp -r "$PB_MIGRATIONS_DIR"/* "$PB_DATA_DIR/migrations/" 2>/dev/null || true
+
+  # Nachher: neue Dateien erkennen und loggen
+  echo "Migration files status:"
+  for f in "$PB_MIGRATIONS_DIR"/*; do
+    filename=$(basename "$f")
+    if echo "$EXISTING_MIGRATIONS" | grep -qF "$filename"; then
+      echo "  [SKIP]  $filename (already existed)"
+    else
+      echo "  [NEW]   $filename (freshly copied -> will be applied by PocketBase)"
+    fi
+  done
+
   echo "Migrations copied."
 else
   echo "No migration files found in $PB_MIGRATIONS_DIR"

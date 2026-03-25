@@ -4,6 +4,28 @@ Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusam
 
 ---
 
+## 📋 Dokumente zum Artikel  - 25.03.2026
+### 🗄️ Datenbank (Lokal & Server)
+- Neue Tabelle `artikel_dokumente` in der lokalen SQLite-Datenbank mit Feldern für:
+ - `id, artikel_uuid` (Fremdschlüssel zum Artikel), `uuid, remote_path`
+ - `dateiname, dateityp, dateipfad` (lokal), `remoteDokumentPfad`
+ - `beschreibung, erstelltAm, updated_at, deleted, etag`
+- PocketBase Collection `artikel_dokumente` als serverseitiges Gegenstück mit File-Field für den Upload
+### 📱 Flutter App
+- `DokumentModel`: Dart-Klasse für ein einzelnes Dokument
+- `DokumentRepository`: CRUD-Operationen gegen die lokale SQLite
+- `DokumentSyncService`: Push/Pull-Logik analog zur Bild-Synchronisation
+- UI – Dokumente-Tab im Artikel-Detail:
+ - Liste aller Dokumente zum Artikel
+ - Upload-Button (Dateiauswahl via `file_picker`)
+ - Download & Öffnen via `open_file`
+ - Löschen mit Soft-Delete
+### 🔄 Synchronisation
+- Dokumente werden getrennt von Textdaten und Bildern synchronisiert
+- Gleiche ETag/UUID-Strategie wie bei Artikeln
+- Hard-Delete auf dem Server wenn lokal `deleted = 1`
+
+
 ## 📅 März 2026: Die "Kritische Phase" (Härtung & Optimierung)
 
 In diesem Monat wurde die App von einem Prototyp zu einem produktionsreifen System transformiert. Die Schwerpunkte lagen auf Sicherheit, automatisierter Bereitstellung und Performance.

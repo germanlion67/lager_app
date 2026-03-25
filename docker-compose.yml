@@ -56,7 +56,7 @@ services:
     volumes:
       - ./server/pb_data:/pb_data
       - ./server/pb_public:/pb_public
-      - ./server/pb_migrations:/pb_migrations:ro
+      - ./server/pb_migrations:/pb_migrations
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 10s

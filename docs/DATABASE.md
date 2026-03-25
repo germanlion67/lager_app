@@ -34,7 +34,26 @@ Die App nutzt zwei persistente Datenspeicher:
 | `remoteBildPfad`| TEXT | Dateiname des Bildes auf dem Server |
 | `erstelltAm` | TEXT | ISO 8601 Erstellungsdatum |
 
-### 1.2 Tabelle: `sync_meta`
+### 1.2 Tabelle: `artikel_dokumente` (Neu ✨)
+Speichert Dokumente (PDF, DOCX, etc.), die einem Artikel zugeordnet sind.
+
+| Spalte | Typ | Beschreibung |
+|---|---|---|
+| `id` | INTEGER | Lokaler Auto-Increment Primärschlüssel |
+| `artikel_uuid` | TEXT | **Fremdschlüssel** zur `artikel.uuid` |
+| `uuid` | TEXT | Globaler Identifier des Dokuments (v4) |
+| `remote_path` | TEXT | PocketBase Record-ID des Dokuments |
+| `dateiname` | TEXT | Originaler Dateiname (z. B. `datenblatt.pdf`) |
+| `dateityp` | TEXT | MIME-Type (z. B. `application/pdf`) |
+| `dateipfad` | TEXT | Lokaler Pfad zur gespeicherten Datei |
+| `remoteDokumentPfad` | TEXT | Dateiname des Dokuments auf dem Server |
+| `beschreibung` | TEXT | Optionale Beschreibung des Dokuments |
+| `erstelltAm` | TEXT | ISO 8601 Erstellungsdatum |
+| `updated_at` | INTEGER | Letzter Änderungszeitpunkt (Unix ms) |
+| `deleted` | INTEGER | Soft-Delete Flag (0 = aktiv, 1 = gelöscht) |
+| `etag` | TEXT | ETag für HTTP-Cache-Validierung |
+
+### 1.3 Tabelle: `sync_meta`
 Speichert den Status der letzten erfolgreichen Synchronisation.
 *   **`last_sync`**: Unix-Timestamp (ms) des letzten Durchlaufs. Nur Datensätze mit `updated_at > last_sync` werden im nächsten Zyklus geprüft.
 
@@ -44,7 +63,7 @@ Speichert den Status der letzten erfolgreichen Synchronisation.
 
 Die Synchronisation folgt einem strikten Ablauf, um Datenkonsistenz über mehrere Geräte zu gewährleisten.
 
-### 2.1 Ablauf-Diagramm
+### 2.1 Ablauf-Diagramm (Artikel)
 ```text
 ┌─────────────────────────────────────────────────────────┐
 │                      SYNC PROZESS                       │
@@ -92,20 +111,72 @@ Die Bild-Sync-Logik arbeitet getrennt von den Textdaten, um Bandbreite zu sparen
 
 ---
 
-## 🚀 4. Performance & Indizes
+## 📄 4. Dokument-Synchronisation (Neu ✨)
 
-Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes aktiv:
+Dokumente werden **unabhängig von Textdaten und Bildern** synchronisiert.
+Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
 
-| Index | Ziel |
+### 4.1 PocketBase Collection: `artikel_dokumente`
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `artikel_uuid` | Text | UUID des zugehörigen Artikels |
+| `uuid` | Text | Globaler Identifier des Dokuments |
+| `dateiname` | Text | Originaler Dateiname |
+| `dateityp` | Text | MIME-Type |
+| `beschreibung` | Text | Optionale Beschreibung |
+| `dokument` | File | Die eigentliche Datei (PocketBase File-Field) |
+| `updated_at` | Text | ISO 8601 Änderungszeitpunkt |
+
+### 4.2 Ablauf-Diagramm (Dokumente)
+```text
+┌─────────────────────────────────────────────────────────┐
+│                    DOKUMENT SYNC                        │
+│                                                         │
+│  1. Push (LOCAL → REMOTE)                               │
+│     ├── etag IS NULL AND deleted = 0                    │
+│     │     ├── remote_path leer → POST (neues Dokument)  │
+│     │     └── remote_path gesetzt → PATCH + Datei-Upload│
+│     └── etag IS NULL AND deleted = 1                    │
+│           └── DELETE auf PocketBase → lokal entfernen   │
+│                                                         │
+│  2. Pull (REMOTE → LOCAL)                               │
+│     ├── Alle Dokumente des Artikels vom Server holen    │
+│     ├── Datei herunterladen falls nicht lokal vorhanden │
+│     └── Upsert in artikel_dokumente                     │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 4.3 Flutter-Implementierung
+| Komponente | Beschreibung |
 |---|---|
-| `idx_unique_artikelnummer` | Schneller Zugriff via Fach-ID |
-| `idx_sync_delta` | Optimiert Abfragen auf `updated_at` & `deleted` |
-| `idx_search_name` | Schnelle Suche im Artikelnamen |
-| `idx_uuid_lookup` | Schneller Abgleich bei Push/Pull |
+| `DokumentModel` | Dart-Klasse, bildet einen Dokument-Datensatz ab |
+| `DokumentRepository` | CRUD gegen lokale SQLite (`artikel_dokumente`) |
+| `DokumentSyncService` | Push/Pull-Logik mit ETag/UUID-Strategie |
+| **Dokumente-Tab (UI)** | Liste, Upload, Download, Öffnen & Löschen im Artikel-Detail |
+
+### 4.4 UI-Funktionen im Dokumente-Tab
+*   📎 **Upload**: Dateiauswahl via `file_picker`, Upload zu PocketBase
+*   📥 **Download & Öffnen**: Datei lokal speichern und via `open_file` öffnen
+*   🗑️ **Löschen**: Soft-Delete lokal → Hard-Delete beim nächsten Sync
 
 ---
 
-## 📐 5. System-Schaubild
+## 🚀 5. Performance & Indizes
+
+Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes aktiv:
+
+| Index | Tabelle | Ziel |
+|---|---|---|
+| `idx_unique_artikelnummer` | `artikel` | Schneller Zugriff via Fach-ID |
+| `idx_sync_delta` | `artikel` | Optimiert Abfragen auf `updated_at` & `deleted` |
+| `idx_search_name` | `artikel` | Schnelle Suche im Artikelnamen |
+| `idx_uuid_lookup` | `artikel` | Schneller Abgleich bei Push/Pull |
+| `idx_dok_artikel_uuid` | `artikel_dokumente` | Schneller Zugriff auf Dokumente eines Artikels |
+| `idx_dok_sync_delta` | `artikel_dokumente` | Optimiert Sync-Abfragen für Dokumente |
+
+---
+
+## 📐 6. System-Schaubild
 
 ```text
        ┌───────────────┐           ┌───────────────┐
@@ -114,11 +185,17 @@ Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes 
        ├───────────────┤           ├───────────────┤
        │  SQLite DB    │◄─────────►│  SQLite DB    │
        │ (artikel.db)  │   REST    │  (data.db)    │
-       └───────┬───────┘    API    └───────┬───────┘
+       │               │    API    │               │
+       │ artikel       │           │ artikel       │
+       │ artikel_dok.  │◄─────────►│ artikel_dok.  │
+       └───────┬───────┘           └───────┬───────┘
                │                           │
        ┌───────▼───────┐           ┌───────▼───────┐
        │ Lokale Bilder │◄─────────►│  PB Storage   │
        │  (/images)    │  HTTP     │  (/storage)   │
+       ├───────────────┤           ├───────────────┤
+       │ Lok. Dokumente│◄─────────►│  PB Storage   │
+       │  (/dokumente) │  HTTP     │  (/storage)   │
        └───────────────┘           └───────────────┘
 ```
 

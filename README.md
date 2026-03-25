@@ -8,6 +8,7 @@ Eine professionelle, plattformübergreifende Lagerverwaltung für Elektronikbaut
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 [![Build and Push Docker Images](https://github.com/germanlion67/lager_app/actions/workflows/docker-build-push.yml/badge.svg)](https://github.com/germanlion67/lager_app/actions/workflows/docker-build-push.yml)
+
 ---
 
 ## 🚀 Auf einen Blick
@@ -24,7 +25,8 @@ Die **Lager_app** ist eine "Offline-First"-Lösung. Sie bietet die Geschwindigke
 
 *   📦 **Artikelverwaltung**: Erfassung mit Name, Beschreibung, Ort, Fach und automatischer Artikelnummer.
 *   📷 **Scanner & Bilder**: QR/Barcode-Scanner (Mobile) und Bildanhänge (Kamera/Galerie).
-*   🔄 **Smart-Sync**: Intelligente Synchronisation mit Konfliktlösung und Offline-Modus.
+*   📎 **Dokumentenverwaltung**: Dokumente (PDF, DOCX, XLSX u. a.) direkt zum Artikel hochladen, synchronisieren und öffnen.
+*   🔄 **Smart-Sync**: Intelligente Synchronisation mit Konfliktlösung und Offline-Modus — für Artikel, Bilder **und** Dokumente.
 *   📄 **Reporting**: PDF-Berichte, CSV/JSON-Export und ZIP-Backups.
 *   🛡️ **Enterprise Security**: Gehärtetes Deployment mit Security-Headern und automatischer Initialisierung.
 
@@ -55,12 +57,13 @@ Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut:
 
 ### 🏗️ Entwicklung & Architektur
 *   📐 **[ARCHITECTURE.md](docs/ARCHITECTURE.md)**: Projektstruktur, Datenmodell und Design-Entscheidungen.
-*   🎨 **[THEMING.md](docs/ARCHITECTURE.md)**: Infos zu AppConfig, AppTheme und Design-Tokens.
-*   📝 **[LOGGING.md](docs/logger.md)**: Details zum integrierten Logging-System.
+*   🗄️ **[DATABASE.md](docs/DATABASE.md)**: Datenbank-Design, Sync-Logik, Bild- & Dokumenten-Synchronisation.
+*   🎨 **[THEMING.md](docs/THEMING.md)**: Infos zu AppConfig, AppTheme und Design-Tokens.
+*   📝 **[LOGGING.md](docs/LOGGER.md)**: Details zum integrierten Logging-System.
 
 ### 📈 Projektstatus
-*   ✅ **[CHECKLIST.md](docs/PRIORITAETEN_CHECKLISTE.md)**: Aktueller Stand der Implementierung.
-*   🛠️ **[OPTIMIZATIONS.md](docs/MANUELLE_OPTIMIERUNGEN.md)**: Offene Punkte und manuelle Feinschliff-Tasks.
+*   ✅ **[CHECKLIST.md](docs/CHECKLIST.md)**: Aktueller Stand der Implementierung.
+*   🛠️ **[OPTIMIZATIONS.md](docs/OPTIMIZATIONS.md)**: Offene Punkte und manuelle Feinschliff-Tasks.
 
 ---
 

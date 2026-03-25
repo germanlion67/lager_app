@@ -35,6 +35,12 @@ cp .env.example .env
 # 3. Container starten
 docker compose up -d --build
 
+# 4. zeigt Logs an
+docker compose logs -f pocketbase
+
+# 5. Container neu erstellen ohne Cache
+docker compose build --no-cache pocketbase
+
 # Web-App: http://localhost:8081
 # PocketBase Admin: http://localhost:8080/_/ (admin@example.com / changeme123)
 ```

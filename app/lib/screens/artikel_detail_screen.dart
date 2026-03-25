@@ -22,8 +22,11 @@ import 'detail_screen_io.dart'
     if (dart.library.html) 'detail_screen_stub.dart' as platform;
 import '../services/pdf_service_stub.dart'
     if (dart.library.io) '../services/pdf_service.dart';
-import '_dokumente_button_stub.dart'
-    if (dart.library.io) '_dokumente_button.dart';
+
+// M-012: Anhänge
+import '../services/attachment_service.dart';
+import '../widgets/attachment_list_widget.dart';
+import '../widgets/attachment_upload_widget.dart';
 
 class ArtikelDetailScreen extends StatefulWidget {
   final Artikel artikel;
@@ -44,6 +47,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   bool _isEditing = false;
   bool _hasChanged = false;
 
+
   // M-011: pendingBytes für neu gewähltes (noch nicht gespeichertes) Bild
   Uint8List? _pendingBytes;
   String? _bildPfad;
@@ -53,6 +57,11 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   late final PocketBaseService _pbService;
 
   bool _isLoadingRemoteBild = false;
+
+  // M-012: Anhänge
+  int _anhangCount = 0;
+  final _attachmentService = AttachmentService();
+
 
   @override
   void initState() {
@@ -75,6 +84,17 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     if (kIsWeb) {
       _loadRemoteBildUrl();
     }
+    // M-012: Anhang-Anzahl für Badge laden
+    // Methode ist als Member der Klasse deklariert — kein Underscore-Problem
+    ladeAnhangCount();
+  }
+
+  // M-012: kein führender Underscore → kein Lint-Fehler
+  Future<void> ladeAnhangCount() async {
+    final count = await _attachmentService.countForArtikel(
+      widget.artikel.uuid,
+    );
+    if (mounted) setState(() => _anhangCount = count);
   }
 
   Future<void> _loadRemoteBildUrl() async {
@@ -419,6 +439,11 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     if (!mounted) return;
 
     try {
+      // M-012: Anhänge zuerst löschen (fire-and-forget, kein await nötig
+      // da PocketBase-seitig unabhängig vom Artikel-Record)
+      unawaited(
+        _attachmentService.deleteAllForArtikel(widget.artikel.uuid),
+      );
       if (kIsWeb) {
         final filter = 'uuid = "${widget.artikel.uuid}"';
         final list = await _pbService.client
@@ -742,8 +767,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               ),
               const SizedBox(height: 20),
 
-              DokumenteButton(artikelId: artikel.id),
-              const SizedBox(height: 20),
+// M-012: Anhänge-Sektion (ersetzt DokumenteButton)
+              AnhaengeSektion(
+                artikelUuid: widget.artikel.uuid,
+                anhangCount: _anhangCount,
+                onCountChanged: (count) =>
+                    setState(() => _anhangCount = count),
+              ),
 
               // M-011: Zentrales Bild-Widget mit Vollbild-Tap
               if (_isLoadingRemoteBild)
@@ -780,6 +810,170 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+// ---------------------------------------------------------------------------
+// M-012: AnhaengeSektion
+// ---------------------------------------------------------------------------
+
+class AnhaengeSektion extends StatelessWidget {
+  final String artikelUuid;
+  final int anhangCount;
+  final void Function(int count) onCountChanged;
+
+  const AnhaengeSektion({
+    super.key, // Fix: use_key_in_widget_constructors
+    required this.artikelUuid,
+    required this.anhangCount,
+    required this.onCountChanged,
+  });
+
+  void zeigeAnhaengeSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => AnhaengeSheet(
+        artikelUuid: artikelUuid,
+        onCountChanged: onCountChanged,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ElevatedButton.icon(
+          icon: const Icon(Icons.attach_file),
+          label: Text(
+            anhangCount == 0 ? 'Anhänge' : 'Anhänge ($anhangCount)',
+          ),
+          onPressed: () => zeigeAnhaengeSheet(context),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// M-012: AnhaengeSheet — StatefulWidget + State
+// Fix: StatefulWidget-Klasse war komplett absent, nur State war vorhanden
+// Fix: showModalBottomSheet<void> statt <AnhaengeSheet>
+// ---------------------------------------------------------------------------
+
+class AnhaengeSheet extends StatefulWidget {
+  final String artikelUuid;
+  final void Function(int count) onCountChanged;
+
+  const AnhaengeSheet({
+    super.key,
+    required this.artikelUuid,
+    required this.onCountChanged,
+  });
+
+  @override
+  State<AnhaengeSheet> createState() => AnhaengeSheetState();
+}
+
+class AnhaengeSheetState extends State<AnhaengeSheet> {
+  final AttachmentService service = AttachmentService();
+  int count = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    ladeCount();
+  }
+
+  Future<void> ladeCount() async {
+    final result = await service.countForArtikel(widget.artikelUuid);
+    if (mounted) {
+      setState(() => count = result);
+      widget.onCountChanged(result);
+    }
+  }
+
+  void zeigeUploadDialog() {
+    showModalBottomSheet<void>(  // Fix: war <AttachmentModel> — kein Rückgabewert nötig
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => AttachmentUploadWidget(
+        artikelUuid: widget.artikelUuid,
+        aktuelleAnzahl: count,
+        onUploaded: (_) => ladeCount(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6,
+      minChildSize: 0.4,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (ctx, scrollController) => Column(
+        children: [
+          // Handle + Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Column(
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[400],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.attach_file),
+                    const SizedBox(width: 8),
+                    Text(
+                      count > 0 ? 'Anhänge ($count)' : 'Anhänge',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    FilledButton.tonalIcon(
+                      onPressed: zeigeUploadDialog,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Hinzufügen'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(),
+              ],
+            ),
+          ),
+
+          // Liste
+          Expanded(
+            child: SingleChildScrollView(
+              controller: scrollController,
+              child: AttachmentListWidget(
+                artikelUuid: widget.artikelUuid,
+                onChanged: ladeCount,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -46,7 +46,6 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
                         └───────────────┘
 ```
 
-
 ## 🏗️ High-Level Architektur
 
 Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so konzipiert, dass sie auf mobilen Geräten ohne permanente Internetverbindung funktioniert, während die Web-Version direkt mit dem Backend kommuniziert.
@@ -57,7 +56,7 @@ Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so ko
 |---|---|---|---|
 | **Frontend** | Flutter Native | Flutter Native | Flutter Web (SPA) |
 | **Lokale DB** | SQLite (sqflite) | SQLite (FFI) | Keine (Direktzugriff) |
-| **Dateisystem** | Pfad-basiert (Images) | Pfad-basiert (Images) | Browser Blob/Memory |
+| **Dateisystem** | Pfad-basiert (Images, Docs) | Pfad-basiert (Images, Docs) | Browser Blob/Memory |
 | **Sync-Logik** | Hintergrund-Worker | Manueller/Timer Sync | Nicht erforderlich |
 
 ---
@@ -72,9 +71,9 @@ lager_app/
 │   ├── lib/
 │   │   ├── config/                   # Zentrale Steuerung (Theming, Config)
 │   │   ├── core/                     # Plattform-Abstraktion (Logger, Env)
-│   │   ├── models/                   # POJO Datenklassen (Artikel, User)
+│   │   ├── models/                   # POJO Datenklassen (Artikel, Dokument, User)
 │   │   ├── screens/                  # UI-Pages (Home, Detail, Sync)
-│   │   ├── services/                 # Business Logik (API, DB, Sync)
+│   │   ├── services/                 # Business Logik (API, DB, Sync, DokumentSync)
 │   │   ├── utils/                    # Helfer (Validierung, Image-Tools)
 │   │   ├── widgets/                  # Wiederverwendbare UI-Komponenten
 │   │   ├── main.dart                 # App-Einstiegspunkt
@@ -131,7 +130,7 @@ lager_app/
 
 ## 💾 Datenmodell (PocketBase Schema)
 
-Das Herzstück der Anwendung ist die Collection `artikel`. Sie ist für maximale Performance und Synchronisations-Sicherheit optimiert.
+Das Herzstück der Anwendung ist die Collection `artikel`. Ergänzt wird sie durch die Collection `artikel_dokumente` für die Dokumentenverwaltung.
 
 ### Collection: `artikel`
 
@@ -146,11 +145,28 @@ Das Herzstück der Anwendung ist die Collection `artikel`. Sie ist für maximale
 | `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_sync` |
 | `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_sync` |
 
+### Collection: `artikel_dokumente` (Neu ✨)
+
+Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
+Unterstützte Dateitypen: PDF, DOCX, XLSX, TXT und weitere.
+
+| Feld | Typ | Beschreibung | Index |
+|---|---|---|---|
+| `artikel_uuid` | Text | Fremdschlüssel zur `artikel.uuid` | ✅ `idx_dok_artikel_uuid` |
+| `uuid` | Text | Client-seitige Eindeutigkeit des Dokuments | ✅ `idx_dok_uuid` |
+| `dateiname` | Text | Originaler Dateiname (z. B. `datenblatt.pdf`) | — |
+| `dateityp` | Text | MIME-Type (z. B. `application/pdf`) | — |
+| `beschreibung` | Text | Optionale Beschreibung des Dokuments | — |
+| `dokument` | File | Die eigentliche Datei (PocketBase File-Field) | — |
+| `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_dok_sync` |
+| `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_dok_sync` |
+
 ### Synchronisations-Logik (Offline-First)
 Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem **Soft-Delete** Mechanismus:
 1.  **Push**: Lokale Änderungen (SQLite) werden anhand der `uuid` zu PocketBase gepusht.
 2.  **Pull**: Datensätze, deren `updated_at` neuer als der letzte Sync-Zeitpunkt ist, werden heruntergeladen.
 3.  **Conflict**: Bei gleichzeitiger Änderung wird der Nutzer über den `ConflictResolutionScreen` zur Entscheidung aufgefordert.
+4.  **Dokumente**: Werden in einem **separaten Sync-Zyklus** behandelt — unabhängig von Textdaten und Bildern.
 
 ---
 
@@ -171,20 +187,53 @@ Um die Wartbarkeit zu erhöhen, nutzt die App eine dreistufige Konfiguration in 
 Da `dart:io` (Dateisystem) im Web nicht existiert, nutzt die App **Conditional Imports**. Dies verhindert Compiler-Fehler auf verschiedenen Plattformen.
 
 **Beispiel**:
-*   `artikel_erfassen_io.dart`: Implementiert Kamera-Zugriff für Android/Linux.
+*   `artikel_erfassen_io.dart`: Implementiert Kamera-Zugriff und Datei-Operationen für Android/Linux.
 *   `artikel_erfassen_stub.dart`: Implementiert Datei-Upload für Web.
 *   `artikel_erfassen_screen.dart`: Importiert automatisch die richtige Version.
+
+Dies gilt analog für die **Dokumenten-Funktionalität**: Auf nativen Plattformen werden Dokumente lokal gespeichert und via `open_file` geöffnet; im Web erfolgt der Zugriff direkt über den Browser-Download-Mechanismus.
 
 ---
 
 ## 🛡️ Sicherheits-Architektur
 
-1.  **PocketBase Rules**: Der Zugriff auf die API ist im Produktionsmodus (`PB_DEV_MODE=0`) strikt an Rollen (`reader`/`writer`) gebunden.
+1.  **PocketBase Rules**: Der Zugriff auf die API ist im Produktionsmodus (`PB_DEV_MODE=0`) strikt an Rollen (`reader`/`writer`) gebunden. Dies gilt für `artikel` **und** `artikel_dokumente`.
 2.  **Caddy Security**: Der interne Webserver liefert die App mit gehärteten HTTP-Headern aus:
     *   `Content-Security-Policy`: Verhindert XSS.
     *   `Strict-Transport-Security`: Erzwingt HTTPS.
     *   `X-Frame-Options`: Verhindert Clickjacking.
 3.  **Network Isolation**: In Docker-Produktions-Setups kommunizieren Frontend und Backend über ein isoliertes internes Netzwerk ohne direkte Port-Exposition.
+4.  **Datei-Validierung**: Beim Dokument-Upload wird der MIME-Type serverseitig geprüft, um unerwünschte Dateitypen abzuweisen.
+
+---
+
+## 📄 Dokument-Verwaltung (Neu ✨)
+
+Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folgende Funktionen bietet:
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│              DOKUMENTE-TAB (Artikel-Detail)             │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ 📄 datenblatt.pdf          [Öffnen] [Löschen]   │   │
+│  │ 📄 einbauanleitung.docx    [Öffnen] [Löschen]   │   │
+│  │ 📄 pruefprotokoll.xlsx     [Öffnen] [Löschen]   │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  [ + Dokument hinzufügen ]                              │
+│                                                         │
+│  Plattform-Verhalten:                                   │
+│  • Native (Android/Linux): Speichern + open_file        │
+│  • Web: Direkter Browser-Download                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+| Aktion | Native | Web |
+|---|---|---|
+| **Upload** | `file_picker` → lokale Kopie + PocketBase | `file_picker` → direkt zu PocketBase |
+| **Öffnen** | Lokal gespeichert → `open_file` | Browser-Download / Inline-Anzeige |
+| **Löschen** | Soft-Delete lokal → Hard-Delete beim Sync | Direktes DELETE via REST API |
 
 ---
 

@@ -2,7 +2,7 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
-## [1.2.0] - 2026-03-22
+## [0.3.0] - 2026-03-22
 
 ### 🎉 Hauptfeatures
 
@@ -83,7 +83,7 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
 ---
 
-## [1.1.0] - 2026-03-21
+## [0.2.0] - 2026-03-21
 
 ### 🎉 Hauptfeatures
 
@@ -225,7 +225,7 @@ Geplant für zukünftige Versionen:
 
 ---
 
-## [1.0.0] - 2026-01-XX
+## [0.1.0] - 2026-01-XX
 
 ### Initiales Release
 
