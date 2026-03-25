@@ -12,6 +12,10 @@
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import '../services/app_log_service.dart';
+
+final _logger = AppLogService.logger;
+
 
 /// Web-Stub: Zeigt dem Nutzer eine Meldung dass der Upload
 /// im Web nicht verfügbar ist, statt lautlos zurückzukehren.
@@ -22,7 +26,7 @@ Future<void> uploadZipToNextcloud(
   // FIX Hinweis 3: Debug-Log damit Stub-Aufrufe in der Entwicklung
   // sichtbar sind — verhindert stille Fehler.
   if (kDebugMode) {
-    debugPrint(
+    _logger.d(
       '[Nextcloud Stub] uploadZipToNextcloud() aufgerufen — '
       'nicht verfügbar im Web.',
     );
@@ -49,7 +53,7 @@ Future<void> backupWithImagesToNextcloud(
   BuildContext context,
 ) async {
   if (kDebugMode) {
-    debugPrint(
+    _logger.d(
       '[Nextcloud Stub] backupWithImagesToNextcloud() aufgerufen — '
       'nicht verfügbar im Web.',
     );

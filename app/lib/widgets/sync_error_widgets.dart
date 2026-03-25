@@ -1,6 +1,7 @@
 // lib/widgets/sync_error_widgets.dart
 
 import 'package:flutter/material.dart';
+import '../services/app_log_service.dart';
 
 import '../services/sync_error_recovery.dart';
 
@@ -366,6 +367,7 @@ class ErrorRecoveryProgressDialog extends StatefulWidget {
 
 class _ErrorRecoveryProgressDialogState
     extends State<ErrorRecoveryProgressDialog> {
+  final _logger = AppLogService.logger; // ← NEU
   late final SyncErrorRecoveryService _recoveryService;
   BatchRecoveryResult? _result;
   bool _isRunning = false;
@@ -419,7 +421,11 @@ class _ErrorRecoveryProgressDialogState
       }
     } catch (e, st) {
       // Fix: Stack-Trace mitloggen
-      debugPrint('[ErrorRecovery] Wiederherstellung fehlgeschlagen: $e\n$st');
+       _logger.e(
+        '[ErrorRecovery] Wiederherstellung fehlgeschlagen',
+        error: e,
+        stackTrace: st,
+      );
 
       // Fix: mounted-Guard nach catch
       if (!mounted) return;

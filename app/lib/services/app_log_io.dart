@@ -11,6 +11,11 @@ Future<File?> _getLogFile() async {
     final dir = await getApplicationDocumentsDirectory();
     return File('${dir.path}/app_debug.log');
   } catch (e) {
+    // O-001: debugPrint hier ABSICHTLICH belassen.
+    // app_log_io.dart ist Teil des Logging-Systems selbst.
+    // AppLogService.logger zu verwenden würde eine zirkuläre
+    // Abhängigkeit erzeugen: Logger → IO → Logger.
+    // debugPrint ist der einzige sichere Fallback an dieser Stelle.
     debugPrint('Fehler beim Zugriff auf Filesystem: $e');
     return null;
   }
@@ -22,6 +27,7 @@ Future<File?> _getLogBackupFile() async {
     final dir = await getApplicationDocumentsDirectory();
     return File('${dir.path}/app_debug.log.bak');
   } catch (e) {
+    // O-001: Siehe Kommentar in _getLogFile() — zirkuläre Abhängigkeit.
     debugPrint('Fehler beim Zugriff auf Backup-Log-Datei: $e');
     return null;
   }
@@ -70,6 +76,7 @@ Future<int> getLogFileSizeBytes() async {
     final stat = await file.stat();
     return stat.size;
   } catch (e) {
+    // O-001: Siehe Kommentar in _getLogFile() — zirkuläre Abhängigkeit.
     debugPrint('Fehler beim Lesen der Log-Dateigröße: $e');
     return 0;
   }
@@ -101,9 +108,11 @@ Future<void> rotateLogFile() async {
       '[Log rotiert — ${DateTime.now().toUtc().toIso8601String()}]\n',
       flush: true,
     );
-
+    // O-001: debugPrint hier ABSICHTLICH belassen — zirkuläre Abhängigkeit.
+    // Rotation-Status ist Bootstrap-Information, kein App-Log-Eintrag.
     debugPrint('✅ Log-Rotation abgeschlossen: ${bakFile.path}');
   } catch (e) {
+    // O-001: Siehe Kommentar oben — zirkuläre Abhängigkeit.
     debugPrint('❌ Fehler bei der Log-Rotation: $e');
     // Kein rethrow — Rotation-Fehler dürfen das Logging nicht blockieren
   }

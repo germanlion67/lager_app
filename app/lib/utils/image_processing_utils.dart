@@ -3,8 +3,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
+import '../services/app_log_service.dart';
+
 class ImageProcessingUtils {
   ImageProcessingUtils._();
+
+  static final _logger = AppLogService.logger;
 
   static const int _maxDimension = 1600;
   static const int _jpegQuality = 85;
@@ -28,8 +32,11 @@ class ImageProcessingUtils {
     try {
       return await compute(_processImage, _ProcessArgs(sourceBytes, crop));
     } catch (e, stack) {
-      debugPrint('ImageProcessingUtils: Fehler bei der Bildverarbeitung: $e');
-      debugPrint(stack.toString());
+      _logger.e(
+        'ImageProcessingUtils: Fehler bei der Bildverarbeitung',
+        error: e,
+        stackTrace: stack,
+      );
       return sourceBytes;
     }
   }
@@ -45,8 +52,11 @@ class ImageProcessingUtils {
     try {
       return await compute(_generateThumbnailIsolate, sourceBytes);
     } catch (e, stack) {
-      debugPrint('ImageProcessingUtils: Thumbnail-Generierung fehlgeschlagen: $e');
-      debugPrint(stack.toString());
+      _logger.e(
+        'ImageProcessingUtils: Thumbnail-Generierung fehlgeschlagen',
+        error: e,
+        stackTrace: stack,
+      );
       return null;
     }
   }
@@ -55,8 +65,11 @@ class ImageProcessingUtils {
     try {
       return await compute(_rotateImage, sourceBytes);
     } catch (e, stack) {
-      debugPrint('ImageProcessingUtils: Fehler beim Drehen: $e');
-      debugPrint(stack.toString());
+      _logger.e(
+        'ImageProcessingUtils: Fehler beim Drehen',
+        error: e,
+        stackTrace: stack,
+      );
       return sourceBytes;
     }
   }

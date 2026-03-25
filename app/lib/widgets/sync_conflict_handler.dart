@@ -1,11 +1,14 @@
 // lib/widgets/sync_conflict_handler.dart
 
 import 'package:flutter/material.dart';
+import '../services/app_log_service.dart';
 
 import '../screens/conflict_resolution_screen.dart';
 import '../services/sync_service.dart';
 
 class SyncConflictHandler {
+  static final _logger = AppLogService.logger;
+
   static Future<bool> handleSyncWithConflicts(
     BuildContext context,
     SyncService syncService,
@@ -126,7 +129,11 @@ class SyncConflictHandler {
 
       return false;
     } catch (e, st) {
-      debugPrint('[SyncConflictHandler] Sync fehlgeschlagen: $e\n$st');
+      _logger.e(
+        '[SyncConflictHandler] Sync fehlgeschlagen',
+        error: e,
+        stackTrace: st,
+      );
 
       if (context.mounted) nav.pop();
 

@@ -7,7 +7,7 @@
 
 import 'dart:convert';
 import 'dart:io';
-
+import '../services/app_log_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 import 'package:mime/mime.dart';
@@ -49,6 +49,7 @@ class NextcloudConfig {
 /// https://docs.nextcloud.com/server/latest/developer_manual/client_apis/WebDAV/basic.html
 class NextcloudWebDavClient {
   final NextcloudConfig config;
+  final _logger = AppLogService.logger; // ← NEU
 
   NextcloudWebDavClient(this.config);
 
@@ -201,7 +202,7 @@ class NextcloudWebDavClient {
       attempt++;
       final client = http.Client();
       try {
-        debugPrint(
+         _logger.d(
           'NextcloudWebDavClient.listFiles target=$targetUri (attempt $attempt)',
         );
 
@@ -223,7 +224,7 @@ class NextcloudWebDavClient {
             .timeout(const Duration(seconds: 30));
         final response = await http.Response.fromStream(streamedResponse);
 
-        debugPrint(
+         _logger.d(
           'NextcloudWebDavClient.listFiles status=${response.statusCode}',
         );
 
@@ -246,7 +247,7 @@ class NextcloudWebDavClient {
           return [];
         } else if (response.statusCode >= 500 && attempt < maxAttempts) {
           final backoffMs = 500 * (1 << (attempt - 1));
-          debugPrint(
+           _logger.w(
             'NextcloudWebDavClient.listFiles server error '
             '${response.statusCode} - retrying in ${backoffMs}ms',
           );
@@ -261,7 +262,7 @@ class NextcloudWebDavClient {
         if (e is WebDavException) rethrow;
         if (attempt < maxAttempts) {
           final backoffMs = 500 * (1 << (attempt - 1));
-          debugPrint(
+           _logger.w(
             'NextcloudWebDavClient.listFiles error: $e - '
             'retrying in ${backoffMs}ms',
           );
