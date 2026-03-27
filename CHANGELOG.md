@@ -2,6 +2,40 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.1] — 2026-03-27
+
+### Hinzugefügt
+- **H-003: Automatisierte Backups** — Dedizierter Backup-Container für Produktions-Deployments
+  - `server/backup/Dockerfile` — Alpine-basierter Container mit Cron, SQLite3 und SMTP-Support
+  - `server/backup/backup.sh` — Backup-Logik mit SQLite WAL-Checkpoint, tar.gz-Archivierung und Integritätsprüfung
+  - `server/backup/entrypoint.sh` — Automatische Cron- und SMTP-Konfiguration aus Umgebungsvariablen
+  - `scripts/restore.sh` — Interaktives Restore-Script mit Sicherheitskopie und Healthcheck
+- **Backup-Container als Service** in `docker-compose.prod.yml`
+  - Konfiguration vollständig über `.env.production` (kein manueller Crontab nötig)
+  - Rotation alter Backups (konfigurierbar, Standard: 7 Tage)
+  - E-Mail-Benachrichtigung (SMTP) bei Erfolg oder Fehler
+  - Webhook-Benachrichtigung (Slack, Discord, Gotify, etc.)
+  - Status-JSON (`last_backup.json`) für zukünftige App-Anzeige (siehe M-008)
+  - Initiales Backup beim ersten Container-Start
+- **Backup-Variablen** in `.env.example` und `.env.production.example` ergänzt
+  - `BACKUP_ENABLED`, `BACKUP_CRON`, `BACKUP_KEEP_DAYS`
+  - `BACKUP_NOTIFY`, `BACKUP_SMTP_*`, `BACKUP_WEBHOOK_URL`
+- **M-008** als neuer Optimierungspunkt: Backup-Status im Settings-Screen der App anzeigen
+
+### Geändert
+- **DEPLOYMENT.md** — Architektur-Diagramm um Backup-Container erweitert; Backup-Abschnitt komplett überarbeitet mit Container-Dokumentation, Konfigurationsbeispielen und Restore-Anleitung
+- **ARCHITECTURE.md** — Architektur-Diagramm um Backup-Container erweitert; Projektstruktur um `scripts/`, `server/backup/`, `server/pb_backups/` und `server/npm/` ergänzt
+- **OPTIMIZATIONS.md** — H-003 als abgeschlossen markiert; M-008 hinzugefügt; Fortschritts-Tabelle aktualisiert (7 von 20 erledigt)
+- **Maintenance-Workflow** (`.github/workflows/flutter-maintenance.yml`) — `working-directory: ./app` ergänzt, Flutter-Version gepinnt, Linux-Build hinzugefügt, `--exclude-tags performance` ergänzt
+
+### Behoben
+- **Maintenance-Workflow** lief im falschen Verzeichnis (Root statt `app/`)
+- **`flutter pub outdated`** brach den Workflow ab wenn Pakete veraltet waren (jetzt `|| true`)
+- **Windows-Build-Artefakt-Pfad** korrigiert (`app/build/windows/x64/runner/Release`)
+
+--- 
+
+
 ## [0.7.0] - 2026-03-27
 
 ### 🎉 Hauptfeatures
@@ -84,6 +118,8 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
 **Neue Dateien:**
 - `app/lib/screens/server_setup_screen.dart` — Ersteinrichtungs-Screen
+
+--- 
 
 ### 📦 Migration von 0.3.0 auf 0.7.0
 

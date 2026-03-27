@@ -3,7 +3,7 @@
 Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Datenstrukturen und die grundlegenden Design-Entscheidungen.
 
 ---
-```
+```text
 ┌────────────────────────────────────────────────────────────────┐
 │                          INTERNET                              │
 └───────────────────────┬────────────────────────────────────────┘
@@ -40,10 +40,13 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
                                 │
                         ┌───────▼───────┐
                         │  Volumes      │
-                        │  • pb_data    │
-                        │  • pb_public  │
-                        │  • pb_backups │
-                        └───────────────┘
+                        │  • pb_data    │◄──── Backup-Container
+                        │  • pb_public  │      • Cron (konfigurierbar)
+                        │  • pb_backups │      • SQLite WAL-Checkpoint
+                        └───────────────┘      • tar.gz + Rotation
+                                               • E-Mail / Webhook
+                                               • last_backup.json
+
 ```
 
 ## 🏗️ High-Level Architektur
@@ -94,8 +97,20 @@ lager_app/
 │   └── pubspec.yaml                  # Flutter Abhängigkeiten & Metadaten
 ├── packages/                         # Geteilte lokale Dart-Pakete
 │   └── runtime_env_config/           # Paket für dynamische ENV-Injektion
+├── scripts/                          # Host-Scripts für manuelle Operationen
+│   └── restore.sh                    # Backup-Wiederherstellung (manuell)
 ├── server/                           # Backend-Infrastruktur
-│   └── pb_migrations/                # JS-Migrationen für Schema-Versionierung
+│   ├── backup/                       # Backup-Container
+│   │   ├── Dockerfile                # Alpine + Cron + SQLite3
+│   │   ├── entrypoint.sh             # Cron-Setup, SMTP-Config
+│   │   └── backup.sh                 # Backup-Logik (WAL, tar.gz, Rotation)
+│   ├── pb_data/                      # PocketBase-Datenbank & Uploads
+│   ├── pb_backups/                   # Backup-Archiv & Status-JSON
+│   ├── pb_migrations/                # JS-Migrationen für Schema-Versionierung
+│   ├── pb_public/                    # Öffentliche PocketBase-Dateien
+│   └── npm/                          # Nginx Proxy Manager Daten
+│       ├── data/                     # NPM Konfiguration
+│       └── letsencrypt/              # SSL-Zertifikate
 ├── docs/                             # Dokumentation & Spezifikationen
 │   ├── ARCHITECTURE.md               # Architektur & Design-Entscheidungen
 │   ├── CHECKLIST.md                  # Aktueller Implementierungsstand

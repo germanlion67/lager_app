@@ -188,6 +188,64 @@ services:
     networks:
       - lager_network
 
+# ============================================================
+  # Backup-Service
+  # Automatisierte Backups der PocketBase-Datenbank mit Rotation.
+  #
+  # Features:
+  #   ✅ Automatisches Backup per Cron (konfigurierbar)
+  #   ✅ SQLite WAL-Checkpoint vor jedem Backup
+  #   ✅ Integritätsprüfung des Archivs
+  #   ✅ Rotation alter Backups (konfigurierbar)
+  #   ✅ E-Mail-Benachrichtigung bei Erfolg/Fehler
+  #   ✅ Status-JSON für App-Anzeige (last_backup.json)
+  #   ✅ Initiales Backup beim ersten Start
+  #
+  # Manuelles Backup:
+  #   docker exec lager_backup /backup/backup.sh
+  #
+  # Backup-Status:
+  #   cat server/pb_backups/last_backup.json
+  #
+  # Logs:
+  #   docker logs lager_backup
+  #   cat server/pb_backups/backup.log
+  # ============================================================
+  backup:
+    build:
+      context: ./server/backup
+      dockerfile: Dockerfile
+    container_name: lager_backup
+    restart: unless-stopped
+    environment:
+      # Backup-Konfiguration
+      - BACKUP_ENABLED=${BACKUP_ENABLED:-true}
+      - BACKUP_CRON=${BACKUP_CRON:-0 3 * * *}
+      - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-7}
+      # Benachrichtigung: none | email | webhook
+      - BACKUP_NOTIFY=${BACKUP_NOTIFY:-none}
+      # SMTP (nur wenn BACKUP_NOTIFY=email)
+      - BACKUP_SMTP_HOST=${BACKUP_SMTP_HOST:-}
+      - BACKUP_SMTP_PORT=${BACKUP_SMTP_PORT:-587}
+      - BACKUP_SMTP_USER=${BACKUP_SMTP_USER:-}
+      - BACKUP_SMTP_PASS=${BACKUP_SMTP_PASS:-}
+      - BACKUP_SMTP_FROM=${BACKUP_SMTP_FROM:-}
+      - BACKUP_SMTP_TO=${BACKUP_SMTP_TO:-}
+      # Webhook (nur wenn BACKUP_NOTIFY=webhook)
+      - BACKUP_WEBHOOK_URL=${BACKUP_WEBHOOK_URL:-}
+      # Zeitzone
+      - TZ=${TZ:-Europe/Berlin}
+    volumes:
+      # Lesezugriff auf PocketBase-Daten
+      - ./server/pb_data:/pb_data:ro
+      # Schreibzugriff für Backups
+      - ./server/pb_backups:/pb_backups
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    networks:
+      - lager_network
+
 networks:
   lager_network:
     driver: bridge

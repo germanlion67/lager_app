@@ -1,8 +1,11 @@
+## OPTIMIZATIONS.md
+
+```markdown
 # 🛠️ Technische Optimierungen & Offene Punkte
 
-Dieses Dokument beschreibt spezifische technische Aufgaben, Refactorings und „Politur-Arbeiten“, die für den Abschluss der nächsten Projektphasen notwendig sind.
+Dieses Dokument beschreibt spezifische technische Aufgaben, Refactorings und „Politur-Arbeiten", die für den Abschluss der nächsten Projektphasen notwendig sind.
 
-**Zuletzt aktualisiert:** v0.7.0 (27.03.2026)
+**Zuletzt aktualisiert:** v0.7.1 (27.03.2026)
 
 ---
 
@@ -33,6 +36,17 @@ Dieses Dokument beschreibt spezifische technische Aufgaben, Refactorings und „
 - Eindeutige Artikelnummer ✅
 - 5 Performance-Indizes ✅
 
+### H-003: Backup-Automatisierung — Erledigt in v0.7.1
+- Dedizierter Backup-Container mit Cron ✅
+- SQLite WAL-Checkpoint vor jedem Backup ✅
+- Komprimiertes tar.gz-Archiv mit Integritätsprüfung ✅
+- Rotation alter Backups (konfigurierbar, Standard: 7 Tage) ✅
+- E-Mail-Benachrichtigung bei Erfolg/Fehler ✅
+- Webhook-Benachrichtigung (Slack, Discord, etc.) ✅
+- Status-JSON (`last_backup.json`) für App-Anzeige ✅
+- Restore-Script mit Sicherheitskopie und Healthcheck ✅
+- Konfiguration über `.env.production` ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -46,17 +60,9 @@ Aktuell ist `*` (alle Origins) möglich.
 - Testen, ob Web-Frontend und Mobile-App weiterhin funktionieren
 - Dokumentation in `DEPLOYMENT.md` ergänzen
 
-### H-003: Backup-Automatisierung
-Backup-Methoden sind dokumentiert (`DEPLOYMENT.md`), aber es gibt kein fertiges, getestetes Script.
-
-**Aufgaben:**
-- `scripts/backup.sh` erstellen *(PocketBase-Backup + Volume-Tar)*
-- Cron-Beispiel mit Rotation *(z. B. 7 Tage behalten)*
-- Restore-Anleitung testen und dokumentieren
-
 ### M-007: UI für Konfliktlösung
 Der Synchronisations-Prozess erkennt Konflikte, aber die Benutzeroberfläche zur Auswahl zwischen  
-**„Lokal behalten“** oder **„Server übernehmen“** ist noch nicht finalisiert.
+**„Lokal behalten"** oder **„Server übernehmen"** ist noch nicht finalisiert.
 
 **Aufgaben:**
 - `conflict_resolution_screen.dart` fertigstellen
@@ -111,7 +117,7 @@ Die Artikelliste lädt aktuell alle Einträge auf einmal. Bei mehr als 100 Artik
 **Aufgaben:**
 - `ListView.builder` mit Lazy-Loading implementieren
 - PocketBase-Pagination nutzen (`page`, `perPage` Parameter)
-- „Mehr laden“-Indikator am Listenende
+- „Mehr laden"-Indikator am Listenende
 
 ### M-006: Input Validation
 Formulare in der App sind nicht vollständig validiert.
@@ -121,6 +127,15 @@ Formulare in der App sind nicht vollständig validiert.
 - Artikelnummer: Bereichsprüfung (`1–99999`), Duplikat-Check
 - Mengenfelder: Nur positive Zahlen erlauben
 - URL-Felder: Format-Validierung
+
+### M-008: Backup-Status in der App anzeigen
+Der Backup-Container schreibt eine `last_backup.json` mit dem aktuellen Status.  
+Diese Information soll im Settings-Screen der App angezeigt werden.
+
+**Aufgaben:**
+- Custom-API-Endpoint in PocketBase oder direktes Lesen der JSON-Datei
+- Settings-Screen: Abschnitt „Backup-Status" mit letztem Backup-Zeitpunkt, Größe und Status
+- Warnung anzeigen wenn letztes Backup älter als 48 Stunden
 
 ---
 
@@ -144,10 +159,10 @@ Noch der Standard-Flutter-Splash-Screen.
 - Für Android 12+ Splash-Screen-API berücksichtigen
 
 ### N-006: Nextcloud-Workflow
-Die WebDAV-Anbindung ist funktional, aber der automatische Upload nach einem erfolgreichen Sync ist noch als „experimentell“ markiert.
+Die WebDAV-Anbindung ist funktional, aber der automatische Upload nach einem erfolgreichen Sync ist noch als „experimentell" markiert.
 
 **Aufgaben:**
-- Testlauf mit einer realen Nextcloud-Instanz *(Version 28+)*  
+- Testlauf mit einer realen Nextcloud-Instanz *(Version 28+)*
 - Fehlerbehandlung bei fehlendem Speicherplatz oder abgelaufenen App-Passwörtern verbessern
 
 ### H-001 (alt): iOS/macOS Vorbereitung
@@ -157,3 +172,19 @@ Falls ein Apple Developer Account verfügbar wird, sind folgende Schritte in `ap
 - `Runner.xcworkspace` in Xcode öffnen
 - App Groups für geteilten Speicher *(Sync)* konfigurieren
 - `Info.plist`-Beschreibungen für Kamera und Galerie prüfen
+
+---
+
+## 📊 Fortschritt
+
+| Priorität | Gesamt | Erledigt | Offen |
+|---|---|---|---|
+| ✅ Abgeschlossen | 7 | 7 | 0 |
+| 🔴 Hoch | 2 | 0 | 2 |
+| 🟡 Mittel | 7 | 0 | 7 |
+| 🟢 Nice-to-Have | 4 | 0 | 4 |
+| **Gesamt** | **20** | **7** | **13** |
+
+---
+
+[Zurück zur README](../README.md) | [Zum Changelog](../CHANGELOG.md)
