@@ -1,3 +1,5 @@
+// server/pb_migrations/1774200000_created_attachments.js
+
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const collection = new Collection({
@@ -19,19 +21,20 @@ migrate((app) => {
         "type": "text"
       },
 
-      // ── Relation zu artikel ──────────────────────────────────────
+      // ── Artikel-Zuordnung (UUID-basiert für Offline-Sync) ────────
       {
-        "cascadeDelete": true,
-        "collectionId": "pbc_895755225",
+        "autogeneratePattern": "",
         "hidden": false,
-        "id": "relation1234560001",
-        "maxSelect": 1,
-        "minSelect": 1,
-        "name": "artikel_id",
+        "id": "text1234560001",
+        "max": 36,
+        "min": 36,
+        "name": "artikel_uuid",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
         "presentable": false,
+        "primaryKey": false,
         "required": true,
         "system": false,
-        "type": "relation"
+        "type": "text"
       },
 
       // ── Datei ────────────────────────────────────────────────────
@@ -39,7 +42,7 @@ migrate((app) => {
         "hidden": false,
         "id": "file1962578386",
         "maxSelect": 1,
-        "maxSize": 5242880,
+        "maxSize": 10485760,
         "mimeTypes": [
           "image/png",
           "image/jpeg",
@@ -52,14 +55,15 @@ migrate((app) => {
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           "application/vnd.ms-excel",
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          "text/plain"
+          "text/plain",
+          "text/csv"
         ],
         "name": "datei",
         "presentable": false,
         "protected": false,
         "required": true,
         "system": false,
-        "thumbs": [],
+        "thumbs": ["100x100", "300x300"],
         "type": "file"
       },
 
@@ -68,9 +72,9 @@ migrate((app) => {
         "autogeneratePattern": "",
         "hidden": false,
         "id": "text1234560002",
-        "max": 0,
+        "max": 200,
         "min": 0,
-        "name": "dateiname",
+        "name": "bezeichnung",
         "pattern": "",
         "presentable": true,
         "primaryKey": false,
@@ -97,7 +101,7 @@ migrate((app) => {
         "id": "number1234560004",
         "max": null,
         "min": 0,
-        "name": "dateigroesse",
+        "name": "datei_groesse",
         "onlyInt": true,
         "presentable": false,
         "required": false,
@@ -118,16 +122,28 @@ migrate((app) => {
         "system": false,
         "type": "text"
       },
+      {
+        "hidden": false,
+        "id": "number1234560013",
+        "max": null,
+        "min": 0,
+        "name": "sort_order",
+        "onlyInt": true,
+        "presentable": false,
+        "required": false,
+        "system": false,
+        "type": "number"
+      },
 
       // ── Sync-Felder (identisch zu artikel) ───────────────────────
       {
         "autogeneratePattern": "",
         "hidden": false,
         "id": "text1234560006",
-        "max": 0,
-        "min": 0,
+        "max": 36,
+        "min": 36,
         "name": "uuid",
-        "pattern": "",
+        "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
         "presentable": false,
         "primaryKey": false,
         "required": true,
@@ -208,9 +224,10 @@ migrate((app) => {
     ],
     "id": "pbc_attachments001",
     "indexes": [
-      "CREATE INDEX idx_attachments_artikel_id ON attachments (artikel_id)",
+      "CREATE INDEX idx_attachments_artikel_uuid ON attachments (artikel_uuid)",
       "CREATE INDEX idx_attachments_uuid ON attachments (uuid)",
-      "CREATE INDEX idx_attachments_deleted ON attachments (deleted)"
+      "CREATE INDEX idx_attachments_deleted ON attachments (deleted)",
+      "CREATE INDEX idx_attachments_sort ON attachments (artikel_uuid, sort_order)"
     ],
     "listRule": "@request.auth.id != ''",
     "name": "attachments",
