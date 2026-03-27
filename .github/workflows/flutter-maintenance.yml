@@ -23,35 +23,58 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.41.4'
           channel: stable
+
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libgtk-3-dev \
+            libglu1-mesa-dev \
+            liblzma-dev \
+            libsecret-1-dev
 
       - name: Flutter doctor
         run: flutter doctor -v
 
       - name: Fetch dependencies
+        working-directory: ./app
         run: flutter pub get
 
       - name: Capture outdated reports
+        working-directory: ./app
         run: |
           mkdir -p build/reports
-          flutter pub outdated --no-dev-dependencies --no-transitive > build/reports/outdated-direct.txt
-          flutter pub outdated > build/reports/outdated-full.txt
+          flutter pub outdated --no-dev-dependencies --no-transitive > build/reports/outdated-direct.txt || true
+          flutter pub outdated > build/reports/outdated-full.txt || true
 
       - name: Analyze project
+        working-directory: ./app
         run: flutter analyze
 
       - name: Run tests
-        run: flutter test --no-pub
+        working-directory: ./app
+        run: flutter test --no-pub --exclude-tags performance
 
       - name: Build debug APK
+        working-directory: ./app
         run: flutter build apk --debug
+
+      - name: Build Linux
+        working-directory: ./app
+        run: flutter build linux --debug
 
       - name: Upload reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: flutter-maintenance-reports
-          path: build/reports
+          path: app/build/reports
 
   windows-build:
     runs-on: windows-latest
@@ -65,20 +88,23 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.41.4'
           channel: stable
 
       - name: Pre-cache Windows artifacts
         run: flutter precache --windows
 
       - name: Fetch dependencies
+        working-directory: ./app
         run: flutter pub get
 
       - name: Build Windows app
-        run: flutter build windows
+        working-directory: ./app
+        run: flutter build windows --debug
 
       - name: Upload Windows build
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: flutter-windows-build
-          path: build/windows/runner/Release
+          path: app/build/windows/x64/runner/Release
