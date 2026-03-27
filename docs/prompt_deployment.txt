@@ -1,0 +1,212 @@
+# KONTEXT: Lager_app Deployment-Session
+
+## Projekt
+- **Repo**: https://github.com/germanlion67/lager_app/
+- **Stack**: Flutter 3.41.4 (Frontend) + PocketBase 0.36.6 (Backend)
+- **Architektur**: Monorepo, Offline-First, Hybrid-Cloud
+
+## Plattform-Matrix
+| Plattform       | Build-Ziel         | Lokale DB  | Sync     |
+|-----------------|--------------------|------------|----------|
+| Android         | APK / AAB          | SQLite     | Auto     |
+| Linux Desktop   | ELF Binary         | SQLite FFI | Manuell  |
+| Windows Desktop | .exe               | SQLite FFI | Manuell  |
+| Web (Docker)    | Flutter Web + Caddy| Keine      | Direkt   |
+
+## Kern-Verzeichnisse
+```
+lager_app/
+├── app/                    # Flutter App (pubspec.yaml hier)
+│   ├── lib/
+│   │   ├── config/         # AppConfig, AppTheme, AppImages
+│   │   ├── core/           # Logger, Env-Abstraktion
+│   │   ├── models/         # Artikel, DokumentModel, User
+│   │   ├── screens/        # UI Pages
+│   │   ├── services/       # API, DB, Sync, DokumentSyncService
+│   │   ├── utils/          # Validierung, Image-Tools
+│   │   └── widgets/        # Wiederverwendbare Komponenten
+│   ├── Dockerfile          # Web-Container Build
+│   ├── Caddyfile           # Caddy Webserver-Konfiguration
+│   └── docker-entrypoint.sh
+├── packages/
+│   └── runtime_env_config/ # Dynamische ENV-Injektion zur Laufzeit
+├── server/
+│   └── pb_migrations/      # PocketBase JS-Migrationen
+├── docker-compose.yml            # Entwicklung
+├── docker-compose.prod.yml       # Produktion (EMPFOHLEN)
+├── docker-compose.production.yml # Alternatives Prod-Setup
+├── docker-stack.yml              # Docker Swarm
+├── portainer-stack.yml           # Portainer
+├── .env.example
+└── .env.production.example
+```
+
+## Deployment-Architektur (Produktion)
+```
+Internet → Nginx Proxy Manager (80/443, SSL)
+              ├── lager_frontend  (intern :8081, Caddy)
+              └── pocketbase      (intern :8080, REST + Admin UI)
+```
+
+## Wichtige ENV-Variablen (.env.production)
+| Variable           | Beschreibung                              |
+|--------------------|-------------------------------------------|
+| POCKETBASE_URL     | Öffentliche API-URL (zur Build-Zeit!)     |
+| PB_ADMIN_EMAIL     | PocketBase Admin-Email                    |
+| PB_ADMIN_PASSWORD  | PocketBase Admin-Passwort                 |
+| PB_DEV_MODE        | 0 = Produktion, 1 = Entwicklung           |
+
+⚠️ POCKETBASE_URL wird zur BUILD-ZEIT in den Dart-Code kompiliert.
+   Änderung → zwingend neu bauen!
+
+## PocketBase Collections
+- `artikel`           → Haupttabelle (uuid, artikelnummer, name, menge, ort, fach, bild, deleted, updated_at)
+- `artikel_dokumente` → Dokumente (artikel_uuid, uuid, dateiname, dateityp, dokument, deleted, updated_at)
+- `sync_meta`         → Sync-Timestamp (last_sync)
+
+## Sync-Strategie
+- Prinzip: Last-Write-Wins + Soft-Delete
+- Identifier: uuid (global), remote_path (PB Record-ID), etag (NULL = pending)
+- Konflikt: ConflictResolutionScreen
+- Dokument-Sync: separater Zyklus von Text/Bild-Sync
+
+## Architektur-Besonderheit: Conditional Imports
+- Konvention: *_io.dart (nativ, dart:io) / *_web.dart (Web, kein dart:io)
+- dart:io existiert NICHT im Web → immer Web-Variante prüfen
+- Beispiel: artikel_erfassen_io.dart / artikel_erfassen_web.dart
+- Die Web-Variante ist eine vollwertige Implementierung, kein bloßer Stub
+
+## CI/CD
+- GitHub Actions: `.github/workflows/docker-build-push.yml`
+- Baut & pusht Docker Images automatisch bei Push auf main
+
+---
+
+## Deployment-Befehle (Referenz)
+
+### Entwicklung (lokal)
+```bash
+git clone https://github.com/germanlion67/lager_app.git
+cd lager_app
+cp .env.example .env
+docker compose up -d --build
+# Web:       http://localhost:8081
+# PB Admin:  http://localhost:8080/_/
+```
+
+### Produktion (vollständig)
+```bash
+cp .env.production.example .env.production
+nano .env.production
+
+docker compose \
+  -f docker-compose.prod.yml \
+  --env-file .env.production \
+  up -d --build
+```
+
+### Update einspielen
+```bash
+git pull origin main
+docker compose \
+  -f docker-compose.prod.yml \
+  --env-file .env.production \
+  up -d --build
+```
+
+### Nur Frontend neu bauen (nach POCKETBASE_URL Änderung)
+```bash
+docker compose \
+  -f docker-compose.prod.yml \
+  --env-file .env.production \
+  up -d --build lager_frontend
+```
+
+### Flutter Web manuell bauen
+```bash
+cd app
+flutter build web --release \
+  --dart-define=POCKETBASE_URL=https://api.deine-domain.de
+```
+
+### Android APK bauen
+```bash
+cd app
+flutter build apk --release \
+  --dart-define=POCKETBASE_URL=https://api.deine-domain.de
+```
+
+### Android AAB (Play Store) bauen
+```bash
+cd app
+flutter build appbundle --release \
+  --dart-define=POCKETBASE_URL=https://api.deine-domain.de
+```
+
+### Linux Desktop bauen
+```bash
+cd app
+flutter build linux --release \
+  --dart-define=POCKETBASE_URL=https://api.deine-domain.de
+```
+
+### Windows Desktop bauen
+```bash
+cd app
+flutter build windows --release \
+  --dart-define=POCKETBASE_URL=https://api.deine-domain.de
+```
+
+---
+
+## Nginx Proxy Manager — Schnell-Referenz
+
+### Flutter Frontend
+| Feld         | Wert                        |
+|--------------|-----------------------------|
+| Domain       | lager.deine-domain.de       |
+| Scheme       | http                        |
+| Forward Host | lager_frontend              |
+| Forward Port | 8081                        |
+| SSL          | Let's Encrypt + Force SSL   |
+
+### PocketBase API
+| Feld         | Wert                        |
+|--------------|-----------------------------|
+| Domain       | api.deine-domain.de         |
+| Scheme       | http                        |
+| Forward Host | pocketbase                  |
+| Forward Port | 8080                        |
+| SSL          | Let's Encrypt + Force SSL   |
+
+---
+
+## Backup-Befehle
+
+### Manuell (Docker Volume)
+```bash
+docker run --rm \
+  -v lager_app_pb_data:/pb_data \
+  -v $(pwd):/backup \
+  alpine tar czf /backup/pb_backup_$(date +%Y%m%d).tar.gz /pb_data
+```
+
+### Cron (täglich 03:00 Uhr)
+```bash
+0 3 * * * /pfad/zu/deinem/backup_script.sh
+```
+
+---
+
+## Deployment-Checkliste (vor jedem Release)
+- [ ] POCKETBASE_URL in .env.production korrekt gesetzt?
+- [ ] PB_DEV_MODE=0 gesetzt?
+- [ ] git pull origin main ausgeführt?
+- [ ] --build Flag beim docker compose up gesetzt?
+- [ ] PocketBase Admin-UI erreichbar nach Start?
+- [ ] Collections (artikel, artikel_dokumente) vorhanden?
+- [ ] SSL-Zertifikate aktiv im Nginx Proxy Manager?
+- [ ] Backup vor dem Update erstellt?
+- [ ] GitHub Actions Build erfolgreich (grüner Badge)?
+
+---
