@@ -10,6 +10,11 @@ on:
         description: 'Version number (e.g., 1.3.4)'
         required: true
         type: string
+      pocketbase_url:
+        description: 'Optionaler PocketBase-URL-Default (leer = Setup-Screen beim ersten Start)'
+        required: false
+        default: ''
+        type: string
 
 jobs:
   create-tag:
@@ -63,7 +68,7 @@ jobs:
   
       - name: Run tests
         working-directory: ./app
-        run: flutter test --exclude-tags performance  # ← Performance-Tests ausschließen
+        run: flutter test --exclude-tags performance
 
   build-android:
     name: Build Android
@@ -91,13 +96,26 @@ jobs:
         working-directory: ./app
         run: flutter pub get
 
+      - name: Prepare build arguments
+        id: build-args
+        run: |
+          ARGS=""
+          URL="${{ github.event.inputs.pocketbase_url }}"
+          if [ -n "$URL" ]; then
+            ARGS="--dart-define=POCKETBASE_URL=$URL"
+            echo "Build mit Default-URL: $URL"
+          else
+            echo "Build ohne Default-URL (Setup-Screen beim ersten Start)"
+          fi
+          echo "args=$ARGS" >> $GITHUB_OUTPUT
+
       - name: Build APK
         working-directory: ./app
-        run: flutter build apk --release
+        run: flutter build apk --release ${{ steps.build-args.outputs.args }}
 
       - name: Build App Bundle
         working-directory: ./app
-        run: flutter build appbundle --release
+        run: flutter build appbundle --release ${{ steps.build-args.outputs.args }}
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -131,9 +149,22 @@ jobs:
         working-directory: ./app
         run: flutter pub get
 
+      - name: Prepare build arguments
+        id: build-args
+        shell: pwsh
+        run: |
+          $url = "${{ github.event.inputs.pocketbase_url }}"
+          if ($url) {
+            echo "args=--dart-define=POCKETBASE_URL=$url" >> $env:GITHUB_OUTPUT
+            Write-Host "Build mit Default-URL: $url"
+          } else {
+            echo "args=" >> $env:GITHUB_OUTPUT
+            Write-Host "Build ohne Default-URL"
+          }
+
       - name: Build Windows
         working-directory: ./app
-        run: flutter build windows --release
+        run: flutter build windows --release ${{ steps.build-args.outputs.args }}
 
       - name: Create Windows Archive
         run: |
@@ -178,9 +209,22 @@ jobs:
           working-directory: ./app
           run: flutter pub get
 
+        - name: Prepare build arguments
+          id: build-args
+          run: |
+            ARGS=""
+            URL="${{ github.event.inputs.pocketbase_url }}"
+            if [ -n "$URL" ]; then
+              ARGS="--dart-define=POCKETBASE_URL=$URL"
+              echo "Build mit Default-URL: $URL"
+            else
+              echo "Build ohne Default-URL"
+            fi
+            echo "args=$ARGS" >> $GITHUB_OUTPUT
+
         - name: Build Linux
           working-directory: ./app
-          run: flutter build linux --release
+          run: flutter build linux --release ${{ steps.build-args.outputs.args }}
 
         - name: Create Linux Archive
           run: |
@@ -213,8 +257,18 @@ jobs:
           VERSION="${{ github.event.inputs.version }}"
           TAG_NAME="${{ needs.create-tag.outputs.tag_name }}"
           
+          # Info ob Default-URL gesetzt wurde
+          URL_INFO=""
+          if [ -n "${{ github.event.inputs.pocketbase_url }}" ]; then
+            URL_INFO="ℹ️ Dieser Build enthält eine vorkonfigurierte Server-URL."
+          else
+            URL_INFO="ℹ️ Beim ersten Start wird die Server-URL über den Einrichtungs-Screen konfiguriert."
+          fi
+
           cat << EOF > release_notes.md
           # 📦 Release $VERSION
+          
+          $URL_INFO
           
           ## 📥 Downloads
           
@@ -233,7 +287,6 @@ jobs:
           
           ### Weitere Plattformen
           - **iOS/macOS**: Benötigt Apple Developer Account (siehe [MANUELLE_OPTIMIERUNGEN.md](docs/MANUELLE_OPTIMIERUNGEN.md))
-          - **Linux**: Kann lokal gebaut werden mit \`flutter build linux --release\`
           
           ## 📋 Änderungen
           
@@ -245,16 +298,19 @@ jobs:
           1. APK herunterladen
           2. Installation von unbekannten Quellen erlauben
           3. APK öffnen und installieren
+          4. Beim ersten Start: Server-URL eingeben
           
           ### Windows
           1. ZIP-Datei herunterladen und entpacken
           2. \`lager_app.exe\` ausführen
+          3. Beim ersten Start: Server-URL eingeben
 
           ### Linux
           1. tar.gz-Datei herunterladen
           2. Entpacken: \`tar -xzf linux-release-$VERSION.tar.gz\`
           3. Ausführbar machen: \`chmod +x lager_app\`
           4. Starten: \`./lager_app\`
+          5. Beim ersten Start: Server-URL eingeben
 
           ### Docker/Web
           Siehe [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) für vollständige Anweisungen.

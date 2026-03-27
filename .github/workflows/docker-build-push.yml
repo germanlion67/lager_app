@@ -12,6 +12,11 @@ on:
       - main
       - master
   workflow_dispatch:
+    inputs:
+      pocketbase_url:
+        description: 'Optionaler PocketBase-URL-Default für den Web-Build (leer = Runtime-Config)'
+        required: false
+        default: ''
 
 env:
   REGISTRY: ghcr.io
@@ -53,6 +58,23 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Prepare build arguments
+        id: build-args
+        run: |
+          # Priorität: workflow_dispatch Input > GitHub Secret > leer
+          URL="${{ github.event.inputs.pocketbase_url }}"
+          if [ -z "$URL" ] && [ -n "${{ secrets.POCKETBASE_URL }}" ]; then
+            URL="${{ secrets.POCKETBASE_URL }}"
+          fi
+
+          if [ -n "$URL" ]; then
+            echo "args=POCKETBASE_URL=$URL" >> $GITHUB_OUTPUT
+            echo "Web-Build mit Default-URL: $URL"
+          else
+            echo "args=" >> $GITHUB_OUTPUT
+            echo "Web-Build ohne Default-URL (Runtime-Config oder Setup-Screen)"
+          fi
+
       - name: Build and push Flutter Web image
         uses: docker/build-push-action@v5
         with:
@@ -64,7 +86,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            POCKETBASE_URL=https://your-production-server.com
+            ${{ steps.build-args.outputs.args }}
 
   build-and-push-pocketbase:
     name: Build & Push PocketBase
@@ -135,7 +157,6 @@ jobs:
         run: |
           docker compose -f docker-compose.yml --env-file .env.test up -d --build
 
-      # NEW: wait for actual HTTP endpoints instead of Docker "healthy" status
       - name: Wait for PocketBase health endpoint
         run: |
           timeout 180 sh -c 'until curl -fsS http://localhost:8080/api/health; do sleep 2; done'
