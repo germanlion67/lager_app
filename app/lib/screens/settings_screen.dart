@@ -152,13 +152,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _resetPocketBaseUrl() async {
+    final currentDefault = PocketBaseService.defaultUrl;
+    final hasDefault = currentDefault.isNotEmpty &&
+        !currentDefault.contains('your-production-server.com') &&
+        !currentDefault.contains('192.168.178.XX');
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('URL zurücksetzen?'),
         content: Text(
-          'Die PocketBase-URL wird auf den Standard zurückgesetzt:\n\n'
-          '${PocketBaseService.defaultUrl}',
+          hasDefault
+              ? 'Die PocketBase-URL wird auf den Standard zurückgesetzt:\n\n'
+                '$currentDefault'
+              : 'Die gespeicherte URL wird gelöscht.\n\n'
+                'Es ist kein Build-Default konfiguriert. '
+                'Du musst danach eine neue URL eingeben.',
         ),
         actions: [
           TextButton(
@@ -180,11 +189,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         await _pbService.resetToDefault();
         if (!mounted) return;
         setState(() {
-          _pocketBaseUrlController.text = PocketBaseService.defaultUrl;
+          _pocketBaseUrlController.text = _pbService.url;
           _pbConnectionOk = null;
         });
       } catch (e, st) {
-        AppLogService.logger.e('URL-Reset fehlgeschlagen', error: e, stackTrace: st);
+        AppLogService.logger
+            .e('URL-Reset fehlgeschlagen', error: e, stackTrace: st);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Zurücksetzen: $e')),
