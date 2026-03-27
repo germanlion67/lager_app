@@ -5,16 +5,13 @@
 // URL-Priorität:
 // 1. window.ENV_CONFIG.POCKETBASE_URL (Runtime - Web only)
 // 2. --dart-define=POCKETBASE_URL=https://...  (Build-Zeit)
-// 3. Plattform + Debug/Release Fallback
+// 3. Leer → PocketBaseService prüft SharedPreferences → Setup-Screen
 //
-// Für Produktion: Runtime-Config wird automatisch beim Container-Start
+// Für Produktion (Web): Runtime-Config wird automatisch beim Container-Start
 // aus Umgebungsvariablen generiert (docker-entrypoint.sh).
 //
-// UI-Konfiguration:
-// - Artikel-Bild-Größen und BoxFit-Werte
-// - Border-Radius-Werte
-// - PocketBase Thumbnail-Parameter
-// - Padding-Werte
+// Für Produktion (Mobile/Desktop): URL wird beim Erststart über den
+// Setup-Screen eingegeben und in SharedPreferences gespeichert.
 
 import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, kReleaseMode;
 import 'package:flutter/material.dart' show BoxFit, EdgeInsets;
@@ -52,10 +49,10 @@ class AppConfig {
   /// Reihenfolge:
   /// 1. `window.ENV_CONFIG.POCKETBASE_URL` (Runtime - Web only)
   /// 2. `--dart-define=POCKETBASE_URL=...` (Build-Zeit)
-  /// 3. Web + Debug  → http://localhost:8080
-  /// 4. Web + Release → https://your-production-server.com (Fallback)
-  /// 5. Mobile/Desktop + Debug  → http://192.168.178.XX:8080
-  /// 6. Mobile/Desktop + Release → https://your-production-server.com
+  /// 3. Leer → PocketBaseService nutzt SharedPreferences oder Setup-Screen
+  ///
+  /// Gibt einen leeren String zurück, wenn keine Quelle eine URL liefert.
+  /// Das ist gewollt: Die App crasht nicht, sondern zeigt den Setup-Screen.
   static String get pocketBaseUrl {
     // Priorität 1: Runtime-Config (nur Web)
     final runtimeUrl = _runtimePocketBaseUrl;
@@ -66,99 +63,60 @@ class AppConfig {
     // Priorität 2: Explizites Build-Argument
     if (_pocketBaseUrlOverride.isNotEmpty) return _pocketBaseUrlOverride;
 
-    if (kIsWeb) {
-      return kDebugMode
-          ? 'http://localhost:8080'
-          : 'https://your-production-server.com';
-    }
-
-    // Mobile / Desktop
-    // FIX: Placeholder dokumentiert — muss vor erstem Build ersetzt werden.
-    return kDebugMode
-        ? 'http://192.168.178.XX:8080' // ← lokale Dev-IP hier eintragen
-        : 'https://your-production-server.com';
+    // Priorität 3: Kein Wert verfügbar
+    // → PocketBaseService prüft SharedPreferences
+    // → Falls auch dort nichts: Setup-Screen
+    return '';
   }
+
+  /// Gibt `true` zurück wenn eine URL aus Build-Zeit oder Runtime-Config
+  /// verfügbar ist (unabhängig von SharedPreferences).
+  static bool get hasConfiguredUrl => pocketBaseUrl.isNotEmpty;
 
   /// Gibt `true` zurück wenn die aktuelle Konfiguration noch
   /// unveränderte Placeholder enthält.
+  ///
+  /// Nach dem Umbau auf Runtime-Konfiguration sollten keine Placeholder
+  /// mehr vorkommen. Diese Prüfung bleibt als Sicherheitsnetz.
   static bool get hasPlaceholderUrl =>
       pocketBaseUrl.contains('192.168.178.XX') ||
       pocketBaseUrl.contains('your-production-server.com');
 
-  /// Validiert die Konfiguration und wirft einen Error bei ungültiger
-  /// Release-Konfiguration (z.B. Placeholder-URLs in Produktion).
+  /// Validiert die Konfiguration.
   ///
-  /// Sollte beim App-Start aufgerufen werden.
-  /// Für einen harten Compile-Zeit-Fehler bei Mobile/Desktop-Release-Builds
-  /// siehe auch [validateForRelease].
+  /// Nach dem Umbau auf Runtime-Konfiguration ist eine fehlende URL
+  /// kein Fehler mehr – der Setup-Screen fängt diesen Fall ab.
+  /// Nur noch echte Placeholder werden als Warnung geloggt.
   static void validateConfig() {
-    // Nur in Release-Builds validieren
-    if (kDebugMode) return;
-
-    // Runtime-Config (Web) ist OK - wird zur Laufzeit gesetzt
-    final runtimeUrl = _runtimePocketBaseUrl;
-    if (kIsWeb && runtimeUrl != null && runtimeUrl.isNotEmpty) {
-      // Runtime-Config vorhanden, keine weitere Validierung nötig
-      return;
-    }
-
-    // Build-Time-Validierung für Release-Builds
+    // Placeholder-Warnung (kein Crash mehr)
     if (hasPlaceholderUrl) {
-      throw AssertionError(
-        '❌ INVALID CONFIGURATION: Release build with placeholder URL!\n'
-        '\n'
-        'Current URL: $pocketBaseUrl\n'
-        '\n'
-        'LÖSUNG:\n'
-        '• Web: Setze POCKETBASE_URL Umgebungsvariable (Runtime-Config)\n'
-        '• Mobile/Desktop: Setze --dart-define=POCKETBASE_URL=https://...\n'
-        '• Oder: Ändere die Fallback-URLs in app_config.dart\n'
-        '\n'
-        'Siehe: docs/PRODUCTION_DEPLOYMENT.md\n',
-      );
+      // In Debug: nur Warnung, kein Crash
+      assert(() {
+        // ignore: avoid_print
+        print(
+          '⚠️ WARNUNG: PocketBase URL enthält einen Placeholder!\n'
+          'Aktuelle URL: $pocketBaseUrl\n'
+          'Die URL kann über den Setup-Screen konfiguriert werden.',
+        );
+        return true;
+      }());
     }
   }
 
-  /// H-004: Harter Fehler bei Placeholder-URL in Mobile/Desktop Release-Builds.
+  /// H-004: Validierung für Release-Builds.
   ///
-  /// Ergänzt [validateConfig] um einen expliziten Guard speziell für
-  /// native Plattformen, bei denen keine Runtime-Config greift.
-  /// Web-Builds werden bewusst ausgenommen, da dort [_runtimePocketBaseUrl]
-  /// die URL zur Laufzeit überschreibt.
+  /// Nach dem Umbau auf Runtime-Konfiguration ist eine fehlende URL
+  /// kein Fehler mehr. Der Setup-Screen wird stattdessen angezeigt.
   ///
-  /// Aufruf-Empfehlung: direkt nach [init] in `main()`:
-  /// ```dart
-  /// await AppConfig.init();
-  /// AppConfig.validateForRelease(); // ← wirft StateError bei Placeholder
-  /// AppConfig.validateConfig();
-  /// ```
+  /// Placeholder-URLs werden weiterhin als Warnung behandelt,
+  /// führen aber nicht mehr zum Crash.
   static void validateForRelease() {
-    // Nur in Release-Builds relevant
-    if (!kReleaseMode) return;
-
-    // Web nutzt Runtime-Config → kein harter Fehler nötig
-    if (kIsWeb) return;
-
-    // Mobile / Desktop: Kein Runtime-Fallback vorhanden.
-    // Placeholder-URL bedeutet Silent Failure → harter Fehler.
-    if (hasPlaceholderUrl) {
-      throw StateError(
-        '❌ PRODUKTIONSFEHLER: Placeholder-URL in Mobile/Desktop Release-Build!\n'
-        '\n'
-        'Current URL: $pocketBaseUrl\n'
-        '\n'
-        'LÖSUNG:\n'
-        '• Setze --dart-define=POCKETBASE_URL=https://deine-domain.de\n'
-        '• Beispiel: flutter build apk --release \\\n'
-        '    --dart-define=POCKETBASE_URL=https://api.example.com\n'
-        '\n'
-        'Siehe: docs/PRODUCTION_DEPLOYMENT.md\n',
-      );
-    }
+    // Keine harten Fehler mehr – der Setup-Screen fängt alles ab.
+    // Placeholder-Warnung wird über validateConfig() ausgegeben.
   }
 
   // ============================================================================
-  // UI-Konfiguration
+  // UI-Konfiguration (unverändert)
   // ============================================================================
 
   /// Größe des Artikel-Thumbnails in der Listenansicht (quadratisch).
@@ -171,18 +129,15 @@ class AppConfig {
   static const BoxFit artikelListBildFit = BoxFit.cover;
 
   /// BoxFit für Artikel-Bilder in der Detailansicht.
-  /// WICHTIG: Wert explizit von BoxFit.cover zu BoxFit.contain geändert
-  /// für bessere Darstellung (siehe Aufgabenbeschreibung).
   static const BoxFit artikelDetailBildFit = BoxFit.contain;
 
   /// PocketBase Thumbnail-Größe (Query-Parameter ?thumb=WxH).
-  /// Verwendet in _buildThumbnailUrl() für serverseitiges Thumbnail.
   static const String pbThumbGroesse = '60x60';
 
-  /// Border-Radius für kleine Cards (z.B. Artikel-List-Thumbnails).
+  /// Border-Radius für kleine Cards.
   static const double cardBorderRadiusSmall = 6.0;
 
-  /// Border-Radius für größere Cards (z.B. Artikel-Detail-Bilder).
+  /// Border-Radius für größere Cards.
   static const double cardBorderRadiusLarge = 12.0;
 
   /// Standard-Padding für ListTiles.
@@ -192,62 +147,33 @@ class AppConfig {
   );
 
   // ============================================================================
-  // Spacing-Konstanten
+  // Spacing-Konstanten (unverändert)
   // ============================================================================
 
-  /// Extra kleiner Abstand (4px).
   static const double spacingXSmall = 4.0;
-
-  /// Kleiner Abstand (8px).
   static const double spacingSmall = 8.0;
-
-  /// Mittlerer Abstand (12px).
   static const double spacingMedium = 12.0;
-
-  /// Großer Abstand (16px) - am häufigsten verwendet.
   static const double spacingLarge = 16.0;
-
-  /// Extra großer Abstand (24px).
   static const double spacingXLarge = 24.0;
-
-  /// Extra extra großer Abstand (32px).
   static const double spacingXXLarge = 32.0;
 
   // ============================================================================
-  // Border-Radius-Konstanten
+  // Border-Radius-Konstanten (unverändert)
   // ============================================================================
 
-  /// Extra kleiner Border-Radius (2px).
   static const double borderRadiusXXSmall = 2.0;
-
-  /// Extra kleiner Border-Radius (4px).
   static const double borderRadiusXSmall = 4.0;
-
-  /// Mittlerer Border-Radius (8px) - am häufigsten verwendet.
   static const double borderRadiusMedium = 8.0;
-
-  /// Extra großer Border-Radius (16px).
   static const double borderRadiusXLarge = 16.0;
 
   // ============================================================================
-  // Font-Size-Konstanten
+  // Font-Size-Konstanten (unverändert)
   // ============================================================================
 
-  /// Extra kleine Schriftgröße (10px).
   static const double fontSizeXSmall = 10.0;
-
-  /// Kleine Schriftgröße (12px) - häufig für Body-Text.
   static const double fontSizeSmall = 12.0;
-
-  /// Mittlere Schriftgröße (14px).
   static const double fontSizeMedium = 14.0;
-
-  /// Große Schriftgröße (16px).
   static const double fontSizeLarge = 16.0;
-
-  /// Extra große Schriftgröße (18px).
   static const double fontSizeXLarge = 18.0;
-
-  /// Extra extra große Schriftgröße (20px).
   static const double fontSizeXXLarge = 20.0;
 }
