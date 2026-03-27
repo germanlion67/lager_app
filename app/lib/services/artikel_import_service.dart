@@ -245,13 +245,30 @@ class ArtikelImportService {
     BuildContext context,
     Future<void> Function() reloadArtikel,
   ) async {
-    final result = await FilePicker.platform.pickFiles(
-      allowMultiple: false,
-      type: FileType.custom,
-      allowedExtensions: ['json', 'csv'],
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) return;
+    final FilePickerResult? result;
+        try {
+          result = await FilePicker.platform.pickFiles(
+            allowMultiple: false,
+            type: FileType.custom,
+            allowedExtensions: ['json', 'csv'],
+            withData: true,
+          );
+        } catch (e) {
+          _logger.w('FilePicker nicht verfügbar (z.B. WSL2/headless): $e');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Dateiauswahl nicht verfügbar. '
+                  'Unter WSL2/Linux ohne Desktop-Portal nicht unterstützt.',
+                ),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return;
+        }
+        if (result == null || result.files.isEmpty) return;
 
     final file = result.files.single;
     final ext = file.extension?.toLowerCase();
@@ -368,15 +385,24 @@ class ArtikelImportService {
     Future<void> Function()? reloadArtikel,
     bool setzePlatzhalter = false,
   }) async {
-    final result = await FilePicker.platform.pickFiles(
-      dialogTitle: 'ZIP-Backup auswählen',
-      type: FileType.custom,
-      allowedExtensions: ['zip'],
-      withData: true,
-    );
-    if (result == null || result.files.isEmpty) {
-      return (false, ['Keine ZIP-Datei ausgewählt.']);
-    }
+    final FilePickerResult? result;
+        try {
+          result = await FilePicker.platform.pickFiles(
+            dialogTitle: 'ZIP-Backup auswählen',
+            type: FileType.custom,
+            allowedExtensions: ['zip'],
+            withData: true,
+          );
+        } catch (e) {
+          _logger.w('FilePicker nicht verfügbar (z.B. WSL2/headless): $e');
+          return (false, [
+            'Dateiauswahl nicht verfügbar. '
+            'Unter WSL2/Linux ohne Desktop-Portal nicht unterstützt.',
+          ]);
+        }
+        if (result == null || result.files.isEmpty) {
+          return (false, ['Keine ZIP-Datei ausgewählt.']);
+        }
 
     Uint8List bytes;
     if (result.files.single.bytes != null) {
