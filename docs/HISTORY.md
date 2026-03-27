@@ -4,6 +4,45 @@ Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusam
 
 ---
 
+## 🔧 Runtime-Konfiguration der PocketBase-URL — 27.03.2026
+
+### K-004: Server-URL zur Laufzeit konfigurierbar
+
+**Problem:** Die PocketBase-URL wurde ausschließlich zur Build-Zeit per `--dart-define=POCKETBASE_URL=...` gesetzt. Das führte zu mehreren Problemen:
+- App crashte beim Start wenn die URL fehlte oder ungültig war
+- URL-Änderung erforderte einen neuen Build
+- Placeholder-URLs (`your-production-server.com`) in Fallbacks verursachten Fehler in Release-Builds
+- `localhost` funktionierte auf Android nicht (zeigt auf das Gerät selbst)
+
+**Lösung:** Dreistufige URL-Prioritätskette mit Setup-Screen als Fallback:
+
+| Priorität | Quelle | Beschreibung |
+|---|---|---|
+| 1 (höchste) | SharedPreferences / localStorage | Vom Benutzer gespeicherte URL |
+| 2 | Runtime-Config (Web) / `--dart-define` | Build-Default oder Container-Config |
+| 3 (niedrigste) | Setup-Screen | Benutzer gibt URL manuell ein |
+
+**Geänderte Dateien:**
+- `app/lib/config/app_config.dart` — Placeholder-Fallbacks entfernt, Validierung entschärft
+- `app/lib/services/pocketbase_service.dart` — `needsSetup`/`hasClient`-Flags, robuste `initialize()`
+- `app/lib/main.dart` — Setup-Screen-Weiche nach Initialisierung
+- `app/lib/screens/settings_screen.dart` — `_resetPocketBaseUrl()` für leeren Default angepasst
+- `.github/workflows/docker-build-push.yml` — Placeholder entfernt, URL optional
+- `.github/workflows/release.yml` — Optionaler `pocketbase_url`-Input für Demo-Builds
+
+**Neue Dateien:**
+- `app/lib/screens/server_setup_screen.dart` — Ersteinrichtungs-Screen
+
+**Architektur-Entscheidung:** Singleton statt Provider für den `PocketBaseService`, weil die URL-Konfiguration **vor** `runApp()` geladen werden muss (bevor ein Widget-Tree existiert). Der bestehende `PocketBaseService` wurde erweitert statt einen neuen Service einzuführen.
+
+**Ergebnis:**
+- App startet immer, auch komplett ohne URL-Konfiguration
+- Bestehende Installationen mit gespeicherter URL funktionieren ohne Änderung
+- `--dart-define` ist optional, kann aber weiterhin für Demo-/Kunden-Builds genutzt werden
+- Web-Runtime-Config über `window.ENV_CONFIG` funktioniert unverändert
+
+---
+
 ## 📋 Dokumente zum Artikel  - 25.03.2026
 ### 🗄️ Datenbank (Lokal & Server)
 - Neue Tabelle `artikel_dokumente` in der lokalen SQLite-Datenbank mit Feldern für:
@@ -24,7 +63,6 @@ Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusam
 - Dokumente werden getrennt von Textdaten und Bildern synchronisiert
 - Gleiche ETag/UUID-Strategie wie bei Artikeln
 - Hard-Delete auf dem Server wenn lokal `deleted = 1`
-
 
 ## 📅 März 2026: Die "Kritische Phase" (Härtung & Optimierung)
 
@@ -82,6 +120,7 @@ In diesem Monat wurde die App von einem Prototyp zu einem produktionsreifen Syst
 1.  **Caddy statt Nginx (Container)**: Caddy wurde gewählt, da es HTTPS/HSTS und SPA-Routing mit minimaler Konfiguration (4 Zeilen) ermöglicht.
 2.  **Docker-Context auf Root**: Um lokale Pakete (Monorepo-Stil) im Docker-Build nutzen zu können, wurde der Kontext auf die oberste Ebene gehoben.
 3.  **Soft-Delete**: Datensätze werden nie physikalisch gelöscht, um Clients über Löschvorgänge während des nächsten Sync-Vorgangs informieren zu können.
+4.  **Singleton statt Provider für PocketBaseService**: Die URL-Konfiguration wird vor `runApp()` benötigt, bevor ein Widget-Tree existiert. Ein Provider kann erst innerhalb von `MaterialApp` konsumiert werden – das ist zu spät für die Startup-Entscheidung (Setup-Screen vs. normale App).
 
 ---
 

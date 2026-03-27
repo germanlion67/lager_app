@@ -76,9 +76,9 @@ lager_app/
 │   │   ├── services/                 # Business Logik (API, DB, Sync, DokumentSync)
 │   │   ├── utils/                    # Helfer (Validierung, Image-Tools)
 │   │   ├── widgets/                  # Wiederverwendbare UI-Komponenten
-│   │   ├── main.dart                 # App-Einstiegspunkt
-│   │   ├── main_io.dart              # Einstiegspunkt für native Plattformen
-│   │   └── main_stub.dart            # Einstiegspunkt für Web (Stub)
+│   │   ├── main.dart                 # App-Einstiegspunkt (gemeinsam)
+│   │   ├── main_io.dart              # Einstiegspunkt für native Plattformen (dart:io)
+│   │   └── main_stub.dart            # Einstiegspunkt für Web (kein dart:io)
 │   ├── android/                      # Android-spezifische Konfiguration
 │   ├── ios/                          # iOS-spezifische Konfiguration
 │   ├── linux/                        # Linux Desktop Konfiguration

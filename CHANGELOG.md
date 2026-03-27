@@ -2,6 +2,101 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.0] - 2026-03-27
+
+### 🎉 Hauptfeatures
+
+#### K-004: Runtime-Konfiguration für PocketBase-URL
+- **Server-URL zur Laufzeit konfigurierbar**: Die PocketBase-URL muss nicht mehr zwingend beim Build per `--dart-define` gesetzt werden
+- **Setup-Screen beim Erststart**: Wenn keine URL konfiguriert ist, wird ein Einrichtungsbildschirm angezeigt
+- **Kein Crash bei fehlender URL**: Die App startet immer, auch ohne vorkonfigurierte Server-URL
+- **Alle Plattformen**: Setup-Screen funktioniert auf Mobile, Desktop und Web
+
+### ✨ Neue Features
+
+#### Server-Setup-Screen
+- Eingabefeld für Server-URL mit Validierung (Schema, Format, Host)
+- Verbindungstest über PocketBase Health-Endpoint
+- Beispiel-URLs für Produktion, LAN-Test und Android-Emulator
+- Localhost-Warnung auf Android mit Alternativvorschlägen
+- Visuelles Feedback (Erfolg/Fehler) beim Verbindungstest
+
+#### Flexible Build-Konfiguration
+- `--dart-define=POCKETBASE_URL=...` ist jetzt vollständig optional
+- Optionaler URL-Default für Demo- oder Kunden-Builds über CI/CD
+- Release-Workflow mit `pocketbase_url`-Input für vorkonfigurierte Builds
+
+### 🔧 Verbesserungen
+
+#### AppConfig
+- Placeholder-URLs (`your-production-server.com`, `192.168.178.XX`) als Fallbacks entfernt
+- `validateForRelease()` und `validateConfig()` werfen nicht mehr bei fehlender URL
+- Leerer String statt Placeholder wenn keine URL-Quelle verfügbar
+
+#### PocketBaseService
+- Neues `needsSetup`-Flag: Gibt `true` zurück wenn keine brauchbare URL konfiguriert ist
+- Neues `hasClient`-Flag: Prüft ob ein funktionsfähiger Client vorhanden ist
+- `initialize()` crasht nie mehr bei fehlender oder ungültiger URL
+- Placeholder-URLs werden nicht als gültig behandelt
+- `resetToDefault()` behandelt leeren Default korrekt
+
+#### App-Start (main.dart)
+- Setup-Screen-Weiche nach `PocketBaseService().initialize()`
+- Sync-Services werden nur bei vorhandenem Client initialisiert
+- Health-Check nur bei vorhandenem Client
+- Nahtloser Übergang vom Setup-Screen zur normalen App
+
+#### Settings-Screen
+- `_resetPocketBaseUrl()` behandelt leeren Default korrekt
+- Benutzerfreundliche Meldung wenn kein Build-Default vorhanden
+
+#### CI/CD-Workflows
+- `docker-build-push.yml`: Placeholder `POCKETBASE_URL=https://your-production-server.com` entfernt
+- `docker-build-push.yml`: URL optional über GitHub Secret oder Workflow-Input
+- `release.yml`: Neuer optionaler `pocketbase_url`-Input für alle Plattform-Builds
+- Release Notes: Hinweis auf Setup-Screen beim ersten Start
+
+### 📚 Dokumentation
+
+- CHANGELOG.md aktualisiert
+- HISTORY.md aktualisiert
+- DEPLOYMENT.md um Runtime-Konfiguration ergänzt
+- INSTALL.md um Setup-Screen-Anleitung ergänzt
+
+### ⚙️ Technische Details
+
+**URL-Prioritätskette (alle Plattformen):**
+
+| Priorität | Quelle | Web | Mobile/Desktop |
+|---|---|---|---|
+| 1 (höchste) | SharedPreferences / localStorage | ✅ | ✅ |
+| 2 | `window.ENV_CONFIG` (Runtime) | ✅ | ❌ |
+| 3 | `--dart-define=POCKETBASE_URL` | ✅ | ✅ |
+| 4 | Kein Wert → Setup-Screen | ✅ | ✅ |
+
+**Geänderte Dateien:**
+- `app/lib/config/app_config.dart` — Placeholder entfernt, Validierung entschärft
+- `app/lib/services/pocketbase_service.dart` — needsSetup, robuste initialize()
+- `app/lib/main.dart` — Setup-Screen-Weiche
+- `app/lib/screens/settings_screen.dart` — _resetPocketBaseUrl angepasst
+- `.github/workflows/docker-build-push.yml` — Placeholder entfernt
+- `.github/workflows/release.yml` — pocketbase_url-Input
+
+**Neue Dateien:**
+- `app/lib/screens/server_setup_screen.dart` — Ersteinrichtungs-Screen
+
+### 📦 Migration von 0.3.0 auf 0.7.0
+
+1. **Keine Breaking Changes für Endbenutzer**: Bestehende Installationen mit gespeicherter URL in SharedPreferences funktionieren weiterhin ohne Änderung.
+
+2. **Build-Prozess**: `--dart-define=POCKETBASE_URL=...` ist jetzt optional. Bestehende Build-Skripte funktionieren weiterhin, können aber vereinfacht werden.
+
+3. **CI/CD**: Falls `POCKETBASE_URL` als GitHub Secret gesetzt ist, wird es weiterhin als Default verwendet. Andernfalls erscheint der Setup-Screen beim ersten Start.
+
+4. **Docker/Web**: Die bestehende Runtime-Config über `window.ENV_CONFIG` und `docker-entrypoint.sh` funktioniert unverändert.
+
+---
+
 ## [0.3.0] - 2026-03-22
 
 ### 🎉 Hauptfeatures
@@ -191,59 +286,3 @@ Wenn Sie von einer Version vor 1.1.0 upgraden:
 1. **Backup erstellen:**
    ```bash
    docker compose exec pocketbase /pb/pocketbase backup /pb_backups
-   ```
-
-2. **Neue ENV-Variablen setzen:**
-   ```bash
-   # In .env oder .env.production
-   PB_ADMIN_EMAIL=admin@example.com
-   PB_ADMIN_PASSWORD=changeme123
-   ```
-
-3. **Services neu bauen:**
-   ```bash
-   docker compose down
-   git pull
-   docker compose up -d --build
-   ```
-
-4. **API Rules prüfen:**
-   - Öffne PocketBase Admin UI
-   - Prüfe Collection "artikel" → API Rules
-   - Falls öffentlicher Zugriff gewünscht: Manuell anpassen
-
-### 🎯 Nächste Schritte
-
-Geplant für zukünftige Versionen:
-
-- **K-004**: Runtime-Konfiguration für POCKETBASE_URL
-- **K-001**: Bundle Identifiers aktualisieren
-- **H-002**: CORS-Konfiguration verbessern
-- **M-001**: Testabdeckung erhöhen
-- QR-Code-Scanning implementieren
-- Backup/Restore-Automatisierung
-
----
-
-## [0.1.0] - 2026-01-XX
-
-### Initiales Release
-
-- Flutter 3.41.4 mit Web-, Android- und Desktop-Support
-- PocketBase 0.36.6 Backend
-- Docker Compose Setup für Dev/Test
-- Offline-First Architektur für Mobile/Desktop
-- Background-Sync mit PocketBase
-- Basis-Lagerverwaltungsfunktionen
-
----
-
-**Legende:**
-- 🎉 Hauptfeatures
-- ✨ Neue Features
-- 🔧 Verbesserungen
-- 🐛 Bugfixes
-- 📚 Dokumentation
-- 🔒 Sicherheit
-- ⚠️ Breaking Changes
-- 📦 Migration
