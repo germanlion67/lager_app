@@ -14,6 +14,7 @@ import 'config/app_theme.dart';
 import 'config/app_images.dart';
 import 'screens/artikel_list_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/server_setup_screen.dart';
 import 'services/app_log_service.dart';
 import 'services/artikel_db_service.dart';
 import 'services/pocketbase_service.dart';
@@ -28,17 +29,14 @@ final _log = AppLogService.logger;
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Punkt 1 — Runtime-Konfiguration laden (Web) ───────────────────────────
-  // Muss vor validateConfig() passieren, damit window.ENV_CONFIG berücksichtigt wird.
+  // ── Runtime-Konfiguration laden (Web) ─────────────────────────────────────
   await AppConfig.init();
 
-  AppConfig.validateForRelease(); // ← H-004: wirft StateError bei Placeholder
-  
-  // ── Punkt 2 — App-Konfiguration validieren ───────────────────────────────
-  // Wirft Error bei Release-Build mit Placeholder-URLs
+  // ── App-Konfiguration validieren (wirft nicht mehr bei fehlender URL) ──────
+  AppConfig.validateForRelease();
   AppConfig.validateConfig();
 
-  // ── Punkt 2 — Unbehandelte Flutter-Framework-Fehler fangen ──────────────
+  // ── Unbehandelte Flutter-Framework-Fehler fangen ──────────────────────────
   FlutterError.onError = (details) {
     _log.e(
       'Flutter Framework Fehler',
@@ -47,24 +45,25 @@ void main() async {
     );
   };
 
-  // ── Punkt 2 — Unbehandelte Dart-Fehler fangen (async, isolates) ─────────
+  // ── Unbehandelte Dart-Fehler fangen (async, isolates) ─────────────────────
   PlatformDispatcher.instance.onError = (error, stack) {
     _log.f(
       'Unbehandelter Dart-Fehler',
       error: error,
       stackTrace: stack,
     );
-    return true; // true = Fehler als behandelt markieren
+    return true;
   };
 
   if (!kIsWeb) {
     platform.initDesktopDatabase();
   }
 
+  // ── PocketBase initialisieren (crasht nie) ────────────────────────────────
   await PocketBaseService().initialize();
 
-  if (!kIsWeb) {
-    // Bewusst fire-and-forget — blockiert den App-Start nicht
+  // ── Health-Check nur wenn Client vorhanden ────────────────────────────────
+  if (!kIsWeb && PocketBaseService().hasClient) {
     unawaited(
       PocketBaseService().checkHealth().then((ok) {
         if (ok) {
@@ -73,7 +72,8 @@ void main() async {
           _log.w('[Main] PocketBase nicht erreichbar beim Start');
         }
       }).catchError((Object e, StackTrace st) {
-        _log.e('[Main] PocketBase Health-Check Fehler', error: e, stackTrace: st);
+        _log.e('[Main] PocketBase Health-Check Fehler',
+            error: e, stackTrace: st,);
       }),
     );
   }
@@ -102,21 +102,35 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _cleanupDone = false;
   bool _syncRunning = false;
 
+  /// Steuert ob die normale App oder der Setup-Screen angezeigt wird.
+  bool _needsSetup = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    _db = ArtikelDbService();
     _pbService = PocketBaseService();
-    _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
-    _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
+    _needsSetup = _pbService.needsSetup;
 
-    if (!kIsWeb) {
-      _loadSyncSettings().then((_) {
-        _runInitialSync();
-        _startPeriodicSync();
-      });
+    _db = ArtikelDbService();
+
+    // Sync-Services nur initialisieren wenn ein Client vorhanden ist
+    if (_pbService.hasClient) {
+      _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
+      _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
+
+      if (!kIsWeb) {
+        _loadSyncSettings().then((_) {
+          _runInitialSync();
+          _startPeriodicSync();
+        });
+      }
+    } else {
+      // Dummy-Initialisierung damit late-Felder nicht crashen
+      // wenn sie nie genutzt werden (Setup-Screen-Modus)
+      _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
+      _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
     }
   }
 
@@ -130,7 +144,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _runInitialSync() async {
-    if (_syncRunning) return;
+    if (_syncRunning || !_pbService.hasClient) return;
     _syncRunning = true;
 
     try {
@@ -145,6 +159,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _startPeriodicSync() {
+    if (!_pbService.hasClient) return;
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(
       const Duration(minutes: _syncIntervalMinutes),
@@ -153,7 +168,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Future<void> _syncIfConnected() async {
-    if (kIsWeb) return;
+    if (kIsWeb || !_pbService.hasClient) return;
 
     if (_syncRunning) {
       _log.d('[Sync] Übersprungen: Sync läuft bereits');
@@ -162,8 +177,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     _syncRunning = true;
 
     try {
-      // Fix: ConnectivityService statt connectivity_plus direkt —
-      // verhindert NetworkManager DBus-Fehler auf WSL2/Linux
       final isWifi = await ConnectivityService.isWifi();
 
       if (_wifiOnlySync && !isWifi) {
@@ -181,15 +194,50 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
+  /// Wird aufgerufen wenn der Setup-Screen erfolgreich eine URL
+  /// konfiguriert hat. Initialisiert die Sync-Services und wechselt
+  /// zur normalen App-Ansicht.
+  void _onServerConfigured() {
+    _log.i('[Main] Server konfiguriert, starte normale App...');
+
+    // Sync-Services neu initialisieren mit dem jetzt verfügbaren Client
+    if (_pbService.hasClient) {
+      _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
+      _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
+
+      if (!kIsWeb) {
+        _loadSyncSettings().then((_) {
+          _runInitialSync();
+          _startPeriodicSync();
+        });
+      }
+
+      // Health-Check im Hintergrund
+      if (!kIsWeb) {
+        unawaited(
+          _pbService.checkHealth().then((ok) {
+            if (ok) {
+              _log.i('[Main] PocketBase erreichbar nach Setup');
+            } else {
+              _log.w('[Main] PocketBase nicht erreichbar nach Setup');
+            }
+          }).catchError((Object e, StackTrace st) {
+            _log.e('[Main] Health-Check Fehler nach Setup',
+                error: e, stackTrace: st,);
+          }),
+        );
+      }
+    }
+
+    setState(() => _needsSetup = false);
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _syncTimer?.cancel();
     _orchestrator.dispose();
-
-    // ── Punkt 5 — Logger sauber schließen ───────────────────────────────────
     AppLogService.logger.close();
-
     super.dispose();
   }
 
@@ -198,7 +246,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     switch (state) {
       case AppLifecycleState.resumed:
         _cleanupDone = false;
-        if (!kIsWeb) {
+        if (!kIsWeb && _pbService.hasClient) {
           unawaited(_syncIfConnected());
         }
       case AppLifecycleState.paused:
@@ -223,6 +271,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    // Setup-Screen anzeigen wenn keine URL konfiguriert ist
+    if (_needsSetup) {
+      return MaterialApp(
+        title: 'Elektronik Verwaltung',
+        theme: AppTheme.hell,
+        darkTheme: AppTheme.dunkel,
+        themeMode: ThemeMode.system,
+        debugShowCheckedModeBanner: false,
+        home: ServerSetupScreen(
+          onConfigured: _onServerConfigured,
+        ),
+      );
+    }
+
+    // Normale App
     return MaterialApp(
       title: 'Elektronik Verwaltung',
       theme: AppTheme.hell,
@@ -236,33 +299,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  /// Baut die Home-Seite optional mit Hintergrundbild.
   Widget _buildHomeWithBackground() {
-    // Wenn Hintergrundbild aktiv ist, zeige es als Background-Stack
     if (AppImages.hintergrundAktiv) {
       return Stack(
         children: [
-          // Hintergrundbild
           Positioned.fill(
             child: Image.asset(
               AppImages.hintergrundPfad,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) {
-                // Fallback wenn Bild nicht gefunden wird
-                // Respektiert aktuelles Theme (Light/Dark)
                 return Container(
                   color: Theme.of(context).scaffoldBackgroundColor,
                 );
               },
             ),
           ),
-          // App-Inhalt
           const ArtikelListScreen(),
         ],
       );
     }
-    
-    // Ohne Hintergrundbild: Standard-Screen
     return const ArtikelListScreen();
   }
 }
