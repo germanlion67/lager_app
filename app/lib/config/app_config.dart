@@ -13,7 +13,7 @@
 // Für Produktion (Mobile/Desktop): URL wird beim Erststart über den
 // Setup-Screen eingegeben und in SharedPreferences gespeichert.
 
-import 'package:flutter/foundation.dart' show kIsWeb, kDebugMode, kReleaseMode;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart' show BoxFit, EdgeInsets;
 import 'package:runtime_env_config/runtime_env_config.dart';
 
