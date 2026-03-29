@@ -2,6 +2,48 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.2] — 2026-03-29
+
+### Hinzugefügt
+- **M-012: Dateianhänge (Attachments)** — Dokumente an Artikel anhängen
+  - PocketBase Collection `attachments` mit File-Upload, Bezeichnung, Beschreibung
+  - `AttachmentService` — CRUD-Operationen gegen PocketBase (plattformunabhängig)
+  - `AttachmentModel` — Datenmodell mit MIME-Type-Erkennung und Größenformatierung
+  - `AttachmentUploadWidget` — Upload-Dialog mit Dateiauswahl, Validierung und Fortschritt
+  - `AttachmentListWidget` — Anhang-Liste mit Download, Bearbeiten und Löschen
+  - `AnhaengeSektion` im Artikel-Detail-Screen mit Badge-Counter
+  - Validierung: Max 20 Anhänge/Artikel, Max 10 MB/Datei, erlaubte MIME-Types
+- **M-007: Artikelnummer-Anzeige** — Artikelnummer in Listen- und Detailansicht
+  - Automatische Vergabe beim Erstellen (Startwert 1000, +1 pro Artikel)
+  - `_getNextArtikelnummer()` prüft lokale DB und PocketBase für höchste Nummer
+- **PocketBase Migration** `1774811640_updated_attachments.js` — API-Regeln für Attachments geöffnet und Sync-Felder (uuid, etag, device_id, deleted, updated_at) ergänzt
+
+### Geändert
+- **`artikel_model.dart`** — `toPocketBaseMap()` sendet jetzt `updated_at` für korrekten Sync
+- **`artikel_detail_screen.dart`** — Zeigt `artikel.artikelnummer` statt `artikel.id` als Art.-Nr.
+- **`artikel_list_screen.dart`** — Artikelnummer-Zeile in Listenansicht ergänzt
+- **`attachment_service.dart`** — UUID wird beim Upload automatisch generiert (Pflichtfeld in PB-Schema)
+
+### Behoben
+- **Attachment-Upload 400-Fehler** — `uuid`-Pflichtfeld fehlte im Upload-Body
+- **Attachment-Upload 400-Fehler** — API-Regeln erforderten Auth, App hat keinen Login-Flow
+- **Artikelnummer nicht in PocketBase** — `toPocketBaseMap()` sendete `artikelnummer` bereits korrekt, aber `updated_at` fehlte
+- **Falsche Art.-Nr. in Detailansicht** — Zeigte SQLite-ID statt fachliche Artikelnummer
+
+### Dokumentation
+- `CHANGELOG.md` — Aktualisiert für v0.7.2
+- `DEPLOYMENT.md` — Attachments-Collection und offene API-Regeln dokumentiert
+- `ARCHITECTURE.md` — Attachments-Collection im Datenmodell ergänzt
+- `DATABASE.md` — Attachments-Schema und Sync-Felder dokumentiert
+- `HISTORY.md` — Meilenstein v0.7.2 dokumentiert
+- `OPTIMIZATIONS.md` und `CHECKLIST.md` zusammengelegt
+- `M-009` (Login-Flow) als neuer offener Punkt hinzugefügt
+
+### Bekannte Einschränkungen
+- **Kein Login-Flow**: Alle PocketBase-Collections haben offene API-Regeln. Für Produktionsumgebungen mit öffentlichem Zugang muss ein Login-Screen implementiert werden (siehe M-009)
+
+---
+
 ## [0.7.1] — 2026-03-27
 
 ### Hinzugefügt

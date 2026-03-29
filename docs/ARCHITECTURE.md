@@ -176,6 +176,26 @@ Unterstützte Dateitypen: PDF, DOCX, XLSX, TXT und weitere.
 | `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_dok_sync` |
 | `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_dok_sync` |
 
+
+### Collection: `attachments` (ab v0.7.2)
+
+Dateianhänge pro Artikel. Unterstützt PDF, Office-Dokumente, Bilder und Textdateien.
+
+| Feld | Typ | Beschreibung | Index |
+|---|---|---|---|
+| `artikel_uuid` | Text | Fremdschlüssel zur `artikel.uuid` (UUID-Pattern) | ✅ `idx_attachments_artikel_uuid` |
+| `uuid` | Text | Client-seitige Eindeutigkeit | ✅ `idx_attachments_uuid` |
+| `datei` | File | Dateianhang (max 10 MB) | — |
+| `bezeichnung` | Text | Vom Nutzer vergebener Name | — |
+| `beschreibung` | Text | Optionale Beschreibung | — |
+| `mime_type` | Text | MIME-Typ der Datei | — |
+| `datei_groesse` | Number | Dateigröße in Bytes | — |
+| `sort_order` | Number | Sortierreihenfolge | ✅ `idx_attachments_sort` |
+| `deleted` | Boolean | Soft-Delete Flag | ✅ `idx_attachments_deleted` |
+| `updated_at` | Number | Unix-Timestamp für Sync | — |
+
+**API-Regeln:** Aktuell offen (kein Auth erforderlich). Wird mit Login-Flow (M-009) auf Auth umgestellt.
+
 ### Synchronisations-Logik (Offline-First)
 Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem **Soft-Delete** Mechanismus:
 1.  **Push**: Lokale Änderungen (SQLite) werden anhand der `uuid` zu PocketBase gepusht.

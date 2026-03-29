@@ -5,12 +5,14 @@
 // URL-Priorität (kombiniert AppConfig + SharedPreferences):
 // 1. Gespeicherte URL aus Einstellungen (SharedPreferences) — Laufzeit
 // 2. Runtime-Config / --dart-define=POCKETBASE_URL=...      — Build-Zeit
-// 3. Keine URL → needsSetup = true → Setup-Screen
+// 3. Web-Modus: Relativer Pfad /api als Fallback
+// 4. Keine URL → needsSetup = true → Setup-Screen
 //
 // Die App crasht nie bei fehlender URL. Stattdessen wird der
 // Setup-Screen angezeigt, bis eine gültige URL konfiguriert ist.
 
 import 'dart:async';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:pocketbase/pocketbase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
@@ -19,7 +21,7 @@ import '../config/app_config.dart';
 class PocketBaseService {
   static const String _prefsKey = 'pocketbase_url';
 
-  static final _logger = Logger();
+  static final Logger _logger = Logger();
 
   // Singleton
   static PocketBaseService? _instance;
@@ -118,27 +120,34 @@ class PocketBaseService {
           resolvedUrl = '';
         }
       }
-      // Priorität 3: Keine URL verfügbar
-      else {
+// Priorität 3 (Web): Relativer Pfad nur wenn Runtime-Config existiert
+      // (d.h. die App läuft im Docker-Container hinter einem Proxy).
+      // Bei flutter run -d chrome gibt es keine Runtime-Config →
+      // Setup-Screen wird angezeigt.
+      else if (kIsWeb && AppConfig.hasRuntimeConfig) {
+        resolvedUrl = AppConfig.pocketBaseUrl.isNotEmpty
+            ? AppConfig.pocketBaseUrl
+            : '/api';
         _logger.i(
-          '🔧 Keine PocketBase URL konfiguriert. '
-          'Setup-Screen wird angezeigt.',
+          '🌐 Web-Modus (Docker): Verwende URL: $resolvedUrl',
         );
       }
 
-      // URL syntaktisch prüfen bevor Client erstellt wird
-      if (resolvedUrl.isNotEmpty && _isValidUrl(resolvedUrl)) {
-        _currentUrl = _normalizeUrl(resolvedUrl);
-        _client = PocketBase(_currentUrl);
-        _logger.i('✅ PocketBase Client initialisiert: $_currentUrl');
-      } else if (resolvedUrl.isNotEmpty) {
-        _logger.w(
-          '⚠️ URL syntaktisch ungültig, kein Client erstellt: '
-          '$resolvedUrl',
-        );
-        // Client bleibt null → needsSetup = true
+      // URL prüfen und Client erstellen
+      if (resolvedUrl.isNotEmpty) {
+        if (_isValidUrl(resolvedUrl) || (kIsWeb && resolvedUrl == '/api')) {
+          _currentUrl = resolvedUrl == '/api'
+              ? resolvedUrl
+              : _normalizeUrl(resolvedUrl);
+          _client = PocketBase(_currentUrl);
+          _logger.i('✅ PocketBase Client initialisiert: $_currentUrl');
+        } else {
+          _logger.w(
+            '⚠️ URL syntaktisch ungültig, kein Client erstellt: '
+            '$resolvedUrl',
+          );
+        }
       }
-      // else: resolvedUrl ist leer → Client bleibt null → needsSetup = true
 
       _initialized = true;
       _initCompleter!.complete();

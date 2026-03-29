@@ -5,6 +5,7 @@
 // Plattformunabhaengig — funktioniert auf Web, Mobile und Desktop.
 
 import 'package:http/http.dart' as http;
+import '../utils/uuid_generator.dart';
 
 import '../models/attachment_model.dart';
 import '../services/app_log_service.dart';
@@ -121,14 +122,15 @@ class AttachmentService {
       }
 
       final body = <String, dynamic>{
-        'artikel_uuid': artikelUuid,
-        'bezeichnung': bezeichnung.trim(),
-        if (beschreibung != null && beschreibung.trim().isNotEmpty)
-          'beschreibung': beschreibung.trim(),
-        if (mimeType != null) 'mime_type': mimeType,
-        'datei_groesse': bytes.length,
-        'sort_order': count,
-      };
+                'artikel_uuid': artikelUuid,
+                'bezeichnung': bezeichnung.trim(),
+                'uuid': UuidGenerator.generate(), // ← NEU: Pflichtfeld in PB-Schema
+                if (beschreibung != null && beschreibung.trim().isNotEmpty)
+                  'beschreibung': beschreibung.trim(),
+                if (mimeType != null) 'mime_type': mimeType,
+                'datei_groesse': bytes.length,
+                'sort_order': count,
+              };
 
       final file = http.MultipartFile.fromBytes(
         'datei',

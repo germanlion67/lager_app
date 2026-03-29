@@ -39,6 +39,19 @@ source ~/.bashrc
 - **Farben**  
   `ls`, `grep`, GCC farbig
 
+--- 
+## Shortcuts
+
+### Browser
+
+| Befehl | Funktion |
+|---|---|
+| `flutter-chromium` | öffnet den Linux Browser (ohne Desktopoberfläche wird keine Maus angezeigt) |
+| `flutter-chrome` | öfnet den Chrom-Browser direkt unter Windows |
+| `flutter-edge` | öffnet den Edge-Browser direkt unter Windows |
+
+Standard-Browser für Flutter
+`export CHROME_EXECUTABLE=/usr/bin/chromium`
 ---
 
 ## Verfügbare Aliase
@@ -52,6 +65,7 @@ source ~/.bashrc
 | `fclean` | `flutter clean && flutter pub get` |
 | `ftest` | `flutter test` |
 | `fpub` | `flutter pub get` |
+| `fanalyze` | `flutter analyze` |
 
 ### Git
 

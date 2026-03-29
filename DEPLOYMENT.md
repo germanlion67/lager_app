@@ -295,4 +295,54 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
 
 ---
 
+
+## 📎 Attachments-Collection (ab v0.7.2)
+
+Die Collection `attachments` speichert Dateianhänge pro Artikel.
+
+### API-Regeln
+
+| Regel | Wert | Begründung |
+|---|---|---|
+| listRule | `""` (offen) | Kein Login-Flow implementiert |
+| viewRule | `""` (offen) | Analog zu `artikel`-Collection |
+| createRule | `""` (offen) | Analog zu `artikel`-Collection |
+| updateRule | `""` (offen) | Analog zu `artikel`-Collection |
+| deleteRule | `""` (offen) | Analog zu `artikel`-Collection |
+
+> ⚠️ **Sicherheitshinweis:** Für Produktionsumgebungen mit öffentlichem Zugang
+> sollten die Regeln auf `@request.auth.id != ''` gesetzt werden,
+> sobald ein Login-Flow implementiert ist (siehe M-009 in OPTIMIZATIONS.md).
+
+### Schema-Felder
+
+| Feld | Typ | Required | Beschreibung |
+|---|---|---|---|
+| `artikel_uuid` | text | ✅ | UUID des zugehörigen Artikels (36 Zeichen, UUID-Pattern) |
+| `datei` | file | ✅ | Dateianhang (max 10 MB, erlaubte MIME-Types) |
+| `bezeichnung` | text | ✅ | Vom Nutzer vergebener Name (max 200 Zeichen) |
+| `beschreibung` | text | ❌ | Optionale Beschreibung |
+| `mime_type` | text | ❌ | MIME-Typ der Datei |
+| `datei_groesse` | number | ❌ | Dateigröße in Bytes |
+| `sort_order` | number | ❌ | Sortierreihenfolge |
+| `uuid` | text | ✅ | Client-seitige UUID (36 Zeichen) |
+| `etag` | text | ❌ | Sync-ETag |
+| `device_id` | text | ❌ | Geräte-ID |
+| `deleted` | bool | ❌ | Soft-Delete Flag |
+| `updated_at` | number | ❌ | Sync-Timestamp |
+
+### Erlaubte MIME-Types
+
+`image/png`, `image/jpeg`, `image/webp`, `application/pdf`,
+`application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+`application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+`text/plain`, `text/csv`
+
+### Limits
+
+- Max **20 Anhänge** pro Artikel
+- Max **10 MB** pro Datei
+
+---
+
 [Zurück zur README](README.md) | [Zu den Installationsdetails](INSTALL.md)

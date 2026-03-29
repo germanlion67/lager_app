@@ -94,6 +94,14 @@ docker compose up -d --build
 # PB Admin:  http://localhost:8080/_/
 ```
 
+### Flutter Web (WSL2)
+```bash
+cd app
+flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0
+# Windows-Browser: http://localhost:8888
+# (WSL2 hat kein WebGL → flutter run -d chrome zeigt keine Bilder)
+```
+
 ### Produktion (vollständig)
 ```bash
 cp .env.production.example .env.production

@@ -52,15 +52,20 @@ docker compose up -d --build
 
 ## 🛠️ Schnellstart (Flutter nativ)
 
-Für die lokale Entwicklung ohne Docker:
+Für die lokale Entwicklung mit Flutter:
 
 ```bash
-# Backend starten
-cd server && ./pocketbase serve --http=0.0.0.0:8080
+# Terminal 1: Backend starten (Docker)
+cd lager_app
+docker compose up -d
 
-# App starten (in einem zweiten Terminal)
-cd app && flutter pub get && flutter run
+# Terminal 2: App starten
+cd lager_app/app
+flutter pub get
+flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0
 ```
+
+Dann im **Windows-Browser** öffnen: `http://localhost:8888`
 
 Beim ersten Start erscheint ein Einrichtungsbildschirm, in dem die Server-URL eingegeben wird, z. B.:
 
@@ -68,6 +73,9 @@ Beim ersten Start erscheint ein Einrichtungsbildschirm, in dem die Server-URL ei
 - `http://192.168.x.x:8080`
 
 Die URL wird lokal gespeichert und muss nicht erneut eingegeben werden.
+
+> ⚠️ **WSL2-Nutzer:** `flutter run -d chrome` zeigt keine Bilder an (kein WebGL in WSL2).
+> Nutze stattdessen den Web-Server-Modus + Windows-Browser. Siehe [DEV_SETUP.md](DEV_SETUP.md).
 
 > 💡 **Tipp:** Alternativ kann die URL weiterhin per Build-Argument vorkonfiguriert werden:
 
@@ -82,6 +90,7 @@ flutter run --dart-define=POCKETBASE_URL=http://localhost:8080
 Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 
 ### ⚙️ Einrichtung & Betrieb
+- 🖥️ **[DEV_SETUP.md](DEV_SETUP.md):** Entwicklungsumgebung (WSL2, bekannte Probleme)
 - 📘 **[INSTALL.md](INSTALL.md):** Detaillierte Installationsanleitung für alle Plattformen
 - 🚀 **[DEPLOYMENT.md](DEPLOYMENT.md):** Produktions-Setup, Nginx Proxy Manager & SSL
 - 💾 **[BACKUP.md](BACKUP.md):** Sicherungsverfahren und Wiederherstellung

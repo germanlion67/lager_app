@@ -32,20 +32,11 @@ migrate((app) => {
         "system": false,
         "type": "text"
       },
-      {
-        "autogeneratePattern": "",
-        "hidden": false,
-        "id": "text1234567890",
-        "max": 0,
-        "min": 0,
-        "name": "artikelnummer",
-        "pattern": "",
-        "presentable": true,
-        "primaryKey": false,
-        "required": true,
-        "system": false,
-        "type": "text"
-      },
+      // ⚠️ FIX: artikelnummer-Feld ENTFERNT
+      // Wurde hier als "text" angelegt, wird in Migration
+      // 1774186524 korrekt als "number" mit Unique-Index angelegt.
+      // Das text-Feld verhinderte die Neuanlage als number
+      // (hasArtikelnummer-Check fand das text-Feld und übersprang).
       {
         "hidden": false,
         "id": "number4267035981",

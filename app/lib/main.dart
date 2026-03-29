@@ -96,8 +96,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
-  late final PocketBaseSyncService _pocketSync;
-  late final SyncOrchestrator _orchestrator;
+  late PocketBaseSyncService _pocketSync;
+  late SyncOrchestrator _orchestrator;
 
   bool _cleanupDone = false;
   bool _syncRunning = false;
@@ -194,7 +194,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  /// Wird aufgerufen wenn der Setup-Screen erfolgreich eine URL
+/// Wird aufgerufen wenn der Setup-Screen erfolgreich eine URL
   /// konfiguriert hat. Initialisiert die Sync-Services und wechselt
   /// zur normalen App-Ansicht.
   void _onServerConfigured() {
@@ -202,6 +202,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     // Sync-Services neu initialisieren mit dem jetzt verfügbaren Client
     if (_pbService.hasClient) {
+      try {
+        _orchestrator.dispose();
+      } catch (e) {
+        _log.d('[Main] Orchestrator dispose übersprungen: $e');
+      }
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
@@ -229,7 +234,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
     }
 
-    setState(() => _needsSetup = false);
+    if (mounted) {
+      setState(() => _needsSetup = false);
+    }
   }
 
   @override
@@ -269,32 +276,31 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  @override
+@override
   Widget build(BuildContext context) {
-    // Setup-Screen anzeigen wenn keine URL konfiguriert ist
-    if (_needsSetup) {
-      return MaterialApp(
-        title: 'Elektronik Verwaltung',
-        theme: AppTheme.hell,
-        darkTheme: AppTheme.dunkel,
-        themeMode: ThemeMode.system,
-        debugShowCheckedModeBanner: false,
-        home: ServerSetupScreen(
-          onConfigured: _onServerConfigured,
-        ),
-      );
-    }
-
-    // Normale App
     return MaterialApp(
       title: 'Elektronik Verwaltung',
       theme: AppTheme.hell,
       darkTheme: AppTheme.dunkel,
       themeMode: ThemeMode.system,
-      initialRoute: '/',
-      routes: {
-        '/': (context) => _buildHomeWithBackground(),
-        '/settings': (context) => const SettingsScreen(),
+      debugShowCheckedModeBanner: false,
+      // Eindeutiger Key erzwingt kompletten Navigator-Neuaufbau
+      // beim Wechsel zwischen Setup und Haupt-App
+      key: ValueKey(_needsSetup ? 'setup' : 'app'),
+      home: _needsSetup
+          ? ServerSetupScreen(onConfigured: _onServerConfigured)
+          : _buildHomeWithBackground(),
+      onGenerateRoute: (settings) {
+        switch (settings.name) {
+          case '/settings':
+            return MaterialPageRoute(
+              builder: (_) => const SettingsScreen(),
+            );
+          default:
+            return MaterialPageRoute(
+              builder: (_) => _buildHomeWithBackground(),
+            );
+        }
       },
     );
   }

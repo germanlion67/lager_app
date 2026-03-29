@@ -9,9 +9,12 @@
 // Caching:
 //   - Lokal: Image.file mit RepaintBoundary (Flutter-intern gecacht)
 //   - Web:   cached_network_image mit Disk- und Memory-Cache
+//
+// ⚠️ FIX: cacheKey enthält jetzt aktualisiertAm-Timestamp, damit nach
+// Bildänderung das neue Bild geladen wird statt des gecachten alten.
 
 import 'dart:io';
-import 'dart:typed_data'; // ← NEU hinzufügen
+import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -117,6 +120,10 @@ class ArtikelDetailBild extends StatelessWidget {
       if (remoteBildUrl != null) {
         return CachedNetworkImage(
           imageUrl: remoteBildUrl!,
+          // ⚠️ FIX: cacheKey mit Timestamp, damit nach Bildänderung
+          // das neue Bild geladen wird statt des gecachten alten.
+          cacheKey: '${artikel.uuid}_detail_'
+              '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
           height: height,
           width: double.infinity,
           fit: AppConfig.artikelDetailBildFit,
@@ -222,6 +229,12 @@ class _WebThumbnail extends StatelessWidget {
 
     return CachedNetworkImage(
       imageUrl: url,
+      // ⚠️ FIX: cacheKey mit Timestamp, damit nach Bildänderung
+      // das neue Bild geladen wird statt des gecachten alten.
+      // Ohne diesen Key zeigt CachedNetworkImage das alte Bild aus
+      // dem Disk-Cache, auch wenn PocketBase schon das neue hat.
+      cacheKey: '${artikel.uuid}_thumb_'
+          '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
       width: size,
       height: size,
       fit: AppConfig.artikelListBildFit,

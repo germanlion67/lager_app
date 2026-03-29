@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart'; // ← NEU
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -47,7 +47,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   bool _isEditing = false;
   bool _hasChanged = false;
 
-
   // M-011: pendingBytes für neu gewähltes (noch nicht gespeichertes) Bild
   Uint8List? _pendingBytes;
   String? _bildPfad;
@@ -61,7 +60,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   // M-012: Anhänge
   int _anhangCount = 0;
   final _attachmentService = AttachmentService();
-
 
   @override
   void initState() {
@@ -85,7 +83,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       _loadRemoteBildUrl();
     }
     // M-012: Anhang-Anzahl für Badge laden
-    // Methode ist als Member der Klasse deklariert — kein Underscore-Problem
     ladeAnhangCount();
   }
 
@@ -142,7 +139,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   Future<void> _pickImageFile() async {
     _logger.i('Bildauswahl (Datei) gestartet');
 
-    final PickedImage picked = await ImagePickerService.pickImageFile(context); // ✅ Typ explizit
+    final PickedImage picked = await ImagePickerService.pickImageFile(context);
     if (!picked.hasImage) {
       _logger.w('Bildauswahl abgebrochen – kein Bild gewählt');
       return;
@@ -160,7 +157,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     _logger.i('Bildauswahl (Kamera) gestartet');
 
-    final PickedImage picked = await ImagePickerService.pickImageCamera(context); // ✅ Typ explizit
+    final PickedImage picked = await ImagePickerService.pickImageCamera(context);
     if (!picked.hasImage) {
       _logger.w('Kameraaufnahme abgebrochen');
       return;
@@ -170,7 +167,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     await _applyPickedImage(picked);
   }
 
-  Future<void> _applyPickedImage(PickedImage picked) async { // ✅ dynamic → PickedImage
+  Future<void> _applyPickedImage(PickedImage picked) async {
     final artikelId = widget.artikel.id;
 
     if (!kIsWeb && artikelId != null && picked.pfad != null) {
@@ -178,8 +175,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       try {
         final persistenterPfad = await platform.persistSelectedImage(
-          bildBytes: picked.bytes,   // ✅ Uint8List? – kein Cast nötig
-          bildPfad: picked.pfad,     // ✅ String? – kein Cast nötig
+          bildBytes: picked.bytes,
+          bildPfad: picked.pfad,
           artikelId: artikelId,
           artikelName: widget.artikel.name,
           onThumbnailSaved: (thumbPath) async {
@@ -282,6 +279,23 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           .collection('artikel')
           .update(recordId, body: body, files: files);
 
+      // ⚠️ FIX: Nach Update den aktualisierten Record von PB holen,
+      // damit remoteBildPfad den neuen Dateinamen enthält.
+      // Ohne das bleibt die alte Bild-URL in der Liste gecacht
+      // und das neue Bild wird nicht angezeigt.
+      final updatedRecord = await _pbService.client
+          .collection('artikel')
+          .getOne(recordId);
+
+      final neuerBildPfad = updatedRecord.data['bild']?.toString() ?? '';
+
+      // ⚠️ FIX: Alten Bild-Cache invalidieren, damit das neue Bild
+      // beim nächsten Laden der Liste angezeigt wird.
+      if (_remoteBildUrl != null) {
+        unawaited(CachedNetworkImage.evictFromCache(_remoteBildUrl!));
+        _logger.d('Alter Bild-Cache invalidiert: $_remoteBildUrl');
+      }
+
       if (!mounted) return;
 
       final gespeicherterArtikel = widget.artikel.copyWith(
@@ -290,6 +304,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         fach: _fachController.text,
         beschreibung: _beschreibungController.text,
         aktualisiertAm: now,
+        // ⚠️ FIX: remoteBildPfad und remotePath aktualisieren,
+        // damit die Artikelliste das neue Bild anzeigt.
+        remoteBildPfad: neuerBildPfad,
+        remotePath: recordId,
       );
 
       setState(() {
@@ -439,8 +457,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     if (!mounted) return;
 
     try {
-      // M-012: Anhänge zuerst löschen (fire-and-forget, kein await nötig
-      // da PocketBase-seitig unabhängig vom Artikel-Record)
+      // M-012: Anhänge zuerst löschen
       unawaited(
         _attachmentService.deleteAllForArtikel(widget.artikel.uuid),
       );
@@ -575,7 +592,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   /// M-011: Vollbild-Overlay mit InteractiveViewer.
   void _zeigeBildVollbild() {
-    // Kein Bild vorhanden → nichts tun
     final hasPending = _pendingBytes != null;
     final hasRemote = kIsWeb && _remoteBildUrl != null;
     final hasLocal = !kIsWeb && _bildPfad != null;
@@ -727,8 +743,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                     onPressed: _isEditing ? _mengeVerringern : null,
                   ),
                   Text(
-                    'Art.-Nr.: ${artikel.id ?? "-"}',
-                    style: const TextStyle(fontSize: 12),
+                    'Art.-Nr.: ${artikel.artikelnummer ?? "-"}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.grey,
+                  ),
                   ),
                 ],
               ),
@@ -767,7 +787,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               ),
               const SizedBox(height: 20),
 
-// M-012: Anhänge-Sektion (ersetzt DokumenteButton)
+              // M-012: Anhänge-Sektion
               AnhaengeSektion(
                 artikelUuid: widget.artikel.uuid,
                 anhangCount: _anhangCount,
@@ -814,6 +834,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     );
   }
 }
+
 // ---------------------------------------------------------------------------
 // M-012: AnhaengeSektion
 // ---------------------------------------------------------------------------
@@ -824,7 +845,7 @@ class AnhaengeSektion extends StatelessWidget {
   final void Function(int count) onCountChanged;
 
   const AnhaengeSektion({
-    super.key, // Fix: use_key_in_widget_constructors
+    super.key,
     required this.artikelUuid,
     required this.anhangCount,
     required this.onCountChanged,
@@ -862,9 +883,7 @@ class AnhaengeSektion extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// M-012: AnhaengeSheet — StatefulWidget + State
-// Fix: StatefulWidget-Klasse war komplett absent, nur State war vorhanden
-// Fix: showModalBottomSheet<void> statt <AnhaengeSheet>
+// M-012: AnhaengeSheet
 // ---------------------------------------------------------------------------
 
 class AnhaengeSheet extends StatefulWidget {
@@ -900,7 +919,7 @@ class AnhaengeSheetState extends State<AnhaengeSheet> {
   }
 
   void zeigeUploadDialog() {
-    showModalBottomSheet<void>(  // Fix: war <AttachmentModel> — kein Rückgabewert nötig
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

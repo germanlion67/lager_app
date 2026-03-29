@@ -88,6 +88,59 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     });
   }
 
+/// Ermittelt die nächste freie Artikelnummer.
+  /// Prüft sowohl lokale DB als auch PocketBase und nimmt das Maximum.
+  /// Start bei 1000 wenn noch keine Artikel existieren.
+  Future<int> _getNextArtikelnummer() async {
+    const int startNummer = 1000;
+    int maxNummer = startNummer - 1;
+
+    // 1. Lokale DB prüfen (nur auf nicht-Web-Plattformen relevant)
+    if (!kIsWeb) {
+      try {
+        final localMax = await _db.getMaxArtikelnummer();
+        if (localMax != null && localMax > maxNummer) {
+          maxNummer = localMax;
+        }
+      } catch (e, st) {
+        _logger.w(
+          'Lokale Max-Artikelnummer konnte nicht gelesen werden',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
+    // 2. PocketBase prüfen (höchste Nummer remote)
+    if (_pbService.hasClient) {
+      try {
+        final result = await _pbService.client
+            .collection('artikel')
+            .getList(
+              page: 1,
+              perPage: 1,
+              sort: '-artikelnummer',
+              fields: 'artikelnummer',
+            );
+        if (result.items.isNotEmpty) {
+          final remoteMax =
+              result.items.first.data['artikelnummer'] as int? ?? 0;
+          if (remoteMax > maxNummer) {
+            maxNummer = remoteMax;
+          }
+        }
+      } catch (e, st) {
+        _logger.w(
+          'PocketBase Max-Artikelnummer konnte nicht gelesen werden',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
+    return maxNummer + 1;
+  }
+
   // ==================== BILD AUSWAHL ====================
 
   Future<void> _pickImageFile() async {
@@ -161,8 +214,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _logger.d('_isSaving auf true gesetzt.');
 
     try {
+// Nächste Artikelnummer automatisch ermitteln
+      final int nextNummer = await _getNextArtikelnummer();
+      _logger.d('Nächste Artikelnummer: $nextNummer');
       final artikel = Artikel(
         name: _nameCtrl.text.trim(),
+        artikelnummer: nextNummer,  // ← NEU
         beschreibung: _beschreibungCtrl.text.trim(),
         ort: _ortCtrl.text.trim(),
         fach: _fachCtrl.text.trim(),

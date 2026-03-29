@@ -7,6 +7,13 @@
 // - Unique Constraint für Datenintegrität
 // - Indexes für Performance (bis 10000 Artikel)
 // - Volltextsuche-Unterstützung für name, beschreibung, artikelnummer
+//
+// ⚠️ FIX: Die erste Migration (1772784781) hat artikelnummer als "text"
+// angelegt. Diese Migration muss das Feld auf "number" ÄNDERN,
+// nicht nur hinzufügen. Der alte hasArtikelnummer-Check hat das
+// text-Feld gefunden und das number-Feld übersprungen →
+// PocketBase sortierte lexikographisch statt numerisch →
+// falsche Max-Artikelnummer → Duplikate → validation_not_unique.
 
 migrate(
   (app) => {
@@ -16,13 +23,26 @@ migrate(
       throw new Error('Collection "artikel" nicht gefunden!');
     }
 
-    // Idempotent: skip if field already exists.
-    const hasArtikelnummer = collection.fields.some((f) => f.name === "artikelnummer");
-    if (!hasArtikelnummer) {
-      // IMPORTANT: PocketBase expects a core.Field object.
-      // Do NOT use addAt(...) or add(index, ...) because not all PocketBase versions
-      // support it in JS migrations and it can cause:
-      // "could not convert [object Object] to core.Field"
+    // ⚠️ FIX: Altes text-Feld entfernen falls vorhanden,
+    // damit das neue number-Feld sauber angelegt wird.
+    // Ohne diesen Schritt bleibt das Feld als "text" bestehen
+    // und der hasArtikelnummer-Check überspringt die Neuanlage.
+    const existingFieldIndex = collection.fields.findIndex(
+      (f) => f.name === "artikelnummer"
+    );
+    if (existingFieldIndex !== -1) {
+      const existingField = collection.fields[existingFieldIndex];
+      // Nur ersetzen wenn es NICHT bereits das korrekte number-Feld ist
+      if (existingField.id !== "number_artikelnummer" || existingField.type !== "number") {
+        collection.fields.splice(existingFieldIndex, 1);
+      }
+    }
+
+    // Number-Feld hinzufügen (idempotent: nur wenn nicht schon vorhanden)
+    const hasCorrectField = collection.fields.some(
+      (f) => f.name === "artikelnummer" && f.id === "number_artikelnummer"
+    );
+    if (!hasCorrectField) {
       collection.fields.add(
         new Field({
           autogeneratePattern: "",
@@ -69,7 +89,7 @@ migrate(
     );
 
     // 4. Index für UUID-basierte Lookups (häufig beim Sync)
-    addIndexIfMissing("CREATE INDEX `idx_uuid` ON `artikel` (`uuid`)");
+    addIndexIfMissing("CREATE INDEX `idx_uuid` ON `artikel` (`uuid`)"  );
 
     return app.save(collection);
   },

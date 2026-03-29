@@ -368,47 +368,57 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== ARTIKEL TILE ====================
 
   Widget _buildArtikelTile(Artikel artikel) {
-    return ListTile(
-      // M-011: Zentrales Bild-Widget statt inline Image.network / Image.file
-      leading: ArtikelListBild(artikel: artikel),
-      title: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Text(
-              artikel.name,
-              style: const TextStyle(fontSize: 16),
+      return ListTile(
+        // M-011: Zentrales Bild-Widget statt inline Image.network / Image.file
+        leading: ArtikelListBild(artikel: artikel),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                artikel.name,
+                style: const TextStyle(fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              artikel.menge.toString(),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+          ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // M-007: Artikelnummer anzeigen
+            if (artikel.artikelnummer != null)
+              Text(
+                'Art.-Nr.: ${artikel.artikelnummer}',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.blueGrey[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            Text(
+              artikel.beschreibung,
+              maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-          ),
-          Text(
-            artikel.menge.toString(),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-        ],
-      ),
-      subtitle: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            artikel.beschreibung,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          Text(
-            '${artikel.ort.trim()} • ${artikel.fach.trim()}',
-            style: const TextStyle(
-              color: Colors.grey,
-              fontSize: 12,
-              fontStyle: FontStyle.italic,
+            Text(
+              '${artikel.ort.trim()} • ${artikel.fach.trim()}',
+              style: const TextStyle(
+                color: Colors.grey,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+              ),
             ),
-          ),
-        ],
-      ),
-      isThreeLine: true,
-      onTap: () => _openDetailScreen(artikel), // ← ausgelagert für Übersicht
-    );
-  }
+          ],
+        ),
+        isThreeLine: true,
+        onTap: () => _openDetailScreen(artikel),
+      );
+    }
 
   // ==================== DETAIL SCREEN ====================  ← NEU
 

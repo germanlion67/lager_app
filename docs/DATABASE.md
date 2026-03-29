@@ -59,6 +59,38 @@ Speichert den Status der letzten erfolgreichen Synchronisation.
 
 ---
 
+
+### 1.4 PocketBase Collection: `attachments` (ab v0.7.2)
+
+Dateianhänge pro Artikel. Wird ausschließlich in PocketBase gespeichert (kein lokales SQLite-Pendant).
+
+| Feld | Typ | Required | Beschreibung |
+|---|---|---|---|
+| `artikel_uuid` | TEXT | ✅ | UUID des zugehörigen Artikels |
+| `datei` | FILE | ✅ | Dateianhang (max 10 MB) |
+| `bezeichnung` | TEXT | ✅ | Vom Nutzer vergebener Name |
+| `beschreibung` | TEXT | ❌ | Optionale Beschreibung |
+| `mime_type` | TEXT | ❌ | MIME-Typ (z.B. `application/pdf`) |
+| `datei_groesse` | NUMBER | ❌ | Dateigröße in Bytes |
+| `sort_order` | NUMBER | ❌ | Sortierreihenfolge |
+| `uuid` | TEXT | ✅ | Client-seitige UUID |
+| `etag` | TEXT | ❌ | Sync-ETag |
+| `device_id` | TEXT | ❌ | Geräte-ID |
+| `deleted` | BOOL | ❌ | Soft-Delete Flag |
+| `updated_at` | NUMBER | ❌ | Sync-Timestamp |
+
+**Erlaubte MIME-Types:**
+`image/png`, `image/jpeg`, `image/webp`, `application/pdf`,
+`application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+`application/vnd.ms-excel`, `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+`text/plain`, `text/csv`
+
+**Limits:** Max 20 Anhänge pro Artikel, max 10 MB pro Datei.
+
+**API-Regeln:** Offen (kein Auth). Wird mit Login-Flow (M-009) gesichert.
+
+---
+
 ## 🔄 2. Synchronisations-Prozess
 
 Die Synchronisation folgt einem strikten Ablauf, um Datenkonsistenz über mehrere Geräte zu gewährleisten.

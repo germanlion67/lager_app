@@ -95,26 +95,21 @@ class Artikel {
   /// sie identifiziert eindeutig den Stand des Remote-Records
   /// und wird für Konflikt-Erkennung beim Sync genutzt.
   Map<String, dynamic> toPocketBaseMap() {
-    return {
-      'name': name,
-      'artikelnummer': artikelnummer, // M-007
-      'menge': menge,
-      'ort': ort,
-      'fach': fach,
-      'beschreibung': beschreibung,
-      'uuid': uuid,
-      'deleted': deleted,
-      'device_id': deviceId,
-      // FIX: remote_path ergänzt — PocketBase speichert den Bild-Pfad
-      // im Record. Ohne dieses Feld bleibt nach einem Upload der alte
-      // Pfad im Record stehen.
-      'remote_path': remotePath,
-      // FIX: etag ergänzt — wird als Surrogate-ETag genutzt
-      // (PocketBase Record-ID). Ermöglicht Konflikt-Erkennung
-      // beim bidirektionalen Sync ohne separaten Versions-Counter.
-      'etag': etag,
-    };
-  }
+      return {
+        'name': name,
+        'artikelnummer': artikelnummer, // M-007
+        'menge': menge,
+        'ort': ort,
+        'fach': fach,
+        'beschreibung': beschreibung,
+        'uuid': uuid,
+        'updated_at': updatedAt, // ← NEU: Sync-Timestamp für PocketBase
+        'deleted': deleted,
+        'device_id': deviceId,
+        'remote_path': remotePath,
+        'etag': etag,
+      };
+    }
 
   /// SQLite → Artikel.
   ///

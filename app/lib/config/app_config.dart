@@ -73,14 +73,17 @@ class AppConfig {
   /// verfügbar ist (unabhängig von SharedPreferences).
   static bool get hasConfiguredUrl => pocketBaseUrl.isNotEmpty;
 
-  /// Gibt `true` zurück wenn die aktuelle Konfiguration noch
+/// Gibt `true` zurück wenn die aktuelle Konfiguration noch
   /// unveränderte Placeholder enthält.
-  ///
-  /// Nach dem Umbau auf Runtime-Konfiguration sollten keine Placeholder
-  /// mehr vorkommen. Diese Prüfung bleibt als Sicherheitsnetz.
   static bool get hasPlaceholderUrl =>
       pocketBaseUrl.contains('192.168.178.XX') ||
       pocketBaseUrl.contains('your-production-server.com');
+
+  /// Gibt `true` zurück wenn eine Runtime-Config geladen wurde (Web/Docker).
+  /// Wird verwendet um zu unterscheiden ob die Web-App im Docker-Container
+  /// (mit Proxy) oder via `flutter run -d chrome` (ohne Proxy) läuft.
+  static bool get hasRuntimeConfig =>
+      _runtimePocketBaseUrl != null && _runtimePocketBaseUrl!.isNotEmpty;
 
   /// Validiert die Konfiguration.
   ///

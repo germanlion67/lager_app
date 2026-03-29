@@ -61,10 +61,15 @@ Wenn du direkt am Dart-Code arbeitest, kannst du die App nativ starten.
 
 ### 1. Backend starten
 
+> ⚠️ PocketBase wird ausschließlich über Docker gestartet, nicht direkt als Binary.
+
 ```bash
-cd server
-./pocketbase serve --http=0.0.0.0:8080
+cd ~/lager_app
+docker compose up -d
 ```
+PocketBase ist dann erreichbar unter: http://localhost:8080
+Admin-UI: http://localhost:8080/_/
+
 
 ### 2. Frontend starten (App-Verzeichnis)
 
@@ -79,6 +84,20 @@ flutter pub get
 
 # Web (Chrome)
 flutter run -d chrome
+
+> ⚠️ **WSL2-Nutzer:** `flutter run -d chrome` funktioniert in WSL2 nur eingeschränkt.
+> WSL2 hat kein WebGL/GPU — CanvasKit fällt auf CPU-Rendering zurück,
+> wodurch Bilder (`Image.memory`) nicht angezeigt werden.
+>
+> **Lösung:** Web-Server-Modus + Windows-Browser verwenden:
+>
+> ```bash
+> flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0
+> ```
+>
+> Dann im **Windows-Browser** öffnen: `http://localhost:8888`
+>
+> Siehe [DEV_SETUP.md](DEV_SETUP.md) für Details.
 
 # Linux Desktop
 flutter run -d linux

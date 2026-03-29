@@ -965,6 +965,27 @@ class ArtikelDbService {
     }
   }
 
+/// Gibt die höchste vergebene Artikelnummer zurück, oder null wenn
+  /// keine Artikel mit Artikelnummer existieren.
+  Future<int?> getMaxArtikelnummer() async {
+    try {
+      final db = await database;
+      final result = await db.rawQuery(
+        'SELECT MAX(artikelnummer) as maxNr FROM artikel WHERE deleted = 0',
+      );
+      final maxNr = result.first['maxNr'] as int?;
+      _logger.d('✅ Max Artikelnummer aus lokaler DB: $maxNr');
+      return maxNr;
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Abrufen der max. Artikelnummer: $e',
+        error: e,
+        stackTrace: stack,
+      );
+      return null;
+    }
+  }
+
   Future<void> closeDatabase() async {
     try {
       await _db?.close();

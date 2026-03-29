@@ -4,6 +4,84 @@ Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusam
 
 ---
 
+## 📎 Dateianhänge & Artikelnummer-Fix — v0.7.2 — 29.03.2026
+
+### M-012: Attachments (Dateianhänge pro Artikel)
+
+**Feature:** Benutzer können Dokumente (PDF, Office, Bilder, Text) an Artikel anhängen.
+Max 20 Anhänge pro Artikel, max 10 MB pro Datei.
+
+**Implementierung:**
+- PocketBase Collection `attachments` mit File-Upload und Metadaten
+- `AttachmentService` (Singleton) — CRUD gegen PocketBase, plattformunabhängig
+- `AttachmentModel` — Datenklasse mit MIME-Type-Erkennung und Größenformatierung
+- `AttachmentUploadWidget` — Upload-Dialog mit Dateiauswahl und Validierung
+- `AttachmentListWidget` — Anhang-Liste mit Download, Bearbeiten, Löschen
+- `AnhaengeSektion` im Detail-Screen mit Badge-Counter und BottomSheet
+
+**Problem bei Inbetriebnahme:** Upload schlug mit HTTP 400 fehl.
+Zwei Ursachen identifiziert und behoben:
+1. `uuid`-Pflichtfeld fehlte im Upload-Body → `UuidGenerator.generate()` ergänzt
+2. API-Regeln erforderten Auth (`@request.auth.id != ''`), aber die App hat keinen Login-Flow → Regeln auf offen gesetzt (analog zu `artikel`-Collection)
+
+**Migration:** `1774811640_updated_attachments.js` setzt API-Regeln auf offen.
+
+### Artikelnummer-Anzeige korrigiert
+
+**Problem:** Die Detailansicht zeigte `artikel.id` (SQLite Auto-Increment) statt `artikel.artikelnummer` (fachliche Nummer ab 1000).
+
+**Fix:** `artikel_detail_screen.dart` — `artikel.id` → `artikel.artikelnummer`.
+Zusätzlich: Artikelnummer in der Listenansicht ergänzt.
+
+### toPocketBaseMap() erweitert
+
+**Problem:** `updated_at` wurde nicht an PocketBase gesendet, was zu Sync-Inkonsistenzen führen konnte.
+
+**Fix:** `updated_at: updatedAt` in `toPocketBaseMap()` ergänzt.
+
+**Architektur-Entscheidung:** API-Regeln bleiben offen bis ein Login-Flow implementiert wird (M-009). Die App läuft aktuell im LAN/VPN — öffentlicher Zugang erfordert Auth.
+
+---
+
+## 🖥️ WSL2-Entwicklungsumgebung — Bildanzeige-Problem gelöst — 28.03.2026
+
+### K-005: Bilder werden in WSL2-Entwicklung nicht angezeigt
+
+**Problem:** Bei der Entwicklung unter WSL2 wurden Bilder (`Image.memory`) nicht angezeigt.
+Der Bereich blieb leer, ohne Fehlermeldung. In der Browser-Konsole erschien:
+```
+WARNING: Falling back to CPU-only rendering. Reason: webGLVersion is -1
+```
+
+**Ursache:** WSL2 bietet keine GPU-Beschleunigung. Chrome in WSL2 hat kein WebGL.
+Flutter 3.41+ unterstützt nur noch CanvasKit/Skwasm als Renderer (HTML-Renderer entfernt).
+CanvasKit ohne WebGL fällt auf CPU-only Rendering zurück, wobei `Image.memory` nicht korrekt gerendert wird.
+
+**Fehlversuche:**
+- `--web-renderer html` → Flag existiert in Flutter 3.41 nicht mehr
+- `index.html` mit `renderer: "html"` → Build nicht kompatibel, App startet nicht
+- Anderer Browser → Problem ist WSL2, nicht der Browser
+
+**Lösung:** Web-Server-Modus statt `flutter run -d chrome`:
+```bash
+flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0
+```
+Dann im **Windows-Browser** (mit echtem WebGL) öffnen: `http://localhost:8888`
+
+**Betroffene Umgebung:** Nur WSL2-Entwicklung. Produktion (Docker/normaler Server) ist nicht betroffen.
+
+**Dokumentation:** Neues `DEV_SETUP.md` erstellt mit vollständigem Entwicklungs-Workflow.
+
+**Geänderte Dateien:**
+- `INSTALL.md` — PocketBase-Start korrigiert (Docker statt Binary), WSL2-Hinweis ergänzt
+- `DEV_SETUP.md` — **Neu:** Vollständige Entwicklungsumgebung-Dokumentation
+
+**Erkenntnis:** PocketBase wird im Projekt ausschließlich über Docker betrieben.
+Der in der alten Doku beschriebene Weg `cd server && ./pocketbase serve` ist veraltet
+und funktioniert nicht, da kein PocketBase-Binary im Repository liegt.
+
+---
+
 ## 🔧 Runtime-Konfiguration der PocketBase-URL — 27.03.2026
 
 ### K-004: Server-URL zur Laufzeit konfigurierbar
