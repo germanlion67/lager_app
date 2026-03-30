@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.2 | **Zuletzt aktualisiert:** 29.03.2026
+**Version:** 0.7.3 | **Zuletzt aktualisiert:** 30.03.2026
 
 ---
 
@@ -100,24 +100,37 @@ Der Sync-Prozess erkennt Konflikte, aber die UI zur Auswahl zwischen
 - `conflict_resolution_screen.dart` fertigstellen
 - Vergleichs-Widget *(Vorher/Nachher)* für Artikeldaten implementieren
 
-### M-009: Login-Flow & Auth (NEU in v0.7.2)
-Alle PocketBase-Collections haben aktuell offene API-Regeln (kein Auth erforderlich).
-Für Produktionsumgebungen mit öffentlichem Zugang muss ein Login-Screen implementiert werden.
+--- 
 
-**Aufgaben:**
-- Login-Screen erstellen (E-Mail + Passwort)
-- `PocketBaseService().login()` aufrufen (Methode existiert bereits)
-- Auth-Token wird automatisch im `authStore` gespeichert
-- API-Regeln für `artikel` und `attachments` auf `@request.auth.id != ''` setzen
-- Logout-Funktion im Settings-Screen
-- Auto-Login bei App-Start (Token aus `authStore` wiederherstellen)
+### M-009 Login-Flow & Authentifizierung ✅
 
-**Vorhandene Infrastruktur:** `PocketBaseService.login()`, `.logout()`,
-`.isAuthenticated`, `.currentUserId`
+**Status:** Erledigt
+**Datum:** 2026-03-30
 
-**Prompt:** `docs/prompt_login_flow.md`
+**Umgesetzt:**
+- Login-Screen mit E-Mail/Passwort-Validierung und Loading-State
+- Auth-Gate in `main.dart` mit Auto-Login (Token-Refresh)
+- Logout im Settings-Screen mit Bestätigungs-Dialog
+- PocketBase API-Regeln auf Auth umgestellt (Migration + Rollback)
+- Passwort-Reset-Funktion (optional, über Dialog im Login-Screen)
 
----
+**Dateien:**
+| Datei | Änderung |
+|---|---|
+| `lib/screens/login_screen.dart` | NEU — Login-UI |
+| `lib/main.dart` | Auth-Gate, Auto-Login, Sync erst nach Login |
+| `lib/screens/settings_screen.dart` | Account-Card, Logout-Button |
+| `lib/services/pocketbase_service.dart` | `refreshAuthToken()`, `requestPasswordReset()`, `currentUserEmail` |
+| `server/pb_migrations/1700000000_set_auth_rules.js` | NEU — Auth-Regeln für artikel + attachments |
+
+**Architektur-Entscheidungen:**
+- Kein separater Auth-Service — PocketBaseService Singleton beibehalten
+- Kein Provider/Bloc — konsistent mit bestehendem Pattern
+- Token-Persistierung durch PocketBase authStore (automatisch)
+- Nur E-Mail + Passwort (kein OAuth/Social Login) — KISS-Prinzip
+- Selbst-Registrierung deaktiviert — User werden über PocketBase Admin erstellt
+
+--- 
 
 ## 🟡 Priorität: Mittel
 

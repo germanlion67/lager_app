@@ -79,11 +79,15 @@ Wenn es nicht angegeben wird, zeigt die App beim ersten Start einen Einrichtungs
 ```bash
 cd app
 flutter pub get
+```
 
 # === Variante A: Ohne --dart-define (Setup-Screen beim ersten Start) ===
 
 # Web (Chrome)
+
+```bash
 flutter run -d chrome
+```
 
 > ⚠️ **WSL2-Nutzer:** `flutter run -d chrome` funktioniert in WSL2 nur eingeschränkt.
 > WSL2 hat kein WebGL/GPU — CanvasKit fällt auf CPU-Rendering zurück,

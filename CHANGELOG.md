@@ -2,6 +2,38 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.3] — 2026-03-30
+
+### Added — M-009: Login-Flow & Authentifizierung
+- **Login-Screen** (`lib/screens/login_screen.dart`): E-Mail + Passwort Login mit
+  Validierung, Loading-State, Fehlermeldungen und optionalem Passwort-Reset-Dialog
+- **Auth-Gate in `main.dart`**: Automatische Prüfung des Auth-Status beim App-Start
+  mit 4-stufiger Priorität (Setup → Auth-Check → Login → App)
+- **Auto-Login**: Token-Refresh beim App-Start via `refreshAuthToken()` —
+  PocketBase authStore persistiert Tokens automatisch
+- **Logout**: Bestätigungs-Dialog im Settings-Screen mit Navigator-Cleanup
+- **Benutzer-Info**: Account-Card im Settings-Screen zeigt angemeldeten User,
+  Status-Badge und Auth-Status in der Info-Card
+- **Token-Refresh** (`PocketBaseService.refreshAuthToken()`): Erneuert abgelaufene
+  Tokens, räumt authStore bei Fehler auf
+- **Passwort-Reset** (`PocketBaseService.requestPasswordReset()`): Sendet
+  Reset-E-Mail über PocketBase
+- **API-Regeln Migration** (`1700000000_set_auth_rules.js`): Collections `artikel`
+  und `attachments` erfordern jetzt Authentifizierung (`@request.auth.id != ""`)
+  mit Rollback-Migration (Regeln auf offen)
+
+### Changed
+- `PocketBaseService`: Neue Methoden `refreshAuthToken()`, `requestPasswordReset()`,
+  `currentUserEmail` Getter hinzugefügt
+- `main.dart`: Auth-Gate integriert — Sync startet erst nach erfolgreichem Login
+- `SettingsScreen`: Optionaler `onLogout` Callback, Account-Card mit Logout-Button
+
+### Security
+- API-Regeln für `artikel` und `attachments` von offen auf Auth-pflichtig umgestellt
+- Nur authentifizierte Benutzer können Daten lesen, erstellen, bearbeiten und löschen
+
+--- 
+
 ## [0.7.2] — 2026-03-29
 
 ### Hinzugefügt

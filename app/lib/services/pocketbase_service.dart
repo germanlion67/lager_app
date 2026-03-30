@@ -120,7 +120,7 @@ class PocketBaseService {
           resolvedUrl = '';
         }
       }
-// Priorität 3 (Web): Relativer Pfad nur wenn Runtime-Config existiert
+      // Priorität 3 (Web): Relativer Pfad nur wenn Runtime-Config existiert
       // (d.h. die App läuft im Docker-Container hinter einem Proxy).
       // Bei flutter run -d chrome gibt es keine Runtime-Config →
       // Setup-Screen wird angezeigt.
@@ -306,7 +306,7 @@ class PocketBaseService {
   }
 
   // ---------------------------------------------------------------------------
-  // Authentication (unverändert)
+  // Authentication
   // ---------------------------------------------------------------------------
 
   /// Gibt zurück, ob aktuell ein Benutzer eingeloggt ist.
@@ -322,6 +322,14 @@ class PocketBaseService {
     if (c == null) return null;
     if (!c.authStore.isValid) return null;
     return c.authStore.record?.id;
+  }
+
+  /// Gibt die E-Mail des aktuell eingeloggten Benutzers zurück, oder null.
+  String? get currentUserEmail {
+    final c = _client;
+    if (c == null) return null;
+    if (!c.authStore.isValid) return null;
+    return c.authStore.record?.getStringValue('email');
   }
 
   /// Loggt einen Benutzer mit E-Mail und Passwort ein.
@@ -352,7 +360,85 @@ class PocketBaseService {
   }
 
   // ---------------------------------------------------------------------------
-  // Testing (unverändert)
+  // Token-Refresh (M-009)
+  // ---------------------------------------------------------------------------
+
+  /// Versucht den gespeicherten Auth-Token zu erneuern.
+  ///
+  /// Sollte beim App-Start aufgerufen werden, wenn [isAuthenticated]
+  /// true ist, um sicherzustellen dass der Token noch gültig ist.
+  /// PocketBase-Tokens laufen nach einer konfigurierbaren Zeit ab.
+  ///
+  /// Gibt `true` zurück wenn der User weiterhin eingeloggt ist.
+  /// Gibt `false` zurück und räumt den authStore auf, wenn der
+  /// Token abgelaufen oder ungültig ist.
+  Future<bool> refreshAuthToken() async {
+    final c = _client;
+    if (c == null) {
+      _logger.w(
+        '⚠️ PocketBaseService.refreshAuthToken(): '
+        'Client nicht initialisiert.',
+      );
+      return false;
+    }
+
+    if (!c.authStore.isValid) {
+      _logger.d('ℹ️ Kein gültiger Token zum Erneuern vorhanden.');
+      return false;
+    }
+
+    try {
+      await c.collection('users').authRefresh();
+      _logger.i('✅ Auth-Token erfolgreich erneuert.');
+      return c.authStore.isValid;
+    } catch (e, stack) {
+      _logger.w(
+        '⚠️ Token-Refresh fehlgeschlagen — User wird ausgeloggt.',
+        error: e,
+        stackTrace: stack,
+      );
+      c.authStore.clear();
+      return false;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Passwort-Reset (M-009)
+  // ---------------------------------------------------------------------------
+
+  /// Sendet eine Passwort-Reset-E-Mail über PocketBase.
+  ///
+  /// PocketBase sendet eine E-Mail mit einem Reset-Link an die
+  /// angegebene Adresse, sofern ein User mit dieser E-Mail existiert.
+  /// Aus Sicherheitsgründen gibt PocketBase keinen Fehler zurück,
+  /// wenn die E-Mail nicht existiert.
+  ///
+  /// Wirft eine Exception wenn der Client nicht initialisiert ist
+  /// oder ein Netzwerkfehler auftritt.
+  Future<void> requestPasswordReset(String email) async {
+    final c = _client;
+    if (c == null) {
+      throw StateError(
+        'PocketBaseService.requestPasswordReset(): '
+        'Client nicht initialisiert.',
+      );
+    }
+
+    try {
+      await c.collection('users').requestPasswordReset(email);
+      _logger.i('✅ Passwort-Reset angefordert für: $email');
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Passwort-Reset fehlgeschlagen für: $email',
+        error: e,
+        stackTrace: stack,
+      );
+      rethrow;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Testing
   // ---------------------------------------------------------------------------
 
   // ignore: use_setters_to_change_properties

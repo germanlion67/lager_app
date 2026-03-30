@@ -49,3 +49,6 @@ git branch                  # main aktiv?
 
 Superuser direkt im Container neu erstellen
 docker exec -it pocketbase /pb/pocketbase superuser create admin@example.com changeme123 --dir=/pb_data
+
+Test User 
+(user@lager.app / changeme123)

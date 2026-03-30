@@ -11,7 +11,11 @@ import '../services/app_log_service.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  /// ── M-009: Callback für Logout — wird von AuthGate in main.dart
+  /// übergeben, um den App-Zustand zurückzusetzen.
+  final VoidCallback? onLogout;
+
+  const SettingsScreen({super.key, this.onLogout});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -81,7 +85,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
       setState(() => _isDatabaseEmpty = isEmpty);
     } catch (e, st) {
-      AppLogService.logger.e('DB-Status prüfen fehlgeschlagen', error: e, stackTrace: st);
+      AppLogService.logger
+          .e('DB-Status prüfen fehlgeschlagen', error: e, stackTrace: st);
     }
   }
 
@@ -113,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ok
                   ? '✅ Verbindung zu PocketBase erfolgreich!'
                   : '❌ PocketBase nicht erreichbar – '
-                    'bestehende URL bleibt aktiv',
+                      'bestehende URL bleibt aktiv',
             ),
             backgroundColor: ok ? Colors.green : Colors.red,
           ),
@@ -137,7 +142,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     } catch (e, st) {
-      AppLogService.logger.e('PocketBase-Test fehlgeschlagen', error: e, stackTrace: st);
+      AppLogService.logger
+          .e('PocketBase-Test fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       setState(() => _pbConnectionOk = false);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -164,10 +170,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         content: Text(
           hasDefault
               ? 'Die PocketBase-URL wird auf den Standard zurückgesetzt:\n\n'
-                '$currentDefault'
+                  '$currentDefault'
               : 'Die gespeicherte URL wird gelöscht.\n\n'
-                'Es ist kein Build-Default konfiguriert. '
-                'Du musst danach eine neue URL eingeben.',
+                  'Es ist kein Build-Default konfiguriert. '
+                  'Du musst danach eine neue URL eingeben.',
         ),
         actions: [
           TextButton(
@@ -249,7 +255,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       } catch (e, st) {
-        AppLogService.logger.e('DB-Löschen fehlgeschlagen', error: e, stackTrace: st);
+        AppLogService.logger
+            .e('DB-Löschen fehlgeschlagen', error: e, stackTrace: st);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Fehler beim Löschen: $e')),
@@ -306,11 +313,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
         const SnackBar(content: Text('✅ Einstellungen gespeichert')),
       );
     } catch (e, st) {
-      AppLogService.logger.e('Speichern fehlgeschlagen', error: e, stackTrace: st);
+      AppLogService.logger
+          .e('Speichern fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Fehler beim Speichern: $e')),
       );
+    }
+  }
+
+  // ==================== M-009: LOGOUT ====================
+
+  /// Zeigt einen Bestätigungs-Dialog und führt bei Bestätigung
+  /// den Logout durch. Ruft den onLogout-Callback auf, der in
+  /// main.dart den Auth-Zustand zurücksetzt.
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Abmelden'),
+        content: const Text(
+          'Möchtest du dich wirklich abmelden?\n\n'
+          'Du musst dich beim nächsten Start erneut anmelden.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Abmelden'),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+
+    if (confirm == true) {
+      // Navigator-Stack aufräumen bevor der Zustand wechselt
+      Navigator.of(context).popUntil((route) => route.isFirst);
+
+      // Callback an main.dart → setzt _isLoggedIn = false
+      widget.onLogout?.call();
     }
   }
 
@@ -336,13 +386,163 @@ class _SettingsScreenState extends State<SettingsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // ── M-009: Benutzer-Info & Logout ──
+              _buildAccountCard(),
+              const SizedBox(height: 16),
               _buildPocketBaseCard(),
               const SizedBox(height: 16),
               if (!kIsWeb) _buildArtikelNummerCard(),
-              const SizedBox(height: 16),
+              if (!kIsWeb) const SizedBox(height: 16),
               _buildInfoCard(),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== M-009: ACCOUNT CARD ====================
+
+  /// Zeigt den aktuell angemeldeten Benutzer und den Logout-Button.
+  Widget _buildAccountCard() {
+    final isLoggedIn = _pbService.isAuthenticated;
+    final userEmail = _pbService.currentUserEmail;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  isLoggedIn ? Icons.person : Icons.person_off,
+                  color: isLoggedIn ? Colors.green : Colors.grey,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Benutzerkonto',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const Spacer(),
+                if (isLoggedIn)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: Text(
+                      'Angemeldet',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Benutzer-Info
+            if (isLoggedIn && userEmail != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor:
+                          Theme.of(context).colorScheme.primaryContainer,
+                      child: Text(
+                        userEmail.isNotEmpty
+                            ? userEmail[0].toUpperCase()
+                            : '?',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Angemeldet als',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            userEmail,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ] else ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber, color: Colors.orange.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Nicht angemeldet. Einige Funktionen sind '
+                        'möglicherweise eingeschränkt.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.orange.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            // Logout-Button
+            if (isLoggedIn && widget.onLogout != null)
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _handleLogout,
+                  icon: const Icon(Icons.logout, color: Colors.red),
+                  label: const Text('Abmelden'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                  ),
+                ),
+              ),
+          ],
         ),
       ),
     );
@@ -611,6 +811,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : 'SQLite (lokal) + PocketBase Sync',
             ),
             _infoRow('PocketBase URL', pbUrl),
+            // ── M-009: Auth-Status in Info-Card ──
+            _infoRow(
+              'Auth-Status',
+              _pbService.isAuthenticated
+                  ? 'Angemeldet (${_pbService.currentUserEmail ?? "–"})'
+                  : 'Nicht angemeldet',
+            ),
           ],
         ),
       ),
@@ -624,7 +831,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final PackageInfo info = await PackageInfo.fromPlatform();
       return '${info.version}+${info.buildNumber}';
     } catch (e, st) {
-      AppLogService.logger.e('Fehler beim Laden der App-Version', error: e, stackTrace: st);
+      AppLogService.logger
+          .e('Fehler beim Laden der App-Version', error: e, stackTrace: st);
       return 'Unbekannt';
     }
   }

@@ -13,6 +13,7 @@ import 'config/app_config.dart';
 import 'config/app_theme.dart';
 import 'config/app_images.dart';
 import 'screens/artikel_list_screen.dart';
+import 'screens/login_screen.dart'; // ── M-009: Login-Screen
 import 'screens/settings_screen.dart';
 import 'screens/server_setup_screen.dart';
 import 'services/app_log_service.dart';
@@ -105,6 +106,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// Steuert ob die normale App oder der Setup-Screen angezeigt wird.
   bool _needsSetup = false;
 
+  /// ── M-009: Steuert ob der Login-Screen angezeigt wird.
+  bool _isCheckingAuth = true;
+  bool _isLoggedIn = false;
+
   @override
   void initState() {
     super.initState();
@@ -120,19 +125,92 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
-      if (!kIsWeb) {
-        _loadSyncSettings().then((_) {
-          _runInitialSync();
-          _startPeriodicSync();
-        });
-      }
+      // ── M-009: Auth-Status prüfen bevor Sync gestartet wird
+      _checkAuthStatus().then((_) {
+        if (_isLoggedIn && !kIsWeb) {
+          _loadSyncSettings().then((_) {
+            _runInitialSync();
+            _startPeriodicSync();
+          });
+        }
+      });
     } else {
       // Dummy-Initialisierung damit late-Felder nicht crashen
       // wenn sie nie genutzt werden (Setup-Screen-Modus)
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
+
+      // ── M-009: Kein Client → Auth-Check überspringen
+      _isCheckingAuth = false;
     }
   }
+
+  // ── M-009: Auth-Status beim App-Start prüfen ─────────────────────────────
+
+  /// Prüft beim App-Start ob ein gültiger Token vorhanden ist
+  /// und versucht ihn zu erneuern (Auto-Login).
+  Future<void> _checkAuthStatus() async {
+    if (!_pbService.hasClient) {
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false;
+          _isCheckingAuth = false;
+        });
+      }
+      return;
+    }
+
+    bool loggedIn = false;
+
+    if (_pbService.isAuthenticated) {
+      // Token vorhanden → versuche Refresh
+      _log.i('[Auth] Gespeicherter Token gefunden, versuche Refresh...');
+      loggedIn = await _pbService.refreshAuthToken();
+
+      if (loggedIn) {
+        _log.i('[Auth] Auto-Login erfolgreich: ${_pbService.currentUserEmail}');
+      } else {
+        _log.w('[Auth] Token abgelaufen, Login erforderlich.');
+      }
+    } else {
+      _log.d('[Auth] Kein gespeicherter Token vorhanden.');
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = loggedIn;
+        _isCheckingAuth = false;
+      });
+    }
+  }
+
+  /// ── M-009: Wird vom LoginScreen aufgerufen nach erfolgreichem Login.
+  void _onLoginSuccess() {
+    _log.i('[Auth] Login erfolgreich, starte App...');
+
+    setState(() => _isLoggedIn = true);
+
+    // Sync starten nach Login (falls noch nicht gestartet)
+    if (_pbService.hasClient && !kIsWeb) {
+      _loadSyncSettings().then((_) {
+        _runInitialSync();
+        _startPeriodicSync();
+      });
+    }
+  }
+
+  /// ── M-009: Wird vom SettingsScreen aufgerufen bei Logout.
+  void _onLogout() {
+    _log.i('[Auth] Logout durchgeführt.');
+    _pbService.logout();
+
+    // Sync stoppen
+    _syncTimer?.cancel();
+
+    setState(() => _isLoggedIn = false);
+  }
+
+  // ── Bestehende Sync-Logik (unverändert) ───────────────────────────────────
 
   Future<void> _loadSyncSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -194,7 +272,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-/// Wird aufgerufen wenn der Setup-Screen erfolgreich eine URL
+  // ── Setup-Callback (unverändert) ──────────────────────────────────────────
+
+  /// Wird aufgerufen wenn der Setup-Screen erfolgreich eine URL
   /// konfiguriert hat. Initialisiert die Sync-Services und wechselt
   /// zur normalen App-Ansicht.
   void _onServerConfigured() {
@@ -210,12 +290,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
-      if (!kIsWeb) {
-        _loadSyncSettings().then((_) {
-          _runInitialSync();
-          _startPeriodicSync();
-        });
-      }
+      // ── M-009: Auth-Check nach Server-Setup
+      _checkAuthStatus().then((_) {
+        if (_isLoggedIn && !kIsWeb) {
+          _loadSyncSettings().then((_) {
+            _runInitialSync();
+            _startPeriodicSync();
+          });
+        }
+      });
 
       // Health-Check im Hintergrund
       if (!kIsWeb) {
@@ -238,6 +321,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       setState(() => _needsSetup = false);
     }
   }
+
+  // ── Lifecycle (unverändert) ───────────────────────────────────────────────
 
   @override
   void dispose() {
@@ -276,7 +361,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-@override
+  // ── Build (M-009: Auth-Gate integriert) ───────────────────────────────────
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Elektronik Verwaltung',
@@ -285,16 +372,20 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
       // Eindeutiger Key erzwingt kompletten Navigator-Neuaufbau
-      // beim Wechsel zwischen Setup und Haupt-App
-      key: ValueKey(_needsSetup ? 'setup' : 'app'),
-      home: _needsSetup
-          ? ServerSetupScreen(onConfigured: _onServerConfigured)
-          : _buildHomeWithBackground(),
+      // beim Wechsel zwischen Setup, Login und Haupt-App
+      key: ValueKey(
+        _needsSetup
+            ? 'setup'
+            : _isLoggedIn
+                ? 'app'
+                : 'login',
+      ),
+      home: _buildHome(),
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/settings':
             return MaterialPageRoute(
-              builder: (_) => const SettingsScreen(),
+              builder: (_) => SettingsScreen(onLogout: _onLogout), // ── M-009
             );
           default:
             return MaterialPageRoute(
@@ -303,6 +394,55 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         }
       },
     );
+  }
+
+  /// ── M-009: Entscheidet welcher Screen angezeigt wird.
+  ///
+  /// Priorität:
+  /// 1. Setup-Screen (keine Server-URL konfiguriert)
+  /// 2. Auth-Check Ladebildschirm (Token wird geprüft)
+  /// 3. Login-Screen (nicht eingeloggt)
+  /// 4. Haupt-App (eingeloggt)
+  Widget _buildHome() {
+    // Priorität 1: Server-Setup benötigt
+    if (_needsSetup) {
+      return ServerSetupScreen(onConfigured: _onServerConfigured);
+    }
+
+    // Priorität 2: Auth-Status wird noch geprüft (Auto-Login)
+    if (_isCheckingAuth) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.warehouse_rounded,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 24),
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Authentifizierung wird geprüft…',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Priorität 3: Login erforderlich
+    if (!_isLoggedIn) {
+      return LoginScreen(onLoginSuccess: _onLoginSuccess);
+    }
+
+    // Priorität 4: Normale App
+    return _buildHomeWithBackground();
   }
 
   Widget _buildHomeWithBackground() {
