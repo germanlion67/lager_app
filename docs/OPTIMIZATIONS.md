@@ -84,13 +84,43 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 
 ## 🔴 Priorität: Hoch
 
-### H-002: CORS-Konfiguration
-PocketBase CORS muss für Produktion auf die tatsächliche Domain eingeschränkt werden.
+### H-002: CORS-Konfiguration ✅
 
-**Aufgaben:**
-- PocketBase-Settings: `Access-Control-Allow-Origin` auf `https://lager.deine-domain.de`
-- Testen, ob Web-Frontend und Mobile-App weiterhin funktionieren
-- Dokumentation in `DEPLOYMENT.md` ergänzen
+**Status:** Erledigt
+**Datum:** 2026-03-30
+
+**Umgesetzt:**
+- `CORS_ALLOWED_ORIGINS` Umgebungsvariable wird beim PocketBase-Start als
+  `--origins` Flag übergeben
+- Neues `entrypoint.sh` Script ersetzt inline CMD im Dockerfile
+- Wildcard (`*`) als Default für Entwicklung, strikt für Produktion
+- `docker-compose.prod.yml` erzwingt gesetzte Variable (`:?` Syntax)
+- Portainer Stack an Produktion angeglichen (NPM, expose, CORS)
+- `docker-compose.production.yml` (Traefik) entfernt — NPM ist Standard
+- Validierungs-Warnung bei Wildcard im Container-Log
+- Dokumentation in DEPLOYMENT.md mit Domain-Umzug-Anleitung
+
+**Dateien:**
+| Datei | Änderung |
+|---|---|
+| `server/entrypoint.sh` | NEU — CORS-aware Entrypoint |
+| `server/Dockerfile` | MOD — CMD durch entrypoint.sh, CORS ENV |
+| `docker-compose.yml` | MOD — command-Block entfernt |
+| `docker-compose.production.yml` | GELÖSCHT — Traefik nicht mehr benötigt |
+| Portainer Stack | MOD — NPM, expose, CORS erzwungen |
+| `.env.production` | MOD — POCKETBASE_URL + CORS korrigiert |
+| `.env` | MOD — VERSION aktualisiert |
+| `docs/DEPLOYMENT.md` | MOD — CORS-Abschnitt + Portainer Stack |
+
+**Architektur-Entscheidungen:**
+- CORS nur auf PocketBase-Ebene (nicht doppelt in Nginx)
+- Wildcard-Default im Dockerfile für einfache Entwicklung
+- Produktion erzwingt explizite Origins über `:?` in docker-compose
+- Nginx Proxy Manager als einziger Reverse Proxy (Traefik entfernt)
+- Zwei Subdomains: Frontend + API getrennt
+- Mobile/Desktop Apps nicht betroffen (kein Origin-Header)
+
+--- 
 
 ### M-007: UI für Konfliktlösung
 Der Sync-Prozess erkennt Konflikte, aber die UI zur Auswahl zwischen
@@ -185,11 +215,11 @@ Erfordert Apple Developer Account.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 11 | 11 | 0 |
-| 🔴 Hoch | 3 | 0 | 3 |
+| ✅ Abgeschlossen | 13 | 13 | 0 |
+| 🔴 Hoch | 1 | 0 | 1 |
 | 🟡 Mittel | 7 | 0 | 7 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **25** | **11** | **14** |
+| **Gesamt** | **25** | **13** | **12** |
 
 ---
 
@@ -197,6 +227,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-03-30 | v0.7.3 | H-002 (CORS) abgeschlossen, Traefik-Compose entfernt, Portainer Stack angeglichen |
 | 2026-03-29 | v0.7.2 | M-012 (Attachments) abgeschlossen, M-009 (Login) hinzugefügt |
 | 2026-03-27 | v0.7.1 | H-003 (Backup) abgeschlossen, M-008 hinzugefügt |
 | 2026-03-27 | v0.7.0 | K-004 (Runtime-URL) abgeschlossen |

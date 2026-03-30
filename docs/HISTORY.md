@@ -2,6 +2,47 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+## 🔒 CORS-Konfiguration & Infrastruktur-Bereinigung — v0.7.4 — 30.03.2026
+
+### H-002: CORS-Konfiguration
+
+**Problem:** Die Umgebungsvariable `CORS_ALLOWED_ORIGINS` war in den Docker-Compose-Dateien
+definiert, wurde aber nie an PocketBase übergeben. PocketBase startete ohne `--origins` Flag,
+was bedeutet: alle Origins erlaubt (unsicher für Produktion).
+
+**Lösung:** Neues `entrypoint.sh` Script, das `CORS_ALLOWED_ORIGINS` liest und als
+`--origins` Flag an PocketBase übergibt.
+
+| Modus | Verhalten |
+|---|---|
+| Entwicklung (`*`) | PocketBase startet ohne `--origins` (alles erlaubt) |
+| Produktion (Domain) | PocketBase startet mit `--origins="https://lager.example.com"` |
+
+**Architektur-Entscheidungen:**
+- CORS nur auf PocketBase-Ebene (nicht doppelt in Nginx Proxy Manager)
+- Zwei Subdomains: `lager.domain.de` (Frontend) + `api.domain.de` (API)
+- Domain-Umzug: Nur `.env.production` + DNS + NPM ändern, kein Rebuild nötig
+- Mobile/Desktop Apps nicht betroffen (kein Origin-Header im Browser)
+
+### Infrastruktur-Bereinigung
+
+- `docker-compose.production.yml` (Traefik) **entfernt** — Nginx Proxy Manager ist Standard
+- Portainer Stack an Produktions-Setup angeglichen (NPM, `expose` statt `ports`, CORS erzwungen)
+- `.env.production` korrigiert: öffentliche URL statt Docker-interner URL
+
+**Geänderte Dateien:**
+
+| Datei | Änderung |
+|---|---|
+| `server/entrypoint.sh` | NEU — CORS-aware Entrypoint |
+| `server/Dockerfile` | MOD — CMD durch entrypoint.sh, CORS ENV |
+| `docker-compose.yml` | MOD — command-Block entfernt |
+| `docker-compose.production.yml` | GELÖSCHT |
+| `.env.production` | MOD — POCKETBASE_URL + CORS korrigiert |
+| `docs/DEPLOYMENT.md` | MOD — CORS-Abschnitt + Portainer Stack |
+| `docs/ARCHITECTURE.md` | MOD — Diagramm + Projektstruktur aktualisiert |
+| `docs/OPTIMIZATIONS.md` | MOD — H-002 als erledigt |
+
 ---
 
 ## 📎 Dateianhänge & Artikelnummer-Fix — v0.7.2 — 29.03.2026

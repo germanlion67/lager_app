@@ -2,6 +2,27 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.4+0] - 2026-03-30
+
+### Sicherheit (H-002)
+- **CORS-Konfiguration:** `CORS_ALLOWED_ORIGINS` wird jetzt als `--origins` Flag
+  an PocketBase übergeben
+- Neues `entrypoint.sh` ersetzt inline CMD im Dockerfile
+- Wildcard-Warnung im Container-Log für Entwicklungsumgebungen
+- Produktion erzwingt explizite Origins (Container startet nicht ohne)
+
+### Infrastruktur
+- Portainer Stack an Produktions-Setup angeglichen (NPM, Netzwerk-Isolation)
+- `docker-compose.production.yml` (Traefik) entfernt — Nginx Proxy Manager ist Standard
+- `.env.production` korrigiert: öffentliche URL statt Docker-interner URL
+
+### Dokumentation
+- DEPLOYMENT.md: CORS-Abschnitt mit Regeln, Prüfung und Domain-Umzug-Anleitung
+- DEPLOYMENT.md: Portainer Stack mit NPM und Environment Variables
+- OPTIMIZATIONS.md: H-002 als abgeschlossen markiert
+
+---
+
 ## [0.7.3] — 2026-03-30
 
 ### Added — M-009: Login-Flow & Authentifizierung

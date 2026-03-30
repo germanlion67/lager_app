@@ -5,6 +5,7 @@
 # - Automatic admin user creation on first start
 # - Automatic migration application
 # - Configuration via environment variables
+# - CORS configuration via CORS_ALLOWED_ORIGINS env var (H-002)
 # ============================================================
 
 # Pinned base image for reproducibility
@@ -27,6 +28,10 @@ RUN wget https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBAS
 COPY init-pocketbase.sh /pb/init-pocketbase.sh
 RUN chmod +x /pb/init-pocketbase.sh
 
+# H-002: Copy CORS-aware entrypoint script
+COPY entrypoint.sh /pb/entrypoint.sh
+RUN chmod +x /pb/entrypoint.sh
+
 # Create directories
 RUN mkdir -p /pb_data /pb_public /pb_migrations
 
@@ -39,6 +44,9 @@ ENV PB_MIGRATIONS_DIR=/pb_migrations
 ENV PB_ADMIN_EMAIL=admin@example.com
 ENV PB_ADMIN_PASSWORD=changeme123
 
+# H-002: CORS — Wildcard für Entwicklung, strikt für Produktion
+ENV CORS_ALLOWED_ORIGINS="*"
+
 # Expose port
 EXPOSE 8080
 
@@ -46,9 +54,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=10s --timeout=5s --retries=5 --start-period=10s \
     CMD wget --spider -q http://localhost:8080/api/health || exit 1
 
-# Entrypoint script that runs initialization in background, then starts PocketBase
-CMD sh -c '/pb/pocketbase serve --http=0.0.0.0:8080 --dir=/pb_data & \
-    PB_PID=$! && \
-    sleep 3 && \
-    /pb/init-pocketbase.sh && \
-    wait $PB_PID'
+# H-002: Entrypoint mit CORS-Konfiguration
+CMD ["/pb/entrypoint.sh"]

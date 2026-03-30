@@ -25,15 +25,13 @@ services:
   # - Automatische Admin-User-Erstellung beim ersten Start
   # - Automatische Migration-Anwendung
   # - Konfiguration über Umgebungsvariablen
+  # - CORS-Konfiguration über CORS_ALLOWED_ORIGINS (H-002)
   # ============================================================
   pocketbase:
     build:
       context: ./server
       dockerfile: Dockerfile
-    command:
-      - sh
-      - -c
-      - '/pb/pocketbase serve --http=0.0.0.0:8080 --dir=/pb_data & PB_PID=$$! && sleep 3 && /pb/init-pocketbase.sh && wait $$PB_PID'
+    # H-002: command entfernt — nutzt CMD aus Dockerfile (entrypoint.sh)
     container_name: pocketbase
     restart: unless-stopped
     ports:
@@ -49,7 +47,7 @@ services:
       - PB_MIGRATIONS_DIR=/pb_migrations
       - PB_FORCE_SUPERUSER_UPSERT=${PB_FORCE_SUPERUSER_UPSERT:-0}
       - PB_DEV_MODE=${PB_DEV_MODE:-1}
-      # CORS-Konfiguration: Erlaubte Origins (komma-getrennt)
+      # H-002: CORS-Konfiguration
       # Dev/Test: * erlaubt alle Origins (praktisch für Entwicklung)
       # Produktion: Spezifische Domains angeben (siehe .env.production.example)
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
@@ -61,8 +59,8 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 10s
       timeout: 5s
-      retries: 30          # ← erhöht: PocketBase braucht beim ersten Start länger
-      start_period: 60s   # ← erhöht: gibt PocketBase Zeit zum initialisieren
+      retries: 30
+      start_period: 60s
     networks:
       - lager_network
 

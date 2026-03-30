@@ -167,6 +167,83 @@ Das System nutzt mehrere Sicherheitsschichten:
 - **CORS:** PocketBase erlaubt in Produktion nur Zugriffe von deiner konfigurierten Domain
 - **Reproducible Builds:** Alle Docker-Images basieren auf fixierten Versionen (`Alpine 3.19.1`, Debian Bookworm), um Build-Drift zu verhindern
 
+
+## 🌐 CORS-Konfiguration (H-002)
+
+### Was ist CORS?
+
+CORS (Cross-Origin Resource Sharing) kontrolliert, welche Websites auf die
+PocketBase-API zugreifen dürfen. Ohne CORS-Einschränkung könnte jede beliebige
+Website API-Requests an deinen Server senden.
+
+### Konfiguration
+
+CORS wird über die Umgebungsvariable `CORS_ALLOWED_ORIGINS` in `.env.production` gesteuert:
+
+```bash
+# Einzelne Domain (Standard)
+CORS_ALLOWED_ORIGINS=https://lager.germanlion67.de
+
+# Mehrere Domains (komma-getrennt, KEINE Leerzeichen!)
+CORS_ALLOWED_ORIGINS=https://lager.germanlion67.de,https://admin.germanlion67.de
+
+# Mit lokaler Entwicklung
+CORS_ALLOWED_ORIGINS=https://lager.germanlion67.de,http://localhost:8081
+```
+
+### Regeln
+
+| Regel | Beschreibung |
+|---|---|
+| Kein Trailing-Slash | ✅ `https://example.com` — ❌ `https://example.com/` |
+| Kein Wildcard in Prod | ❌ `*` ist nur für Entwicklung erlaubt |
+| Kein Leerzeichen | ❌ `https://a.com, https://b.com` |
+| Mit Protokoll | ✅ `https://example.com` — ❌ `example.com` |
+
+### Was braucht CORS?
+
+| Client | CORS nötig? | Warum |
+|---|---|---|
+| Web-Frontend (Browser) | ✅ Ja | Browser erzwingt CORS |
+| Android App | ❌ Nein | Kein Origin-Header |
+| iOS App | ❌ Nein | Kein Origin-Header |
+| Desktop App | ❌ Nein | Kein Origin-Header |
+| curl / Postman | ❌ Nein | Kein Browser |
+
+### Domain-Umzug
+
+Bei einem Domain-Umzug:
+
+1. `.env.production` anpassen:
+   ```bash
+   POCKETBASE_URL=https://api.neue-domain.de
+   CORS_ALLOWED_ORIGINS=https://lager.neue-domain.de
+   ```
+2. Container neu starten:
+   ```bash
+   docker compose -f docker-compose.prod.yml restart pocketbase app
+   ```
+3. DNS: Neue A-Records anlegen
+4. Nginx Proxy Manager: Neue Proxy Hosts anlegen
+
+> 💡 **Übergangsphase:** Beide Domains gleichzeitig erlauben:
+> ```bash
+> CORS_ALLOWED_ORIGINS=https://lager.alte-domain.de,https://lager.neue-domain.de
+> ```
+
+### Überprüfung
+
+```bash
+# Erlaubte Origin testen
+curl -I -H "Origin: https://lager.germanlion67.de" \
+  https://api.germanlion67.de/api/health
+# → Access-Control-Allow-Origin: https://lager.germanlion67.de
+
+# Unerlaubte Origin testen
+curl -I -H "Origin: https://boese-seite.de" \
+  https://api.germanlion67.de/api/health
+# → Kein Access-Control-Allow-Origin Header
+```
 ---
 
 ## 💾 Backup & Wiederherstellung
@@ -344,5 +421,185 @@ Die Collection `attachments` speichert Dateianhänge pro Artikel.
 - Max **10 MB** pro Datei
 
 ---
+## 🐳 Portainer Stack Deployment
+
+### Voraussetzungen
+
+- Portainer installiert und erreichbar
+- Nginx Proxy Manager installiert und erreichbar
+- DNS-Einträge für beide Subdomains gesetzt:
+  - `lager.germanlion67.de` → Server-IP
+  - `api.germanlion67.de` → Server-IP
+
+### Stack YAML
+
+In Portainer unter **Stacks → Add stack** folgendes YAML einfügen:
+
+````yaml
+# ============================================================
+# Lager App - Portainer Stack (Produktion)
+#
+# Architektur:
+#   Internet → Nginx Proxy Manager (:80/:443)
+#                ├── lager.domain.de    → lager_frontend:8081
+#                └── api.domain.de      → pocketbase:8080
+#
+# Erforderliche Environment Variables:
+#   PB_ADMIN_EMAIL          Admin E-Mail für PocketBase
+#   PB_ADMIN_PASSWORD       Admin Passwort (sicher wählen!)
+#   POCKETBASE_URL          Öffentliche API-URL (z.B. https://api.deine-domain.de)
+#   CORS_ALLOWED_ORIGINS    Frontend-Domain (z.B. https://lager.deine-domain.de)
+# ============================================================
+
+services:
+
+  # ============================================================
+  # Nginx Proxy Manager
+  # Einziger Service mit öffentlichen Ports
+  # Admin UI: http://SERVER-IP:81 (nur lokal/VPN!)
+  # ============================================================
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx_proxy_manager
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:81:81"
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:81/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+      app:
+        condition: service_healthy
+    networks:
+      - lager_network
+
+  # ============================================================
+  # PocketBase Backend
+  # Nur intern erreichbar (expose, keine ports)
+  # CORS wird über CORS_ALLOWED_ORIGINS gesteuert (H-002)
+  # ============================================================
+  pocketbase:
+    image: ghcr.io/germanlion67/lager_app_pocketbase:latest
+    container_name: lager_pocketbase
+    restart: unless-stopped
+    expose:
+      - "8080"
+    environment:
+      - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-admin@example.com}
+      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD}
+      - PB_DATA_DIR=/pb_data
+      - PB_MIGRATIONS_DIR=/pb_migrations
+      - PB_DEV_MODE=0
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS muss gesetzt sein!}
+    volumes:
+      - pb_data:/pb_data
+      - pb_public:/pb_public
+      - pb_backups:/pb_backups
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - lager_network
+
+  # ============================================================
+  # Flutter Web Frontend
+  # Nur intern erreichbar (expose, keine ports)
+  # POCKETBASE_URL muss die öffentliche API-URL sein!
+  # ============================================================
+  app:
+    image: ghcr.io/germanlion67/lager_app_web:latest
+    container_name: lager_frontend
+    restart: unless-stopped
+    expose:
+      - "8081"
+    environment:
+      - POCKETBASE_URL=${POCKETBASE_URL:?POCKETBASE_URL muss gesetzt sein!}
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - lager_network
+
+  # ============================================================
+  # Backup Service
+  # Automatisierte tägliche Backups mit Rotation
+  # ============================================================
+  backup:
+    image: ghcr.io/germanlion67/lager_app_backup:latest
+    container_name: lager_backup
+    restart: unless-stopped
+    environment:
+      - BACKUP_ENABLED=${BACKUP_ENABLED:-true}
+      - BACKUP_CRON=${BACKUP_CRON:-0 3 * * *}
+      - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-7}
+      - BACKUP_NOTIFY=${BACKUP_NOTIFY:-none}
+      - TZ=${TZ:-Europe/Berlin}
+    volumes:
+      - pb_data:/pb_data:ro
+      - pb_backups:/pb_backups
+    depends_on:
+      pocketbase:
+        condition: service_healthy
+    networks:
+      - lager_network
+
+volumes:
+  npm_data:
+  npm_letsencrypt:
+  pb_data:
+  pb_public:
+  pb_backups:
+
+networks:
+  lager_network:
+    driver: bridge
+````
+
+### Environment Variables in Portainer
+
+Beim Stack-Deployment in Portainer unter **Environment variables** setzen:
+
+| Variable | Wert | Pflicht |
+|---|---|---|
+| `PB_ADMIN_EMAIL` | `admin@germanlion67.de` | ✅ |
+| `PB_ADMIN_PASSWORD` | `SicheresPasswort123!` | ✅ |
+| `POCKETBASE_URL` | `https://api.germanlion67.de` | ✅ |
+| `CORS_ALLOWED_ORIGINS` | `https://lager.germanlion67.de` | ✅ |
+| `BACKUP_ENABLED` | `true` | Optional |
+| `BACKUP_CRON` | `0 3 * * *` | Optional |
+| `BACKUP_KEEP_DAYS` | `7` | Optional |
+| `TZ` | `Europe/Berlin` | Optional |
+
+### Nginx Proxy Manager einrichten
+
+Nach dem ersten Start NPM Admin UI öffnen (`http://SERVER-IP:81`):
+
+1. **Erstlogin:** `admin@example.com` / `changeme`
+2. **Proxy Host 1:** `lager.germanlion67.de` → `lager_frontend:8081` → SSL ✅
+3. **Proxy Host 2:** `api.germanlion67.de` → `lager_pocketbase:8080` → SSL ✅
+
+> ⚠️ **Wichtig:** Bei den Proxy Hosts als Hostname den **Container-Namen** verwenden
+> (z.B. `lager_pocketbase`), nicht `localhost`!
+
+--- 
 
 [Zurück zur README](README.md) | [Zu den Installationsdetails](INSTALL.md)

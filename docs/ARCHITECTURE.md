@@ -12,31 +12,32 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
                         │
 ┌───────────────────────▼────────────────────────────────────────┐
 │                 Nginx Proxy Manager                            │
-│  ┌──────────────────────────────────────────────────────┐     │
-│  │ • SSL Termination (Let's Encrypt)                    │     │
-│  │ • Reverse Proxy                                      │     │
-│  │ • Security Headers                                   │     │
-│  │ • Rate Limiting                                      │     │
-│  └──────────────────────────────────────────────────────┘     │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │ • SSL Termination (Let's Encrypt)                    │      │
+│  │ • Reverse Proxy                                      │      │
+│  │ • Security Headers                                   │      │
+│  │ • Rate Limiting (kommt mit H-003)                    │      │
+│  └──────────────────────────────────────────────────────┘      │
 └────────┬────────────────────────────┬──────────────────────────┘
          │                            │
          │ :8081                      │ :8080
          │ (internal)                 │ (internal)
-┌────────▼──────────────┐   ┌────────▼──────────────────────────┐
-│  Flutter Web Frontend │   │  PocketBase Backend               │
-│  ┌─────────────────┐  │   │  ┌─────────────────────────────┐  │
-│  │ Caddy Server    │  │   │  │ • REST API                  │  │
-│  │ • Static Files  │  │   │  │ • Admin UI                  │  │
-│  │ • SPA Routing   │  │   │  │ • File Storage              │  │
-│  └─────────────────┘  │   │  │ • Real-time Subscriptions   │  │
-└───────────────────────┘   │  └─────────────────────────────┘  │
-                            │  ┌─────────────────────────────┐  │
-                            │  │ Auto-Initialization         │  │
-                            │  │ • Create Admin User         │  │
-                            │  │ • Apply Migrations          │  │
-                            │  │ • Setup Collections         │  │
-                            │  └─────────────────────────────┘  │
-                            └───┬────────────────────────────────┘
+┌────────▼──────────────┐   ┌────────▼────────────────────────────┐
+│  Flutter Web Frontend │   │  PocketBase Backend                 │
+│  ┌─────────────────┐  │   │  ┌───────────────────────────────┐  │
+│  │ Caddy Server    │  │   │  │ • REST API                    │  │
+│  │ • Static Files  │  │   │  │ • Admin UI                    │  │
+│  │ • SPA Routing   │  │   │  │ • File Storage                │  │
+│  └─────────────────┘  │   │  │ • Real-time Subscriptions     │  │
+│                       │   |  | • CORS (--origins Flag, H-002)│  │
+└───────────────────────┘   │  └───────────────────────────────┘  │
+                            │  ┌───────────────────────────────┐  │
+                            │  │ Auto-Initialization           │  │
+                            │  │ • Create Admin User           │  │
+                            │  │ • Apply Migrations            │  │
+                            │  │ • Setup Collections           │  │
+                            │  └───────────────────────────────┘  │
+                            └───┬─────────────────────────────────┘
                                 │
                         ┌───────▼───────┐
                         │  Volumes      │
@@ -128,10 +129,9 @@ lager_app/
 ├── windows/                          # Root-Level Windows Wrapper
 ├── .github/                          # GitHub Actions & CI/CD Workflows
 ├── docker-compose.yml                # Entwicklungs-Setup
-├── docker-compose.prod.yml           # Produktions-Setup (empfohlen)
-├── docker-compose.production.yml     # Alternatives Produktions-Setup
+├── docker-compose.prod.yml           # Produktions-Setup (NPM)
 ├── docker-stack.yml                  # Docker Swarm Stack-Definition
-├── portainer-stack.yml               # Portainer Stack-Definition
+├── portainer-stack.yml               # Portainer Stack (mit NPM, Produktion)
 ├── test-deployment.sh                # Deployment-Testskript
 ├── CHANGELOG.md                      # Versionshistorie
 ├── DEPLOYMENT.md                     # Produktions-Setup & SSL-Anleitung
