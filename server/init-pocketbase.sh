@@ -68,6 +68,7 @@ fi
 # ============================================================
 # Test-User erstellen (optional, nur Entwicklung!)
 # Wird über die PocketBase API erstellt (nicht superuser CLI)
+# PocketBase v0.23+: Superuser-Auth über _superusers Collection
 # ============================================================
 if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; then
   if [ -z "$PB_TEST_USER_EMAIL" ] || [ -z "$PB_TEST_USER_PASSWORD" ]; then
@@ -77,34 +78,42 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
     echo ""
     echo "Creating test user: $PB_TEST_USER_EMAIL ..."
 
-    # Auth-Token vom Admin holen
-    AUTH_RESPONSE=$(wget -qO- --post-data "{\"identity\":\"$PB_ADMIN_EMAIL\",\"password\":\"$PB_ADMIN_PASSWORD\"}" \
+    # Auth-Token vom Superuser holen (PocketBase v0.23+)
+    echo "  Authenticating as superuser..."
+    AUTH_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"identity\":\"$PB_ADMIN_EMAIL\",\"password\":\"$PB_ADMIN_PASSWORD\"}" \
       --header="Content-Type: application/json" \
-      "http://localhost:8080/api/admins/auth-with-password" 2>/dev/null || echo "")
+      "http://localhost:8080/api/collections/_superusers/auth-with-password" 2>/dev/null || echo "")
 
     if [ -z "$AUTH_RESPONSE" ]; then
-      echo "  ⚠️  Could not authenticate as admin. Skipping test user creation."
+      echo "  ⚠️  Could not authenticate as superuser."
+      echo "  Skipping test user creation."
     else
       ADMIN_TOKEN=$(echo "$AUTH_RESPONSE" | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)
 
       if [ -z "$ADMIN_TOKEN" ]; then
-        echo "  ⚠️  Could not extract admin token. Skipping test user creation."
+        echo "  ⚠️  Could not extract admin token. Response:"
+        echo "  $AUTH_RESPONSE"
+        echo "  Skipping test user creation."
       else
+        echo "  ✅ Admin authenticated successfully."
+
         # User über die users Collection erstellen
-        CREATE_RESPONSE=$(wget -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\"}" \
+        CREATE_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\"}" \
           --header="Content-Type: application/json" \
           --header="Authorization: Bearer $ADMIN_TOKEN" \
           "http://localhost:8080/api/collections/users/records" 2>/dev/null || echo "")
 
         if echo "$CREATE_RESPONSE" | grep -q '"id"'; then
-          echo "  ✅ Test user created successfully."
+          echo "  ✅ Test user created successfully: $PB_TEST_USER_EMAIL"
           touch "$TESTUSER_MARKER_FILE"
           echo "  Marker written."
-        elif echo "$CREATE_RESPONSE" | grep -q '"email".*"already exists"'; then
+        elif echo "$CREATE_RESPONSE" | grep -qi 'not_unique\|already exists\|UNIQUE constraint'; then
           echo "  ℹ️  Test user already exists. Skipping."
           touch "$TESTUSER_MARKER_FILE"
+          echo "  Marker written."
         else
-          echo "  ⚠️  Could not create test user. Response: $CREATE_RESPONSE"
+          echo "  ⚠️  Could not create test user. Response:"
+          echo "  $CREATE_RESPONSE"
           echo "  This is non-fatal. The app will still work."
         fi
       fi
