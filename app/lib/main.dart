@@ -110,6 +110,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isCheckingAuth = true;
   bool _isLoggedIn = false;
 
+  /// ── Dev-Mode: Login überspringen wenn PB_DEV_MODE=1
+  /// Wird über --dart-define=PB_DEV_MODE=1 gesetzt.
+  /// In Produktion ist der Default 0 (Login erforderlich).
+  final bool _devMode = const String.fromEnvironment(
+    'PB_DEV_MODE',
+    defaultValue: '0',
+  ) == '1';
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +128,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     _db = ArtikelDbService();
 
+    // Dev-Mode Hinweis im Log
+    if (_devMode) {
+      _log.w('[Main] ⚠️ DEV-MODE aktiv (PB_DEV_MODE=1) — Login wird übersprungen!');
+    }
+
     // Sync-Services nur initialisieren wenn ein Client vorhanden ist
     if (_pbService.hasClient) {
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
@@ -127,7 +140,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       // ── M-009: Auth-Status prüfen bevor Sync gestartet wird
       _checkAuthStatus().then((_) {
-        if (_isLoggedIn && !kIsWeb) {
+        if ((_isLoggedIn || _devMode) && !kIsWeb) {
           _loadSyncSettings().then((_) {
             _runInitialSync();
             _startPeriodicSync();
@@ -149,7 +162,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   /// Prüft beim App-Start ob ein gültiger Token vorhanden ist
   /// und versucht ihn zu erneuern (Auto-Login).
+  ///
+  /// Im Dev-Mode (PB_DEV_MODE=1) wird der Auth-Check übersprungen
+  /// und der Login-Screen nicht angezeigt.
   Future<void> _checkAuthStatus() async {
+    // Dev-Mode: Auth-Check komplett überspringen
+    if (_devMode) {
+      _log.w('[Auth] ⚠️ DEV-MODE: Login übersprungen (PB_DEV_MODE=1)');
+      if (mounted) {
+        setState(() {
+          _isLoggedIn = false; // bleibt false, aber _devMode überspringt Login-Screen
+          _isCheckingAuth = false;
+        });
+      }
+      return;
+    }
+
     if (!_pbService.hasClient) {
       if (mounted) {
         setState(() {
@@ -292,7 +320,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
       // ── M-009: Auth-Check nach Server-Setup
       _checkAuthStatus().then((_) {
-        if (_isLoggedIn && !kIsWeb) {
+        if ((_isLoggedIn || _devMode) && !kIsWeb) {
           _loadSyncSettings().then((_) {
             _runInitialSync();
             _startPeriodicSync();
@@ -361,7 +389,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  // ── Build (M-009: Auth-Gate integriert) ───────────────────────────────────
+  // ── Build (M-009: Auth-Gate integriert + Dev-Mode) ────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -376,7 +404,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       key: ValueKey(
         _needsSetup
             ? 'setup'
-            : _isLoggedIn
+            : (_isLoggedIn || _devMode)
                 ? 'app'
                 : 'login',
       ),
@@ -400,9 +428,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   ///
   /// Priorität:
   /// 1. Setup-Screen (keine Server-URL konfiguriert)
-  /// 2. Auth-Check Ladebildschirm (Token wird geprüft)
-  /// 3. Login-Screen (nicht eingeloggt)
-  /// 4. Haupt-App (eingeloggt)
+  /// 2. Auth-Check Ladebildschirm (Token wird geprüft, nicht im Dev-Mode)
+  /// 3. Login-Screen (nicht eingeloggt UND nicht im Dev-Mode)
+  /// 4. Haupt-App (eingeloggt ODER Dev-Mode)
   Widget _buildHome() {
     // Priorität 1: Server-Setup benötigt
     if (_needsSetup) {
@@ -410,6 +438,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
 
     // Priorität 2: Auth-Status wird noch geprüft (Auto-Login)
+    // Im Dev-Mode wird dieser Schritt übersprungen (_isCheckingAuth = false)
     if (_isCheckingAuth) {
       return Scaffold(
         body: Center(
@@ -436,12 +465,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     }
 
-    // Priorität 3: Login erforderlich
-    if (!_isLoggedIn) {
+    // Priorität 3: Login erforderlich (im Dev-Mode übersprungen)
+    if (!_isLoggedIn && !_devMode) {
       return LoginScreen(onLoginSuccess: _onLoginSuccess);
     }
 
-    // Priorität 4: Normale App
+    // Priorität 4: Normale App (eingeloggt oder Dev-Mode)
     return _buildHomeWithBackground();
   }
 

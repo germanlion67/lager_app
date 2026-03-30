@@ -11,10 +11,21 @@ PB_MIGRATIONS_DIR="${PB_MIGRATIONS_DIR:-/pb_migrations}"
 PB_FORCE_SUPERUSER_UPSERT="${PB_FORCE_SUPERUSER_UPSERT:-0}"
 SUPERUSER_MARKER_FILE="${PB_DATA_DIR}/.superuser_initialized"
 
+# Test-User Konfiguration (optional)
+PB_TEST_USER_EMAIL="${PB_TEST_USER_EMAIL:-}"
+PB_TEST_USER_PASSWORD="${PB_TEST_USER_PASSWORD:-}"
+PB_TEST_USER_ENABLED="${PB_TEST_USER_ENABLED:-0}"
+TESTUSER_MARKER_FILE="${PB_DATA_DIR}/.testuser_initialized"
+
 echo "Data directory: $PB_DATA_DIR"
 echo "Migrations directory: $PB_MIGRATIONS_DIR"
 echo "Force superuser upsert: $PB_FORCE_SUPERUSER_UPSERT"
 echo "Marker file: $SUPERUSER_MARKER_FILE"
+if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; then
+  echo "Test-User: $PB_TEST_USER_EMAIL (enabled)"
+else
+  echo "Test-User: disabled"
+fi
 
 # Wait for PocketBase API to be ready
 MAX_RETRIES="${PB_READY_MAX_RETRIES:-30}"
@@ -52,6 +63,59 @@ else
   else
     echo "Skipping superuser upsert (set PB_FORCE_SUPERUSER_UPSERT=1 to force)."
   fi
+fi
+
+# ============================================================
+# Test-User erstellen (optional, nur Entwicklung!)
+# Wird über die PocketBase API erstellt (nicht superuser CLI)
+# ============================================================
+if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; then
+  if [ -z "$PB_TEST_USER_EMAIL" ] || [ -z "$PB_TEST_USER_PASSWORD" ]; then
+    echo ""
+    echo "⚠️  WARNING: PB_TEST_USER_ENABLED=1 but email or password is empty. Skipping."
+  elif [ ! -f "$TESTUSER_MARKER_FILE" ]; then
+    echo ""
+    echo "Creating test user: $PB_TEST_USER_EMAIL ..."
+
+    # Auth-Token vom Admin holen
+    AUTH_RESPONSE=$(wget -qO- --post-data "{\"identity\":\"$PB_ADMIN_EMAIL\",\"password\":\"$PB_ADMIN_PASSWORD\"}" \
+      --header="Content-Type: application/json" \
+      "http://localhost:8080/api/admins/auth-with-password" 2>/dev/null || echo "")
+
+    if [ -z "$AUTH_RESPONSE" ]; then
+      echo "  ⚠️  Could not authenticate as admin. Skipping test user creation."
+    else
+      ADMIN_TOKEN=$(echo "$AUTH_RESPONSE" | grep -o '"token":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+      if [ -z "$ADMIN_TOKEN" ]; then
+        echo "  ⚠️  Could not extract admin token. Skipping test user creation."
+      else
+        # User über die users Collection erstellen
+        CREATE_RESPONSE=$(wget -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\"}" \
+          --header="Content-Type: application/json" \
+          --header="Authorization: Bearer $ADMIN_TOKEN" \
+          "http://localhost:8080/api/collections/users/records" 2>/dev/null || echo "")
+
+        if echo "$CREATE_RESPONSE" | grep -q '"id"'; then
+          echo "  ✅ Test user created successfully."
+          touch "$TESTUSER_MARKER_FILE"
+          echo "  Marker written."
+        elif echo "$CREATE_RESPONSE" | grep -q '"email".*"already exists"'; then
+          echo "  ℹ️  Test user already exists. Skipping."
+          touch "$TESTUSER_MARKER_FILE"
+        else
+          echo "  ⚠️  Could not create test user. Response: $CREATE_RESPONSE"
+          echo "  This is non-fatal. The app will still work."
+        fi
+      fi
+    fi
+  else
+    echo ""
+    echo "Test-User marker exists -> skipping creation."
+  fi
+else
+  echo ""
+  echo "Test-User creation disabled (set PB_TEST_USER_ENABLED=1 to enable)."
 fi
 
 # Copy migrations best-effort

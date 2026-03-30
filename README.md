@@ -48,6 +48,15 @@ docker compose up -d --build
 - **Web-App:** `http://localhost:8081`
 - **PocketBase Admin:** `http://localhost:8080/_/`
 
+**Standard-Zugangsdaten (nur Entwicklung!):**
+
+| Zugang | E-Mail | Passwort |
+|---|---|---|
+| PocketBase Admin | `admin@example.com` | `changeme123` |
+| App Test-User | `user@lager.app` | `changeme123` |
+
+> ⚠️ **Sicherheitshinweis:** Diese Zugangsdaten sind nur für die lokale Entwicklung gedacht.
+> Ändere sie **sofort** in Produktionsumgebungen! Siehe [DEPLOYMENT.md](DEPLOYMENT.md).
 ---
 
 ## 🛠️ Schnellstart (Flutter nativ)

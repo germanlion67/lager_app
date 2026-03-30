@@ -81,9 +81,9 @@ cd app
 flutter pub get
 ```
 
-# === Variante A: Ohne --dart-define (Setup-Screen beim ersten Start) ===
+## === Variante A: Ohne --dart-define (Setup-Screen beim ersten Start) ===
 
-# Web (Chrome)
+### Web (Chrome)
 
 ```bash
 flutter run -d chrome
@@ -103,27 +103,40 @@ flutter run -d chrome
 >
 > Siehe [DEV_SETUP.md](DEV_SETUP.md) für Details.
 
-# Linux Desktop
+### Linux Desktop
+```bash
 flutter run -d linux
+```
 
-# Windows Desktop
+### Windows Desktop
+```bash
 flutter run -d windows
+```
 
-# Mobile (Android)
+### Mobile (Android)
+```bash
 flutter run
+```
 
-# === Variante B: Mit --dart-define (URL vorkonfiguriert) ===
+## === Variante B: Mit --dart-define (URL vorkonfiguriert) ===
 
-# Web (Chrome)
+### Web (Chrome)
+```bash
 flutter run -d chrome --dart-define=POCKETBASE_URL=http://localhost:8080
+```
 
-# Linux Desktop
+### Linux Desktop
+```bash
 flutter run -d linux --dart-define=POCKETBASE_URL=http://localhost:8080
+```
 
-# Windows Desktop
+### Windows Desktop
+```bash
 flutter run -d windows --dart-define=POCKETBASE_URL=http://localhost:8080
+```
 
-# Mobile (Android) — Ersetze <IP> durch die IP deines Rechners
+### Mobile (Android) — Ersetze <IP> durch die IP deines Rechners
+```bash
 flutter run --dart-define=POCKETBASE_URL=http://<IP>:8080
 ```
 
