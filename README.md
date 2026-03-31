@@ -99,26 +99,26 @@ flutter run --dart-define=POCKETBASE_URL=http://localhost:8080
 Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 
 ### ⚙️ Einrichtung & Betrieb
-- 🖥️ **[DEV_SETUP.md](DEV_SETUP.md):** Entwicklungsumgebung (WSL2, bekannte Probleme)
+- 🖥️ **[DEV_SETUP.md](docs/DEV_SETUP.md):** Entwicklungsumgebung (WSL2, bekannte Probleme)
 - 📘 **[INSTALL.md](INSTALL.md):** Detaillierte Installationsanleitung für alle Plattformen
 - 🚀 **[DEPLOYMENT.md](DEPLOYMENT.md):** Produktions-Setup, Nginx Proxy Manager & SSL
 - 💾 **[BACKUP.md](BACKUP.md):** Sicherungsverfahren und Wiederherstellung
 
 ### 🏗️ Entwicklung & Architektur
-- 📐 **[ARCHITECTURE.md](ARCHITECTURE.md):** Projektstruktur, Datenmodell und Design-Entscheidungen
-- 🗄️ **[DATABASE.md](DATABASE.md):** Datenbank-Design, Sync-Logik, Bild- und Dokumenten-Synchronisation
-- 🎨 **[THEMING.md](THEMING.md):** Infos zu AppConfig, AppTheme und Design-Tokens
-- 📝 **[LOGGING.md](LOGGING.md):** Details zum integrierten Logging-System
+- 📐 **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** Projektstruktur, Datenmodell und Design-Entscheidungen
+- 🗄️ **[DATABASE.md](docs/DATABASE.md):** Datenbank-Design, Sync-Logik, Bild- und Dokumenten-Synchronisation
+- 🎨 **[THEMING.md](docs/THEMING.md):** Infos zu AppConfig, AppTheme und Design-Tokens
+- 📝 **[LOGGING.md](docs/LOGGING.md):** Details zum integrierten Logging-System
 
 ### 📈 Projektstatus
-- ✅ **[CHECKLIST.md](CHECKLIST.md):** Aktueller Stand der Implementierung
-- 🛠️ **[OPTIMIZATIONS.md](OPTIMIZATIONS.md):** Offene Punkte und manuelle Feinschliff-Tasks
+- ✅ **[CHECKLIST.md](docs/CHECKLIST.md):** Aktueller Stand der Implementierung
+- 🛠️ **[OPTIMIZATIONS.md](docs/OPTIMIZATIONS.md):** Offene Punkte und manuelle Feinschliff-Tasks
 
 ### 🤝 Mitwirken & Support
 Informationen zu Code-Styles, Pull Requests und Lizenzierung findest du hier:
 
 - 📜 **[CHANGELOG.md](CHANGELOG.md):** Versionshistorie
-- 📜 **[HISTORY.md](HISTORY.md):** Projekthistorie und Meilensteine
+- 📜 **[HISTORY.md](docs/HISTORY.md):** Projekthistorie und Meilensteine
 - ⚖️ **[LICENSE](LICENSE):** MIT-Lizenz
 
 ---
