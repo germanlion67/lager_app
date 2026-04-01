@@ -7,9 +7,14 @@
 // - Light Theme (hell)
 // - Dark Theme (dunkel)
 // - Gemeinsame Theme-Eigenschaften
+//
+// O-004 Batch 2: Hardcodierte Spacing/Radius/Font-Size-Werte in
+// Component-Themes durch AppConfig-Tokens ersetzt.
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import 'app_config.dart';
 
 class AppTheme {
   AppTheme._();
@@ -106,7 +111,10 @@ class AppTheme {
       inputDecorationTheme: const InputDecorationTheme(
         labelStyle: TextStyle(color: textFarbeHell),
         border: OutlineInputBorder(),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppConfig.spacingLarge,
+          vertical: AppConfig.spacingMedium,
+        ),
       ),
 
       // AppBar
@@ -116,7 +124,7 @@ class AppTheme {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
         titleTextStyle: GoogleFonts.roboto(
-          fontSize: 20,
+          fontSize: AppConfig.fontSizeXXLarge,
           fontWeight: FontWeight.w500,
           color: colorScheme.onPrimary,
         ),
@@ -126,7 +134,9 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(
+            AppConfig.cardBorderRadiusLarge,
+          ),
         ),
       ),
 
@@ -138,7 +148,7 @@ class AppTheme {
 
       // List Tiles
       listTileTheme: ListTileThemeData(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: AppConfig.listTilePadding,
         tileColor: Colors.transparent,
         selectedColor: colorScheme.primary,
       ),
@@ -170,7 +180,10 @@ class AppTheme {
       inputDecorationTheme: const InputDecorationTheme(
         labelStyle: TextStyle(color: textFarbeDunkel),
         border: OutlineInputBorder(),
-        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: AppConfig.spacingLarge,
+          vertical: AppConfig.spacingMedium,
+        ),
       ),
 
       // AppBar
@@ -180,7 +193,7 @@ class AppTheme {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
         titleTextStyle: GoogleFonts.roboto(
-          fontSize: 20,
+          fontSize: AppConfig.fontSizeXXLarge,
           fontWeight: FontWeight.w500,
           color: colorScheme.onPrimary,
         ),
@@ -190,7 +203,9 @@ class AppTheme {
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(
+            AppConfig.cardBorderRadiusLarge,
+          ),
         ),
       ),
 
@@ -202,7 +217,7 @@ class AppTheme {
 
       // List Tiles
       listTileTheme: ListTileThemeData(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        contentPadding: AppConfig.listTilePadding,
         tileColor: Colors.transparent,
         selectedColor: colorScheme.primary,
       ),

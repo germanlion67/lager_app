@@ -238,4 +238,11 @@ class AppConfig {
 
   /// Stärkere Transparenz für Progress-Hintergründe, Borders.
   static const double opacityMedium = 0.3;
+
+  /// Breite des Label-Bereichs in kompakten Detail-Zeilen
+  /// (z.B. Conflict-Resolution Version-Cards). Schmaler als infoLabelWidth.
+  static const double infoLabelWidthSmall = 80.0;
+
+  /// Vertikale Padding-Höhe für Buttons mit mehr Gewicht (12.0).
+  static const double buttonPaddingVertical = 12.0;
 }

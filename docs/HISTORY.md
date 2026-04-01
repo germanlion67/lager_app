@@ -2,6 +2,33 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### v0.7.4+4 — 2026-04-01 — O-004 Batch 2: Sync-Cluster migriert
+
+**Kontext:** Fortsetzung der systematischen Migration hardcodierter UI-Werte
+zum Design-System. Batch 2 fokussiert auf alle Sync-bezogenen Dateien.
+
+**Umfang:**
+- 193 Hardcodes in 4 Dateien eliminiert (Farben, Spacing, Radien, Font-Sizes)
+- `app_theme.dart` — Component-Themes nutzen jetzt AppConfig-Tokens
+- `conflict_resolution_screen.dart` — Größte Einzeldatei (82 Hardcodes)
+- `sync_error_widgets.dart` — Severity-Farben über colorScheme
+- `sync_management_screen.dart` — AppBar und Buttons standardisiert
+
+**Entscheidungen:**
+- `Colors.purple` (Merge-Aktion) → `colorScheme.tertiary` — Material 3 Seed
+  generiert passende Tertiärfarbe, die sich harmonisch einfügt
+- `Colors.orange` (Warnung/Conflict) → `colorScheme.secondary` — semantisch
+  korrekt für Warn-Zustände im Material 3 System
+- AppBar-Farben entfernt — Standard-Theme aus `app_theme.dart` greift jetzt
+  konsistent (war vorher pro Screen manuell überschrieben)
+- `_getSeverityColor()` in `sync_error_widgets.dart` nimmt jetzt `BuildContext`
+  als Parameter — ermöglicht Theme-Zugriff in StatelessWidget
+
+**Kumulierter O-004-Fortschritt:**
+- Batch 1: 109 Hardcodes (sync_progress_widgets, settings_screen)
+- Batch 2: 193 Hardcodes (app_theme, conflict_resolution, sync_error, sync_management)
+- **Gesamt: 302 von ~591 Hardcodes eliminiert (~51%)**
+
 ## [0.7.4+3] - 2026-04-01
 
 ### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 1

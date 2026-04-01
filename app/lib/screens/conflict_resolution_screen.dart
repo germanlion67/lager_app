@@ -1,7 +1,11 @@
 // lib/screens/conflict_resolution_screen.dart
+//
+// O-004 Batch 2: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
 
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../models/artikel_model.dart';
 import '../services/sync_service.dart';
 import '../services/app_log_service.dart';
@@ -101,7 +105,6 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
           continue;
         }
 
-        // SyncService.applyConflictResolution übernimmt die gesamte Logik
         switch (resolution) {
           case ConflictResolution.useLocal:
             await widget.syncService.applyConflictResolution(
@@ -122,7 +125,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
               mergedVersion: mergedVersion,
             );
           case ConflictResolution.skip:
-            break; // Bereits oben behandelt — nie erreicht
+            break;
         }
         resolved++;
       }
@@ -130,12 +133,14 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
       if (!mounted) return;
       Navigator.of(context).pop({'resolved': resolved, 'skipped': skipped});
     } catch (e, st) {
-      AppLogService.logger.e('Auflösen fehlgeschlagen', error: e, stackTrace: st);
+      AppLogService.logger
+          .e('Auflösen fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
+      final colorScheme = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Fehler beim Auflösen der Konflikte: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: colorScheme.error,
         ),
       );
     } finally {
@@ -180,16 +185,16 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                 'Konfliktarten:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: AppConfig.spacingSmall),
               Text('• Gleichzeitige Bearbeitung auf verschiedenen Geräten'),
               Text('• Unterschiedliche Zeitstempel bei ähnlichen Änderungen'),
               Text('• Netzwerkfehler während der Synchronisation'),
-              SizedBox(height: 16),
+              SizedBox(height: AppConfig.spacingLarge),
               Text(
                 'Lösungsoptionen:',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: AppConfig.spacingSmall),
               Text('• Lokale Version: Behält Ihre lokalen Änderungen'),
               Text('• Remote Version: Übernimmt die Server-Version'),
               Text('• Zusammenführen: Kombiniert beide Versionen manuell'),
@@ -221,22 +226,27 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     if (widget.conflicts.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Konflikte'),
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
         ),
-        body: const Center(
+        body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.check_circle, size: 64, color: Colors.green),
-              SizedBox(height: 16),
+              Icon(
+                Icons.check_circle,
+                size: 64,
+                color: colorScheme.tertiary,
+              ),
+              const SizedBox(height: AppConfig.spacingLarge),
               Text(
                 'Keine Konflikte gefunden!',
-                style: TextStyle(fontSize: 18),
+                style: textTheme.titleMedium,
               ),
             ],
           ),
@@ -249,8 +259,6 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
         title: Text(
           'Konflikte (${_currentConflictIndex + 1}/${widget.conflicts.length})',
         ),
-        backgroundColor: Colors.orange,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -264,55 +272,61 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircularProgressIndicator(),
-                  SizedBox(height: 16),
+                  SizedBox(height: AppConfig.spacingLarge),
                   Text('Konflikte werden aufgelöst...'),
                 ],
               ),
             )
-          : _buildConflictBody(),
+          : _buildConflictBody(context),
     );
   }
 
-  Widget _buildConflictBody() {
+  Widget _buildConflictBody(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Column(
       children: [
         LinearProgressIndicator(
           value: (_currentConflictIndex + 1) / widget.conflicts.length,
-          backgroundColor: Colors.grey[300],
-          valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+          backgroundColor: colorScheme.surfaceContainerHighest,
+          valueColor: AlwaysStoppedAnimation<Color>(colorScheme.secondary),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppConfig.spacingLarge),
           child: Card(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppConfig.spacingLarge),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.warning, color: Colors.orange[700]),
-                      const SizedBox(width: 8),
+                      Icon(Icons.warning, color: colorScheme.secondary),
+                      const SizedBox(width: AppConfig.spacingSmall),
                       Expanded(
                         child: Text(
                           'Konflikt bei '
                           '"${_currentConflict.localVersion.name}"',
-                          style: const TextStyle(
-                            fontSize: 18,
+                          style: textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: AppConfig.spacingSmall),
                   Text(
                     'Grund: ${_currentConflict.conflictReason}',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   Text(
                     'Erkannt: ${_formatDateTime(_currentConflict.detectedAt)}',
-                    style: TextStyle(color: Colors.grey[600]),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -321,14 +335,17 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
         ),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConfig.spacingLarge,
+            ),
             child: Row(
               children: [
                 Expanded(
                   child: _buildVersionCard(
+                    context,
                     title: 'Lokale Version',
                     artikel: _currentConflict.localVersion,
-                    color: Colors.blue,
+                    accentColor: colorScheme.primary,
                     icon: Icons.phone_android,
                     onSelect: () =>
                         _selectResolution(ConflictResolution.useLocal),
@@ -337,12 +354,13 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                             ConflictResolution.useLocal,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: AppConfig.spacingLarge),
                 Expanded(
                   child: _buildVersionCard(
+                    context,
                     title: 'Remote Version',
                     artikel: _currentConflict.remoteVersion,
-                    color: Colors.green,
+                    accentColor: colorScheme.tertiary,
                     icon: Icons.cloud,
                     onSelect: () =>
                         _selectResolution(ConflictResolution.useRemote),
@@ -356,7 +374,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppConfig.spacingLarge),
           child: Column(
             children: [
               SizedBox(
@@ -366,13 +384,15 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                   icon: const Icon(Icons.merge_type),
                   label: const Text('Manuell zusammenführen'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    backgroundColor: colorScheme.tertiary,
+                    foregroundColor: colorScheme.onTertiary,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: AppConfig.buttonPaddingVertical,
+                    ),
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppConfig.spacingSmall),
               Row(
                 children: [
                   Expanded(
@@ -382,12 +402,14 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                       icon: const Icon(Icons.skip_next),
                       label: const Text('Überspringen'),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Colors.grey[600],
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        foregroundColor: colorScheme.onSurfaceVariant,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppConfig.buttonPaddingVertical,
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: AppConfig.spacingLarge),
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed: _canProceed() ? _nextConflict : null,
@@ -400,9 +422,11 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
                         _isLastConflict() ? 'Auflösen' : 'Weiter',
                       ),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        backgroundColor: colorScheme.secondary,
+                        foregroundColor: colorScheme.onSecondary,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppConfig.buttonPaddingVertical,
+                        ),
                       ),
                     ),
                   ),
@@ -415,63 +439,81 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
     );
   }
 
-  Widget _buildVersionCard({
+  Widget _buildVersionCard(
+    BuildContext context, {
     required String title,
     required Artikel artikel,
-    required Color color,
+    required Color accentColor,
     required IconData icon,
     required VoidCallback onSelect,
     required bool isSelected,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
       elevation: isSelected ? 8 : 2,
-      color: isSelected ? color.withValues(alpha: 0.1) : null,
+      color: isSelected
+          ? accentColor.withValues(alpha: AppConfig.opacitySubtle)
+          : null,
       child: InkWell(
         onTap: onSelect,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppConfig.spacingLarge),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(icon, color: color, size: 20),
-                  const SizedBox(width: 8),
+                  Icon(
+                    icon,
+                    color: accentColor,
+                    size: AppConfig.iconSizeMedium,
+                  ),
+                  const SizedBox(width: AppConfig.spacingSmall),
                   Expanded(
                     child: Text(
                       title,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: color,
+                        color: accentColor,
                       ),
                     ),
                   ),
-                  if (isSelected) Icon(Icons.check_circle, color: color),
+                  if (isSelected)
+                    Icon(Icons.check_circle, color: accentColor),
                 ],
               ),
               const Divider(),
-              _buildDetailRow('Name:', artikel.name),
-              _buildDetailRow('Menge:', artikel.menge.toString()),
-              _buildDetailRow('Ort:', artikel.ort),
-              _buildDetailRow('Fach:', artikel.fach),
-              _buildDetailRow('Beschreibung:', artikel.beschreibung),
+              _buildDetailRow(context, 'Name:', artikel.name),
+              _buildDetailRow(context, 'Menge:', artikel.menge.toString()),
+              _buildDetailRow(context, 'Ort:', artikel.ort),
+              _buildDetailRow(context, 'Fach:', artikel.fach),
+              _buildDetailRow(context, 'Beschreibung:', artikel.beschreibung),
               _buildDetailRow(
+                context,
                 'Aktualisiert:',
                 _formatDateTime(
                   DateTime.fromMillisecondsSinceEpoch(artikel.updatedAt),
                 ),
               ),
               if (artikel.deviceId != null)
-                _buildDetailRow('Gerät:', artikel.deviceId!),
+                _buildDetailRow(context, 'Gerät:', artikel.deviceId!),
               if (artikel.bildPfad.isNotEmpty)
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.image, size: 16, color: Colors.grey),
-                    SizedBox(width: 4),
+                    Icon(
+                      Icons.image,
+                      size: AppConfig.iconSizeSmall,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: AppConfig.spacingXSmall),
                     Text(
                       'Bild vorhanden',
-                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: AppConfig.fontSizeSmall,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -482,27 +524,31 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppConfig.spacingXSmall / 2,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 80,
+            width: AppConfig.infoLabelWidthSmall,
             child: Text(
               label,
-              style: const TextStyle(
-                fontSize: 12,
+              style: textTheme.bodySmall?.copyWith(
                 fontWeight: FontWeight.w500,
-                color: Colors.grey,
+                color: colorScheme.onSurfaceVariant,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontSize: 12),
+              style: textTheme.bodySmall,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -514,7 +560,7 @@ class _ConflictResolutionScreenState extends State<ConflictResolutionScreen> {
 }
 
 // ─────────────────────────────────────────────
-// _MergeDialog — unverändert, war bereits korrekt
+// _MergeDialog
 // ─────────────────────────────────────────────
 
 class _MergeDialog extends StatefulWidget {
@@ -580,11 +626,13 @@ class _MergeDialogState extends State<_MergeDialog> {
       );
       widget.onMerged(mergedArtikel);
     } catch (e, st) {
-      AppLogService.logger.e('Zusammenführen fehlgeschlagen', error: e, stackTrace: st);
+      AppLogService.logger
+          .e('Zusammenführen fehlgeschlagen', error: e, stackTrace: st);
+      final colorScheme = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Fehler beim Zusammenführen: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: colorScheme.error,
         ),
       );
     }
@@ -592,22 +640,24 @@ class _MergeDialogState extends State<_MergeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Dialog(
       child: Container(
         width: MediaQuery.of(context).size.width * 0.9,
         height: MediaQuery.of(context).size.height * 0.8,
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           children: [
             Row(
               children: [
-                const Icon(Icons.merge_type, color: Colors.purple),
-                const SizedBox(width: 8),
-                const Expanded(
+                Icon(Icons.merge_type, color: colorScheme.tertiary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Expanded(
                   child: Text(
                     'Versionen zusammenführen',
-                    style: TextStyle(
-                      fontSize: 18,
+                    style: textTheme.titleMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -624,12 +674,14 @@ class _MergeDialogState extends State<_MergeDialog> {
                 child: Column(
                   children: [
                     _buildMergeField(
+                      context,
                       label: 'Name',
                       controller: _nameController,
                       localValue: widget.localVersion.name,
                       remoteValue: widget.remoteVersion.name,
                     ),
                     _buildMergeField(
+                      context,
                       label: 'Menge',
                       controller: _mengeController,
                       localValue: widget.localVersion.menge.toString(),
@@ -637,25 +689,28 @@ class _MergeDialogState extends State<_MergeDialog> {
                       keyboardType: TextInputType.number,
                     ),
                     _buildMergeField(
+                      context,
                       label: 'Ort',
                       controller: _ortController,
                       localValue: widget.localVersion.ort,
                       remoteValue: widget.remoteVersion.ort,
                     ),
                     _buildMergeField(
+                      context,
                       label: 'Fach',
                       controller: _fachController,
                       localValue: widget.localVersion.fach,
                       remoteValue: widget.remoteVersion.fach,
                     ),
                     _buildMergeField(
+                      context,
                       label: 'Beschreibung',
                       controller: _beschreibungController,
                       localValue: widget.localVersion.beschreibung,
                       remoteValue: widget.remoteVersion.beschreibung,
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppConfig.spacingLarge),
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
@@ -663,8 +718,8 @@ class _MergeDialogState extends State<_MergeDialog> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    _buildImageSelectionGroup(),
+                    const SizedBox(height: AppConfig.spacingSmall),
+                    _buildImageSelectionGroup(context),
                   ],
                 ),
               ),
@@ -677,12 +732,12 @@ class _MergeDialogState extends State<_MergeDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('Abbrechen'),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppConfig.spacingSmall),
                 ElevatedButton(
                   onPressed: _saveMergedVersion,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.purple,
-                    foregroundColor: Colors.white,
+                    backgroundColor: colorScheme.tertiary,
+                    foregroundColor: colorScheme.onTertiary,
                   ),
                   child: const Text('Zusammenführen'),
                 ),
@@ -694,7 +749,8 @@ class _MergeDialogState extends State<_MergeDialog> {
     );
   }
 
-  Widget _buildMergeField({
+  Widget _buildMergeField(
+    BuildContext context, {
     required String label,
     required TextEditingController controller,
     required String localValue,
@@ -702,10 +758,11 @@ class _MergeDialogState extends State<_MergeDialog> {
     TextInputType keyboardType = TextInputType.text,
     int maxLines = 1,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
     final bool hasConflict = localValue != remoteValue;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.only(bottom: AppConfig.spacingLarge),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -716,63 +773,69 @@ class _MergeDialogState extends State<_MergeDialog> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               if (hasConflict)
-                const Padding(
-                  padding: EdgeInsets.only(left: 4),
+                Padding(
+                  padding: const EdgeInsets.only(
+                    left: AppConfig.spacingXSmall,
+                  ),
                   child: Icon(
                     Icons.warning,
-                    size: 16,
-                    color: Colors.orange,
+                    size: AppConfig.iconSizeSmall,
+                    color: colorScheme.secondary,
                   ),
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppConfig.spacingXSmall),
           if (hasConflict) ...[
             Row(
               children: [
                 Expanded(
                   child: Card(
-                    color: Colors.blue.withValues(alpha: 0.1),
+                    color: colorScheme.primaryContainer,
                     child: Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(AppConfig.spacingSmall),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Lokal:',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.blue,
+                              fontSize: AppConfig.fontSizeSmall,
+                              color: colorScheme.primary,
                             ),
                           ),
                           Text(
                             localValue,
-                            style: const TextStyle(fontSize: 14),
+                            style: const TextStyle(
+                              fontSize: AppConfig.fontSizeMedium,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppConfig.spacingSmall),
                 Expanded(
                   child: Card(
-                    color: Colors.green.withValues(alpha: 0.1),
+                    color: colorScheme.tertiaryContainer,
                     child: Padding(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(AppConfig.spacingSmall),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Remote:',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.green,
+                              fontSize: AppConfig.fontSizeSmall,
+                              color: colorScheme.tertiary,
                             ),
                           ),
                           Text(
                             remoteValue,
-                            style: const TextStyle(fontSize: 14),
+                            style: const TextStyle(
+                              fontSize: AppConfig.fontSizeMedium,
+                            ),
                           ),
                         ],
                       ),
@@ -781,23 +844,29 @@ class _MergeDialogState extends State<_MergeDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppConfig.spacingSmall),
             Row(
               children: [
                 TextButton.icon(
                   onPressed: () => controller.text = localValue,
-                  icon: const Icon(Icons.phone_android, size: 16),
+                  icon: const Icon(
+                    Icons.phone_android,
+                    size: AppConfig.iconSizeSmall,
+                  ),
                   label: const Text('Lokal'),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.blue,
+                    foregroundColor: colorScheme.primary,
                   ),
                 ),
                 TextButton.icon(
                   onPressed: () => controller.text = remoteValue,
-                  icon: const Icon(Icons.cloud, size: 16),
+                  icon: const Icon(
+                    Icons.cloud,
+                    size: AppConfig.iconSizeSmall,
+                  ),
                   label: const Text('Remote'),
                   style: TextButton.styleFrom(
-                    foregroundColor: Colors.green,
+                    foregroundColor: colorScheme.tertiary,
                   ),
                 ),
               ],
@@ -811,8 +880,8 @@ class _MergeDialogState extends State<_MergeDialog> {
               border: OutlineInputBorder(),
               hintText: 'Bearbeiten oder Version wählen',
               contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 8,
+                horizontal: AppConfig.spacingMedium,
+                vertical: AppConfig.spacingSmall,
               ),
             ),
           ),
@@ -821,10 +890,11 @@ class _MergeDialogState extends State<_MergeDialog> {
     );
   }
 
-  Widget _buildImageSelectionGroup() {
+  Widget _buildImageSelectionGroup(BuildContext context) {
     return Column(
       children: [
         _buildImageRadioOption(
+          context,
           title: 'Lokal',
           subtitle: widget.localVersion.bildPfad.isNotEmpty
               ? 'Vorhanden'
@@ -834,8 +904,9 @@ class _MergeDialogState extends State<_MergeDialog> {
             () => _selectedBildPfad = widget.localVersion.bildPfad,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppConfig.spacingSmall),
         _buildImageRadioOption(
+          context,
           title: 'Remote',
           subtitle: widget.remoteVersion.bildPfad.isNotEmpty
               ? 'Vorhanden'
@@ -849,49 +920,64 @@ class _MergeDialogState extends State<_MergeDialog> {
     );
   }
 
-  Widget _buildImageRadioOption({
+  Widget _buildImageRadioOption(
+    BuildContext context, {
     required String title,
     required String subtitle,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppConfig.spacingLarge,
+          vertical: AppConfig.spacingMedium,
+        ),
         decoration: BoxDecoration(
           border: Border.all(
             color: isSelected
-                ? Colors.blue
-                : Colors.grey.withValues(alpha: 0.3),
-            width: isSelected ? 2 : 1,
+                ? colorScheme.primary
+                : colorScheme.outlineVariant,
+            width: isSelected
+                ? AppConfig.strokeWidthMedium
+                : AppConfig.strokeWidthThin,
           ),
-          borderRadius: BorderRadius.circular(8),
-          color: isSelected ? Colors.blue.withValues(alpha: 0.1) : null,
+          borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
+          color: isSelected
+              ? colorScheme.primary
+                  .withValues(alpha: AppConfig.opacitySubtle)
+              : null,
         ),
         child: Row(
           children: [
             Container(
-              width: 20,
-              height: 20,
+              width: AppConfig.iconSizeMedium,
+              height: AppConfig.iconSizeMedium,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? Colors.blue : Colors.grey,
-                  width: 2,
+                  color: isSelected
+                      ? colorScheme.primary
+                      : colorScheme.onSurfaceVariant,
+                  width: AppConfig.strokeWidthMedium,
                 ),
-                color: isSelected ? Colors.blue : Colors.transparent,
+                color: isSelected
+                    ? colorScheme.primary
+                    : Colors.transparent,
               ),
               child: isSelected
-                  ? const Icon(
+                  ? Icon(
                       Icons.circle,
-                      size: 12,
-                      color: Colors.white,
+                      size: AppConfig.fontSizeSmall,
+                      color: colorScheme.onPrimary,
                     )
                   : null,
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppConfig.spacingMedium),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -900,15 +986,15 @@ class _MergeDialogState extends State<_MergeDialog> {
                     title,
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
-                      color: isSelected ? Colors.blue : null,
+                      color: isSelected ? colorScheme.primary : null,
                     ),
                   ),
                   if (subtitle.isNotEmpty)
                     Text(
                       subtitle,
                       style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
+                        fontSize: AppConfig.fontSizeSmall,
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                 ],

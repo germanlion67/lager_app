@@ -1,8 +1,12 @@
 // lib/screens/sync_management_screen.dart
+//
+// O-004 Batch 2: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../services/sync_service.dart';
 import '../widgets/sync_conflict_handler.dart';
 import '../services/app_log_service.dart';
@@ -25,11 +29,12 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Synchronisation'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.help_outline),
@@ -38,27 +43,26 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Sync Status Card
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppConfig.spacingLarge),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Synchronisationsstatus',
-                      style: TextStyle(
-                        fontSize: 18,
+                      style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppConfig.spacingMedium),
                     buildSyncStatusWidget(),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppConfig.spacingLarge),
 
                     // Sync Button
                     SizedBox(
@@ -78,10 +82,9 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
                               : 'Jetzt synchronisieren',
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                          padding:
-                              const EdgeInsets.symmetric(vertical: 12),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppConfig.buttonPaddingVertical,
+                          ),
                         ),
                       ),
                     ),
@@ -90,38 +93,30 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
             // Konflikteinstellungen
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppConfig.spacingLarge),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Konfliktauflösung',
-                      style: TextStyle(
-                        fontSize: 18,
+                      style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppConfig.spacingMedium),
                     const Text(
                       'Bei Synchronisationskonflikten wird eine interaktive '
                       'Auflösung angeboten:',
                     ),
-                    const SizedBox(height: 8),
-                    _buildFeatureList([
-                      'Side-by-Side Vergleich der Versionen',
-                      'Manuelle Zusammenführung möglich',
-                      'Konfliktgrund wird angezeigt',
-                      'Batch-Auflösung mehrerer Konflikte',
-                    ]),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppConfig.spacingSmall),
+                    _buildFeatureList(context),
+                    const SizedBox(height: AppConfig.spacingLarge),
                     OutlinedButton.icon(
-                      // Fix: async void → _checkForConflicts als Future<void>
-                      // und hier mit unawaited-Semantik aufgerufen
                       onPressed: _checkForConflicts,
                       icon: const Icon(Icons.search),
                       label: const Text('Nach Konflikten suchen'),
@@ -131,29 +126,29 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
             // Erweiterte Optionen
             Card(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(AppConfig.spacingLarge),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Erweiterte Optionen',
-                      style: TextStyle(
-                        fontSize: 18,
+                      style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppConfig.spacingMedium),
 
                     ListTile(
                       leading: const Icon(Icons.upload),
                       title: const Text('Alle lokalen Änderungen hochladen'),
                       subtitle: const Text(
-                          'Forciert Upload aller lokalen Artikel',),
+                        'Forciert Upload aller lokalen Artikel',
+                      ),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: _forceUploadAll,
                     ),
@@ -173,8 +168,10 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
                     const Divider(),
 
                     ListTile(
-                      leading:
-                          const Icon(Icons.refresh, color: Colors.orange),
+                      leading: Icon(
+                        Icons.refresh,
+                        color: colorScheme.secondary,
+                      ),
                       title: const Text('Sync-Status zurücksetzen'),
                       subtitle: const Text('Setzt alle ETags zurück'),
                       trailing: const Icon(Icons.chevron_right),
@@ -185,25 +182,22 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
-            // Fix: kDebugMode statt Theme.brightness — zeigt Debug-Info
-            // korrekt nur im Debug-Build, nicht im Dark Mode
             if (kDebugMode)
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppConfig.spacingLarge),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Debug Informationen',
-                        style: TextStyle(
-                          fontSize: 18,
+                        style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: AppConfig.spacingMedium),
                       _buildDebugInfo(),
                     ],
                   ),
@@ -216,21 +210,38 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
     );
   }
 
-  Widget _buildFeatureList(List<String> features) {
+  Widget _buildFeatureList(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    const features = [
+      'Side-by-Side Vergleich der Versionen',
+      'Manuelle Zusammenführung möglich',
+      'Konfliktgrund wird angezeigt',
+      'Batch-Auflösung mehrerer Konflikte',
+    ];
+
     return Column(
       children: features
           .map(
             (feature) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppConfig.spacingXSmall / 2,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.check, size: 16, color: Colors.green),
-                  const SizedBox(width: 8),
+                  Icon(
+                    Icons.check,
+                    size: AppConfig.iconSizeSmall,
+                    color: colorScheme.tertiary,
+                  ),
+                  const SizedBox(width: AppConfig.spacingSmall),
                   Expanded(
                     child: Text(
                       feature,
-                      style: const TextStyle(fontSize: 14),
+                      style: const TextStyle(
+                        fontSize: AppConfig.fontSizeMedium,
+                      ),
                     ),
                   ),
                 ],
@@ -248,7 +259,7 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
         Text('Letzter Sync: ${lastSync?.toString() ?? "Nie"}'),
         Text('Konflikte: ${conflictCount ?? "Unbekannt"}'),
         Text('Sync aktiv: $isSyncing'),
-        const SizedBox(height: 8),
+        const SizedBox(height: AppConfig.spacingSmall),
         OutlinedButton(
           onPressed: _showSyncLogs,
           child: const Text('Sync-Logs anzeigen'),
@@ -257,28 +268,24 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
     );
   }
 
-  // Fix: void → Future<void> — async-Methode muss Future zurückgeben
   Future<void> _checkForConflicts() async {
-    // Fix: Navigator-Referenz vor dem ersten await cachen
     final nav = Navigator.of(context);
-    // Fix: messenger vor dem ersten await cachen
     final messenger = ScaffoldMessenger.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     try {
-      // Fix: showDialog-Future nicht awaiten — Dialog wird durch nav.pop()
-      // geschlossen, nicht durch den Rückgabewert
       await nav.push(
         DialogRoute<void>(
           context: context,
           barrierDismissible: false,
           builder: (_) => const Dialog(
             child: Padding(
-              padding: EdgeInsets.all(24),
+              padding: EdgeInsets.all(AppConfig.spacingXLarge),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   CircularProgressIndicator(),
-                  SizedBox(width: 16),
+                  SizedBox(width: AppConfig.spacingLarge),
                   Text('Suche nach Konflikten...'),
                 ],
               ),
@@ -289,15 +296,14 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
 
       final conflicts = await widget.syncService.detectConflicts();
 
-      // Fix: einzelner mounted-Guard nach dem await
       if (!mounted) return;
-      nav.pop(); // Schließe Loading Dialog
+      nav.pop();
 
       if (conflicts.isEmpty) {
         messenger.showSnackBar(
-          const SnackBar(
-            content: Text('Keine Konflikte gefunden'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Keine Konflikte gefunden'),
+            backgroundColor: colorScheme.tertiary,
           ),
         );
       } else {
@@ -322,7 +328,6 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
           ),
         );
 
-        // Fix: mounted-Guard nach showDialog-await
         if (result == true && mounted) {
           await SyncConflictHandler.handleSyncWithConflicts(
             context,
@@ -331,23 +336,22 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
         }
       }
     } catch (e, st) {
-      // Fix: Stack-Trace mitloggen
-      AppLogService.logger.e('Konflikt-Suche fehlgeschlagen', error: e, stackTrace: st);
+      AppLogService.logger
+          .e('Konflikt-Suche fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
-      nav.pop(); // Schließe Loading Dialog
+      nav.pop();
       messenger.showSnackBar(
         SnackBar(
           content: Text('Fehler beim Suchen nach Konflikten: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: colorScheme.error,
         ),
       );
     }
   }
 
-  // Fix: void → Future<void> + await auf showDialog — Rückgabewert wird genutzt
   Future<void> _forceUploadAll() async {
-    // Fix: messenger vor dem await cachen
     final messenger = ScaffoldMessenger.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -364,27 +368,27 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.secondary,
+            ),
             child: const Text('Upload erzwingen'),
           ),
         ],
       ),
     );
 
-    // Fix: mounted-Guard nach showDialog-await
     if (confirm == true && mounted) {
       messenger.showSnackBar(
         const SnackBar(
-            content: Text('Force Upload wird implementiert...'),),
+          content: Text('Force Upload wird implementiert...'),
+        ),
       );
     }
   }
 
-  // Fix: void → Future<void> + await auf showDialog — Rückgabewert wird genutzt
   Future<void> _forceDownloadAll() async {
-    // Fix: messenger vor dem await cachen
     final messenger = ScaffoldMessenger.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -401,26 +405,27 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
             child: const Text('Download erzwingen'),
           ),
         ],
       ),
     );
 
-    // Fix: mounted-Guard nach showDialog-await
     if (confirm == true && mounted) {
       messenger.showSnackBar(
         const SnackBar(
-            content: Text('Force Download wird implementiert...'),),
+          content: Text('Force Download wird implementiert...'),
+        ),
       );
     }
   }
 
-  // Fix: void → Future<void> + await auf showDialog — Rückgabewert wird genutzt
   Future<void> _resetSyncStatus() async {
-    // Fix: messenger vor dem await cachen
     final messenger = ScaffoldMessenger.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -437,15 +442,15 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            style:
-                ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.secondary,
+            ),
             child: const Text('Zurücksetzen'),
           ),
         ],
       ),
     );
 
-    // Fix: mounted-Guard nach showDialog-await
     if (confirm == true && mounted) {
       messenger.showSnackBar(
         const SnackBar(content: Text('Sync-Status zurückgesetzt')),
@@ -472,31 +477,37 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
               Text(
                 'Synchronisation',
                 style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16,),
+                  fontWeight: FontWeight.bold,
+                  fontSize: AppConfig.fontSizeLarge,
+                ),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: AppConfig.spacingSmall),
               Text(
                 'Die Synchronisation gleicht Ihre lokalen Artikel mit '
                 'dem Nextcloud-Server ab.',
               ),
-              SizedBox(height: 16),
+              SizedBox(height: AppConfig.spacingLarge),
               Text(
                 'Konflikte',
                 style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16,),
+                  fontWeight: FontWeight.bold,
+                  fontSize: AppConfig.fontSizeLarge,
+                ),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: AppConfig.spacingSmall),
               Text(
                 'Konflikte entstehen, wenn derselbe Artikel auf '
                 'verschiedenen Geräten gleichzeitig bearbeitet wurde.',
               ),
-              SizedBox(height: 16),
+              SizedBox(height: AppConfig.spacingLarge),
               Text(
                 'Auflösung',
                 style: TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16,),
+                  fontWeight: FontWeight.bold,
+                  fontSize: AppConfig.fontSizeLarge,
+                ),
               ),
-              SizedBox(height: 8),
+              SizedBox(height: AppConfig.spacingSmall),
               Text(
                 '• Lokale Version: Behält Ihre Änderungen\n'
                 '• Remote Version: Übernimmt Server-Version\n'
@@ -508,7 +519,6 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
         ),
         actions: [
           TextButton(
-            // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Verstanden'),
           ),

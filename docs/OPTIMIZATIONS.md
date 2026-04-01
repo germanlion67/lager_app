@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.3 | **Zuletzt aktualisiert:** 30.03.2026
+**Version:** 0.7.4+4 | **Zuletzt aktualisiert:** 01.04.2026
 
 ---
 
@@ -13,7 +13,7 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 |---|---|---|
 | Phase 1: Grundlagen | 100% | ✅ |
 | Phase 2: Deployment & Security | 100% | ✅ |
-| Phase 3: Performance & Optimierung | 90% | 🟡 |
+| Phase 3: Performance & Optimierung | 94% | 🟡 |
 | Phase 4: Multi-Plattform & Politur | 40% | 🔴 |
 
 ### Plattform-Status
@@ -80,47 +80,23 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 - Badge-Counter im Detail-Screen ✅
 - PB-Migration für offene API-Regeln ✅
 
+### H-002: CORS-Konfiguration — Erledigt in v0.7.4+0
+- `CORS_ALLOWED_ORIGINS` Umgebungsvariable wird beim PocketBase-Start als
+  `--origins` Flag übergeben ✅
+- Neues `entrypoint.sh` Script ersetzt inline CMD im Dockerfile ✅
+- Wildcard (`*`) als Default für Entwicklung, strikt für Produktion ✅
+- Portainer Stack an Produktion angeglichen ✅
+- Dokumentation in DEPLOYMENT.md ✅
+
+### M-009: Login-Flow & Authentifizierung — Erledigt in v0.7.3
+- Login-Screen mit E-Mail/Passwort-Validierung und Loading-State ✅
+- Auth-Gate in `main.dart` mit Auto-Login (Token-Refresh) ✅
+- Logout im Settings-Screen mit Bestätigungs-Dialog ✅
+- PocketBase API-Regeln auf Auth umgestellt ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
-
-### H-002: CORS-Konfiguration ✅
-
-**Status:** Erledigt
-**Datum:** 2026-03-30
-
-**Umgesetzt:**
-- `CORS_ALLOWED_ORIGINS` Umgebungsvariable wird beim PocketBase-Start als
-  `--origins` Flag übergeben
-- Neues `entrypoint.sh` Script ersetzt inline CMD im Dockerfile
-- Wildcard (`*`) als Default für Entwicklung, strikt für Produktion
-- `docker-compose.prod.yml` erzwingt gesetzte Variable (`:?` Syntax)
-- Portainer Stack an Produktion angeglichen (NPM, expose, CORS)
-- `docker-compose.production.yml` (Traefik) entfernt — NPM ist Standard
-- Validierungs-Warnung bei Wildcard im Container-Log
-- Dokumentation in DEPLOYMENT.md mit Domain-Umzug-Anleitung
-
-**Dateien:**
-| Datei | Änderung |
-|---|---|
-| `server/entrypoint.sh` | NEU — CORS-aware Entrypoint |
-| `server/Dockerfile` | MOD — CMD durch entrypoint.sh, CORS ENV |
-| `docker-compose.yml` | MOD — command-Block entfernt |
-| `docker-compose.production.yml` | GELÖSCHT — Traefik nicht mehr benötigt |
-| Portainer Stack | MOD — NPM, expose, CORS erzwungen |
-| `.env.production` | MOD — POCKETBASE_URL + CORS korrigiert |
-| `.env` | MOD — VERSION aktualisiert |
-| `docs/DEPLOYMENT.md` | MOD — CORS-Abschnitt + Portainer Stack |
-
-**Architektur-Entscheidungen:**
-- CORS nur auf PocketBase-Ebene (nicht doppelt in Nginx)
-- Wildcard-Default im Dockerfile für einfache Entwicklung
-- Produktion erzwingt explizite Origins über `:?` in docker-compose
-- Nginx Proxy Manager als einziger Reverse Proxy (Traefik entfernt)
-- Zwei Subdomains: Frontend + API getrennt
-- Mobile/Desktop Apps nicht betroffen (kein Origin-Header)
-
---- 
 
 ### M-007: UI für Konfliktlösung
 Der Sync-Prozess erkennt Konflikte, aber die UI zur Auswahl zwischen
@@ -130,46 +106,16 @@ Der Sync-Prozess erkennt Konflikte, aber die UI zur Auswahl zwischen
 - `conflict_resolution_screen.dart` fertigstellen
 - Vergleichs-Widget *(Vorher/Nachher)* für Artikeldaten implementieren
 
---- 
-
-### M-009 Login-Flow & Authentifizierung ✅
-
-**Status:** Erledigt
-**Datum:** 2026-03-30
-
-**Umgesetzt:**
-- Login-Screen mit E-Mail/Passwort-Validierung und Loading-State
-- Auth-Gate in `main.dart` mit Auto-Login (Token-Refresh)
-- Logout im Settings-Screen mit Bestätigungs-Dialog
-- PocketBase API-Regeln auf Auth umgestellt (Migration + Rollback)
-- Passwort-Reset-Funktion (optional, über Dialog im Login-Screen)
-
-**Dateien:**
-| Datei | Änderung |
-|---|---|
-| `lib/screens/login_screen.dart` | NEU — Login-UI |
-| `lib/main.dart` | Auth-Gate, Auto-Login, Sync erst nach Login |
-| `lib/screens/settings_screen.dart` | Account-Card, Logout-Button |
-| `lib/services/pocketbase_service.dart` | `refreshAuthToken()`, `requestPasswordReset()`, `currentUserEmail` |
-| `server/pb_migrations/1700000000_set_auth_rules.js` | NEU — Auth-Regeln für artikel + attachments |
-
-**Architektur-Entscheidungen:**
-- Kein separater Auth-Service — PocketBaseService Singleton beibehalten
-- Kein Provider/Bloc — konsistent mit bestehendem Pattern
-- Token-Persistierung durch PocketBase authStore (automatisch)
-- Nur E-Mail + Passwort (kein OAuth/Social Login) — KISS-Prinzip
-- Selbst-Registrierung deaktiviert — User werden über PocketBase Admin erstellt
-
---- 
+---
 
 ## 🟡 Priorität: Mittel
 
 ### O-004: UI-Hardcoded Werte migrieren
 
-**Status:** 🟡 In Arbeit (Batch 1 erledigt)
+**Status:** 🟡 In Arbeit (Batch 1+2 erledigt, ~51% migriert)
 **Datum:** 2026-04-01
 
-Ca. 482 verbleibende Stellen mit hardcodierten Farben, Abständen, Radien
+Ursprünglich ca. 591 Stellen mit hardcodierten Farben, Abständen, Radien
 oder Font-Sizes in `screens/` und `widgets/`.
 
 **Batch 1 — Erledigt ✅** (v0.7.4+3)
@@ -179,11 +125,13 @@ oder Font-Sizes in `screens/` und `widgets/`.
 - `artikel_list_item_widget.dart` — existiert nicht, übersprungen
 - Neuer `_buildStatusContainer()` Helper in Settings (DRY-Refactoring)
 
-**Batch 2 — Offen 🔴** (Sync-Cluster, ~184 Hardcodes)
-- `app_theme.dart` Hardcodes in Component-Themes durch AppConfig ersetzen
-- `conflict_resolution_screen.dart` (82)
-- `sync_error_widgets.dart` (59)
-- `sync_management_screen.dart` (43)
+**Batch 2 — Erledigt ✅** (v0.7.4+4)
+- `app_config.dart` — 2 neue Tokens (infoLabelWidthSmall, buttonPaddingVertical)
+- `app_theme.dart` — 10 Hardcodes → 0 (Component-Themes nutzen AppConfig)
+- `conflict_resolution_screen.dart` — 82 Hardcodes → 0
+- `sync_error_widgets.dart` — 59 Hardcodes → 0
+- `sync_management_screen.dart` — 43 Hardcodes → 0
+- AppBars nutzen jetzt Standard-Theme statt manueller Farbüberschreibung
 
 **Batch 3 — Offen 🟡** (Artikel-Cluster, ~98 Hardcodes)
 - `artikel_detail_screen.dart` (36)
@@ -199,10 +147,20 @@ oder Font-Sizes in `screens/` und `widgets/`.
 **Batch 5 — Offen 🟢** (Cleanup, ~108 Hardcodes)
 - `_dokumente_button.dart` (18)
 - `list_screen_mobile_actions.dart` (17)
+- `nextcloud_settings_screen.dart` (21)
 - `qr_scan_screen_mobile_scanner.dart` (12)
 - `image_crop_dialog.dart` (11)
-- `nextcloud_settings_screen.dart` (21)
 - Restliche Dateien mit ≤7 Hardcodes
+
+**Kumulierter Fortschritt:**
+| Batch | Hardcodes | Status |
+|---|---|---|
+| Batch 1 | 109 | ✅ Erledigt |
+| Batch 2 | 193 | ✅ Erledigt |
+| Batch 3 | ~98 | 🟡 Offen |
+| Batch 4 | ~92 | 🟡 Offen |
+| Batch 5 | ~108 | 🟢 Offen |
+| **Gesamt** | **~600** | **302 erledigt (~51%)** |
 
 **Regeln (für alle Batches):**
 - Farben: `Colors.*` / `Color(0x...)` → `Theme.of(context).colorScheme.*`
@@ -255,11 +213,11 @@ Erfordert Apple Developer Account.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 13 | 13 | 0 |
+| ✅ Abgeschlossen | 15 | 15 | 0 |
 | 🔴 Hoch | 1 | 0 | 1 |
 | 🟡 Mittel | 7 | 0 | 7 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **25** | **13** | **12** |
+| **Gesamt** | **27** | **15** | **12** |
 
 ---
 
@@ -267,8 +225,9 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-01 | v0.7.4+4 | O-004 Batch 2 erledigt: app_theme + 3 Sync-Dateien migriert, 2 neue AppConfig-Tokens |
 | 2026-04-01 | v0.7.4+3 | O-004 Batch 1 erledigt: sync_progress_widgets + settings_screen migriert, 13 neue AppConfig-Tokens |
-| 2026-03-30 | v0.7.3 | H-002 (CORS) abgeschlossen, Traefik-Compose entfernt, Portainer Stack angeglichen |
+| 2026-03-30 | v0.7.4+0 | H-002 (CORS) abgeschlossen, Traefik-Compose entfernt, Portainer Stack angeglichen |
 | 2026-03-29 | v0.7.2 | M-012 (Attachments) abgeschlossen, M-009 (Login) hinzugefügt |
 | 2026-03-27 | v0.7.1 | H-003 (Backup) abgeschlossen, M-008 hinzugefügt |
 | 2026-03-27 | v0.7.0 | K-004 (Runtime-URL) abgeschlossen |

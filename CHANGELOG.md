@@ -2,11 +2,49 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
-## 3. `CHANGELOG.md` (neuer Eintrag oben einfügen)
 
-Füge diesen Block **ganz oben** in die `CHANGELOG.md` ein, vor dem bestehenden `[0.7.4+0]`-Eintrag:
+## [0.7.4+4] - 2026-04-01
 
-```markdown
+### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 2 (Sync-Cluster)
+- **193 Hardcodes eliminiert** in 4 Dateien + 2 neue AppConfig-Tokens
+- Dark Mode funktioniert jetzt korrekt in allen Sync-bezogenen Widgets
+- Kein visuelles Redesign — gleiche Optik, sauberer Code
+
+#### AppConfig (`app/lib/config/app_config.dart`)
+- 2 neue Design-Tokens ergänzt:
+  - **Layout:** `infoLabelWidthSmall` (80), `buttonPaddingVertical` (12)
+
+#### app_theme.dart — 10 Hardcodes eliminiert
+- `EdgeInsets`-Werte in Component-Themes → `AppConfig.spacingLarge/spacingMedium`
+- `BorderRadius.circular(12)` → `AppConfig.cardBorderRadiusLarge`
+- `fontSize: 20` → `AppConfig.fontSizeXXLarge`
+- ListTile `contentPadding` → `AppConfig.listTilePadding`
+
+#### conflict_resolution_screen.dart — 82 Hardcodes eliminiert
+- `Colors.orange/green/blue/purple/grey` → `colorScheme.*`
+- AppBar nutzt jetzt Standard-Theme (keine manuellen Farben)
+- Merge-Dialog: `Colors.blue/green.withValues` → `colorScheme.*Container`
+- Radio-Buttons: `Colors.blue/grey` → `colorScheme.primary/outlineVariant`
+- 6 duplizierte Status-Container-Patterns konsolidiert
+
+#### sync_error_widgets.dart — 59 Hardcodes eliminiert
+- `_getSeverityColor()` nutzt jetzt `BuildContext` + `colorScheme`
+- `Colors.red[700]/orange[700]/blue[700]/grey[700]` → `colorScheme.*`
+- `SyncErrorBanner`: `Colors.red[100]/orange[100]` → `colorScheme.*Container`
+- Technische Details: `Colors.grey[100]` → `colorScheme.surfaceContainerLow`
+
+#### sync_management_screen.dart — 43 Hardcodes eliminiert
+- AppBar nutzt jetzt Standard-Theme (keine manuellen Farben)
+- `Colors.blue/orange/red/green` → `colorScheme.primary/secondary/error/tertiary`
+- Alle Section-Titel → `textTheme.titleMedium`
+
+### Dokumentation
+- `THEMING.md` — 2 neue Tokens dokumentiert, Batch-2-Status aktualisiert
+- `OPTIMIZATIONS.md` — Batch 2 als erledigt markiert, Gesamtfortschritt aktualisiert
+- `HISTORY.md` — Meilenstein v0.7.4+4 dokumentiert
+
+---
+
 ## [0.7.4+3] - 2026-04-01
 
 ### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 1

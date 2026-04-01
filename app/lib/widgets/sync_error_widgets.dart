@@ -1,8 +1,12 @@
 // lib/widgets/sync_error_widgets.dart
+//
+// O-004 Batch 2: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
 
 import 'package:flutter/material.dart';
-import '../services/app_log_service.dart';
 
+import '../config/app_config.dart';
+import '../services/app_log_service.dart';
 import '../services/sync_error_recovery.dart';
 
 /// Dialog für die Behandlung von Sync-Fehlern.
@@ -18,15 +22,19 @@ class SyncErrorDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final severityColor = _getSeverityColor(context);
+
     return AlertDialog(
       title: Row(
         children: [
           Icon(
             _getSeverityIcon(),
-            color: _getSeverityColor(),
-            size: 24,
+            color: severityColor,
+            size: AppConfig.iconSizeLarge,
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: AppConfig.spacingSmall),
           const Expanded(
             child: Text('Synchronisationsfehler'),
           ),
@@ -38,12 +46,18 @@ class SyncErrorDialog extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppConfig.spacingMedium),
               decoration: BoxDecoration(
-                color: _getSeverityColor().withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: severityColor.withValues(
+                  alpha: AppConfig.opacitySubtle,
+                ),
+                borderRadius: BorderRadius.circular(
+                  AppConfig.borderRadiusMedium,
+                ),
                 border: Border.all(
-                  color: _getSeverityColor().withValues(alpha: 0.3),
+                  color: severityColor.withValues(
+                    alpha: AppConfig.opacityMedium,
+                  ),
                 ),
               ),
               child: Column(
@@ -51,18 +65,16 @@ class SyncErrorDialog extends StatelessWidget {
                 children: [
                   Text(
                     error.message,
-                    style: const TextStyle(
+                    style: textTheme.titleSmall?.copyWith(
                       fontWeight: FontWeight.w500,
-                      fontSize: 16,
                     ),
                   ),
                   if (error.itemName != null) ...[
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppConfig.spacingSmall),
                     Text(
                       'Betroffener Artikel: ${error.itemName}',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[600],
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                   ],
@@ -70,7 +82,7 @@ class SyncErrorDialog extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
             if (error.technicalDetails != null)
               ExpansionTile(
@@ -78,32 +90,32 @@ class SyncErrorDialog extends StatelessWidget {
                 children: [
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppConfig.spacingMedium),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(
+                        AppConfig.borderRadiusMedium,
+                      ),
                     ),
                     child: Text(
                       error.technicalDetails!,
-                      style: const TextStyle(
+                      style: textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
-                        fontSize: 12,
                       ),
                     ),
                   ),
                 ],
               ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
-            const Text(
+            Text(
               'Empfohlene Lösungen:',
-              style: TextStyle(
+              style: textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: AppConfig.spacingSmall),
 
             ...error.suggestedActions.take(3).map(_buildActionTile),
           ],
@@ -113,8 +125,6 @@ class SyncErrorDialog extends StatelessWidget {
         if (error.suggestedActions.isNotEmpty)
           TextButton(
             onPressed: () {
-              // Fix: Dialog-eigenen context über Builder holen —
-              // StatelessWidget hat keinen eigenen BuildContext für Navigator
               Navigator.of(context).pop();
               onAction(error.suggestedActions.first);
             },
@@ -135,16 +145,14 @@ class SyncErrorDialog extends StatelessWidget {
     );
   }
 
-  // Fix: Methode erhält keinen BuildContext — onTap ruft onAction direkt auf,
-  // kein Navigator-Zugriff nötig
   Widget _buildActionTile(RecoveryAction action) {
     return ListTile(
       dense: true,
-      leading: Icon(_getActionIcon(action), size: 20),
+      leading: Icon(_getActionIcon(action), size: AppConfig.iconSizeMedium),
       title: Text(action.title),
       subtitle: Text(
         action.description,
-        style: const TextStyle(fontSize: 12),
+        style: const TextStyle(fontSize: AppConfig.fontSizeSmall),
       ),
       onTap: () => onAction(action),
     );
@@ -153,7 +161,6 @@ class SyncErrorDialog extends StatelessWidget {
   void _showAllActions(BuildContext context) {
     showDialog<void>(
       context: context,
-      // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
       builder: (ctx) => AlertDialog(
         title: const Text('Alle Lösungsoptionen'),
         content: SizedBox(
@@ -167,8 +174,6 @@ class SyncErrorDialog extends StatelessWidget {
                     title: Text(action.title),
                     subtitle: Text(action.description),
                     onTap: () {
-                      // Fix: ctx.pop() schließt den inneren Dialog,
-                      // context.pop() schließt den äußeren SyncErrorDialog
                       Navigator.of(ctx).pop();
                       Navigator.of(context).pop();
                       onAction(action);
@@ -180,7 +185,6 @@ class SyncErrorDialog extends StatelessWidget {
         ),
         actions: [
           TextButton(
-            // Fix: ctx verwenden — schließt nur den inneren Dialog
             onPressed: () => Navigator.of(ctx).pop(),
             child: const Text('Abbrechen'),
           ),
@@ -198,17 +202,17 @@ class SyncErrorDialog extends StatelessWidget {
     };
   }
 
-  Color _getSeverityColor() {
+  Color _getSeverityColor(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return switch (error.severity) {
-      ErrorSeverity.critical => Colors.red[700]!,
-      ErrorSeverity.high     => Colors.orange[700]!,
-      ErrorSeverity.medium   => Colors.blue[700]!,
-      ErrorSeverity.low      => Colors.grey[700]!,
+      ErrorSeverity.critical => colorScheme.error,
+      ErrorSeverity.high     => colorScheme.secondary,
+      ErrorSeverity.medium   => colorScheme.primary,
+      ErrorSeverity.low      => colorScheme.onSurfaceVariant,
     };
   }
 
   IconData _getActionIcon(RecoveryAction action) {
-    // Fix: Dart 3 switch-expression — exhaustive, kein default nötig
     return switch (action) {
       RecoveryAction.retry             => Icons.refresh,
       RecoveryAction.retryLater        => Icons.schedule,
@@ -226,16 +230,13 @@ class SyncErrorDialog extends StatelessWidget {
     };
   }
 
-  /// Zeigt den Error Dialog an.
   static Future<void> show(
     BuildContext context,
     SyncError error,
     void Function(RecoveryAction) onAction,
   ) {
-    // Fix: showDialog<void> — expliziter Typ, kein Rückgabewert erwartet
     return showDialog<void>(
       context: context,
-      // Fix: Dialog-eigenen ctx verwenden
       builder: (ctx) => SyncErrorDialog(
         error: error,
         onAction: onAction,
@@ -261,65 +262,72 @@ class SyncErrorBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     if (errors.isEmpty) return const SizedBox.shrink();
 
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final criticalErrors =
         errors.where((e) => e.severity == ErrorSeverity.critical).length;
     final totalErrors = errors.length;
+    final isCritical = criticalErrors > 0;
+
+    final bannerColor = isCritical
+        ? colorScheme.errorContainer
+        : colorScheme.secondaryContainer;
+    final contentColor = isCritical
+        ? colorScheme.onErrorContainer
+        : colorScheme.onSecondaryContainer;
 
     return Container(
-      margin: const EdgeInsets.all(8),
+      margin: const EdgeInsets.all(AppConfig.spacingSmall),
       child: Material(
-        color:
-            criticalErrors > 0 ? Colors.red[100] : Colors.orange[100],
-        borderRadius: BorderRadius.circular(8),
+        color: bannerColor,
+        borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
           child: Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(AppConfig.spacingMedium),
             child: Row(
               children: [
                 Icon(
-                  criticalErrors > 0 ? Icons.error : Icons.warning,
-                  color: criticalErrors > 0
-                      ? Colors.red[700]
-                      : Colors.orange[700],
-                  size: 20,
+                  isCritical ? Icons.error : Icons.warning,
+                  color: contentColor,
+                  size: AppConfig.iconSizeMedium,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppConfig.spacingSmall),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        criticalErrors > 0
+                        isCritical
                             ? 'Kritische Sync-Fehler ($criticalErrors)'
                             : 'Sync-Probleme ($totalErrors)',
-                        style: TextStyle(
+                        style: textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: criticalErrors > 0
-                              ? Colors.red[700]
-                              : Colors.orange[700],
+                          color: contentColor,
                         ),
                       ),
                       Text(
-                        criticalErrors > 0
+                        isCritical
                             ? 'Synchronisation blockiert - Aktion erforderlich'
                             : 'Einige Artikel konnten nicht synchronisiert werden',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
+                        style: textTheme.bodySmall?.copyWith(
+                          color: contentColor,
                         ),
                       ),
                     ],
                   ),
                 ),
-                // Fix: chevron_right nur anzeigen wenn onDismiss null —
-                // sonst überlappen Icon und IconButton
-                if (onDismiss == null) const Icon(Icons.chevron_right),
+                if (onDismiss == null)
+                  Icon(Icons.chevron_right, color: contentColor),
                 if (onDismiss != null)
                   IconButton(
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: Icon(
+                      Icons.close,
+                      size: AppConfig.iconSizeSmall,
+                      color: contentColor,
+                    ),
                     onPressed: onDismiss,
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -356,7 +364,6 @@ class ErrorRecoveryProgressDialog extends StatefulWidget {
     return showDialog<BatchRecoveryResult>(
       context: context,
       barrierDismissible: false,
-      // Fix: Dialog-eigenen ctx verwenden
       builder: (ctx) => ErrorRecoveryProgressDialog(
         errors: errors,
         retryFunction: retryFunction,
@@ -367,7 +374,7 @@ class ErrorRecoveryProgressDialog extends StatefulWidget {
 
 class _ErrorRecoveryProgressDialogState
     extends State<ErrorRecoveryProgressDialog> {
-  final _logger = AppLogService.logger; // ← NEU
+  final _logger = AppLogService.logger;
   late final SyncErrorRecoveryService _recoveryService;
   BatchRecoveryResult? _result;
   bool _isRunning = false;
@@ -377,7 +384,6 @@ class _ErrorRecoveryProgressDialogState
   @override
   void initState() {
     super.initState();
-    // Fix: late final — Service wird genau einmal initialisiert
     _recoveryService = SyncErrorRecoveryService();
     _startRecovery();
   }
@@ -392,8 +398,6 @@ class _ErrorRecoveryProgressDialogState
       final result = await _recoveryService.performBatchRecovery(
         widget.errors,
         (error) async {
-          // Fix: mounted-Guard vor setState im Callback —
-          // Widget könnte während Batch-Recovery disposed werden
           if (!mounted) return;
           setState(() {
             _currentIndex++;
@@ -404,7 +408,6 @@ class _ErrorRecoveryProgressDialogState
         },
       );
 
-      // Fix: mounted-Guard nach performBatchRecovery
       if (!mounted) return;
 
       setState(() {
@@ -415,19 +418,16 @@ class _ErrorRecoveryProgressDialogState
 
       await Future<void>.delayed(const Duration(seconds: 3));
 
-      // Fix: mounted-Guard nach Future.delayed
       if (mounted) {
         Navigator.of(context).pop(_result);
       }
     } catch (e, st) {
-      // Fix: Stack-Trace mitloggen
-       _logger.e(
+      _logger.e(
         '[ErrorRecovery] Wiederherstellung fehlgeschlagen',
         error: e,
         stackTrace: st,
       );
 
-      // Fix: mounted-Guard nach catch
       if (!mounted) return;
       setState(() {
         _isRunning = false;
@@ -438,63 +438,70 @@ class _ErrorRecoveryProgressDialogState
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final progress = widget.errors.isNotEmpty
         ? _currentIndex / widget.errors.length
         : 0.0;
 
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.healing, color: Colors.blue),
-          SizedBox(width: 8),
-          Text('Fehler-Wiederherstellung'),
+          Icon(Icons.healing, color: colorScheme.primary),
+          const SizedBox(width: AppConfig.spacingSmall),
+          const Text('Fehler-Wiederherstellung'),
         ],
       ),
       content: SizedBox(
-        width: 300,
+        width: AppConfig.dialogContentWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(_currentStatus),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
             LinearProgressIndicator(
-                value: _isRunning ? progress : 1.0,),
-            const SizedBox(height: 8),
+              value: _isRunning ? progress : 1.0,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+            ),
+            const SizedBox(height: AppConfig.spacingSmall),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   '$_currentIndex/${widget.errors.length}',
-                  style: const TextStyle(fontSize: 12),
+                  style: textTheme.bodySmall,
                 ),
                 Text(
                   '${(progress * 100).toInt()}%',
-                  style: const TextStyle(fontSize: 12),
+                  style: textTheme.bodySmall,
                 ),
               ],
             ),
             if (_result != null) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppConfig.spacingLarge),
               const Divider(),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppConfig.spacingSmall),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
                   _buildResultChip(
+                    context,
                     'Erfolgreich',
                     _result!.successful.toString(),
-                    Colors.green,
+                    colorScheme.tertiary,
                   ),
                   _buildResultChip(
+                    context,
                     'Fehlgeschlagen',
                     _result!.failed.toString(),
-                    Colors.red,
+                    colorScheme.error,
                   ),
                   _buildResultChip(
+                    context,
                     'Übersprungen',
                     _result!.skipped.toString(),
-                    Colors.grey,
+                    colorScheme.onSurfaceVariant,
                   ),
                 ],
               ),
@@ -512,18 +519,30 @@ class _ErrorRecoveryProgressDialogState
     );
   }
 
-  Widget _buildResultChip(String label, String value, Color color) {
+  Widget _buildResultChip(
+    BuildContext context,
+    String label,
+    String value,
+    Color color,
+  ) {
+    final textTheme = Theme.of(context).textTheme;
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConfig.spacingMedium,
+            vertical: AppConfig.spacingSmall - 2, // 6.0
+          ),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(16),
-            border:
-                Border.all(color: color.withValues(alpha: 0.3)),
+            color: color.withValues(alpha: AppConfig.opacitySubtle),
+            borderRadius: BorderRadius.circular(
+              AppConfig.borderRadiusXLarge,
+            ),
+            border: Border.all(
+              color: color.withValues(alpha: AppConfig.opacityMedium),
+            ),
           ),
           child: Text(
             value,
@@ -533,10 +552,10 @@ class _ErrorRecoveryProgressDialogState
             ),
           ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: AppConfig.spacingXSmall),
         Text(
           label,
-          style: const TextStyle(fontSize: 10),
+          style: textTheme.labelSmall,
         ),
       ],
     );
@@ -558,14 +577,24 @@ class SyncErrorList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     if (errors.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle, size: 64, color: Colors.green),
-            SizedBox(height: 16),
-            Text('Keine Fehler!', style: TextStyle(fontSize: 18)),
+            Icon(
+              Icons.check_circle,
+              size: 64,
+              color: colorScheme.tertiary,
+            ),
+            const SizedBox(height: AppConfig.spacingLarge),
+            Text(
+              'Keine Fehler!',
+              style: textTheme.titleMedium,
+            ),
           ],
         ),
       );
@@ -577,11 +606,13 @@ class SyncErrorList extends StatelessWidget {
         final error = errors[index];
         return Card(
           margin: const EdgeInsets.symmetric(
-              horizontal: 16, vertical: 4,),
+            horizontal: AppConfig.spacingLarge,
+            vertical: AppConfig.spacingXSmall,
+          ),
           child: ExpansionTile(
             leading: Icon(
               _getSeverityIcon(error.severity),
-              color: _getSeverityColor(error.severity),
+              color: _getSeverityColor(context, error.severity),
             ),
             title: Text(error.message),
             subtitle: Column(
@@ -597,28 +628,29 @@ class SyncErrorList extends StatelessWidget {
             children: [
               if (error.technicalDetails != null)
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppConfig.spacingLarge),
                   child: Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(12),
+                    padding: const EdgeInsets.all(AppConfig.spacingMedium),
                     decoration: BoxDecoration(
-                      color: Colors.grey[100],
-                      borderRadius: BorderRadius.circular(8),
+                      color: colorScheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(
+                        AppConfig.borderRadiusMedium,
+                      ),
                     ),
                     child: Text(
                       error.technicalDetails!,
-                      style: const TextStyle(
+                      style: textTheme.bodySmall?.copyWith(
                         fontFamily: 'monospace',
-                        fontSize: 12,
                       ),
                     ),
                   ),
                 ),
               if (showActions && error.suggestedActions.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(AppConfig.spacingLarge),
                   child: Wrap(
-                    spacing: 8,
+                    spacing: AppConfig.spacingSmall,
                     children: error.suggestedActions
                         .take(3)
                         .map(
@@ -638,7 +670,6 @@ class SyncErrorList extends StatelessWidget {
     );
   }
 
-  // Fix: Dart 3 switch-expression — exhaustive, kein default nötig
   IconData _getSeverityIcon(ErrorSeverity severity) {
     return switch (severity) {
       ErrorSeverity.critical => Icons.error,
@@ -648,12 +679,13 @@ class SyncErrorList extends StatelessWidget {
     };
   }
 
-  Color _getSeverityColor(ErrorSeverity severity) {
+  Color _getSeverityColor(BuildContext context, ErrorSeverity severity) {
+    final colorScheme = Theme.of(context).colorScheme;
     return switch (severity) {
-      ErrorSeverity.critical => Colors.red,
-      ErrorSeverity.high     => Colors.orange,
-      ErrorSeverity.medium   => Colors.blue,
-      ErrorSeverity.low      => Colors.grey,
+      ErrorSeverity.critical => colorScheme.error,
+      ErrorSeverity.high     => colorScheme.secondary,
+      ErrorSeverity.medium   => colorScheme.primary,
+      ErrorSeverity.low      => colorScheme.onSurfaceVariant,
     };
   }
 
