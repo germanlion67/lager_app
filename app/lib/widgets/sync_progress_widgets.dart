@@ -1,7 +1,11 @@
 // lib/widgets/sync_progress_widgets.dart
+//
+// O-004: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien/Sizes durch AppConfig-Tokens.
 
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../services/sync_progress_service.dart';
 
 /// Kompakte Fortschrittsanzeige für die AppBar.
@@ -19,41 +23,42 @@ class SyncProgressIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fix: früher return — kein Zugriff auf operation! nötig
     final op = operation;
     if (op == null || !op.isActive) return const SizedBox.shrink();
 
-    final color = _getStatusColor(op);
+    final color = _getStatusColor(context, op);
 
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppConfig.spacingMedium,
+          vertical: AppConfig.spacingSmall - 2, // 6.0 — kein exakter Token, nächster Wert
+        ),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color, width: 1),
+          color: color.withValues(alpha: AppConfig.opacityLight),
+          borderRadius: BorderRadius.circular(AppConfig.borderRadiusXLarge),
+          border: Border.all(color: color, width: AppConfig.strokeWidthThin),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 16,
-              height: 16,
+              width: AppConfig.iconSizeSmall,
+              height: AppConfig.iconSizeSmall,
               child: CircularProgressIndicator(
                 value: op.progress,
-                strokeWidth: 2,
+                strokeWidth: AppConfig.strokeWidthMedium,
                 valueColor: AlwaysStoppedAnimation(color),
-                backgroundColor: color.withValues(alpha: 0.3),
+                backgroundColor: color.withValues(alpha: AppConfig.opacityMedium),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: AppConfig.spacingSmall),
             Text(
               '${(op.progress * 100).toInt()}%',
               style: TextStyle(
                 color: color,
-                fontSize: 12,
+                fontSize: AppConfig.fontSizeSmall,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -63,13 +68,13 @@ class SyncProgressIndicator extends StatelessWidget {
     );
   }
 
-  // Fix: operation als Parameter — kein operation!-Zugriff auf nullable field
-  Color _getStatusColor(SyncOperation op) {
+  Color _getStatusColor(BuildContext context, SyncOperation op) {
+    final colorScheme = Theme.of(context).colorScheme;
     return switch (op.status) {
-      SyncStatus.error      => Colors.red,
-      SyncStatus.completed  => Colors.green,
-      SyncStatus.connecting => Colors.orange,
-      _                     => Colors.blue,
+      SyncStatus.error      => colorScheme.error,
+      SyncStatus.completed  => colorScheme.tertiary,       // Grün-Semantik via Seed
+      SyncStatus.connecting => colorScheme.secondary,      // Warn-/Orange-Semantik
+      _                     => colorScheme.primary,
     };
   }
 }
@@ -91,16 +96,17 @@ class DetailedSyncProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fix: lokale Variable — kein wiederholtes operation! im build-Tree
     final op = operation;
     if (op == null) return const SizedBox.shrink();
 
-    final statusColor = _getStatusColor(op);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final statusColor = _getStatusColor(context, op);
 
     return Card(
-      margin: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(AppConfig.spacingLarge),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -109,25 +115,23 @@ class DetailedSyncProgressCard extends StatelessWidget {
                 Icon(
                   _getStatusIcon(op),
                   color: statusColor,
-                  size: 24,
+                  size: AppConfig.iconSizeLarge,
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: AppConfig.spacingSmall),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         op.name,
-                        style: const TextStyle(
-                          fontSize: 16,
+                        style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                         ),
                       ),
                       Text(
                         op.statusText,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey[600],
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -142,27 +146,26 @@ class DetailedSyncProgressCard extends StatelessWidget {
               ],
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
             LinearProgressIndicator(
               value: op.progress,
-              backgroundColor: Colors.grey[300],
+              backgroundColor: colorScheme.surfaceContainerHighest,
               valueColor: AlwaysStoppedAnimation(statusColor),
             ),
 
-            const SizedBox(height: 8),
+            const SizedBox(height: AppConfig.spacingSmall),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   '${stats.processedItems}/${stats.totalItems} Artikel',
-                  style: const TextStyle(fontSize: 12),
+                  style: textTheme.bodySmall,
                 ),
                 Text(
                   '${(op.progress * 100).toInt()}%',
-                  style: const TextStyle(
-                    fontSize: 12,
+                  style: textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -170,12 +173,11 @@ class DetailedSyncProgressCard extends StatelessWidget {
             ),
 
             if (op.currentItem != null) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: AppConfig.spacingSmall),
               Text(
                 'Aktuell: ${op.currentItem}',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -183,12 +185,12 @@ class DetailedSyncProgressCard extends StatelessWidget {
             ],
 
             if (stats.totalItems > 0) ...[
-              const SizedBox(height: 16),
-              _buildStatsRow(),
+              const SizedBox(height: AppConfig.spacingLarge),
+              _buildStatsRow(context),
             ],
 
             if (!op.isActive) ...[
-              const SizedBox(height: 16),
+              const SizedBox(height: AppConfig.spacingLarge),
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -207,67 +209,78 @@ class DetailedSyncProgressCard extends StatelessWidget {
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       children: [
         _buildStatChip(
+          context,
           icon: Icons.upload,
           label: 'Hochgeladen',
           value: stats.uploadedItems.toString(),
-          color: Colors.green,
+          color: colorScheme.tertiary,
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: AppConfig.spacingSmall),
         _buildStatChip(
+          context,
           icon: Icons.download,
           label: 'Heruntergeladen',
           value: stats.downloadedItems.toString(),
-          color: Colors.blue,
+          color: colorScheme.primary,
         ),
         if (stats.conflictItems > 0) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: AppConfig.spacingSmall),
           _buildStatChip(
+            context,
             icon: Icons.warning,
             label: 'Konflikte',
             value: stats.conflictItems.toString(),
-            color: Colors.orange,
+            color: colorScheme.secondary,
           ),
         ],
         if (stats.errorItems > 0) ...[
-          const SizedBox(width: 8),
+          const SizedBox(width: AppConfig.spacingSmall),
           _buildStatChip(
+            context,
             icon: Icons.error,
             label: 'Fehler',
             value: stats.errorItems.toString(),
-            color: Colors.red,
+            color: colorScheme.error,
           ),
         ],
       ],
     );
   }
 
-  Widget _buildStatChip({
+  Widget _buildStatChip(
+    BuildContext context, {
     required IconData icon,
     required String label,
     required String value,
     required Color color,
   }) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingSmall,
+        vertical: AppConfig.spacingXSmall,
+      ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        color: color.withValues(alpha: AppConfig.opacitySubtle),
+        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
+        border: Border.all(
+          color: color.withValues(alpha: AppConfig.opacityMedium),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 4),
+          Icon(icon, size: AppConfig.iconSizeXSmall, color: color),
+          const SizedBox(width: AppConfig.spacingXSmall),
           Text(
             value,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: AppConfig.fontSizeSmall,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -277,8 +290,6 @@ class DetailedSyncProgressCard extends StatelessWidget {
     );
   }
 
-  // Fix: operation als Parameter + Dart 3 switch-expression —
-  // exhaustive, kein default nötig
   IconData _getStatusIcon(SyncOperation op) {
     return switch (op.status) {
       SyncStatus.idle         => Icons.pause_circle,
@@ -296,14 +307,14 @@ class DetailedSyncProgressCard extends StatelessWidget {
     };
   }
 
-  // Fix: operation als Parameter — kein operation!-Zugriff auf nullable field
-  Color _getStatusColor(SyncOperation op) {
+  Color _getStatusColor(BuildContext context, SyncOperation op) {
+    final colorScheme = Theme.of(context).colorScheme;
     return switch (op.status) {
-      SyncStatus.error      => Colors.red,
-      SyncStatus.completed  => Colors.green,
-      SyncStatus.cancelled  => Colors.grey,
-      SyncStatus.connecting => Colors.orange,
-      _                     => Colors.blue,
+      SyncStatus.error      => colorScheme.error,
+      SyncStatus.completed  => colorScheme.tertiary,
+      SyncStatus.cancelled  => colorScheme.onSurfaceVariant,
+      SyncStatus.connecting => colorScheme.secondary,
+      _                     => colorScheme.primary,
     };
   }
 }
@@ -327,7 +338,6 @@ class SyncProgressDialog extends StatefulWidget {
   State<SyncProgressDialog> createState() =>
       _SyncProgressDialogState();
 
-  /// Zeigt den Progress Dialog an.
   static Future<T?> show<T>({
     required BuildContext context,
     required SyncProgressService progressService,
@@ -338,7 +348,6 @@ class SyncProgressDialog extends StatefulWidget {
     return showDialog<T>(
       context: context,
       barrierDismissible: false,
-      // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
       builder: (ctx) => SyncProgressDialog(
         progressService: progressService,
         title: title,
@@ -350,8 +359,6 @@ class SyncProgressDialog extends StatefulWidget {
 }
 
 class _SyncProgressDialogState extends State<SyncProgressDialog> {
-  // Fix: SyncOperation? statt late SyncOperation? —
-  // late auf nullable ist sinnlos, direkt nullable initialisieren
   SyncOperation? _currentOperation;
   late SyncStats _currentStats;
 
@@ -380,7 +387,6 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
     final op = _currentOperation;
     if (op != null && (op.isCompleted || op.isError)) {
       Future.delayed(const Duration(seconds: 2), () {
-        // Fix: mounted-Guard nach Future.delayed
         if (mounted) Navigator.of(context).pop();
       });
     }
@@ -388,29 +394,39 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
 
   @override
   Widget build(BuildContext context) {
-    // Fix: lokale Variable — kein wiederholtes _currentOperation! im build-Tree
     final op = _currentOperation;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return AlertDialog(
       title: Row(
         children: [
           if (op?.isActive == true)
             const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
+              width: AppConfig.iconSizeMedium,
+              height: AppConfig.iconSizeMedium,
+              child: CircularProgressIndicator(
+                strokeWidth: AppConfig.strokeWidthMedium,
+              ),
             )
           else if (op?.isCompleted == true)
-            const Icon(Icons.check_circle,
-                color: Colors.green, size: 20,)
+            Icon(
+              Icons.check_circle,
+              color: colorScheme.tertiary,
+              size: AppConfig.iconSizeMedium,
+            )
           else if (op?.isError == true)
-            const Icon(Icons.error, color: Colors.red, size: 20),
-          const SizedBox(width: 8),
+            Icon(
+              Icons.error,
+              color: colorScheme.error,
+              size: AppConfig.iconSizeMedium,
+            ),
+          const SizedBox(width: AppConfig.spacingSmall),
           Expanded(child: Text(widget.title)),
         ],
       ),
       content: SizedBox(
-        width: 300,
+        width: AppConfig.dialogContentWidth,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -418,48 +434,46 @@ class _SyncProgressDialogState extends State<SyncProgressDialog> {
             if (op != null) ...[
               Text(
                 op.statusText,
-                style: const TextStyle(fontSize: 16),
+                style: textTheme.titleSmall,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppConfig.spacingLarge),
               LinearProgressIndicator(
                 value: op.progress,
-                backgroundColor: Colors.grey[300],
+                backgroundColor: colorScheme.surfaceContainerHighest,
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppConfig.spacingSmall),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     '${_currentStats.processedItems}/${_currentStats.totalItems}',
-                    style: const TextStyle(fontSize: 12),
+                    style: textTheme.bodySmall,
                   ),
                   Text(
                     '${(op.progress * 100).toInt()}%',
-                    style: const TextStyle(fontSize: 12),
+                    style: textTheme.bodySmall,
                   ),
                 ],
               ),
               if (op.currentItem != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppConfig.spacingSmall),
                 Text(
                   op.currentItem!,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
               if (op.message != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppConfig.spacingSmall),
                 Text(
                   op.message!,
-                  style: TextStyle(
-                    fontSize: 12,
+                  style: textTheme.bodySmall?.copyWith(
                     color: op.isError
-                        ? Colors.red
-                        : Colors.grey[600],
+                        ? colorScheme.error
+                        : colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -503,34 +517,34 @@ class SyncProgressFab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Fix: lokale Variable — kein wiederholtes operation?. im build-Tree
     final op = operation;
     final isActive = op?.isActive == true;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return FloatingActionButton(
       onPressed: isActive ? null : onPressed,
       tooltip: tooltip,
-      backgroundColor: isActive ? Colors.grey : Colors.blue,
+      backgroundColor: isActive
+          ? colorScheme.onSurfaceVariant
+          : colorScheme.primary,
       child: Stack(
         alignment: Alignment.center,
         children: [
           if (isActive)
             SizedBox(
-              width: 32,
-              height: 32,
+              width: AppConfig.progressIndicatorSize,
+              height: AppConfig.progressIndicatorSize,
               child: CircularProgressIndicator(
-                // Fix: op statt operation! — kein Bang-Operator nötig
                 value: op!.progress,
-                strokeWidth: 3,
-                valueColor:
-                    const AlwaysStoppedAnimation(Colors.white),
-                backgroundColor:
-                    Colors.white.withValues(alpha: 0.3),
+                strokeWidth: AppConfig.strokeWidthThick,
+                valueColor: AlwaysStoppedAnimation(colorScheme.onPrimary),
+                backgroundColor: colorScheme.onPrimary
+                    .withValues(alpha: AppConfig.opacityMedium),
               ),
             ),
           Icon(
             isActive ? Icons.hourglass_empty : Icons.sync,
-            color: Colors.white,
+            color: colorScheme.onPrimary,
           ),
         ],
       ),
@@ -558,7 +572,6 @@ class SyncProgressBottomSheet extends StatefulWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      // Fix: Dialog-eigenen ctx verwenden — nicht äußeren context
       builder: (ctx) => SyncProgressBottomSheet(
         progressService: progressService,
       ),
@@ -570,22 +583,27 @@ class _SyncProgressBottomSheetState
     extends State<SyncProgressBottomSheet> {
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SizedBox(
-      // Fix: Container → SizedBox — kein Styling nötig, nur Größe
       height: MediaQuery.of(context).size.height * 0.7,
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.sync_alt, size: 24),
-                const SizedBox(width: 8),
-                const Text(
+                Icon(
+                  Icons.sync_alt,
+                  size: AppConfig.iconSizeLarge,
+                  color: colorScheme.onSurface,
+                ),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
                   'Synchronisationsdetails',
-                  style: TextStyle(
-                    fontSize: 20,
+                  style: textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -614,24 +632,25 @@ class _SyncProgressBottomSheetState
                             operation: operation,
                             stats: stats,
                           ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: AppConfig.spacingLarge),
                         if (widget.progressService.operationHistory
                             .isNotEmpty) ...[
-                          const Align(
+                          Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
                               'Verlauf',
-                              style: TextStyle(
-                                fontSize: 18,
+                              style: textTheme.titleMedium?.copyWith(
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: AppConfig.spacingSmall),
                           ...widget
                               .progressService.operationHistory.reversed
                               .take(5)
-                              .map(_buildHistoryItem),
+                              .map(
+                                (op) => _buildHistoryItem(context, op),
+                              ),
                         ],
                       ],
                     ),
@@ -645,11 +664,16 @@ class _SyncProgressBottomSheetState
     );
   }
 
-  Widget _buildHistoryItem(SyncOperation operation) {
+  Widget _buildHistoryItem(BuildContext context, SyncOperation operation) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return ListTile(
       leading: Icon(
         operation.isCompleted ? Icons.check_circle : Icons.error,
-        color: operation.isCompleted ? Colors.green : Colors.red,
+        color: operation.isCompleted
+            ? colorScheme.tertiary
+            : colorScheme.error,
       ),
       title: Text(operation.name),
       subtitle: Text(
@@ -657,7 +681,7 @@ class _SyncProgressBottomSheetState
       ),
       trailing: Text(
         '${(operation.progress * 100).toInt()}%',
-        style: const TextStyle(fontSize: 12),
+        style: textTheme.bodySmall,
       ),
     );
   }

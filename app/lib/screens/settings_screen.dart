@@ -1,9 +1,14 @@
 // lib/screens/settings_screen.dart
+//
+// O-004: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
+// Semantische Status-Container nutzen jetzt colorScheme.*Container-Farben.
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config/app_config.dart';
 import '../services/artikel_db_service.dart';
 import '../services/pocketbase_service.dart';
 import '../services/app_log_service.dart';
@@ -102,59 +107,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final testUrl = _pocketBaseUrlController.text.trim();
 
       if (testUrl.isNotEmpty && testUrl != _pbService.url) {
-        // FIX: updateUrl() gibt jetzt bool zurück und führt intern bereits
-        // einen Health-Check durch. Schlägt er fehl (URL ungültig oder
-        // nicht erreichbar), bleibt der bestehende Client aktiv.
-        // → kein separater checkHealth()-Aufruf mehr nötig (war doppelter
-        //   Netzwerk-Request). Ergebnis direkt als Verbindungsstatus nutzen.
         final ok = await _pbService.updateUrl(testUrl);
 
         if (!mounted) return;
         setState(() => _pbConnectionOk = ok);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              ok
-                  ? '✅ Verbindung zu PocketBase erfolgreich!'
-                  : '❌ PocketBase nicht erreichbar – '
-                      'bestehende URL bleibt aktiv',
-            ),
-            backgroundColor: ok ? Colors.green : Colors.red,
-          ),
-        );
+        _showConnectionSnackBar(ok);
       } else {
-        // URL unverändert — nur Health-Check auf bestehendem Client
         final ok = await _pbService.checkHealth();
 
         if (!mounted) return;
         setState(() => _pbConnectionOk = ok);
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              ok
-                  ? '✅ Verbindung zu PocketBase erfolgreich!'
-                  : '❌ PocketBase nicht erreichbar',
-            ),
-            backgroundColor: ok ? Colors.green : Colors.red,
-          ),
-        );
+        _showConnectionSnackBar(ok);
       }
     } catch (e, st) {
       AppLogService.logger
           .e('PocketBase-Test fehlgeschlagen', error: e, stackTrace: st);
       if (!mounted) return;
       setState(() => _pbConnectionOk = false);
+      final colorScheme = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Verbindungsfehler: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: colorScheme.error,
         ),
       );
     } finally {
       if (mounted) setState(() => _isCheckingConnection = false);
     }
+  }
+
+  /// Zeigt eine SnackBar mit Verbindungsstatus an.
+  /// Farben werden aus dem colorScheme bezogen.
+  void _showConnectionSnackBar(bool ok) {
+    final colorScheme = Theme.of(context).colorScheme;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? '✅ Verbindung zu PocketBase erfolgreich!'
+              : '❌ PocketBase nicht erreichbar',
+        ),
+        backgroundColor: ok ? colorScheme.tertiary : colorScheme.error,
+      ),
+    );
   }
 
   Future<void> _resetPocketBaseUrl() async {
@@ -214,6 +211,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _deleteDatabase() async {
     if (kIsWeb) return;
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -231,7 +230,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
             child: const Text('Löschen'),
           ),
         ],
@@ -275,25 +276,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       final newUrl = _pocketBaseUrlController.text.trim();
       if (newUrl.isNotEmpty) {
-        // FIX: updateUrl() bool-Rückgabe auswerten —
-        // schlägt der Health-Check fehl, bleibt der bestehende Client
-        // aktiv und der User bekommt eine klare Fehlermeldung.
-        // Einstellungen werden trotzdem gespeichert (Artikelnummer etc.)
-        // — nur die URL wird nicht übernommen wenn sie nicht erreichbar ist.
         final urlUpdated = await _pbService.updateUrl(newUrl);
         if (!urlUpdated) {
           if (!mounted) return;
+          final colorScheme = Theme.of(context).colorScheme;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
+            SnackBar(
+              content: const Text(
                 '⚠️ PocketBase URL konnte nicht gesetzt werden – '
                 'Server nicht erreichbar oder URL ungültig. '
                 'Bestehende URL bleibt aktiv.',
               ),
-              backgroundColor: Colors.orange,
+              backgroundColor: colorScheme.secondary,
             ),
           );
-          // Frühzeitig abbrechen — URL-Feld zurücksetzen auf aktive URL
           setState(() {
             _pocketBaseUrlController.text = _pbService.url;
           });
@@ -301,7 +297,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         }
       }
 
-      // Artikelnummer nur bei leerer DB (und nur auf Mobile)
       if (!kIsWeb && _isDatabaseEmpty) {
         final artikelNummer =
             int.tryParse(_artikelNummerController.text.trim()) ?? 1000;
@@ -324,10 +319,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ==================== M-009: LOGOUT ====================
 
-  /// Zeigt einen Bestätigungs-Dialog und führt bei Bestätigung
-  /// den Logout durch. Ruft den onLogout-Callback auf, der in
-  /// main.dart den Auth-Zustand zurücksetzt.
   Future<void> _handleLogout() async {
+    final colorScheme = Theme.of(context).colorScheme;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -343,8 +337,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: colorScheme.error,
+              foregroundColor: colorScheme.onError,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Abmelden'),
@@ -356,10 +350,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
 
     if (confirm == true) {
-      // Navigator-Stack aufräumen bevor der Zustand wechselt
       Navigator.of(context).popUntil((route) => route.isFirst);
-
-      // Callback an main.dart → setzt _isLoggedIn = false
       widget.onLogout?.call();
     }
   }
@@ -380,19 +371,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // ── M-009: Benutzer-Info & Logout ──
               _buildAccountCard(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppConfig.spacingLarge),
               _buildPocketBaseCard(),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppConfig.spacingLarge),
               if (!kIsWeb) _buildArtikelNummerCard(),
-              if (!kIsWeb) const SizedBox(height: 16),
+              if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
               _buildInfoCard(),
             ],
           ),
@@ -403,14 +393,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // ==================== M-009: ACCOUNT CARD ====================
 
-  /// Zeigt den aktuell angemeldeten Benutzer und den Logout-Button.
   Widget _buildAccountCard() {
     final isLoggedIn = _pbService.isAuthenticated;
     final userEmail = _pbService.currentUserEmail;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -418,78 +409,87 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Icon(
                   isLoggedIn ? Icons.person : Icons.person_off,
-                  color: isLoggedIn ? Colors.green : Colors.grey,
+                  color: isLoggedIn
+                      ? colorScheme.tertiary
+                      : colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
-                const Text(
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
                   'Benutzerkonto',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
                 if (isLoggedIn)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppConfig.spacingSmall,
+                      vertical: AppConfig.spacingXSmall,
+                    ),
                     decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.shade200),
+                      color: colorScheme.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(
+                        AppConfig.cardBorderRadiusLarge,
+                      ),
+                      border: Border.all(
+                        color: colorScheme.tertiary
+                            .withValues(alpha: AppConfig.opacityMedium),
+                      ),
                     ),
                     child: Text(
                       'Angemeldet',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.green.shade700,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onTertiaryContainer,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
             // Benutzer-Info
             if (isLoggedIn && userEmail != null) ...[
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppConfig.spacingMedium),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(
+                    AppConfig.borderRadiusMedium,
+                  ),
+                  border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 20,
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
+                      radius: AppConfig.avatarRadiusSmall,
+                      backgroundColor: colorScheme.primaryContainer,
                       child: Text(
                         userEmail.isNotEmpty
                             ? userEmail[0].toUpperCase()
                             : '?',
-                        style: TextStyle(
+                        style: textTheme.titleSmall?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color:
-                              Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: colorScheme.onPrimaryContainer,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppConfig.spacingMedium),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Angemeldet als',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: AppConfig.spacingXSmall),
                           Text(
                             userEmail,
-                            style: const TextStyle(
+                            style: textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -499,33 +499,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppConfig.spacingMedium),
             ] else ...[
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.warning_amber, color: Colors.orange.shade700),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Nicht angemeldet. Einige Funktionen sind '
-                        'möglicherweise eingeschränkt.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.orange.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _buildStatusContainer(
+                icon: Icons.warning_amber,
+                message: 'Nicht angemeldet. Einige Funktionen sind '
+                    'möglicherweise eingeschränkt.',
+                type: _StatusType.warning,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppConfig.spacingMedium),
             ],
 
             // Logout-Button
@@ -534,11 +516,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 width: double.infinity,
                 child: OutlinedButton.icon(
                   onPressed: _handleLogout,
-                  icon: const Icon(Icons.logout, color: Colors.red),
+                  icon: Icon(Icons.logout, color: colorScheme.error),
                   label: const Text('Abmelden'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.red,
-                    side: const BorderSide(color: Colors.red),
+                    foregroundColor: colorScheme.error,
+                    side: BorderSide(color: colorScheme.error),
                   ),
                 ),
               ),
@@ -551,30 +533,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== POCKETBASE CARD ====================
 
   Widget _buildPocketBaseCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                const Icon(Icons.dns, color: Colors.blue),
-                const SizedBox(width: 8),
-                const Text(
+                Icon(Icons.dns, color: colorScheme.primary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
                   'PocketBase Server',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 const Spacer(),
                 if (_pbConnectionOk != null)
                   Icon(
                     _pbConnectionOk! ? Icons.check_circle : Icons.error,
-                    color: _pbConnectionOk! ? Colors.green : Colors.red,
-                    size: 20,
+                    color: _pbConnectionOk!
+                        ? colorScheme.tertiary
+                        : colorScheme.error,
+                    size: AppConfig.iconSizeMedium,
                   ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
             TextFormField(
               controller: _pocketBaseUrlController,
               decoration: InputDecoration(
@@ -603,7 +592,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppConfig.spacingMedium),
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -611,9 +600,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _isCheckingConnection ? null : _testPocketBaseConnection,
                 icon: _isCheckingConnection
                     ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                        width: AppConfig.iconSizeSmall,
+                        height: AppConfig.iconSizeSmall,
+                        child: CircularProgressIndicator(
+                          strokeWidth: AppConfig.strokeWidthMedium,
+                        ),
                       )
                     : const Icon(Icons.wifi_find),
                 label: Text(
@@ -624,69 +615,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
             if (_pbConnectionOk != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: _pbConnectionOk!
-                      ? Colors.green.shade50
-                      : Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _pbConnectionOk!
-                        ? Colors.green.shade200
-                        : Colors.red.shade200,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      _pbConnectionOk! ? Icons.check_circle : Icons.error,
-                      color: _pbConnectionOk! ? Colors.green : Colors.red,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _pbConnectionOk!
-                            ? 'Verbindung erfolgreich! Server ist erreichbar.'
-                            : 'Server nicht erreichbar. Bitte URL und Netzwerk prüfen.',
-                        style: TextStyle(
-                          color: _pbConnectionOk!
-                              ? Colors.green.shade800
-                              : Colors.red.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: AppConfig.spacingSmall),
+              _buildStatusContainer(
+                icon: _pbConnectionOk! ? Icons.check_circle : Icons.error,
+                message: _pbConnectionOk!
+                    ? 'Verbindung erfolgreich! Server ist erreichbar.'
+                    : 'Server nicht erreichbar. Bitte URL und Netzwerk prüfen.',
+                type: _pbConnectionOk!
+                    ? _StatusType.success
+                    : _StatusType.error,
               ),
             ],
             if (kIsWeb) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Im Web-Modus wird die API über den Reverse Proxy '
-                        'bereitgestellt. Die Standard-URL (/api) sollte '
-                        'normalerweise nicht geändert werden.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.blue.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: AppConfig.spacingMedium),
+              _buildStatusContainer(
+                icon: Icons.info_outline,
+                message: 'Im Web-Modus wird die API über den Reverse Proxy '
+                    'bereitgestellt. Die Standard-URL (/api) sollte '
+                    'normalerweise nicht geändert werden.',
+                type: _StatusType.info,
               ),
             ],
           ],
@@ -698,17 +645,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ==================== ARTIKELNUMMER CARD ====================
 
   Widget _buildArtikelNummerCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Artikelnummer-Einstellungen',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
             TextFormField(
               controller: _artikelNummerController,
               enabled: _isDatabaseEmpty,
@@ -722,7 +674,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 border: const OutlineInputBorder(),
                 suffixIcon: _isDatabaseEmpty
                     ? null
-                    : const Icon(Icons.lock, color: Colors.grey),
+                    : Icon(
+                        Icons.lock,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
               ),
               keyboardType: TextInputType.number,
               validator: (value) {
@@ -737,40 +692,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             if (!_isDatabaseEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade200),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.orange.shade700),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Die Start-Artikelnummer kann nur geändert werden, '
-                        'wenn die lokale Datenbank leer ist. '
-                        'Daten in PocketBase bleiben erhalten.',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.orange.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: AppConfig.spacingMedium),
+              _buildStatusContainer(
+                icon: Icons.info_outline,
+                message: 'Die Start-Artikelnummer kann nur geändert werden, '
+                    'wenn die lokale Datenbank leer ist. '
+                    'Daten in PocketBase bleiben erhalten.',
+                type: _StatusType.warning,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppConfig.spacingMedium),
               OutlinedButton.icon(
                 onPressed: _deleteDatabase,
-                icon: const Icon(Icons.delete_forever, color: Colors.red),
+                icon: Icon(Icons.delete_forever, color: colorScheme.error),
                 label: const Text('Lokale Datenbank löschen'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.red,
-                  side: const BorderSide(color: Colors.red),
+                  foregroundColor: colorScheme.error,
+                  side: BorderSide(color: colorScheme.error),
                 ),
               ),
             ],
@@ -784,18 +721,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildInfoCard() {
     final pbUrl = _pbService.url;
+    final textTheme = Theme.of(context).textTheme;
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'App-Information',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppConfig.spacingMedium),
             FutureBuilder<String>(
               future: _getAppVersion(),
               builder: (context, snapshot) {
@@ -811,7 +751,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   : 'SQLite (lokal) + PocketBase Sync',
             ),
             _infoRow('PocketBase URL', pbUrl),
-            // ── M-009: Auth-Status in Info-Card ──
             _infoRow(
               'Auth-Status',
               _pbService.isAuthenticated
@@ -838,23 +777,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _infoRow(String label, String value) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: AppConfig.spacingXSmall),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 120,
+            width: AppConfig.infoLabelWidth,
             child: Text(
               label,
-              style: const TextStyle(fontWeight: FontWeight.w500),
+              style: textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
           Expanded(
-            child: Text(value, style: const TextStyle(color: Colors.grey)),
+            child: Text(
+              value,
+              style: textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== SHARED STATUS CONTAINER ====================
+  // O-004: Wiederverwendbarer Status-Container ersetzt die vielen
+  // duplizierten Container mit Colors.green.shade50, Colors.red.shade50 etc.
+  // Nutzt jetzt semantische colorScheme-Farben.
+
+  Widget _buildStatusContainer({
+    required IconData icon,
+    required String message,
+    required _StatusType type,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    final Color containerColor;
+    final Color borderColor;
+    final Color contentColor;
+
+    switch (type) {
+      case _StatusType.success:
+        containerColor = colorScheme.tertiaryContainer;
+        borderColor = colorScheme.tertiary
+            .withValues(alpha: AppConfig.opacityMedium);
+        contentColor = colorScheme.onTertiaryContainer;
+      case _StatusType.error:
+        containerColor = colorScheme.errorContainer;
+        borderColor = colorScheme.error
+            .withValues(alpha: AppConfig.opacityMedium);
+        contentColor = colorScheme.onErrorContainer;
+      case _StatusType.warning:
+        containerColor = colorScheme.secondaryContainer;
+        borderColor = colorScheme.secondary
+            .withValues(alpha: AppConfig.opacityMedium);
+        contentColor = colorScheme.onSecondaryContainer;
+      case _StatusType.info:
+        containerColor = colorScheme.primaryContainer;
+        borderColor = colorScheme.primary
+            .withValues(alpha: AppConfig.opacityMedium);
+        contentColor = colorScheme.onPrimaryContainer;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(AppConfig.spacingMedium),
+      decoration: BoxDecoration(
+        color: containerColor,
+        borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
+        border: Border.all(color: borderColor),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: contentColor),
+          const SizedBox(width: AppConfig.spacingSmall),
+          Expanded(
+            child: Text(
+              message,
+              style: textTheme.bodySmall?.copyWith(
+                color: contentColor,
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 }
+
+/// Interne Enum für Status-Container-Typen.
+/// Nicht exportiert — nur innerhalb von settings_screen.dart verwendet.
+enum _StatusType { success, error, warning, info }

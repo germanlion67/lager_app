@@ -2,6 +2,56 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## 3. `CHANGELOG.md` (neuer Eintrag oben einfügen)
+
+Füge diesen Block **ganz oben** in die `CHANGELOG.md` ein, vor dem bestehenden `[0.7.4+0]`-Eintrag:
+
+```markdown
+## [0.7.4+3] - 2026-04-01
+
+### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 1
+- **109 Hardcodes eliminiert** in 2 Fokus-Dateien + AppConfig erweitert
+- Dark Mode funktioniert jetzt korrekt in allen migrierten Widgets
+- Kein visuelles Redesign — gleiche Optik, sauberer Code
+
+#### AppConfig (`app/lib/config/app_config.dart`)
+- 13 neue Design-Tokens ergänzt:
+  - **Icon-Sizes:** `iconSizeXSmall` (14), `iconSizeSmall` (16),
+    `iconSizeMedium` (20), `iconSizeLarge` (24)
+  - **Stroke:** `strokeWidthThin` (1), `strokeWidthMedium` (2),
+    `strokeWidthThick` (3)
+  - **Layout:** `infoLabelWidth` (120), `avatarRadiusSmall` (20),
+    `dialogContentWidth` (300), `progressIndicatorSize` (32)
+  - **Opacity:** `opacitySubtle` (0.1), `opacityLight` (0.2),
+    `opacityMedium` (0.3)
+
+#### sync_progress_widgets.dart
+- 55 Hardcodes → 0 verbleibend
+- `Colors.red/green/blue/orange` → `colorScheme.error/tertiary/primary/secondary`
+- `Colors.grey[300/600]` → `colorScheme.surfaceContainerHighest/onSurfaceVariant`
+- `Colors.white` → `colorScheme.onPrimary`
+- Alle `EdgeInsets`/`SizedBox`/`BorderRadius` → AppConfig-Tokens
+- `_getStatusColor()` und `_buildStatChip()` nutzen jetzt `BuildContext`
+
+#### settings_screen.dart
+- 54 Hardcodes → 0 verbleibend
+- `Colors.green.shade*` → `colorScheme.tertiary/tertiaryContainer`
+- `Colors.red.shade*` → `colorScheme.error/errorContainer`
+- `Colors.orange.shade*` → `colorScheme.secondary/secondaryContainer`
+- `Colors.blue.shade*` → `colorScheme.primary/primaryContainer`
+- 6 duplizierte Status-Container → wiederverwendbare `_buildStatusContainer()`
+  Methode mit `_StatusType` Enum (DRY-Refactoring)
+- SnackBar-Farben → `_showConnectionSnackBar()` Helper extrahiert
+
+### Dokumentation
+- `THEMING.md` — Vollständige Token-Referenz mit Tabellen, Farb-Zuordnungstabelle
+  für O-004, Dark-Mode-Hinweise für Entwickler
+- `OPTIMIZATIONS.md` — O-004 Batch 1 als erledigt markiert, Batch 2–5 Roadmap
+  mit Hardcode-Counts, H-002 und M-009 in Abgeschlossen verschoben
+- `CHANGELOG.md` — Aktualisiert
+
+---
+
 ## [0.7.4+0] - 2026-03-30
 
 ### Sicherheit (H-002)

@@ -165,12 +165,52 @@ Der Sync-Prozess erkennt Konflikte, aber die UI zur Auswahl zwischen
 ## 🟡 Priorität: Mittel
 
 ### O-004: UI-Hardcoded Werte migrieren
-Ca. 140 Stellen mit hardcodierten Farben, Abständen oder Radien.
 
-**Fokus-Bereiche:**
-- `sync_progress_widgets.dart`
-- `artikel_list_item_widget.dart`
-- `settings_screen.dart`
+**Status:** 🟡 In Arbeit (Batch 1 erledigt)
+**Datum:** 2026-04-01
+
+Ca. 482 verbleibende Stellen mit hardcodierten Farben, Abständen, Radien
+oder Font-Sizes in `screens/` und `widgets/`.
+
+**Batch 1 — Erledigt ✅** (v0.7.4+3)
+- `app_config.dart` — 13 neue Tokens (Icon-Sizes, Stroke, Opacity, Layout)
+- `sync_progress_widgets.dart` — 55 Hardcodes → 0
+- `settings_screen.dart` — 54 Hardcodes → 0
+- `artikel_list_item_widget.dart` — existiert nicht, übersprungen
+- Neuer `_buildStatusContainer()` Helper in Settings (DRY-Refactoring)
+
+**Batch 2 — Offen 🔴** (Sync-Cluster, ~184 Hardcodes)
+- `app_theme.dart` Hardcodes in Component-Themes durch AppConfig ersetzen
+- `conflict_resolution_screen.dart` (82)
+- `sync_error_widgets.dart` (59)
+- `sync_management_screen.dart` (43)
+
+**Batch 3 — Offen 🟡** (Artikel-Cluster, ~98 Hardcodes)
+- `artikel_detail_screen.dart` (36)
+- `artikel_list_screen.dart` (31)
+- `sync_conflict_handler.dart` (31)
+
+**Batch 4 — Offen 🟡** (Attachment & Setup, ~92 Hardcodes)
+- `attachment_upload_widget.dart` (28)
+- `attachment_list_widget.dart` (23)
+- `server_setup_screen.dart` (23)
+- `login_screen.dart` (18)
+
+**Batch 5 — Offen 🟢** (Cleanup, ~108 Hardcodes)
+- `_dokumente_button.dart` (18)
+- `list_screen_mobile_actions.dart` (17)
+- `qr_scan_screen_mobile_scanner.dart` (12)
+- `image_crop_dialog.dart` (11)
+- `nextcloud_settings_screen.dart` (21)
+- Restliche Dateien mit ≤7 Hardcodes
+
+**Regeln (für alle Batches):**
+- Farben: `Colors.*` / `Color(0x...)` → `Theme.of(context).colorScheme.*`
+- Spacing: `EdgeInsets.*(N)` / `SizedBox(height: N)` → `AppConfig.spacing*`
+- Radien: `BorderRadius.circular(N)` → `AppConfig.borderRadius*` / `cardBorderRadius*`
+- Font-Sizes: `fontSize: N` → `AppConfig.fontSize*` oder `textTheme.*`
+- Keine neuen `AppTheme`-Farben (z.B. `greyLight100`) in UI-Code verwenden
+  → stattdessen `colorScheme.surfaceContainerLow` etc.
 
 ### O-002: Unit-Tests für Core-Utilities
 **Zu testende Komponenten:**
@@ -227,6 +267,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-01 | v0.7.4+3 | O-004 Batch 1 erledigt: sync_progress_widgets + settings_screen migriert, 13 neue AppConfig-Tokens |
 | 2026-03-30 | v0.7.3 | H-002 (CORS) abgeschlossen, Traefik-Compose entfernt, Portainer Stack angeglichen |
 | 2026-03-29 | v0.7.2 | M-012 (Attachments) abgeschlossen, M-009 (Login) hinzugefügt |
 | 2026-03-27 | v0.7.1 | H-003 (Backup) abgeschlossen, M-008 hinzugefügt |

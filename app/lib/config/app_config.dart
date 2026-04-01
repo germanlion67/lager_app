@@ -179,4 +179,63 @@ class AppConfig {
   static const double fontSizeLarge = 16.0;
   static const double fontSizeXLarge = 18.0;
   static const double fontSizeXXLarge = 20.0;
+
+
+  // ============================================================================
+  // Icon-Größen (O-004: Hardcoded Icon-Sizes eliminieren)
+  // ============================================================================
+
+  /// Kleine Icons in Chips, Badges, kompakten Stat-Zeilen.
+  static const double iconSizeXSmall = 14.0;
+
+  /// Standard-Inline-Icons — Fortschrittsanzeigen, kompakte Buttons.
+  static const double iconSizeSmall = 16.0;
+
+  /// Status-Icons in Dialog-Titeln, Card-Headern.
+  static const double iconSizeMedium = 20.0;
+
+  /// Größere Icons in Card-Headern, ListTile-Leading.
+  static const double iconSizeLarge = 24.0;
+
+  // ============================================================================
+  // Stroke / Border-Breiten (O-004: Hardcoded strokeWidth eliminieren)
+  // ============================================================================
+
+  /// Dünne Borders für Chips, Badges, Status-Container.
+  static const double strokeWidthThin = 1.0;
+
+  /// Standard-Stroke für CircularProgressIndicator u.ä.
+  static const double strokeWidthMedium = 2.0;
+
+  /// Dickerer Stroke für prominente Progress-Indikatoren (z.B. FAB).
+  static const double strokeWidthThick = 3.0;
+
+  // ============================================================================
+  // Spezifische Layout-Konstanten (O-004)
+  // ============================================================================
+
+  /// Breite des Label-Bereichs in Info-Zeilen (z.B. Settings-InfoCard).
+  static const double infoLabelWidth = 120.0;
+
+  /// Standard-Radius für CircleAvatars in Listen/Cards.
+  static const double avatarRadiusSmall = 20.0;
+
+  /// Breite für modale Dialog-Content-Bereiche.
+  static const double dialogContentWidth = 300.0;
+
+  /// Größe des kreisförmigen Progress-Indicators (z.B. in FAB).
+  static const double progressIndicatorSize = 32.0;
+
+  // ============================================================================
+  // Opacity-Konstanten (O-004: Hardcoded withOpacity/withValues eliminieren)
+  // ============================================================================
+
+  /// Leichte Hintergrund-Transparenz für Status-Chips, Stat-Badges.
+  static const double opacitySubtle = 0.1;
+
+  /// Mittlere Transparenz für Container-Hintergründe, Overlays.
+  static const double opacityLight = 0.2;
+
+  /// Stärkere Transparenz für Progress-Hintergründe, Borders.
+  static const double opacityMedium = 0.3;
 }
