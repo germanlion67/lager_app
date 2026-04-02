@@ -1,6 +1,6 @@
 // lib/screens/detail_screen_io.dart
 
-import 'dart:async'; // ← NEU
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -58,13 +58,15 @@ Future<String?> persistSelectedImage({
   if (sourceBytes == null) return null;
 
   // M-011: Thumbnail generieren (fire-and-forget)
-  unawaited(_generateAndSaveThumbnail(  // ← unawaited()
-    sourceBytes: sourceBytes,
-    artikelId: artikelId,
-    nameSlug: nameSlug,
-    imagesDir: imagesDir,
-    onSaved: onThumbnailSaved,
-  ),);
+  unawaited(
+    _generateAndSaveThumbnail(
+      sourceBytes: sourceBytes,
+      artikelId: artikelId,
+      nameSlug: nameSlug,
+      imagesDir: imagesDir,
+      onSaved: onThumbnailSaved,
+    ),
+  );
 
   return targetPath;
 }
@@ -78,7 +80,8 @@ Future<void> _generateAndSaveThumbnail({
   void Function(String thumbPath)? onSaved,
 }) async {
   try {
-    final thumbBytes = await ImageProcessingUtils.generateThumbnail(sourceBytes);
+    final thumbBytes =
+        await ImageProcessingUtils.generateThumbnail(sourceBytes);
     if (thumbBytes == null) return;
 
     final thumbFileName = '${artikelId}_${nameSlug}_thumb.jpg';
@@ -88,8 +91,11 @@ Future<void> _generateAndSaveThumbnail({
     _logger.d('[detail_screen_io] Thumbnail gespeichert: $thumbPath');
     onSaved?.call(thumbPath);
   } catch (e, st) {
-    _logger.e('[detail_screen_io] Thumbnail-Generierung fehlgeschlagen',
-        error: e, stackTrace: st,);
+    _logger.e(
+      '[detail_screen_io] Thumbnail-Generierung fehlgeschlagen',
+      error: e,
+      stackTrace: st,
+    );
   }
 }
 
@@ -100,6 +106,10 @@ Future<Uint8List> readFileBytes(String path) => File(path).readAsBytes();
 bool fileExists(String path) => File(path).existsSync();
 
 /// Baut ein Image.file Widget.
+///
+/// Hinweis: Colors.grey[200] und Colors.grey im errorBuilder sind
+/// Platzhalter-Farben für fehlgeschlagene Bildanzeige. Da diese Funktion
+/// keinen BuildContext hat, können sie nicht über colorScheme gesteuert werden.
 Widget buildFileImage(
   String path, {
   double? height,

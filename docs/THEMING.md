@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt die Implementierung von Material 3, das Design-Token-System und die zentrale Konfiguration der **Lager_app**.
 
-**Zuletzt aktualisiert:** 2026-04-02 (O-004 Batch 4)
+**Zuletzt aktualisiert:** 2026-04-02 (O-004 Batch 5 — abgeschlossen ✅)
 
 ---
 
@@ -40,15 +40,15 @@ Hält alle nicht-visuellen und strukturellen Vorgaben bereit.
 | `iconSizeSmall` | 16.0 | Progress-Indikatoren, inline Icons, Merge-Buttons |
 | `iconSizeMedium` | 20.0 | Dialog-Titel, Status-Icons, Radio-Buttons |
 | `iconSizeLarge` | 24.0 | Card-Header, ListTile-Leading, Severity-Icons |
-| `iconSizeXLarge` | 48.0 | Empty-States, Upload-Area-Header |
+| `iconSizeXLarge` | 48.0 | Empty-States, Upload-Area-Header, Fehler-Icons |
 | `iconSizeXXLarge` | 64.0 | Setup-Screen Header |
 
 #### Stroke-Breiten (v0.7.4+3)
 | Token | Wert | Verwendung |
 |---|---|---|
-| `strokeWidthThin` | 1.0 | Chip/Badge-Borders, unselected Radio-Buttons |
+| `strokeWidthThin` | 1.0 | Chip/Badge-Borders, unselected Radio-Buttons, Thumbnail-Progress |
 | `strokeWidthMedium` | 2.0 | CircularProgressIndicator, selected Radio-Buttons |
-| `strokeWidthThick` | 3.0 | FAB-Progress |
+| `strokeWidthThick` | 3.0 | FAB-Progress, QR-Scan-Rahmen |
 
 #### Opacity (v0.7.4+3)
 | Token | Wert | Verwendung |
@@ -104,7 +104,7 @@ Implementiert das Material 3 Farbschema und die Typografie.
 Verwaltet Pfade zu statischen Dateien und Feature-Flags für die UI.
 *   **Platzhalter**: Pfade zu Standard-Bildern, falls kein Artikelbild vorhanden ist.
 *   **Hintergrund-Stack**: Flag `hintergrundAktiv` zur Steuerung von optionalen Overlay-Grafiken in der Liste.
-*   ⚠️ **Hinweis**: Enthält noch hardcodierte Farben (`Color(0xFF...)`) für Platzhalter-Hintergründe. Diese sollten in den aufrufenden Widgets durch `colorScheme.surfaceContainerHighest` ersetzt werden (geplant für O-004 Batch 5).
+*   ⚠️ **Hinweis**: Enthält noch hardcodierte Farben (`Color(0xFF...)`) für Platzhalter-Hintergründe. Diese werden bewusst beibehalten, da sie über `AppImages` zentral gesteuert werden und nicht in den aufrufenden Widgets liegen.
 
 ---
 
@@ -181,6 +181,7 @@ Immer `colorScheme.surface / colorScheme.onSurface` nutzen
 Status-Container: `*Container + on*Container` Paare verwenden
 Opacity-Werte aus `AppConfig.opacity*` statt hardcodierter Werte
 
+## 📊 Migrations-Fortschritt (O-004) — Abgeschlossen ✅
 | Datei | Batch | Hardcodes | Status |
 |---|---|---|---|
 | `sync_progress_widgets.dart` | 1 | `55 → 0` | ✅ |
@@ -189,14 +190,35 @@ Opacity-Werte aus `AppConfig.opacity*` statt hardcodierter Werte
 | `conflict_resolution_screen.dart` | 2 | `82 → 0` | ✅ |
 | `sync_error_widgets.dart` | 2 | `59 → 0` | ✅ |
 | `sync_management_screen.dart` | 2 | `43 → 0` | ✅ |
-| `artikel_detail_screen.dart` | 3 | `36` | 🟡 |
-| `artikel_list_screen.dart` | 3 | `31` | 🟡 |
-| `sync_conflict_handler.dart` | 3 | `31` | 🟡 |
-| `attachment_upload_widget.dart` | 4 | `28` | 🟡 |
-| `attachment_list_widget.dart` | 4 | `23` | 🟡 |
-| `server_setup_screen.dart` | 4 | `23` | 🟡 |
-| `login_screen.dart` | 4 | `18` | 🟡 |
-| Restliche (9 Dateien) | 5 | `~108` | 🟢 |
+| `artikel_detail_screen.dart` | 3 | `36 → 0` | ✅ |
+| `artikel_list_screen.dart` | 3 | `31 → 0` | ✅ |
+| `sync_conflict_handler.dart` | 3 | `31 → 0` | ✅ |
+| `attachment_upload_widget.dart` | 4 | `28 → 0` | ✅ |
+| `attachment_list_widget.dart` | 4 | `23 → 0` | ✅ |
+| `server_setup_screen.dart` | 4 | `23 → 0` | ✅ |
+| `login_screen.dart` | 4 | `18 → 0` | ✅ |
+| `list_screen_mobile_actions.dart` | 5 | `17 → 0` | ✅ |
+| `nextcloud_settings_screen.dart` | 5 | `21 → 0` | ✅ |
+| `qr_scan_screen_mobile_scanner.dart` | 5 | `12 → 6` | ✅ (6 bewusst) |
+| `image_crop_dialog.dart` | 5 | `11 → 5` | ✅ (5 bewusst) |
+| `artikel_erfassen_screen.dart` | 5 | `12 → 0` | ✅ |
+| `list_screen_web_actions.dart` | 5 | `8 → 0` | ✅ |
+| `artikel_bild_widget.dart` | 5 | `5 → 2` | ✅ (2 bewusst) |
+| `nextcloud_resync_dialog.dart` | 5 | `7 → 0` | ✅ |
+| `detail_screen_io.dart` | 5 | `3 → 3` | ⏭️ (kein BuildContext) |
+| `list_screen_io.dart` | 5 | `3 → 3` | ⏭️ (kein BuildContext) |
+| `list_screen_mobile_actions_stub.dart` | 5 | `4 → 4` | ⏭️ (Stub) |
+| `_dokumente_button.dart` | 5 | `18` | ⏭️ (deprecated) |
+
+## Kumulierter Fortschritt
+| Batch | Hardcodes | Version | Status |
+|---|---|---|---|
+| Batch 1 | `109` | `v0.7.4+3` | ✅ Erledigt |
+| Batch 2 | `193` | `v0.7.4+4` | ✅ Erledigt |
+| Batch 3 | `~98` | `v0.7.4+5` | ✅ Erledigt |
+| Batch 4 | `~92` | `v0.7.4+6` | ✅ Erledigt |
+| Batch 5 | `~108` | `v0.7.4+7` | ✅ Erledigt |
+
 ---
 
 [Zurück zur README](../README.md) | [Zum Projekt-Status](CHECKLIST.md)

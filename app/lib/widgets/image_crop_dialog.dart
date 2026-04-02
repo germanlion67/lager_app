@@ -1,9 +1,15 @@
 // lib/widgets/image_crop_dialog.dart
+//
+// Bild-Zuschneidedialog mit Rotation und Vorschau.
+// Hinweis: Colors.black wird als Hintergrund für die Bildvorschau und
+// Crop-Library verwendet — funktional, nicht semantisch.
+
 import 'dart:typed_data';
 
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../services/app_log_service.dart';
 import '../utils/image_processing_utils.dart';
 
@@ -44,16 +50,15 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
     super.initState();
     _workingBytes = widget.originalBytes;
 
-    // DEBUG: Prüfe ob Bytes ein gültiges Bild sind
     final header = widget.originalBytes.length >= 4
         ? widget.originalBytes.sublist(0, 4).toString()
         : 'zu kurz';
     _logger.d(
-          'ImageCropDialog: initState – '
-          'bytes.length=${widget.originalBytes.length}, '
-          'aspectRatio=${widget.aspectRatio}, '
-          'first4bytes=$header',
-        );
+      'ImageCropDialog: initState – '
+      'bytes.length=${widget.originalBytes.length}, '
+      'aspectRatio=${widget.aspectRatio}, '
+      'first4bytes=$header',
+    );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -142,22 +147,25 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Dialog(
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: const EdgeInsets.all(AppConfig.spacingLarge),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600, maxHeight: 600),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppConfig.spacingLarge),
               child: Text(
                 'Bild zuschneiden',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
             ),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppConfig.spacingLarge,),
               child: Row(
                 children: [
                   Expanded(
@@ -167,7 +175,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                       label: const Text('90° drehen'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppConfig.spacingMedium),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: _isCropping ? null : _toggleCropMode,
@@ -182,12 +190,14 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-            Expanded(child: _buildImageArea()),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppConfig.spacingMedium),
+            Expanded(child: _buildImageArea(colorScheme)),
+            const SizedBox(height: AppConfig.spacingMedium),
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConfig.spacingLarge,
+                vertical: AppConfig.spacingMedium,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -198,16 +208,16 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                       child: const Text('Abbrechen'),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: AppConfig.spacingMedium),
                   Expanded(
                     child: FilledButton(
                       onPressed: _isCropping ? null : _handleAccept,
                       child: _isCropping
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
+                              width: AppConfig.iconSizeSmall,
+                              height: AppConfig.iconSizeSmall,
                               child: CircularProgressIndicator(
-                                strokeWidth: 2,
+                                strokeWidth: AppConfig.strokeWidthMedium,
                               ),
                             )
                           : const Text('Übernehmen'),
@@ -222,17 +232,20 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
     );
   }
 
-  Widget _buildImageArea() {
+  Widget _buildImageArea(ColorScheme colorScheme) {
     if (!_imageReady) {
       return const Center(child: CircularProgressIndicator());
     }
 
     if (_isCropMode) {
       return Crop(
-        key: ValueKey('crop_${_workingBytes.length}_${identityHashCode(_workingBytes)}'),
+        key: ValueKey(
+            'crop_${_workingBytes.length}_${identityHashCode(_workingBytes)}',),
         controller: _controller,
         image: _workingBytes,
         aspectRatio: widget.aspectRatio,
+        // Hinweis: baseColor und maskColor sind Library-Parameter —
+        // funktionale Farben für die Crop-Maskierung, nicht semantisch.
         baseColor: Colors.black,
         maskColor: const Color.fromRGBO(0, 0, 0, 0.5),
         progressIndicator: const Center(child: CircularProgressIndicator()),
@@ -253,7 +266,8 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
               _logger.e('ImageCropDialog: Crop fehlgeschlagen: $cause');
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Zuschneiden fehlgeschlagen: $cause'),
+                  content:
+                      Text('Zuschneiden fehlgeschlagen: $cause'),
                 ),
               );
           }
@@ -273,7 +287,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
       );
     }
 
-    // Vorschau-Modus
+    // Vorschau-Modus — schwarzer Hintergrund ist funktional für Bildvorschau
     return LayoutBuilder(
       builder: (context, constraints) {
         _logger.d(
@@ -298,14 +312,20 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                     error: error,
                     stackTrace: stackTrace,
                   );
-                  return const Column(
+                  return Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.broken_image, color: Colors.red, size: 48),
-                      SizedBox(height: 8),
+                      Icon(
+                        Icons.broken_image,
+                        color: colorScheme.error,
+                        size: AppConfig.iconSizeXLarge,
+                      ),
+                      const SizedBox(height: AppConfig.spacingSmall),
                       Text(
                         'Bild konnte nicht geladen werden',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(
+                          color: colorScheme.onInverseSurface,
+                        ),
                       ),
                     ],
                   );

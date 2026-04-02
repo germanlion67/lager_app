@@ -25,6 +25,7 @@ Future<void> generateArtikelListePdf(
   List<Artikel> artikelListe,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
+  final colorScheme = Theme.of(context).colorScheme;
 
   try {
     final alleArtikel = await ArtikelDbService().getAlleArtikel();
@@ -32,10 +33,10 @@ Future<void> generateArtikelListePdf(
     if (alleArtikel.isEmpty) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Keine Artikel für PDF-Export vorhanden.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: const Text('Keine Artikel für PDF-Export vorhanden.'),
+          backgroundColor: colorScheme.secondary,
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -56,7 +57,7 @@ Future<void> generateArtikelListePdf(
     messenger.showSnackBar(
       SnackBar(
         content: Text('Fehler beim PDF-Export: $e'),
-        backgroundColor: Colors.red,
+        backgroundColor: colorScheme.error,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -73,15 +74,16 @@ Future<void> generateFilteredArtikelListePdf(
   List<Artikel> gefilterteArtikel,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
+  final colorScheme = Theme.of(context).colorScheme;
 
   try {
     if (gefilterteArtikel.isEmpty) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Keine gefilterten Artikel vorhanden.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: const Text('Keine gefilterten Artikel vorhanden.'),
+          backgroundColor: colorScheme.secondary,
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -103,7 +105,7 @@ Future<void> generateFilteredArtikelListePdf(
     messenger.showSnackBar(
       SnackBar(
         content: Text('Fehler beim PDF-Export: $e'),
-        backgroundColor: Colors.red,
+        backgroundColor: colorScheme.error,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -120,11 +122,12 @@ Future<void> showZipBackupDialog(
   Future<void> Function() reloadArtikel,
 ) async {
   if (!context.mounted) return;
+  final colorScheme = Theme.of(context).colorScheme;
   ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(
-      content: Text('ZIP-Backup ist im Web nicht verfügbar.'),
-      backgroundColor: Colors.orange,
-      duration: Duration(seconds: 3),
+    SnackBar(
+      content: const Text('ZIP-Backup ist im Web nicht verfügbar.'),
+      backgroundColor: colorScheme.secondary,
+      duration: const Duration(seconds: 3),
     ),
   );
 }
@@ -138,12 +141,14 @@ Future<void> generateArtikelDetailPdf(
   BuildContext context,
   List<Artikel> artikelListe,
 ) async {
+  final colorScheme = Theme.of(context).colorScheme;
+
   if (artikelListe.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Keine Artikel vorhanden.'),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 3),
+      SnackBar(
+        content: const Text('Keine Artikel vorhanden.'),
+        backgroundColor: colorScheme.secondary,
+        duration: const Duration(seconds: 3),
       ),
     );
     return;
@@ -184,13 +189,13 @@ Future<void> generateArtikelDetailPdf(
   final messenger = ScaffoldMessenger.of(context);
 
   try {
-    // Löst Browser-Download aus (remoteBildPfad wird für Bild genutzt)
     await PdfService().generateArtikelDetailPdf(selected);
 
     if (!context.mounted) return;
     messenger.showSnackBar(
       SnackBar(
-        content: Text('Detail-PDF für "${selected.name}" wird heruntergeladen …'),
+        content: Text(
+            'Detail-PDF für "${selected.name}" wird heruntergeladen …',),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -199,7 +204,7 @@ Future<void> generateArtikelDetailPdf(
     messenger.showSnackBar(
       SnackBar(
         content: Text('Fehler beim Detail-PDF: $e'),
-        backgroundColor: Colors.red,
+        backgroundColor: colorScheme.error,
         duration: const Duration(seconds: 4),
       ),
     );

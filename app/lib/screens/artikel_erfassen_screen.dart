@@ -6,6 +6,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+
+import '../config/app_config.dart';
 import '../models/artikel_model.dart';
 import '../services/pocketbase_service.dart';
 import '../services/artikel_db_service.dart';
@@ -88,7 +90,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     });
   }
 
-/// Ermittelt die nächste freie Artikelnummer.
+  /// Ermittelt die nächste freie Artikelnummer.
   /// Prüft sowohl lokale DB als auch PocketBase und nimmt das Maximum.
   /// Start bei 1000 wenn noch keine Artikel existieren.
   Future<int> _getNextArtikelnummer() async {
@@ -214,12 +216,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _logger.d('_isSaving auf true gesetzt.');
 
     try {
-// Nächste Artikelnummer automatisch ermitteln
+      // Nächste Artikelnummer automatisch ermitteln
       final int nextNummer = await _getNextArtikelnummer();
       _logger.d('Nächste Artikelnummer: $nextNummer');
       final artikel = Artikel(
         name: _nameCtrl.text.trim(),
-        artikelnummer: nextNummer,  // ← NEU
+        artikelnummer: nextNummer,
         beschreibung: _beschreibungCtrl.text.trim(),
         ort: _ortCtrl.text.trim(),
         fach: _fachCtrl.text.trim(),
@@ -256,18 +258,19 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     final pb = _pbService.client;
     final body = artikel.toPocketBaseMap();
 
-    // Prod mode: include owner field when authenticated
     if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
       body['owner'] = _pbService.currentUserId;
     }
 
     final List<http.MultipartFile> files = [];
     if (_bildBytes != null && _bildDateiname != null) {
-      files.add(http.MultipartFile.fromBytes(
-        'bild',
-        _bildBytes!,
-        filename: _bildDateiname,
-      ),);
+      files.add(
+        http.MultipartFile.fromBytes(
+          'bild',
+          _bildBytes!,
+          filename: _bildDateiname,
+        ),
+      );
       _logger.d('Bilddatei für Upload hinzugefügt: $_bildDateiname');
     }
 
@@ -281,10 +284,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
-      Navigator.of(context).pop(artikel.copyWith(
-        remotePath: record.id,
-        remoteBildPfad: record.data['bild'] as String? ?? '',
-      ),);
+      Navigator.of(context).pop(
+        artikel.copyWith(
+          remotePath: record.id,
+          remoteBildPfad: record.data['bild'] as String? ?? '',
+        ),
+      );
       _logger.d('Navigator.pop() aufgerufen.');
     }
   }
@@ -295,13 +300,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _logger.d('_bildBytes null: ${_bildBytes == null}');
     _logger.d('_bildPfad (raw): $_bildPfad');
 
-    // ✅ FIX 1: Nur externe Pfade als Quelle erlauben.
-    // Verhindert dass ein bereits intern kopiertes Bild
-    // (z.B. /home/.../images/1006_name-7.jpg) als Quelle
-    // für einen neuen Artikel verwendet wird.
-    final String? quellPfad = _bildPfad != null && _isExternalPath(_bildPfad!)
-        ? _bildPfad
-        : null;
+    final String? quellPfad =
+        _bildPfad != null && _isExternalPath(_bildPfad!) ? _bildPfad : null;
 
     _logger.d('quellPfad (nach Filter): $quellPfad');
 
@@ -321,26 +321,27 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     }
 
     if (localImagePath != null || _bildBytes != null) {
-      unawaited(_uploadImageToPocketBase(
-        artikel: artikel,
-        bildBytes: _bildBytes,
-        bildDateiname: _bildDateiname,
-        localImagePath: localImagePath,
-      ),);
+      unawaited(
+        _uploadImageToPocketBase(
+          artikel: artikel,
+          bildBytes: _bildBytes,
+          bildDateiname: _bildDateiname,
+          localImagePath: localImagePath,
+        ),
+      );
     }
 
-    // ✅ FIX 2: Bild-State zurücksetzen BEVOR Navigator.pop()
-    // Verhindert dass _bildPfad in einem Folge-Aufruf noch
-    // auf die alte Datei zeigt.
     _resetBildState();
 
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
-      Navigator.of(context).pop(artikel.copyWith(
-        id: artikelId,
-        bildPfad: localImagePath ?? '',
-        uuid: artikel.uuid,
-      ),);
+      Navigator.of(context).pop(
+        artikel.copyWith(
+          id: artikelId,
+          bildPfad: localImagePath ?? '',
+          uuid: artikel.uuid,
+        ),
+      );
     }
   }
 
@@ -394,8 +395,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const spacing = 12.0;
-
     return PopScope(
       canPop: !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) async {
@@ -408,7 +407,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           child: Form(
             key: _formKey,
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(AppConfig.spacingLarge),
               children: [
                 TextFormField(
                   controller: _nameCtrl,
@@ -421,7 +420,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                       : null,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: spacing),
+                const SizedBox(height: AppConfig.spacingMedium),
                 TextFormField(
                   controller: _beschreibungCtrl,
                   decoration: const InputDecoration(
@@ -430,7 +429,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                   ),
                   maxLines: 2,
                 ),
-                const SizedBox(height: spacing),
+                const SizedBox(height: AppConfig.spacingMedium),
                 TextFormField(
                   controller: _ortCtrl,
                   decoration: const InputDecoration(
@@ -442,7 +441,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                       : null,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: spacing),
+                const SizedBox(height: AppConfig.spacingMedium),
                 TextFormField(
                   controller: _fachCtrl,
                   decoration: const InputDecoration(
@@ -454,7 +453,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                       : null,
                   textInputAction: TextInputAction.next,
                 ),
-                const SizedBox(height: spacing),
+                const SizedBox(height: AppConfig.spacingMedium),
                 TextFormField(
                   controller: _mengeCtrl,
                   decoration: const InputDecoration(
@@ -469,7 +468,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: spacing),
+                const SizedBox(height: AppConfig.spacingMedium),
 
                 // Bild-Auswahl
                 Row(
@@ -480,14 +479,14 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                       label: const Text('Bilddatei wählen'),
                     ),
                     if (ImagePickerService.isCameraAvailable) ...[
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppConfig.spacingMedium),
                       FilledButton.tonalIcon(
                         onPressed: _pickImageCamera,
                         icon: const Icon(Icons.camera_alt),
                         label: const Text('Kamera'),
                       ),
                     ],
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppConfig.spacingMedium),
                     Expanded(
                       child: Text(
                         _bildDateiname ?? 'Keine Datei ausgewählt',
@@ -498,17 +497,18 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                 ),
 
                 if (_bildBytes != null) ...[
-                  const SizedBox(height: spacing),
+                  const SizedBox(height: AppConfig.spacingMedium),
                   AspectRatio(
                     aspectRatio: 16 / 9,
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(
+                          AppConfig.borderRadiusMedium,),
                       child: Image.memory(_bildBytes!, fit: BoxFit.cover),
                     ),
                   ),
                 ],
 
-                const SizedBox(height: spacing * 1.5),
+                const SizedBox(height: AppConfig.spacingLarge),
 
                 // Buttons
                 Row(
@@ -519,16 +519,16 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                         child: const Text('Abbrechen'),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppConfig.spacingMedium),
                     Expanded(
                       child: FilledButton.icon(
                         onPressed: _isSaving ? null : _save,
                         icon: _isSaving
                             ? const SizedBox(
-                                width: 18,
-                                height: 18,
+                                width: AppConfig.iconSizeSmall,
+                                height: AppConfig.iconSizeSmall,
                                 child: CircularProgressIndicator(
-                                  strokeWidth: 2,
+                                  strokeWidth: AppConfig.strokeWidthMedium,
                                 ),
                               )
                             : const Icon(Icons.save),

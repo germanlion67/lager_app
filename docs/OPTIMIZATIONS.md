@@ -13,7 +13,7 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 |---|---|---|
 | Phase 1: Grundlagen | 100% | ✅ |
 | Phase 2: Deployment & Security | 100% | ✅ |
-| Phase 3: Performance & Optimierung | 97% | 🟡 |
+| Phase 3: Performance & Optimierung | 100% | ✅ |
 | Phase 4: Multi-Plattform & Politur | 40% | 🔴 |
 
 ### Plattform-Status
@@ -46,6 +46,54 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 
 ### K-005: WSL2-Bildanzeige — Erledigt in v0.7.1
 - Web-Server-Modus für WSL2-Entwicklung dokumentiert ✅
+
+### O-004: UI-Hardcoded Werte migrieren — Erledigt in v0.7.4+7 ✅
+- ~560 von ~600 Hardcodes migriert (~93%)
+- ~41 bewusst beibehalten (dokumentiert in THEMING.md)
+- 28 neue AppConfig-Tokens über 5 Batches
+- Dark Mode funktioniert jetzt korrekt in allen Widgets
+- Alle `withOpacity` → `withValues` migriert
+
+**Batch 1 — Erledigt ✅** (v0.7.4+3)
+- `app_config.dart` — 13 neue Tokens (Icon-Sizes, Stroke, Opacity, Layout)
+- `sync_progress_widgets.dart` — 55 Hardcodes → 0
+- `settings_screen.dart` — 54 Hardcodes → 0
+- Neuer `_buildStatusContainer()` Helper in Settings (DRY-Refactoring)
+
+**Batch 2 — Erledigt ✅** (v0.7.4+4)
+- `app_config.dart` — 2 neue Tokens (infoLabelWidthSmall, buttonPaddingVertical)
+- `app_theme.dart` — 10 Hardcodes → 0 (Component-Themes nutzen AppConfig)
+- `conflict_resolution_screen.dart` — 82 Hardcodes → 0
+- `sync_error_widgets.dart` — 59 Hardcodes → 0
+- `sync_management_screen.dart` — 43 Hardcodes → 0
+
+**Batch 3 — Erledigt ✅** (v0.7.4+5)
+- Keine neuen AppConfig-Tokens nötig
+- `artikel_detail_screen.dart` — 36 Hardcodes → 0
+- `artikel_list_screen.dart` — 31 Hardcodes → 0
+- `sync_conflict_handler.dart` — 31 Hardcodes → 0
+
+**Batch 4 — Erledigt ✅** (v0.7.4+6)
+- `app_config.dart` — 13 neue Tokens (Icon-Sizes XL/XXL, Login/Setup-Layout,
+  Attachment-Thumbnails, Button-Height, Progress-Small)
+- `attachment_upload_widget.dart` — 28 Hardcodes → 0
+- `attachment_list_widget.dart` — 23 Hardcodes → 0
+- `server_setup_screen.dart` — 23 Hardcodes → 0
+- `login_screen.dart` — 18 Hardcodes → 0
+
+**Batch 5 — Erledigt ✅** (v0.7.4+7)
+- Keine neuen AppConfig-Tokens nötig
+- `list_screen_mobile_actions.dart` — 17 Hardcodes → 0
+- `nextcloud_settings_screen.dart` — 21 Hardcodes → 0
+- `qr_scan_screen_mobile_scanner.dart` — 12 → 6 (Kamera-Overlay bewusst)
+- `image_crop_dialog.dart` — 11 → 5 (Crop-Library bewusst)
+- `artikel_erfassen_screen.dart` — 12 Hardcodes → 0
+- `list_screen_web_actions.dart` — 8 Hardcodes → 0
+- `artikel_bild_widget.dart` — 5 → 2 (Platzhalter-Icons bewusst)
+- `nextcloud_resync_dialog.dart` — 7 Hardcodes → 0
+- Bewusst übersprungen: `detail_screen_io.dart`, `list_screen_io.dart`,
+  `list_screen_mobile_actions_stub.dart` (kein BuildContext),
+  `_dokumente_button.dart` (deprecated)
 
 ### O-001: Bereinigung von `debugPrint` — Erledigt
 - Alle `debugPrint`-Aufrufe durch `AppLogService` ersetzt ✅
@@ -110,72 +158,6 @@ Der Sync-Prozess erkennt Konflikte, aber die UI zur Auswahl zwischen
 
 ## 🟡 Priorität: Mittel
 
-### O-004: UI-Hardcoded Werte migrieren
-
-**Status:** 🟡 In Arbeit (Batch 1–4 erledigt, ~82% migriert)
-**Datum:** 2026-04-02
-
-Ursprünglich ca. 600 Stellen mit hardcodierten Farben, Abständen, Radien
-oder Font-Sizes in `screens/` und `widgets/`.
-
-**Batch 1 — Erledigt ✅** (v0.7.4+3)
-- `app_config.dart` — 13 neue Tokens (Icon-Sizes, Stroke, Opacity, Layout)
-- `sync_progress_widgets.dart` — 55 Hardcodes → 0
-- `settings_screen.dart` — 54 Hardcodes → 0
-- `artikel_list_item_widget.dart` — existiert nicht, übersprungen
-- Neuer `_buildStatusContainer()` Helper in Settings (DRY-Refactoring)
-
-**Batch 2 — Erledigt ✅** (v0.7.4+4)
-- `app_config.dart` — 2 neue Tokens (infoLabelWidthSmall, buttonPaddingVertical)
-- `app_theme.dart` — 10 Hardcodes → 0 (Component-Themes nutzen AppConfig)
-- `conflict_resolution_screen.dart` — 82 Hardcodes → 0
-- `sync_error_widgets.dart` — 59 Hardcodes → 0
-- `sync_management_screen.dart` — 43 Hardcodes → 0
-- AppBars nutzen jetzt Standard-Theme statt manueller Farbüberschreibung
-
-**Batch 3 — Erledigt ✅** (v0.7.4+5)
-- Keine neuen AppConfig-Tokens nötig — alle Werte auf bestehende gemappt
-- `artikel_detail_screen.dart` — 36 Hardcodes → 0
-- `artikel_list_screen.dart` — 31 Hardcodes → 0
-- `sync_conflict_handler.dart` — 31 Hardcodes → 0
-- `buildSyncStatus` → `_SyncStatusCard` Widget (BuildContext für colorScheme)
-
-**Batch 4 — Erledigt ✅** (v0.7.4+6)
-- `app_config.dart` — 13 neue Tokens (Icon-Sizes XL/XXL, Login/Setup-Layout,
-  Attachment-Thumbnails, Button-Height, Progress-Small)
-- `attachment_upload_widget.dart` — 28 Hardcodes → 0
-- `attachment_list_widget.dart` — 23 Hardcodes → 0
-- `server_setup_screen.dart` — 23 Hardcodes → 0
-- `login_screen.dart` — 18 Hardcodes → 0
-- Alle `withOpacity` → `withValues` migriert
-
-**Batch 5 — Offen 🟢** (Cleanup, ~108 Hardcodes)
-- `_dokumente_button.dart` (18)
-- `list_screen_mobile_actions.dart` (17)
-- `nextcloud_settings_screen.dart` (21)
-- `qr_scan_screen_mobile_scanner.dart` (12)
-- `image_crop_dialog.dart` (11)
-- Restliche Dateien mit ≤7 Hardcodes
-
-**Kumulierter Fortschritt:**
-| Batch | Hardcodes | Version | Status |
-|---|---|---|---|
-| Batch 1 | 109 | v0.7.4+3 | ✅ Erledigt |
-| Batch 2 | 193 | v0.7.4+4 | ✅ Erledigt |
-| Batch 3 | ~98 | v0.7.4+5 | ✅ Erledigt |
-| Batch 4 | ~92 | v0.7.4+6 | ✅ Erledigt |
-| Batch 5 | ~108 | — | 🟢 Offen |
-| **Gesamt** | **~600** | | **~492 erledigt (~82%)** |
-
-**Regeln (für alle Batches):**
-- Farben: `Colors.*` / `Color(0x...)` → `Theme.of(context).colorScheme.*`
-- Spacing: `EdgeInsets.*(N)` / `SizedBox(height: N)` → `AppConfig.spacing*`
-- Radien: `BorderRadius.circular(N)` → `AppConfig.borderRadius*` / `cardBorderRadius*`
-- Font-Sizes: `fontSize: N` → `AppConfig.fontSize*` oder `textTheme.*`
-- Opacity: `withOpacity(N)` → `withValues(alpha: AppConfig.opacity*)`
-- Keine neuen `AppTheme`-Farben (z.B. `greyLight100`) in UI-Code verwenden
-  → stattdessen `colorScheme.surfaceContainerLow` etc.
-
 ### O-002: Unit-Tests für Core-Utilities
 **Zu testende Komponenten:**
 - `uuid_generator.dart`: Eindeutigkeit
@@ -219,11 +201,11 @@ Erfordert Apple Developer Account.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 15 | 15 | 0 |
+| ✅ Abgeschlossen | 16 | 16 | 0 |
 | 🔴 Hoch | 1 | 0 | 1 |
-| 🟡 Mittel | 7 | 0 | 7 |
+| 🟡 Mittel | 6 | 0 | 6 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **27** | **15** | **12** |
+| **Gesamt** | **27** | **16** | **11** |
 
 ---
 
@@ -231,6 +213,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-02 | v0.7.4+7 | O-004 Batch 5 erledigt + O-004 abgeschlossen: Restliche 11 Dateien migriert (~80 Hardcodes), ~41 bewusst beibehalten |
 | 2026-04-02 | v0.7.4+6 | O-004 Batch 4 erledigt: Attachment-Widgets + Setup/Login migriert, 13 neue AppConfig-Tokens |
 | 2026-04-02 | v0.7.4+5 | O-004 Batch 3 erledigt: Artikel-Cluster migriert (3 Dateien, 98 Hardcodes), keine neuen Tokens |
 | 2026-04-01 | v0.7.4+4 | O-004 Batch 2 erledigt: app_theme + 3 Sync-Dateien migriert, 2 neue AppConfig-Tokens |

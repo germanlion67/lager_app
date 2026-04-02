@@ -27,6 +27,10 @@ Future<bool> checkCamera() async {
 bool fileExists(String path) => File(path).existsSync();
 
 /// Baut ein Image.file Widget.
+///
+/// Hinweis: Colors.grey[300] und Colors.grey im errorBuilder sind
+/// Platzhalter-Farben für fehlgeschlagene Bildanzeige. Da diese Funktion
+/// keinen BuildContext hat, können sie nicht über colorScheme gesteuert werden.
 Widget buildFileImage(
   String path, {
   double? width,

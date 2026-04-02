@@ -1,6 +1,8 @@
 // lib/widgets/nextcloud_resync_dialog.dart
 
 import 'package:flutter/material.dart';
+
+import '../config/app_config.dart';
 import '../services/nextcloud_sync_service.dart';
 
 const int _kMaxVisibleErrors = kMaxVisibleErrors;
@@ -8,7 +10,10 @@ const int _kMaxVisibleErrors = kMaxVisibleErrors;
 Future<void> showNextcloudResyncDialog(BuildContext context) async {
   if (!context.mounted) return;
 
-  await showDialog<void>(                    // FIX: await + <void>
+  final colorScheme = Theme.of(context).colorScheme;
+  final textTheme = Theme.of(context).textTheme;
+
+  await showDialog<void>(
     context: context,
     barrierDismissible: false,
     builder: (_) => const AlertDialog(
@@ -16,7 +21,7 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
         mainAxisSize: MainAxisSize.min,
         children: [
           CircularProgressIndicator(),
-          SizedBox(width: 16),
+          SizedBox(width: AppConfig.spacingLarge),
           Text('Synchronisiere Dateien...'),
         ],
       ),
@@ -31,9 +36,9 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
       if (!context.mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Nextcloud-Zugangsdaten nicht gefunden.'),
-          backgroundColor: Colors.red,
+        SnackBar(
+          content: const Text('Nextcloud-Zugangsdaten nicht gefunden.'),
+          backgroundColor: colorScheme.error,
         ),
       );
       return;
@@ -51,7 +56,7 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
           '✓ ${result.successfullySynced} erfolgreich\n'
           '✗ ${result.failed} fehlgeschlagen';
 
-    await showDialog<void>(                  // FIX: await + <void>
+    await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Nextcloud Synchronisation'),
@@ -61,18 +66,21 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
           children: [
             Text(message),
             if (result.hasErrors) ...[
-              const SizedBox(height: 16),
-              const Text(
+              const SizedBox(height: AppConfig.spacingLarge),
+              Text(
                 'Fehler-Details:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppConfig.spacingSmall),
               ...result.errors.take(_kMaxVisibleErrors).map(
                     (error) => Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.only(
+                          bottom: AppConfig.spacingXSmall,),
                       child: Text(
                         '• $error',
-                        style: const TextStyle(fontSize: 12),
+                        style: textTheme.bodySmall,
                       ),
                     ),
                   ),
@@ -80,6 +88,7 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
                 Text(
                   '... und ${result.errors.length - _kMaxVisibleErrors} '
                   'weitere Fehler',
+                  style: textTheme.bodySmall,
                 ),
             ],
           ],
@@ -93,7 +102,7 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
       ),
     );
 
-    if (!context.mounted) return;            // FIX: mounted-Guard nach zweitem await
+    if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -103,7 +112,7 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
                 '${result.failed} Fehler',
         ),
         backgroundColor:
-            result.isFullSuccess ? Colors.green : Colors.orange,
+            result.isFullSuccess ? colorScheme.tertiary : colorScheme.secondary,
       ),
     );
   } catch (e) {
@@ -112,7 +121,7 @@ Future<void> showNextcloudResyncDialog(BuildContext context) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('Synchronisation fehlgeschlagen: $e'),
-        backgroundColor: Colors.red,
+        backgroundColor: colorScheme.error,
       ),
     );
   }

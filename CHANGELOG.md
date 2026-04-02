@@ -2,6 +2,75 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.4+7] - 2026-04-02
+
+### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 5 (Cleanup, O-004 abgeschlossen ✅)
+- **~80 Hardcodes migriert** in 11 Dateien, **~41 bewusst beibehalten** (dokumentiert)
+- O-004 abgeschlossen: ~560 von ~600 Hardcodes eliminiert (~93%)
+- Kein visuelles Redesign — gleiche Optik, sauberer Code
+
+#### list_screen_mobile_actions.dart — 17 Hardcodes → 0
+- `Colors.orange/red` (SnackBars) → `colorScheme.secondary/error`
+- `Colors.blue/green/orange/purple` (Dialog-Icons) → `colorScheme.primary/tertiary/secondary`
+- `SizedBox(width: 8)` → `AppConfig.spacingSmall`
+
+#### nextcloud_settings_screen.dart — 21 Hardcodes → 0
+- `Colors.green/red/orange` (Verbindungstest-SnackBars) → `colorScheme.tertiary/error/secondary`
+- `Colors.blue/white` (Button-Styling) → `FilledButton` (nutzt Theme automatisch)
+- `SizedBox(width: 18, height: 18)` → `AppConfig.iconSizeSmall`
+- `fontSize: 14` → `textTheme.bodyMedium`
+- Alle `EdgeInsets`/`SizedBox` → AppConfig-Tokens
+
+#### qr_scan_screen_mobile_scanner.dart — 6 migriert, 6 bewusst beibehalten
+- `fontSize: 18/14` → `textTheme.bodyLarge/bodyMedium`
+- `BorderRadius.circular(16)` → `AppConfig.borderRadiusXLarge`
+- `width: 3` → `AppConfig.strokeWidthThick`
+- Bewusst beibehalten: `Colors.black54/black/white/red` (Kamera-Overlay-Maskierung)
+
+#### image_crop_dialog.dart — 6 migriert, 5 bewusst beibehalten
+- `Colors.red` (Fehler-Icon) → `colorScheme.error`
+- `Colors.white` (Text auf schwarzem BG) → `colorScheme.onInverseSurface`
+- `SizedBox(width: 18, height: 18)` → `AppConfig.iconSizeSmall`
+- `size: 48` → `AppConfig.iconSizeXLarge`
+- Alle `EdgeInsets`/`SizedBox` → AppConfig-Tokens
+- Bewusst beibehalten: `Colors.black` + `Color.fromRGBO` (Crop-Library-Parameter)
+
+#### artikel_erfassen_screen.dart — 12 Hardcodes → 0
+- `const spacing = 12.0` → `AppConfig.spacingMedium`
+- `SizedBox(width: 12)` → `AppConfig.spacingMedium`
+- `BorderRadius.circular(8)` → `AppConfig.borderRadiusMedium`
+- `SizedBox(width: 18, height: 18)` → `AppConfig.iconSizeSmall`
+- `strokeWidth: 2` → `AppConfig.strokeWidthMedium`
+- `EdgeInsets.all(16)` → `AppConfig.spacingLarge`
+
+#### list_screen_web_actions.dart — 8 Hardcodes → 0
+- `Colors.orange/red` (SnackBars) → `colorScheme.secondary/error`
+
+#### artikel_bild_widget.dart — 3 migriert, 2 bewusst beibehalten
+- `strokeWidth: 2` → `AppConfig.strokeWidthMedium`
+- `strokeWidth: 1.5` → `AppConfig.strokeWidthThin`
+- Bewusst beibehalten: `Colors.grey` in Platzhalter-Icons (neutrale Farbe auf AppImages-BG)
+
+#### nextcloud_resync_dialog.dart — 7 Hardcodes → 0
+- `Colors.red/green/orange` (SnackBars) → `colorScheme.error/tertiary/secondary`
+- `SizedBox(width: 16)` → `AppConfig.spacingLarge`
+- `fontSize: 12` → `textTheme.bodySmall`
+- `fontWeight: FontWeight.bold` → `textTheme.bodyMedium?.copyWith(fontWeight: ...)`
+
+#### Bewusst beibehalten (dokumentiert, ~41 Stellen)
+- `detail_screen_io.dart` (3): Platzhalter-Farben ohne BuildContext
+- `list_screen_io.dart` (3): Platzhalter-Farben ohne BuildContext
+- `list_screen_mobile_actions_stub.dart` (4): Stub ohne Widget-Tree-Kontext
+- `_dokumente_button.dart` (18): Deprecated (M-012-Cleanup)
+- `qr_scan_screen_mobile_scanner.dart` (6): Kamera-Overlay-Maskierung
+- `image_crop_dialog.dart` (5): Crop-Library-Parameter + Vorschau-BG
+- `artikel_bild_widget.dart` (2): Platzhalter-Icons
+
+### Dokumentation
+- `THEMING.md` — Batch-5-Status aktualisiert, O-004 als abgeschlossen markiert
+- `OPTIMIZATIONS.md` — O-004 als abgeschlossen markiert, Gesamtfortschritt ~93%
+- `CHANGELOG.md` — Aktualisiert für v0.7.4+7
+
 ## [0.7.4+6] - 2026-04-02
 
 ### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 4 (Attachment & Setup, ~92 Hardcodes)

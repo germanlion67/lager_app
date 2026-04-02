@@ -1,10 +1,15 @@
 // lib/screens/qr_scan_screen_mobile_scanner.dart
+//
+// QR-Scanner Screen — nutzt mobile_scanner für Kamera-Zugriff.
+// Overlay-Farben (schwarz/weiß/rot) sind funktional für den Kamera-Scan
+// und werden bewusst nicht über colorScheme gesteuert.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../config/app_config.dart';
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
@@ -27,6 +32,11 @@ class QRScanScreen extends StatefulWidget {
 class _QRScanScreenState extends State<QRScanScreen>
     with WidgetsBindingObserver {
   static final _log = AppLogService.logger;
+
+  // Overlay-Konstanten — funktional für Kamera-Scan, nicht semantisch
+  static const _overlaySize = 250.0;
+  static const _overlayRadius = AppConfig.borderRadiusXLarge;
+  static const _scanBorderWidth = AppConfig.strokeWidthThick;
 
   String? _scanResult;
   bool _isProcessing = false;
@@ -109,7 +119,6 @@ class _QRScanScreenState extends State<QRScanScreen>
   Future<void> _verarbeiteCode(String code) async {
     _log.d('[QRScan] Code gescannt: $code');
 
-    // Artikelnummer aus QR-Code lesen
     final int? artikelnummer = int.tryParse(code.trim());
     if (artikelnummer == null) {
       _log.w('[QRScan] Kein gültiger int-Wert: "$code"');
@@ -138,7 +147,8 @@ class _QRScanScreenState extends State<QRScanScreen>
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Kein Artikel mit Artikelnummer $artikelnummer gefunden'),
+          content:
+              Text('Kein Artikel mit Artikelnummer $artikelnummer gefunden'),
           duration: const Duration(seconds: 3),
         ),
       );
@@ -185,19 +195,22 @@ class _QRScanScreenState extends State<QRScanScreen>
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
-          const double overlaySize = 250;
-          final double left = (constraints.maxWidth - overlaySize) / 2;
-          final double top = (constraints.maxHeight - overlaySize) / 2;
+          final double left =
+              (constraints.maxWidth - _overlaySize) / 2;
+          final double top =
+              (constraints.maxHeight - _overlaySize) / 2;
 
           return Stack(
             children: [
               MobileScanner(
                 controller: _controller,
-                scanWindow:
-                    Rect.fromLTWH(left, top, overlaySize, overlaySize),
+                scanWindow: Rect.fromLTWH(
+                    left, top, _overlaySize, _overlaySize,),
               ),
 
               // Abdunklung außerhalb des Scan-Fensters
+              // Hinweis: Colors.black54/black/white sind hier funktional
+              // für die Kamera-Overlay-Maskierung, nicht semantisch.
               ColorFiltered(
                 colorFilter: const ColorFilter.mode(
                   Colors.black54,
@@ -215,11 +228,12 @@ class _QRScanScreenState extends State<QRScanScreen>
                       left: left,
                       top: top,
                       child: Container(
-                        width: overlaySize,
-                        height: overlaySize,
+                        width: _overlaySize,
+                        height: _overlaySize,
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius:
+                              BorderRadius.circular(_overlayRadius),
                         ),
                       ),
                     ),
@@ -232,26 +246,29 @@ class _QRScanScreenState extends State<QRScanScreen>
                 left: left,
                 top: top,
                 child: Container(
-                  width: overlaySize,
-                  height: overlaySize,
+                  width: _overlaySize,
+                  height: _overlaySize,
                   decoration: BoxDecoration(
-                    border: Border.all(color: Colors.red, width: 3),
-                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: Colors.red,
+                      width: _scanBorderWidth,
+                    ),
+                    borderRadius:
+                        BorderRadius.circular(_overlayRadius),
                   ),
                 ),
               ),
 
               // Hinweistext
-              const Positioned(
+              Positioned(
                 bottom: 40,
                 left: 0,
                 right: 0,
                 child: Text(
                   'Artikelnummer-QR-Code ins Fenster halten',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: Colors.white,
-                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                     backgroundColor: Colors.black54,
                   ),
@@ -267,9 +284,8 @@ class _QRScanScreenState extends State<QRScanScreen>
                   child: Text(
                     'Letzter Scan: $_scanResult',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.white,
-                      fontSize: 14,
                     ),
                   ),
                 ),

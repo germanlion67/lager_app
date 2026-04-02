@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 
+import '../config/app_config.dart';
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
@@ -26,6 +27,7 @@ Future<void> generateArtikelListePdf(
   List<Artikel> artikelListe,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
+  final colorScheme = Theme.of(context).colorScheme;
 
   try {
     // ✅ kein await — void
@@ -36,10 +38,10 @@ Future<void> generateArtikelListePdf(
     if (alleArtikel.isEmpty) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Keine Artikel für PDF-Export vorhanden.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: const Text('Keine Artikel für PDF-Export vorhanden.'),
+          backgroundColor: colorScheme.secondary,
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -59,10 +61,10 @@ Future<void> generateArtikelListePdf(
               final success = await PdfService.openPdf(pdfPath);
               if (!success && context.mounted) {
                 messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('PDF konnte nicht geöffnet werden'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 3),
+                  SnackBar(
+                    content: const Text('PDF konnte nicht geöffnet werden'),
+                    backgroundColor: colorScheme.secondary,
+                    duration: const Duration(seconds: 3),
                   ),
                 );
               }
@@ -78,7 +80,7 @@ Future<void> generateArtikelListePdf(
       messenger.showSnackBar(
         SnackBar(
           content: Text('Fehler: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: colorScheme.error,
           duration: const Duration(seconds: 4),
         ),
       );
@@ -96,15 +98,16 @@ Future<void> generateFilteredArtikelListePdf(
   List<Artikel> gefilterteArtikel,
 ) async {
   final messenger = ScaffoldMessenger.of(context);
+  final colorScheme = Theme.of(context).colorScheme;
 
   try {
     if (gefilterteArtikel.isEmpty) {
       if (!context.mounted) return;
       messenger.showSnackBar(
-        const SnackBar(
-          content: Text('Keine gefilterten Artikel vorhanden.'),
-          backgroundColor: Colors.orange,
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: const Text('Keine gefilterten Artikel vorhanden.'),
+          backgroundColor: colorScheme.secondary,
+          duration: const Duration(seconds: 3),
         ),
       );
       return;
@@ -128,10 +131,10 @@ Future<void> generateFilteredArtikelListePdf(
               final success = await PdfService.openPdf(pdfPath);
               if (!success && context.mounted) {
                 messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('PDF konnte nicht geöffnet werden'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 3),
+                  SnackBar(
+                    content: const Text('PDF konnte nicht geöffnet werden'),
+                    backgroundColor: colorScheme.secondary,
+                    duration: const Duration(seconds: 3),
                   ),
                 );
               }
@@ -147,7 +150,7 @@ Future<void> generateFilteredArtikelListePdf(
       messenger.showSnackBar(
         SnackBar(
           content: Text('Fehler: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: colorScheme.error,
           duration: const Duration(seconds: 4),
         ),
       );
@@ -164,6 +167,8 @@ Future<void> showZipBackupDialog(
   BuildContext context,
   Future<void> Function() reloadArtikel,
 ) async {
+  final colorScheme = Theme.of(context).colorScheme;
+
   await showDialog<void>(
     context: context,
     builder: (ctx) {
@@ -184,11 +189,12 @@ Future<void> showZipBackupDialog(
                 );
               }
             },
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.archive, color: Colors.blue),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup lokal exportieren')),
+                Icon(Icons.archive, color: colorScheme.primary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                const Expanded(
+                    child: Text('ZIP-Backup lokal exportieren'),),
               ],
             ),
           ),
@@ -208,11 +214,12 @@ Future<void> showZipBackupDialog(
                 );
               }
             },
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.cloud_upload, color: Colors.green),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup zu Nextcloud exportieren')),
+                Icon(Icons.cloud_upload, color: colorScheme.tertiary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                const Expanded(
+                    child: Text('ZIP-Backup zu Nextcloud exportieren'),),
               ],
             ),
           ),
@@ -250,11 +257,12 @@ Future<void> showZipBackupDialog(
                 );
               }
             },
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.archive, color: Colors.orange),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup lokal importieren')),
+                Icon(Icons.archive, color: colorScheme.secondary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                const Expanded(
+                    child: Text('ZIP-Backup lokal importieren'),),
               ],
             ),
           ),
@@ -266,11 +274,12 @@ Future<void> showZipBackupDialog(
                 reloadArtikel,
               );
             },
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.cloud_download, color: Colors.purple),
-                SizedBox(width: 8),
-                Expanded(child: Text('ZIP-Backup von Nextcloud importieren')),
+                Icon(Icons.cloud_download, color: colorScheme.tertiary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                const Expanded(
+                    child: Text('ZIP-Backup von Nextcloud importieren'),),
               ],
             ),
           ),
@@ -289,12 +298,14 @@ Future<void> generateArtikelDetailPdf(
   BuildContext context,
   List<Artikel> artikelListe,
 ) async {
+  final colorScheme = Theme.of(context).colorScheme;
+
   if (artikelListe.isEmpty) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Keine Artikel vorhanden.'),
-        backgroundColor: Colors.orange,
-        duration: Duration(seconds: 3),
+      SnackBar(
+        content: const Text('Keine Artikel vorhanden.'),
+        backgroundColor: colorScheme.secondary,
+        duration: const Duration(seconds: 3),
       ),
     );
     return;
@@ -351,10 +362,11 @@ Future<void> generateArtikelDetailPdf(
               final success = await PdfService.openPdf(pdfPath);
               if (!success && context.mounted) {
                 messenger.showSnackBar(
-                  const SnackBar(
-                    content: Text('PDF konnte nicht geöffnet werden'),
-                    backgroundColor: Colors.orange,
-                    duration: Duration(seconds: 3),
+                  SnackBar(
+                    content:
+                        const Text('PDF konnte nicht geöffnet werden'),
+                    backgroundColor: colorScheme.secondary,
+                    duration: const Duration(seconds: 3),
                   ),
                 );
               }
@@ -370,7 +382,7 @@ Future<void> generateArtikelDetailPdf(
       messenger.showSnackBar(
         SnackBar(
           content: Text('Fehler: $e'),
-          backgroundColor: Colors.red,
+          backgroundColor: colorScheme.error,
           duration: const Duration(seconds: 4),
         ),
       );

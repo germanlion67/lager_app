@@ -4,6 +4,9 @@
 // verfügbar sind (theoretischer Fall, z.B. Tests ohne Plattform-Kontext).
 //
 // Alle Methoden zeigen einen "nicht verfügbar"-Hinweis.
+//
+// Hinweis: Colors.orange wird hier bewusst beibehalten, da diese Stub-Datei
+// keinen garantierten Widget-Tree-Kontext hat und nur als Fallback dient.
 
 import 'package:flutter/material.dart';
 
@@ -55,7 +58,7 @@ Future<void> showZipBackupDialog(
 /// Konsistent mit list_screen_mobile_actions.dart und list_screen_web_actions.dart.
 Future<void> generateArtikelDetailPdf(
   BuildContext context,
-  List<Artikel> artikelListe, // ← Korrigiert (war: Artikel artikel)
+  List<Artikel> artikelListe,
 ) async {
   if (!context.mounted) return;
   ScaffoldMessenger.of(context).showSnackBar(

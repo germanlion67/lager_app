@@ -12,6 +12,10 @@
 //
 // ⚠️ FIX: cacheKey enthält jetzt aktualisiertAm-Timestamp, damit nach
 // Bildänderung das neue Bild geladen wird statt des gecachten alten.
+//
+// Hinweis: Colors.grey in Platzhalter-Widgets wird bewusst beibehalten,
+// da die Platzhalter-Hintergrundfarben über AppImages gesteuert werden
+// und das Icon eine neutrale Farbe benötigt.
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -50,8 +54,9 @@ class ArtikelListBild extends StatelessWidget {
         child: SizedBox(
           width: size,
           height: size,
-          child: kIsWeb ? _WebThumbnail(artikel: artikel, size: size)
-                        : _LocalThumbnail(artikel: artikel, size: size),
+          child: kIsWeb
+              ? _WebThumbnail(artikel: artikel, size: size)
+              : _LocalThumbnail(artikel: artikel, size: size),
         ),
       ),
     );
@@ -93,7 +98,8 @@ class ArtikelDetailBild extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
+          borderRadius:
+              BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
           child: SizedBox(
             height: height,
             width: double.infinity,
@@ -120,8 +126,6 @@ class ArtikelDetailBild extends StatelessWidget {
       if (remoteBildUrl != null) {
         return CachedNetworkImage(
           imageUrl: remoteBildUrl!,
-          // ⚠️ FIX: cacheKey mit Timestamp, damit nach Bildänderung
-          // das neue Bild geladen wird statt des gecachten alten.
           cacheKey: '${artikel.uuid}_detail_'
               '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
           height: height,
@@ -175,9 +179,7 @@ class _LocalThumbnail extends StatelessWidget {
         width: size,
         height: size,
         fit: AppConfig.artikelListBildFit,
-        // M-011: cacheWidth = physische Pixel → Flutter dekodiert nur so groß
-        // wie nötig → weniger RAM
-        cacheWidth: (size * 2).toInt(), // ×2 für High-DPI
+        cacheWidth: (size * 2).toInt(),
         errorBuilder: (_, __, ___) => _fallbackBild(context),
       );
     }
@@ -229,16 +231,11 @@ class _WebThumbnail extends StatelessWidget {
 
     return CachedNetworkImage(
       imageUrl: url,
-      // ⚠️ FIX: cacheKey mit Timestamp, damit nach Bildänderung
-      // das neue Bild geladen wird statt des gecachten alten.
-      // Ohne diesen Key zeigt CachedNetworkImage das alte Bild aus
-      // dem Disk-Cache, auch wenn PocketBase schon das neue hat.
       cacheKey: '${artikel.uuid}_thumb_'
           '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
       width: size,
       height: size,
       fit: AppConfig.artikelListBildFit,
-      // M-011: Memory-Cache auf Thumbnail-Größe begrenzen
       memCacheWidth: (size * 2).toInt(),
       memCacheHeight: (size * 2).toInt(),
       placeholder: (_, __) => _BildPlaceholder(size: size, loading: true),
@@ -246,9 +243,6 @@ class _WebThumbnail extends StatelessWidget {
     );
   }
 
-  /// Baut die PocketBase-Bild-URL.
-  /// M-011: `?thumb=60x60` Query-Parameter → PocketBase liefert Thumbnail.
-  /// PocketBase unterstützt on-the-fly Thumbnails via `thumb` Parameter.
   String? _buildThumbnailUrl() {
     final recordId = artikel.remotePath;
     final bildField = artikel.remoteBildPfad;
@@ -259,8 +253,6 @@ class _WebThumbnail extends StatelessWidget {
     final pbService = PocketBaseService();
     final baseUri = Uri.parse(pbService.url);
 
-    // M-011: PocketBase thumb-Parameter für serverseitiges Thumbnail
-    // Format: ?thumb=WxH (z.B. 60x60 für 50px-Liste mit 1.2× Puffer)
     return baseUri
         .resolve(
           '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}'
@@ -270,6 +262,7 @@ class _WebThumbnail extends StatelessWidget {
   }
 }
 
+/// Lade-Platzhalter für Detail-Bilder (Web).
 class _LoadingPlaceholder extends StatelessWidget {
   final double? height;
   const _LoadingPlaceholder({this.height});
@@ -281,11 +274,16 @@ class _LoadingPlaceholder extends StatelessWidget {
       width: double.infinity,
       color: AppImages.ladePlatzhalterHintergrund,
       alignment: Alignment.center,
-      child: const CircularProgressIndicator(strokeWidth: 2),
+      child: const CircularProgressIndicator(
+        strokeWidth: AppConfig.strokeWidthMedium,
+      ),
     );
   }
 }
 
+/// Fehler-/Leer-Platzhalter für Detail-Bilder.
+/// Hinweis: Colors.grey wird hier bewusst beibehalten — das Icon benötigt
+/// eine neutrale Farbe, die auf dem AppImages-Hintergrund sichtbar ist.
 class _Placeholder extends StatelessWidget {
   final double? height;
   const _Placeholder({this.height});
@@ -306,6 +304,9 @@ class _Placeholder extends StatelessWidget {
   }
 }
 
+/// Kleiner Platzhalter für Listen-Thumbnails.
+/// Hinweis: Colors.grey wird hier bewusst beibehalten — das Icon benötigt
+/// eine neutrale Farbe, die auf dem AppImages-Hintergrund sichtbar ist.
 class _BildPlaceholder extends StatelessWidget {
   final double size;
   final bool loading;
@@ -319,7 +320,9 @@ class _BildPlaceholder extends StatelessWidget {
       color: AppImages.platzhalterHintergrundKlein,
       alignment: Alignment.center,
       child: loading
-          ? const CircularProgressIndicator(strokeWidth: 1.5)
+          ? const CircularProgressIndicator(
+              strokeWidth: AppConfig.strokeWidthThin,
+            )
           : const Icon(Icons.image_not_supported, color: Colors.grey),
     );
   }
