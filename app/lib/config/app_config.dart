@@ -73,7 +73,7 @@ class AppConfig {
   /// verfügbar ist (unabhängig von SharedPreferences).
   static bool get hasConfiguredUrl => pocketBaseUrl.isNotEmpty;
 
-/// Gibt `true` zurück wenn die aktuelle Konfiguration noch
+  /// Gibt `true` zurück wenn die aktuelle Konfiguration noch
   /// unveränderte Placeholder enthält.
   static bool get hasPlaceholderUrl =>
       pocketBaseUrl.contains('192.168.178.XX') ||
@@ -119,7 +119,7 @@ class AppConfig {
   }
 
   // ============================================================================
-  // UI-Konfiguration (unverändert)
+  // UI-Konfiguration
   // ============================================================================
 
   /// Größe des Artikel-Thumbnails in der Listenansicht (quadratisch).
@@ -150,7 +150,7 @@ class AppConfig {
   );
 
   // ============================================================================
-  // Spacing-Konstanten (unverändert)
+  // Spacing-Konstanten
   // ============================================================================
 
   static const double spacingXSmall = 4.0;
@@ -161,7 +161,7 @@ class AppConfig {
   static const double spacingXXLarge = 32.0;
 
   // ============================================================================
-  // Border-Radius-Konstanten (unverändert)
+  // Border-Radius-Konstanten
   // ============================================================================
 
   static const double borderRadiusXXSmall = 2.0;
@@ -170,7 +170,7 @@ class AppConfig {
   static const double borderRadiusXLarge = 16.0;
 
   // ============================================================================
-  // Font-Size-Konstanten (unverändert)
+  // Font-Size-Konstanten
   // ============================================================================
 
   static const double fontSizeXSmall = 10.0;
@@ -179,7 +179,6 @@ class AppConfig {
   static const double fontSizeLarge = 16.0;
   static const double fontSizeXLarge = 18.0;
   static const double fontSizeXXLarge = 20.0;
-
 
   // ============================================================================
   // Icon-Größen (O-004: Hardcoded Icon-Sizes eliminieren)
@@ -245,4 +244,47 @@ class AppConfig {
 
   /// Vertikale Padding-Höhe für Buttons mit mehr Gewicht (12.0).
   static const double buttonPaddingVertical = 12.0;
+
+  // ============================================================================
+  // Layout-Konstanten Batch 4 (O-004)
+  // ============================================================================
+
+  /// Icon-Größe für große Platzhalter (Empty-States, Upload-Area-Header).
+  static const double iconSizeXLarge = 48.0;
+
+  /// Icon-Größe für Setup-Screen Header.
+  static const double iconSizeXXLarge = 64.0;
+
+  /// Maximale Breite für Login-Formulare.
+  static const double loginFormMaxWidth = 400.0;
+
+  /// Maximale Breite für Setup-Formulare.
+  static const double setupFormMaxWidth = 480.0;
+
+  /// Größe des App-Logos auf dem Login-Screen.
+  static const double loginLogoSize = 80.0;
+
+  /// Höhe für prominente Buttons (z.B. Login).
+  static const double buttonHeight = 48.0;
+
+  /// Kleiner Progress-Indikator in Buttons.
+  static const double progressIndicatorSizeSmall = 20.0;
+
+  /// Breite der Label-Spalte in Beispiel-Zeilen (Setup-Screen).
+  static const double exampleLabelWidth = 85.0;
+
+  /// Thumbnail-Breite für Bild-Anhänge in der Liste.
+  static const double attachmentImageWidth = 56.0;
+
+  /// Thumbnail-Höhe für Bild-Anhänge in der Liste.
+  static const double attachmentImageHeight = 48.0;
+
+  /// Standard-Icon-Größe in Anhang-Tiles.
+  static const double attachmentIconSize = 28.0;
+
+  /// Container-Größe für Anhang-Typ-Icons.
+  static const double attachmentIconContainerSize = 48.0;
+
+  /// Icon-Größe für Fehler-Fallback in Bild-Anhängen.
+  static const double uploadAreaIconSize = 40.0;
 }

@@ -5,8 +5,11 @@
 // Wird angezeigt wenn beim App-Start keine gültige URL konfiguriert ist.
 // Nutzt den bestehenden PocketBaseService für Validierung und Healthcheck.
 
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+
+import '../config/app_config.dart';
 import '../services/pocketbase_service.dart';
 
 class ServerSetupScreen extends StatefulWidget {
@@ -136,14 +139,9 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
         final shouldSave = await _showSaveWithoutTestDialog();
         if (shouldSave != true) return;
 
-        // Ohne Healthcheck speichern: URL direkt in SharedPreferences
-        // und Client erstellen (updateUrl macht Healthcheck, daher
-        // hier manuell)
         setState(() => _isSaving = true);
         try {
           final url = _urlController.text.trim();
-          // Direkt über updateUrl versuchen — falls es fehlschlägt,
-          // trotzdem die URL speichern
           await PocketBaseService().updateUrl(url);
         } catch (_) {
           // Ignorieren — Benutzer hat bewusst ohne Test gespeichert
@@ -151,17 +149,16 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
 
         if (mounted) {
           setState(() => _isSaving = false);
-          // Prüfen ob der Service jetzt einen Client hat
           if (PocketBaseService().hasClient) {
             widget.onConfigured();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
+              SnackBar(
+                content: const Text(
                   'URL konnte nicht gespeichert werden. '
                   'Bitte eine erreichbare URL eingeben.',
                 ),
-                backgroundColor: Colors.red,
+                backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
           }
@@ -171,7 +168,6 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     }
 
     // Verbindung war erfolgreich — URL ist bereits gespeichert
-    // (updateUrl speichert automatisch bei Erfolg)
     setState(() => _isSaving = true);
 
     if (mounted) {
@@ -208,15 +204,18 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(AppConfig.spacingXLarge),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
+              constraints: const BoxConstraints(
+                maxWidth: AppConfig.setupFormMaxWidth,
+              ),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -226,27 +225,27 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                     // --- Header ---
                     Icon(
                       Icons.dns_outlined,
-                      size: 64,
-                      color: theme.colorScheme.primary,
+                      size: AppConfig.iconSizeXXLarge,
+                      color: colorScheme.primary,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppConfig.spacingLarge),
                     Text(
                       'Server-Einrichtung',
-                      style: theme.textTheme.headlineSmall?.copyWith(
+                      style: textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: AppConfig.spacingSmall),
                     Text(
                       'Gib die URL deines PocketBase-Servers ein, '
                       'damit die App sich verbinden kann.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: AppConfig.spacingXXLarge),
 
                     // --- URL-Eingabefeld ---
                     TextFormField(
@@ -274,7 +273,6 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                       textInputAction: TextInputAction.done,
                       validator: _validateUrl,
                       onChanged: (_) {
-                        // Bei Änderung vorherigen Test zurücksetzen
                         if (_connectionOk != null) {
                           setState(() {
                             _connectionOk = null;
@@ -284,18 +282,19 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                       },
                       onFieldSubmitted: (_) => _testConnection(),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: AppConfig.spacingLarge),
 
                     // --- Beispiel-URLs ---
-                    _buildExamplesCard(theme),
-                    const SizedBox(height: 24),
+                    _buildExamplesCard(colorScheme, textTheme),
+                    const SizedBox(height: AppConfig.spacingXLarge),
 
                     // --- Verbindungsstatus ---
-                    if (_isTesting) _buildLoadingIndicator(),
+                    if (_isTesting)
+                      _buildLoadingIndicator(colorScheme, textTheme),
                     if (_connectionOk != null && !_isTesting)
-                      _buildConnectionResult(theme),
+                      _buildConnectionResult(colorScheme, textTheme),
                     if (_connectionOk != null || _isTesting)
-                      const SizedBox(height: 24),
+                      const SizedBox(height: AppConfig.spacingXLarge),
 
                     // --- Buttons ---
                     OutlinedButton.icon(
@@ -303,10 +302,11 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                           _isTesting || _isSaving ? null : _testConnection,
                       icon: _isTesting
                           ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              width: AppConfig.iconSizeSmall,
+                              height: AppConfig.iconSizeSmall,
+                              child: CircularProgressIndicator(
+                                strokeWidth: AppConfig.strokeWidthMedium,
+                              ),
                             )
                           : const Icon(Icons.wifi_find),
                       label: Text(
@@ -315,17 +315,17 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                             : 'Verbindung testen',
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: AppConfig.spacingMedium),
                     FilledButton.icon(
                       onPressed:
                           _isTesting || _isSaving ? null : _saveAndContinue,
                       icon: _isSaving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
+                          ? SizedBox(
+                              width: AppConfig.iconSizeSmall,
+                              height: AppConfig.iconSizeSmall,
                               child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                                strokeWidth: AppConfig.strokeWidthMedium,
+                                color: colorScheme.onPrimary,
                               ),
                             )
                           : const Icon(Icons.arrow_forward),
@@ -343,52 +343,64 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     );
   }
 
-  Widget _buildExamplesCard(ThemeData theme) {
+  Widget _buildExamplesCard(ColorScheme colorScheme, TextTheme textTheme) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppConfig.spacingMedium),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
+        color: colorScheme.surfaceContainerHighest
+            .withValues(
+                alpha: AppConfig.opacityMedium + AppConfig.opacityLight,),
+        borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Beispiele:',
-            style: theme.textTheme.labelMedium?.copyWith(
+            style: textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: AppConfig.spacingXSmall),
           _buildExampleRow(
             'Produktion:',
             'https://api.deine-domain.de',
+            colorScheme,
+            textTheme,
           ),
           _buildExampleRow(
             'LAN-Test:',
             'http://192.168.x.x:8080',
+            colorScheme,
+            textTheme,
           ),
-          if (!kIsWeb &&
-              defaultTargetPlatform == TargetPlatform.android)
+          if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android)
             _buildExampleRow(
               'Emulator:',
               'http://10.0.2.2:8080',
+              colorScheme,
+              textTheme,
             ),
         ],
       ),
     );
   }
 
-  Widget _buildExampleRow(String label, String url) {
+  Widget _buildExampleRow(
+    String label,
+    String url,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     return Padding(
-      padding: const EdgeInsets.only(top: 2),
+      padding: const EdgeInsets.only(top: AppConfig.borderRadiusXXSmall),
       child: Row(
         children: [
           SizedBox(
-            width: 85,
+            width: AppConfig.exampleLabelWidth,
             child: Text(
               label,
-              style: Theme.of(context).textTheme.bodySmall,
+              style: textTheme.bodySmall,
             ),
           ),
           Expanded(
@@ -402,10 +414,10 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
               },
               child: Text(
                 url,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      decoration: TextDecoration.underline,
-                    ),
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.primary,
+                  decoration: TextDecoration.underline,
+                ),
               ),
             ),
           ),
@@ -414,58 +426,84 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     );
   }
 
-  Widget _buildLoadingIndicator() {
+  Widget _buildLoadingIndicator(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppConfig.spacingMedium),
       decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.blue.shade200),
+        color: colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
+        border: Border.all(
+          color:
+              colorScheme.primary.withValues(alpha: AppConfig.opacityMedium),
+        ),
       ),
       child: Row(
         children: [
           SizedBox(
-            width: 20,
-            height: 20,
+            width: AppConfig.progressIndicatorSizeSmall,
+            height: AppConfig.progressIndicatorSizeSmall,
             child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.blue.shade700,
+              strokeWidth: AppConfig.strokeWidthMedium,
+              color: colorScheme.onPrimaryContainer,
             ),
           ),
-          const SizedBox(width: 12),
-          const Text('Verbindung wird getestet...'),
+          const SizedBox(width: AppConfig.spacingMedium),
+          Text(
+            'Verbindung wird getestet...',
+            style: textTheme.bodyMedium?.copyWith(
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildConnectionResult(ThemeData theme) {
+  Widget _buildConnectionResult(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
     final isOk = _connectionOk!;
-    final color = isOk ? Colors.green : Colors.red;
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(AppConfig.spacingMedium),
       decoration: BoxDecoration(
-        color: color.shade50,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.shade200),
+        color: isOk
+            ? colorScheme.tertiaryContainer
+            : colorScheme.errorContainer,
+        borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
+        border: Border.all(
+          color: isOk
+              ? colorScheme.tertiary
+                  .withValues(alpha: AppConfig.opacityMedium)
+              : colorScheme.error
+                  .withValues(alpha: AppConfig.opacityMedium),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             isOk ? Icons.check_circle : Icons.error,
-            color: color,
-            size: 20,
+            color: isOk
+                ? colorScheme.onTertiaryContainer
+                : colorScheme.onErrorContainer,
+            size: AppConfig.iconSizeMedium,
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppConfig.spacingMedium),
           Expanded(
             child: Text(
               isOk
                   ? 'Verbindung erfolgreich! Server ist erreichbar.'
-                  : _connectionError ??
-                      'Server nicht erreichbar.',
-              style: TextStyle(color: color.shade800),
+                  : _connectionError ?? 'Server nicht erreichbar.',
+              style: textTheme.bodyMedium?.copyWith(
+                color: isOk
+                    ? colorScheme.onTertiaryContainer
+                    : colorScheme.onErrorContainer,
+              ),
             ),
           ),
         ],

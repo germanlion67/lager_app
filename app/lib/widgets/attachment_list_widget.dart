@@ -8,6 +8,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../config/app_config.dart';
 import '../models/attachment_model.dart';
 import '../services/app_log_service.dart';
 import '../services/attachment_service.dart';
@@ -33,7 +34,6 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
   final _service = AttachmentService();
   final _logger = AppLogService.logger;
 
-  // Kein Umlaut in Bezeichnern: _anhaenge statt _anhänge
   List<AttachmentModel> _anhaenge = [];
   bool _loading = true;
   String? _fehler;
@@ -90,7 +90,8 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
   }
 
   Future<void> loeschen(AttachmentModel anhang) async {
-    // Kein Umlaut in lokalem Bezeichner: bestaetigt statt bestätigt
+    final colorScheme = Theme.of(context).colorScheme;
+
     final bestaetigt = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -106,7 +107,9 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
             child: const Text('Löschen'),
           ),
         ],
@@ -166,10 +169,11 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
 
   void zeigeFehler(String message) {
     if (!mounted) return;
+    final colorScheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: Colors.red,
+        backgroundColor: colorScheme.error,
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -181,10 +185,13 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     if (_loading) {
       return const Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: EdgeInsets.all(AppConfig.spacingXXLarge),
           child: CircularProgressIndicator(),
         ),
       );
@@ -193,14 +200,18 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
     if (_fehler != null) {
       return Center(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppConfig.spacingLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 40),
-              const SizedBox(height: 8),
+              Icon(
+                Icons.error_outline,
+                color: colorScheme.error,
+                size: AppConfig.uploadAreaIconSize,
+              ),
+              const SizedBox(height: AppConfig.spacingSmall),
               Text(_fehler!, textAlign: TextAlign.center),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppConfig.spacingMedium),
               FilledButton.tonal(
                 onPressed: laden,
                 child: const Text('Erneut versuchen'),
@@ -212,22 +223,30 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
     }
 
     if (_anhaenge.isEmpty) {
-      return const Center(
+      return Center(
         child: Padding(
-          padding: EdgeInsets.all(32),
+          padding: const EdgeInsets.all(AppConfig.spacingXXLarge),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.attach_file, size: 48, color: Colors.grey),
-              SizedBox(height: 8),
+              Icon(
+                Icons.attach_file,
+                size: AppConfig.iconSizeXLarge,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(height: AppConfig.spacingSmall),
               Text(
                 'Noch keine Anhänge vorhanden.',
-                style: TextStyle(color: Colors.grey),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: AppConfig.spacingXSmall),
               Text(
                 'Tippe auf "Hinzufügen" um eine Datei hochzuladen.',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -242,10 +261,12 @@ class _AttachmentListWidgetState extends State<AttachmentListWidget> {
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         itemCount: _anhaenge.length,
-        separatorBuilder: (_, __) => const Divider(height: 1),
+        separatorBuilder: (_, __) => Divider(
+          height: AppConfig.strokeWidthThin,
+          color: colorScheme.outlineVariant,
+        ),
         itemBuilder: (ctx, i) => _AnhangTile(
           anhang: _anhaenge[i],
-          // Kein Umlaut in named params: onOeffnen, onLoeschen, onBearbeiten
           onOeffnen: () => oeffnen(_anhaenge[i]),
           onLoeschen: () => loeschen(_anhaenge[i]),
           onBearbeiten: () => bearbeiten(_anhaenge[i]),
@@ -274,53 +295,69 @@ class _AnhangTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final color = colorForMimeType(anhang.mimeType);
     final icon = iconForMimeType(anhang.mimeType);
 
     Widget leading;
     if (anhang.istBild && anhang.downloadUrl != null) {
       leading = ClipRRect(
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusSmall),
         child: SizedBox(
-          width: 56,
-          height: 48,
+          width: AppConfig.attachmentImageWidth,
+          height: AppConfig.attachmentImageHeight,
           child: CachedNetworkImage(
             imageUrl: anhang.downloadUrl!,
             fit: BoxFit.cover,
             placeholder: (_, __) => const Center(
-              child: CircularProgressIndicator(strokeWidth: 2),
+              child: CircularProgressIndicator(
+                strokeWidth: AppConfig.strokeWidthMedium,
+              ),
             ),
-            errorWidget: (_, __, ___) => Icon(icon, color: color, size: 32),
+            errorWidget: (_, __, ___) => Icon(
+              icon,
+              color: color,
+              size: AppConfig.progressIndicatorSize,
+            ),
           ),
         ),
       );
     } else {
       leading = Container(
-        width: 48,
-        height: 48,
+        width: AppConfig.attachmentIconContainerSize,
+        height: AppConfig.attachmentIconContainerSize,
         decoration: BoxDecoration(
-          // withOpacity deprecated → withValues
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(8),
+          color: color.withValues(alpha: AppConfig.opacitySubtle),
+          borderRadius: BorderRadius.circular(AppConfig.borderRadiusMedium),
         ),
-        child: Icon(icon, color: color, size: 28),
+        child: Icon(
+          icon,
+          color: color,
+          size: AppConfig.attachmentIconSize,
+        ),
       );
     }
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingSmall,
+        vertical: AppConfig.spacingXSmall,
+      ),
       elevation: 1,
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
+          horizontal: AppConfig.spacingMedium,
+          vertical: AppConfig.spacingSmall,
         ),
         leading: leading,
         title: Text(
           anhang.bezeichnung,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w500),
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w500,
+          ),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -328,19 +365,27 @@ class _AnhangTile extends StatelessWidget {
             Text(
               '${anhang.typLabel}'
               '${anhang.dateiGroesseFormatiert.isNotEmpty ? " · ${anhang.dateiGroesseFormatiert}" : ""}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
+              style: textTheme.bodySmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
             ),
-            if (anhang.beschreibung != null && anhang.beschreibung!.isNotEmpty)
+            if (anhang.beschreibung != null &&
+                anhang.beschreibung!.isNotEmpty)
               Text(
                 anhang.beschreibung!,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                style: textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ),
           ],
         ),
         trailing: PopupMenuButton<_AnhangAktion>(
-          icon: const Icon(Icons.more_vert),
+          icon: Icon(
+            Icons.more_vert,
+            color: colorScheme.onSurfaceVariant,
+          ),
           onSelected: (aktion) {
             switch (aktion) {
               case _AnhangAktion.oeffnen:
@@ -351,32 +396,41 @@ class _AnhangTile extends StatelessWidget {
                 onLoeschen();
             }
           },
-          itemBuilder: (_) => const [
-            PopupMenuItem(
-              value: _AnhangAktion.oeffnen,
-              child: ListTile(
-                leading: Icon(Icons.open_in_new),
-                title: Text('Öffnen'),
-                contentPadding: EdgeInsets.zero,
+          itemBuilder: (ctx) {
+            final menuColorScheme = Theme.of(ctx).colorScheme;
+            return [
+              const PopupMenuItem(
+                value: _AnhangAktion.oeffnen,
+                child: ListTile(
+                  leading: Icon(Icons.open_in_new),
+                  title: Text('Öffnen'),
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
-            ),
-            PopupMenuItem(
-              value: _AnhangAktion.bearbeiten,
-              child: ListTile(
-                leading: Icon(Icons.edit),
-                title: Text('Bezeichnung bearbeiten'),
-                contentPadding: EdgeInsets.zero,
+              const PopupMenuItem(
+                value: _AnhangAktion.bearbeiten,
+                child: ListTile(
+                  leading: Icon(Icons.edit),
+                  title: Text('Bezeichnung bearbeiten'),
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
-            ),
-            PopupMenuItem(
-              value: _AnhangAktion.loeschen,
-              child: ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text('Löschen', style: TextStyle(color: Colors.red)),
-                contentPadding: EdgeInsets.zero,
+              PopupMenuItem(
+                value: _AnhangAktion.loeschen,
+                child: ListTile(
+                  leading: Icon(
+                    Icons.delete,
+                    color: menuColorScheme.error,
+                  ),
+                  title: Text(
+                    'Löschen',
+                    style: TextStyle(color: menuColorScheme.error),
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                ),
               ),
-            ),
-          ],
+            ];
+          },
         ),
         onTap: onOeffnen,
       ),
@@ -384,7 +438,6 @@ class _AnhangTile extends StatelessWidget {
   }
 }
 
-// Kein Umlaut in enum-Werten: oeffnen, loeschen statt öffnen, löschen
 enum _AnhangAktion { oeffnen, bearbeiten, loeschen }
 
 // ---------------------------------------------------------------------------
@@ -449,7 +502,7 @@ class _MetadatenDialogState extends State<_MetadatenDialog> {
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Pflichtfeld' : null,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: AppConfig.spacingMedium),
             TextFormField(
               controller: _beschreibungCtrl,
               decoration: const InputDecoration(

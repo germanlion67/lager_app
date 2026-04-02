@@ -6,6 +6,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../config/app_config.dart';
 import '../models/attachment_model.dart';
 import '../services/app_log_service.dart';
 import '../services/attachment_service.dart';
@@ -67,7 +68,8 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
       // Vorvalidierung
       final bytes = datei.bytes;
       if (bytes == null) {
-        setState(() => _validierungsFehler = 'Datei konnte nicht gelesen werden.');
+        setState(
+            () => _validierungsFehler = 'Datei konnte nicht gelesen werden.',);
         return;
       }
 
@@ -115,7 +117,8 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
 
     final bytes = gewaehlteDatei!.bytes;
     if (bytes == null) {
-      setState(() => _validierungsFehler = 'Datei konnte nicht gelesen werden.');
+      setState(
+          () => _validierungsFehler = 'Datei konnte nicht gelesen werden.',);
       return;
     }
 
@@ -168,15 +171,18 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
     final limitErreicht =
         widget.aktuelleAnzahl >= kMaxAttachmentsPerArtikel;
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        left: AppConfig.spacingLarge,
+        right: AppConfig.spacingLarge,
+        top: AppConfig.spacingLarge,
+        bottom:
+            MediaQuery.of(context).viewInsets.bottom + AppConfig.spacingLarge,
       ),
       child: Form(
         key: _formKey,
@@ -187,45 +193,55 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
             // Header
             Row(
               children: [
-                const Icon(Icons.upload_file),
-                const SizedBox(width: 8),
-                const Text(
+                Icon(Icons.upload_file, color: colorScheme.onSurface),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
                   'Anhang hinzufügen',
-                  style: TextStyle(
-                    fontSize: 18,
+                  style: textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   '${widget.aktuelleAnzahl}/$kMaxAttachmentsPerArtikel',
-                  style: TextStyle(
-                    color: limitErreicht ? Colors.red : Colors.grey,
-                    fontSize: 12,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: limitErreicht
+                        ? colorScheme.error
+                        : colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: AppConfig.spacingLarge),
 
             // Limit-Warnung
             if (limitErreicht)
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppConfig.spacingMedium),
                 decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
+                  color: colorScheme.errorContainer,
+                  borderRadius:
+                      BorderRadius.circular(AppConfig.borderRadiusMedium),
+                  border: Border.all(
+                    color: colorScheme.error
+                        .withValues(alpha: AppConfig.opacityMedium),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.warning, color: Colors.red.shade700, size: 20),
-                    const SizedBox(width: 8),
+                    Icon(
+                      Icons.warning,
+                      color: colorScheme.onErrorContainer,
+                      size: AppConfig.iconSizeMedium,
+                    ),
+                    const SizedBox(width: AppConfig.spacingSmall),
                     Expanded(
                       child: Text(
                         'Maximale Anzahl von $kMaxAttachmentsPerArtikel '
                         'Anhängen erreicht.',
-                        style: TextStyle(color: Colors.red.shade700),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: colorScheme.onErrorContainer,
+                        ),
                       ),
                     ),
                   ],
@@ -247,32 +263,43 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
 
               // Datei-Info
               if (gewaehlteDatei != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: AppConfig.spacingXSmall),
                 Text(
                   _formatBytes(gewaehlteDatei!.size),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
 
               // Validierungsfehler
               if (_validierungsFehler != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: AppConfig.spacingSmall),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConfig.spacingMedium,
+                    vertical: AppConfig.spacingSmall,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(6),
+                    color: colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(
+                      AppConfig.cardBorderRadiusSmall,
+                    ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.error_outline,
-                          color: Colors.red, size: 18,),
-                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.error_outline,
+                        color: colorScheme.error,
+                        size: AppConfig.iconSizeSmall,
+                      ),
+                      const SizedBox(width: AppConfig.spacingSmall),
                       Expanded(
                         child: Text(
                           _validierungsFehler!,
-                          style: const TextStyle(
-                              color: Colors.red, fontSize: 13,),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: colorScheme.error,
+                          ),
                         ),
                       ),
                     ],
@@ -280,7 +307,7 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
                 ),
               ],
 
-              const SizedBox(height: 16),
+              const SizedBox(height: AppConfig.spacingLarge),
 
               // Bezeichnung
               TextFormField(
@@ -295,7 +322,7 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
                 validator: (v) =>
                     (v == null || v.trim().isEmpty) ? 'Pflichtfeld' : null,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppConfig.spacingMedium),
 
               // Beschreibung
               TextFormField(
@@ -308,34 +335,33 @@ class _AttachmentUploadWidgetState extends State<AttachmentUploadWidget> {
                 maxLength: 500,
                 maxLines: 2,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: AppConfig.spacingLarge),
 
               // Aktions-Buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: _uploading
-                        ? null
-                        : () => Navigator.pop(context),
+                    onPressed:
+                        _uploading ? null : () => Navigator.pop(context),
                     child: const Text('Abbrechen'),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppConfig.spacingSmall),
                   FilledButton.icon(
                     onPressed: (_uploading || gewaehlteDatei == null)
                         ? null
                         : _hochladen,
                     icon: _uploading
                         ? const SizedBox(
-                            width: 16,
-                            height: 16,
+                            width: AppConfig.iconSizeSmall,
+                            height: AppConfig.iconSizeSmall,
                             child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                              strokeWidth: AppConfig.strokeWidthMedium,
                             ),
                           )
                         : const Icon(Icons.upload),
-                    label: Text(_uploading ? 'Wird hochgeladen…' : 'Hochladen'),
+                    label: Text(
+                        _uploading ? 'Wird hochgeladen…' : 'Hochladen',),
                   ),
                 ],
               ),

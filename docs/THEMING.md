@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt die Implementierung von Material 3, das Design-Token-System und die zentrale Konfiguration der **Lager_app**.
 
-**Zuletzt aktualisiert:** 2026-04-01 (O-004 Batch 2)
+**Zuletzt aktualisiert:** 2026-04-02 (O-004 Batch 4)
 
 ---
 
@@ -33,13 +33,15 @@ Hält alle nicht-visuellen und strukturellen Vorgaben bereit.
 | `cardBorderRadiusLarge` | 12.0 | Standard-Cards, Stat-Chips, Component-Themes |
 | `borderRadiusXLarge` | 16.0 | Pill-Shapes, AppBar-Chips, Result-Chips |
 
-#### Icon-Größen (v0.7.4+3)
+#### Icon-Größen (v0.7.4+3 / v0.7.4+6)
 | Token | Wert | Verwendung |
 |---|---|---|
 | `iconSizeXSmall` | 14.0 | Stat-Chips, kompakte Badges |
 | `iconSizeSmall` | 16.0 | Progress-Indikatoren, inline Icons, Merge-Buttons |
 | `iconSizeMedium` | 20.0 | Dialog-Titel, Status-Icons, Radio-Buttons |
 | `iconSizeLarge` | 24.0 | Card-Header, ListTile-Leading, Severity-Icons |
+| `iconSizeXLarge` | 48.0 | Empty-States, Upload-Area-Header |
+| `iconSizeXXLarge` | 64.0 | Setup-Screen Header |
 
 #### Stroke-Breiten (v0.7.4+3)
 | Token | Wert | Verwendung |
@@ -51,11 +53,11 @@ Hält alle nicht-visuellen und strukturellen Vorgaben bereit.
 #### Opacity (v0.7.4+3)
 | Token | Wert | Verwendung |
 |---|---|---|
-| `opacitySubtle` | 0.1 | Stat-Chip Hintergründe, selected Card-BG |
+| `opacitySubtle` | 0.1 | Stat-Chip Hintergründe, selected Card-BG, Attachment-Icon-BG |
 | `opacityLight` | 0.2 | Container-Overlays, Status-BG |
 | `opacityMedium` | 0.3 | Progress-BG, Borders, Container-Borders |
 
-#### Layout (v0.7.4+3 / v0.7.4+4)
+#### Layout (v0.7.4+3 / v0.7.4+4 / v0.7.4+6)
 | Token | Wert | Verwendung |
 |---|---|---|
 | `infoLabelWidth` | 120.0 | Label-Spalte in Info-Zeilen (Settings) |
@@ -64,6 +66,26 @@ Hält alle nicht-visuellen und strukturellen Vorgaben bereit.
 | `dialogContentWidth` | 300.0 | AlertDialog Content-Breite |
 | `progressIndicatorSize` | 32.0 | Kreisförmiger Progress im FAB |
 | `buttonPaddingVertical` | 12.0 | Vertikale Padding für prominente Buttons |
+| `loginFormMaxWidth` | 400.0 | Maximale Breite Login-Formular |
+| `setupFormMaxWidth` | 480.0 | Maximale Breite Setup-Formular |
+| `loginLogoSize` | 80.0 | App-Logo auf Login-Screen |
+| `buttonHeight` | 48.0 | Höhe prominenter Buttons (Login) |
+| `exampleLabelWidth` | 85.0 | Label-Spalte in Beispiel-Zeilen (Setup) |
+
+#### Progress-Indikatoren (v0.7.4+6)
+| Token | Wert | Verwendung |
+|---|---|---|
+| `progressIndicatorSize` | 32.0 | Kreisförmiger Progress im FAB |
+| `progressIndicatorSizeSmall` | 20.0 | Kleiner Progress in Buttons |
+
+#### Attachment-Dimensionen (v0.7.4+6)
+| Token | Wert | Verwendung |
+|---|---|---|
+| `attachmentImageWidth` | 56.0 | Thumbnail-Breite für Bild-Anhänge |
+| `attachmentImageHeight` | 48.0 | Thumbnail-Höhe für Bild-Anhänge |
+| `attachmentIconSize` | 28.0 | Icon-Größe in Anhang-Tiles |
+| `attachmentIconContainerSize` | 48.0 | Container für Anhang-Typ-Icons |
+| `uploadAreaIconSize` | 40.0 | Icon in Upload-Area und Fehler-Fallback |
 
 #### Sonstige
 *   **Timeouts**: Standard-Dauer für Snackbars und API-Requests.

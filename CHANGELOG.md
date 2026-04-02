@@ -2,6 +2,107 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.4+6] - 2026-04-02
+
+### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 4 (Attachment & Setup, ~92 Hardcodes)
+- **92 Hardcodes eliminiert** in 4 Dateien + 13 neue AppConfig-Tokens
+- Dark Mode funktioniert jetzt korrekt in allen Attachment- und Auth-Widgets
+- Kein visuelles Redesign — gleiche Optik, sauberer Code
+
+#### AppConfig (`app/lib/config/app_config.dart`)
+- 13 neue Design-Tokens ergänzt:
+  - **Icon-Sizes:** `iconSizeXLarge` (48), `iconSizeXXLarge` (64)
+  - **Layout:** `loginFormMaxWidth` (400), `setupFormMaxWidth` (480),
+    `loginLogoSize` (80), `buttonHeight` (48), `exampleLabelWidth` (85)
+  - **Progress:** `progressIndicatorSizeSmall` (20)
+  - **Attachments:** `attachmentImageWidth` (56), `attachmentImageHeight` (48),
+    `attachmentIconSize` (28), `attachmentIconContainerSize` (48),
+    `uploadAreaIconSize` (40)
+
+#### attachment_upload_widget.dart — 28 Hardcodes eliminiert
+- `Colors.red/red.shade*` → `colorScheme.error/errorContainer/onErrorContainer`
+- `Colors.grey` → `colorScheme.onSurfaceVariant`
+- `Colors.white` (Progress-Color) → entfernt (const CircularProgressIndicator)
+- `fontSize: 12/13/18` → `textTheme.bodySmall/titleMedium`
+- Alle `EdgeInsets`/`SizedBox`/`BorderRadius` → AppConfig-Tokens
+- `withOpacity` → `withValues`
+
+#### attachment_list_widget.dart — 23 Hardcodes eliminiert
+- `Colors.red` (Löschen-Button, SnackBar) → `colorScheme.error`
+- `Colors.grey` (Leertext, Datei-Info) → `colorScheme.onSurfaceVariant`
+- `withOpacity(0.1)` → `withValues(alpha: AppConfig.opacitySubtle)`
+- `fontSize: 12` → `textTheme.bodySmall`
+- `size: 48/28/32/40` → `AppConfig.attachmentIconContainerSize/attachmentIconSize/progressIndicatorSize/uploadAreaIconSize`
+- Alle `EdgeInsets`/`SizedBox`/`BorderRadius` → AppConfig-Tokens
+- Loading/Empty/Error-States nutzen jetzt `const` wo möglich
+
+#### server_setup_screen.dart — 23 Hardcodes eliminiert
+- `Colors.blue.shade*` → `colorScheme.primaryContainer/onPrimaryContainer`
+- `Colors.green.shade*` → `colorScheme.tertiaryContainer/onTertiaryContainer`
+- `Colors.red.shade*` → `colorScheme.errorContainer/onErrorContainer`
+- `Colors.white` (Progress-Color) → `colorScheme.onPrimary`
+- `size: 64` → `AppConfig.iconSizeXXLarge`
+- `maxWidth: 480` → `AppConfig.setupFormMaxWidth`
+- Alle `EdgeInsets`/`SizedBox`/`BorderRadius` → AppConfig-Tokens
+- Alle `withOpacity` → `withValues`
+
+#### login_screen.dart — 18 Hardcodes eliminiert
+- `Colors.red.shade*` → `colorScheme.errorContainer/onErrorContainer`
+- `Colors.grey[600]` → `colorScheme.onSurfaceVariant`
+- `size: 80` → `AppConfig.loginLogoSize`
+- `height: 48` → `AppConfig.buttonHeight`
+- `fontSize: 14/16` → `textTheme.bodyMedium/titleMedium`
+- `horizontal: 32.0` → `AppConfig.spacingXXLarge`
+- Alle `withOpacity` → `withValues`
+
+### Dokumentation
+- `THEMING.md` — 13 neue Tokens dokumentiert, Batch-4-Status aktualisiert
+- `CHANGELOG.md` — Aktualisiert für v0.7.4+6
+- `CHECKLIST.md` — Batch 4 als erledigt markiert, Gesamtfortschritt ~82%
+
+---
+
+## [0.7.4+5] - 2026-04-02
+
+### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 3 (Artikel-Cluster, ~98 Hardcodes)
+- **98 Hardcodes eliminiert** in 3 Dateien
+- Dark Mode funktioniert jetzt korrekt in allen Artikel-bezogenen Widgets
+- Kein visuelles Redesign — gleiche Optik, sauberer Code
+- Keine neuen AppConfig-Tokens nötig — alle Werte auf bestehende gemappt
+
+#### artikel_detail_screen.dart — 36 Hardcodes eliminiert
+- Colors.white/grey[100] (fillColor) → colorScheme.surface/surfaceContainerLow
+- Colors.black (labelStyle/textStyle) → entfernt (Theme greift automatisch)
+- Colors.grey[200]/grey[400] (Platzhalter) → colorScheme.surfaceContainerHighest/onSurfaceVariant
+- Colors.red (Löschen-Button) → colorScheme.error
+- Colors.white/black (Vollbild) → colorScheme.onInverseSurface + Colors.black (BG bleibt schwarz)
+- Alle EdgeInsets/SizedBox → AppConfig-Tokens
+- BorderRadius.circular(12/16) → AppConfig.cardBorderRadiusLarge/borderRadiusXLarge
+- AnhaengeSheet: Handle-Bar + Header nutzen jetzt colorScheme + textTheme
+
+#### artikel_list_screen.dart — 31 Hardcodes eliminiert
+- Colors.green[600]/red[600]/grey[600] (Status-Icons) → colorScheme.tertiary/error/onSurfaceVariant
+- Colors.red (SnackBar) → colorScheme.error
+- Colors.grey (Leertext) → textTheme.titleSmall + colorScheme.onSurfaceVariant
+- Colors.blueGrey[600] (Artikelnummer) → textTheme.labelSmall + colorScheme.onSurfaceVariant
+- Colors.blue/green/red/orange (Dialog-Icons) → colorScheme.primary/tertiary/error/secondary
+- fontSize: 11/12/16 → textTheme.labelSmall/bodySmall/bodyLarge
+- PopupMenuItem PDF-Icon: Colors.red → colorScheme.error
+
+#### sync_conflict_handler.dart — 31 Hardcodes eliminiert
+- Colors.green/orange/grey/red/blue (SnackBar/Status) → colorScheme.*
+- Colors.white (SnackBar textColor) → colorScheme.onTertiary/onError
+- Colors.grey[100/300] (Error-Dialog) → colorScheme.surfaceContainerLow/outlineVariant
+- buildSyncButton: Colors.blue/white → entfernt (FAB nutzt Theme)
+- buildSyncStatus: Statische Methode → _SyncStatusCard Widget (BuildContext für colorScheme)
+- Alle EdgeInsets/SizedBox → AppConfig-Tokens
+
+### Dokumentation
+- `THEMING.md` — Batch-3-Status aktualisiert
+- `CHANGELOG.md` — Aktualisiert für v0.7.4+5
+- `CHECKLIST.md` — Batch 3 als erledigt markiert, Gesamtfortschritt ~67%
+
+---
 
 ## [0.7.4+4] - 2026-04-01
 
@@ -217,7 +318,6 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 - **Windows-Build-Artefakt-Pfad** korrigiert (`app/build/windows/x64/runner/Release`)
 
 --- 
-
 
 ## [0.7.0] - 2026-03-27
 

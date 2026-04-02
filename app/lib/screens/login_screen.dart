@@ -1,4 +1,8 @@
+// lib/screens/login_screen.dart
+
 import 'package:flutter/material.dart';
+
+import '../config/app_config.dart';
 import '../services/pocketbase_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -28,7 +32,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    // Vorherige Fehlermeldung zurücksetzen
     setState(() => _errorMessage = null);
 
     if (!_formKey.currentState!.validate()) return;
@@ -47,7 +50,8 @@ class _LoginScreenState extends State<LoginScreen> {
         widget.onLoginSuccess();
       } else {
         setState(() {
-          _errorMessage = 'Anmeldung fehlgeschlagen. Bitte prüfe deine Zugangsdaten.';
+          _errorMessage =
+              'Anmeldung fehlgeschlagen. Bitte prüfe deine Zugangsdaten.';
         });
       }
     } catch (e) {
@@ -64,144 +68,173 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return Scaffold(
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // --- App-Logo / Titel ---
-                Icon(
-                  Icons.warehouse_rounded,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Lager-App',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Bitte melde dich an, um fortzufahren.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-                const SizedBox(height: 40),
-
-                // --- Fehlermeldung ---
-                if (_errorMessage != null) ...[
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade200),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConfig.spacingXXLarge,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: AppConfig.loginFormMaxWidth,
+            ),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // --- App-Logo / Titel ---
+                  Icon(
+                    Icons.warehouse_rounded,
+                    size: AppConfig.loginLogoSize,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(height: AppConfig.spacingLarge),
+                  Text(
+                    'Lager-App',
+                    textAlign: TextAlign.center,
+                    style: textTheme.headlineMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
-                    child: Row(
-                      children: [
-                        Icon(Icons.error_outline, color: Colors.red.shade700, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: TextStyle(color: Colors.red.shade700, fontSize: 14),
-                          ),
+                  ),
+                  const SizedBox(height: AppConfig.spacingSmall),
+                  Text(
+                    'Bitte melde dich an, um fortzufahren.',
+                    textAlign: TextAlign.center,
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppConfig.spacingXXLarge + AppConfig.spacingSmall),
+
+                  // --- Fehlermeldung ---
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(AppConfig.spacingMedium),
+                      decoration: BoxDecoration(
+                        color: colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(
+                          AppConfig.borderRadiusMedium,
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // --- E-Mail-Feld ---
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autofillHints: const [AutofillHints.email],
-                  decoration: const InputDecoration(
-                    labelText: 'E-Mail',
-                    hintText: 'user@lager.app',
-                    prefixIcon: Icon(Icons.email_outlined),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Bitte E-Mail eingeben';
-                    }
-                    // Einfache E-Mail-Validierung
-                    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
-                      return 'Bitte gültige E-Mail eingeben';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-
-                // --- Passwort-Feld ---
-                TextFormField(
-                  controller: _passwordController,
-                  obscureText: _obscurePassword,
-                  textInputAction: TextInputAction.done,
-                  autofillHints: const [AutofillHints.password],
-                  onFieldSubmitted: (_) => _handleLogin(),
-                  decoration: InputDecoration(
-                    labelText: 'Passwort',
-                    prefixIcon: const Icon(Icons.lock_outlined),
-                    border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                        border: Border.all(
+                          color: colorScheme.error
+                              .withValues(alpha: AppConfig.opacityMedium),
+                        ),
                       ),
-                      onPressed: () {
-                        setState(() => _obscurePassword = !_obscurePassword);
-                      },
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: colorScheme.onErrorContainer,
+                            size: AppConfig.iconSizeMedium,
+                          ),
+                          const SizedBox(width: AppConfig.spacingSmall),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: colorScheme.onErrorContainer,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppConfig.spacingLarge),
+                  ],
+
+                  // --- E-Mail-Feld ---
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.email],
+                    decoration: const InputDecoration(
+                      labelText: 'E-Mail',
+                      hintText: 'user@lager.app',
+                      prefixIcon: Icon(Icons.email_outlined),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Bitte E-Mail eingeben';
+                      }
+                      if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+                          .hasMatch(value.trim())) {
+                        return 'Bitte gültige E-Mail eingeben';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppConfig.spacingLarge),
+
+                  // --- Passwort-Feld ---
+                  TextFormField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.password],
+                    onFieldSubmitted: (_) => _handleLogin(),
+                    decoration: InputDecoration(
+                      labelText: 'Passwort',
+                      prefixIcon: const Icon(Icons.lock_outlined),
+                      border: const OutlineInputBorder(),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility,
+                        ),
+                        onPressed: () {
+                          setState(
+                              () => _obscurePassword = !_obscurePassword,);
+                        },
+                      ),
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Bitte Passwort eingeben';
+                      }
+                      if (value.length < 6) {
+                        return 'Passwort muss mindestens 6 Zeichen haben';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppConfig.spacingXLarge),
+
+                  // --- Anmelden-Button ---
+                  SizedBox(
+                    height: AppConfig.buttonHeight,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _handleLogin,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: AppConfig.progressIndicatorSizeSmall,
+                              width: AppConfig.progressIndicatorSizeSmall,
+                              child: CircularProgressIndicator(
+                                strokeWidth: AppConfig.strokeWidthMedium,
+                              ),
+                            )
+                          : Text(
+                              'Anmelden',
+                              style: textTheme.titleMedium,
+                            ),
                     ),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Bitte Passwort eingeben';
-                    }
-                    if (value.length < 6) {
-                      return 'Passwort muss mindestens 6 Zeichen haben';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 24),
+                  const SizedBox(height: AppConfig.spacingLarge),
 
-                // --- Anmelden-Button ---
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Anmelden', style: TextStyle(fontSize: 16)),
+                  // --- Passwort vergessen ---
+                  TextButton(
+                    onPressed: () => _showPasswordResetDialog(context),
+                    child: const Text('Passwort vergessen?'),
                   ),
-                ),
-                const SizedBox(height: 16),
-
-                // --- Passwort vergessen (optional) ---
-                TextButton(
-                  onPressed: () => _showPasswordResetDialog(context),
-                  child: const Text('Passwort vergessen?'),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -220,8 +253,11 @@ class _LoginScreenState extends State<LoginScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Gib deine E-Mail-Adresse ein. Du erhältst einen Link zum Zurücksetzen.'),
-            const SizedBox(height: 16),
+            const Text(
+              'Gib deine E-Mail-Adresse ein. '
+              'Du erhältst einen Link zum Zurücksetzen.',
+            ),
+            const SizedBox(height: AppConfig.spacingLarge),
             TextField(
               controller: resetEmailController,
               keyboardType: TextInputType.emailAddress,
@@ -248,7 +284,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   Navigator.of(ctx).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Falls die E-Mail existiert, wurde ein Reset-Link gesendet.'),
+                      content: Text(
+                        'Falls die E-Mail existiert, wurde ein '
+                        'Reset-Link gesendet.',
+                      ),
                     ),
                   );
                 }
@@ -256,7 +295,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (ctx.mounted) {
                   Navigator.of(ctx).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Fehler: ${e.toString()}')),
+                    SnackBar(
+                      content: Text('Fehler: ${e.toString()}'),
+                    ),
                   );
                 }
               }
