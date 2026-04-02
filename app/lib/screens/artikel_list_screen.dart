@@ -1,17 +1,18 @@
 // lib/screens/artikel_list_screen.dart
 //
+// O-004 Batch 3: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
+//
 // M-011: _buildArtikelBild() und _buildPocketBaseBild() ersetzt durch
 //        ArtikelListBild-Widget aus artikel_bild_widget.dart.
-//        Alle anderen Methoden unverändert.
 
 import 'dart:async';
-
-
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 
+import '../config/app_config.dart';
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
@@ -24,7 +25,7 @@ import '../widgets/article_icons.dart';
 // M-011: Neues zentrales Bild-Widget
 import '../widgets/artikel_bild_widget.dart';
 
-import 'artikel_detail_screen.dart'; // ✅ NEU – für _openDetailScreen
+import 'artikel_detail_screen.dart';
 import 'artikel_erfassen_screen.dart';
 import 'nextcloud_settings_screen.dart';
 import 'settings_screen.dart';
@@ -118,10 +119,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     } catch (e, st) {
       _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
       if (mounted) {
+        final colorScheme = Theme.of(context).colorScheme;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Fehler beim Laden: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: colorScheme.error,
           ),
         );
       }
@@ -177,18 +179,20 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== VERBINDUNGS-ICON ====================
 
   Widget _buildConnectionStatusIcon() {
-    Widget pbIcon;
-    String pbTooltip;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final Color pbColor;
+    final String pbTooltip;
 
     switch (_pbConnected) {
       case true:
-        pbIcon = Icon(Icons.dns, color: Colors.green[600], size: 20);
+        pbColor = colorScheme.tertiary;
         pbTooltip = 'PocketBase: Online';
       case false:
-        pbIcon = Icon(Icons.dns, color: Colors.red[600], size: 20);
+        pbColor = colorScheme.error;
         pbTooltip = 'PocketBase: Offline';
       default:
-        pbIcon = Icon(Icons.dns, color: Colors.grey[600], size: 20);
+        pbColor = colorScheme.onSurfaceVariant;
         pbTooltip = 'PocketBase: Prüfe...';
     }
 
@@ -197,10 +201,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       children: [
         GestureDetector(
           onTap: _checkPocketBaseConnection,
-          child: Tooltip(message: pbTooltip, child: pbIcon),
+          child: Tooltip(
+            message: pbTooltip,
+            child: Icon(Icons.dns, color: pbColor, size: AppConfig.iconSizeMedium),
+          ),
         ),
         if (!kIsWeb && _nextcloudService != null) ...[
-          const SizedBox(width: 6),
+          const SizedBox(width: AppConfig.spacingSmall - 2), // 6
           _buildNextcloudIcon(),
         ],
       ],
@@ -208,6 +215,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   Widget _buildNextcloudIcon() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ValueListenableBuilder<NextcloudConnectionStatus>(
       valueListenable: _nextcloudService!.connectionStatus,
       builder: (context, status, _) {
@@ -218,15 +227,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         switch (status) {
           case NextcloudConnectionStatus.online:
             iconData = Icons.cloud_done;
-            color = Colors.green[600]!;
+            color = colorScheme.tertiary;
             tooltip = 'Nextcloud: Online';
           case NextcloudConnectionStatus.offline:
             iconData = Icons.cloud_off;
-            color = Colors.red[600]!;
+            color = colorScheme.error;
             tooltip = 'Nextcloud: Offline';
           case NextcloudConnectionStatus.unknown:
             iconData = Icons.cloud_queue;
-            color = Colors.grey[600]!;
+            color = colorScheme.onSurfaceVariant;
             tooltip = 'Nextcloud: Unbekannt';
         }
 
@@ -234,7 +243,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           onTap: () => _nextcloudService!.checkConnectionNow(),
           child: Tooltip(
             message: tooltip,
-            child: Icon(iconData, color: color, size: 20),
+            child: Icon(iconData, color: color, size: AppConfig.iconSizeMedium),
           ),
         );
       },
@@ -246,13 +255,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   @override
   Widget build(BuildContext context) {
     final gefiltert = _gefilterteArtikel();
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
             const Text('Artikelliste'),
-            const SizedBox(width: 12),
+            const SizedBox(width: AppConfig.spacingMedium),
             _buildConnectionStatusIcon(),
           ],
         ),
@@ -271,7 +282,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.all(AppConfig.spacingSmall),
             child: TextField(
               decoration: const InputDecoration(
                 labelText: 'Suche nach Name oder Beschreibung',
@@ -282,7 +293,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConfig.spacingSmall,
+            ),
             child: DropdownButton<String>(
               value: _filterOrt.isEmpty ? null : _filterOrt,
               hint: const Text('Ort filtern'),
@@ -310,10 +323,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : gefiltert.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: Text(
                           'Keine Artikel gefunden',
-                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                          style: textTheme.titleSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       )
                     : RefreshIndicator(
@@ -331,8 +346,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // B-2 FIX: isAvailable ist jetzt immer true
-          // hasCameraScanner zeigt das passende Icon
           FloatingActionButton(
             heroTag: 'scan',
             onPressed: () async {
@@ -341,7 +354,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 _artikelListe,
                 _ladeArtikel,
                 setState,
-                _db,          // B-4 FIX: bestehende Instanz übergeben
+                _db,
               );
             },
             tooltip: ScanService.hasCameraScanner
@@ -353,7 +366,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   : Icons.search,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: AppConfig.spacingMedium),
           FloatingActionButton.extended(
             heroTag: 'new',
             onPressed: _neuenArtikelErfassen,
@@ -368,59 +381,62 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== ARTIKEL TILE ====================
 
   Widget _buildArtikelTile(Artikel artikel) {
-      return ListTile(
-        // M-011: Zentrales Bild-Widget statt inline Image.network / Image.file
-        leading: ArtikelListBild(artikel: artikel),
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(
-                artikel.name,
-                style: const TextStyle(fontSize: 16),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              artikel.menge.toString(),
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-          ],
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // M-007: Artikelnummer anzeigen
-            if (artikel.artikelnummer != null)
-              Text(
-                'Art.-Nr.: ${artikel.artikelnummer}',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.blueGrey[600],
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            Text(
-              artikel.beschreibung,
-              maxLines: 2,
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return ListTile(
+      // M-011: Zentrales Bild-Widget statt inline Image.network / Image.file
+      leading: ArtikelListBild(artikel: artikel),
+      title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              artikel.name,
+              style: textTheme.bodyLarge,
               overflow: TextOverflow.ellipsis,
             ),
+          ),
+          Text(
+            artikel.menge.toString(),
+            style: textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // M-007: Artikelnummer anzeigen
+          if (artikel.artikelnummer != null)
             Text(
-              '${artikel.ort.trim()} • ${artikel.fach.trim()}',
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 12,
-                fontStyle: FontStyle.italic,
+              'Art.-Nr.: ${artikel.artikelnummer}',
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w500,
               ),
             ),
-          ],
-        ),
-        isThreeLine: true,
-        onTap: () => _openDetailScreen(artikel),
-      );
-    }
+          Text(
+            artikel.beschreibung,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          Text(
+            '${artikel.ort.trim()} • ${artikel.fach.trim()}',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      ),
+      isThreeLine: true,
+      onTap: () => _openDetailScreen(artikel),
+    );
+  }
 
-  // ==================== DETAIL SCREEN ====================  ← NEU
+  // ==================== DETAIL SCREEN ====================
 
   Future<void> _openDetailScreen(Artikel artikel) async {
     _logger.d('Detail-Screen öffnen: ${artikel.name} (uuid: ${artikel.uuid})');
@@ -476,7 +492,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     imageCache.clearLiveImages();
     _logger.d('Image-Cache geleert');
   }
-
 
   // ==================== MENÜ ====================
 
@@ -548,6 +563,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       return;
     }
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -563,7 +580,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
             child: const Text('Zurücksetzen'),
           ),
         ],
@@ -584,6 +603,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   List<PopupMenuEntry<_MenuAction>> _buildMenuItems() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return [
       const PopupMenuItem(
         value: _MenuAction.importExport,
@@ -595,11 +616,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         ),
       ),
       if (!kIsWeb) ...[
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _MenuAction.pdfReports,
           child: ListTile(
-            leading: Icon(Icons.picture_as_pdf, color: Colors.red),
-            title: Text('PDF-Berichte'),
+            leading: Icon(Icons.picture_as_pdf, color: colorScheme.error),
+            title: const Text('PDF-Berichte'),
             contentPadding: EdgeInsets.zero,
             dense: true,
           ),
@@ -661,6 +682,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== DIALOGE ====================
 
   Future<void> _importExportDialog() async {
+    final colorScheme = Theme.of(context).colorScheme;
+
     await showDialog<void>(
       context: context,
       builder: (ctx) {
@@ -677,11 +700,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 );
                 if (!mounted) return;
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.file_upload, color: Colors.blue),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Artikel importieren (JSON/CSV)')),
+                  Icon(Icons.file_upload, color: colorScheme.primary),
+                  const SizedBox(width: AppConfig.spacingSmall),
+                  const Expanded(
+                    child: Text('Artikel importieren (JSON/CSV)'),
+                  ),
                 ],
               ),
             ),
@@ -692,11 +717,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 await ArtikelExportService().showExportDialog(context);
                 if (!mounted) return;
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.file_download, color: Colors.green),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Artikel exportieren (JSON/CSV)')),
+                  Icon(Icons.file_download, color: colorScheme.tertiary),
+                  const SizedBox(width: AppConfig.spacingSmall),
+                  const Expanded(
+                    child: Text('Artikel exportieren (JSON/CSV)'),
+                  ),
                 ],
               ),
             ),
@@ -707,6 +734,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   Future<void> _showPdfReportsDialog() async {
+    final colorScheme = Theme.of(context).colorScheme;
+
     await showDialog<void>(
       context: context,
       builder: (ctx) {
@@ -723,11 +752,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 );
                 if (!mounted) return;
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.list_alt, color: Colors.red),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Komplette Artikelliste als PDF')),
+                  Icon(Icons.list_alt, color: colorScheme.error),
+                  const SizedBox(width: AppConfig.spacingSmall),
+                  const Expanded(
+                    child: Text('Komplette Artikelliste als PDF'),
+                  ),
                 ],
               ),
             ),
@@ -741,11 +772,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 );
                 if (!mounted) return;
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.filter_list, color: Colors.orange),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Gefilterte Artikelliste als PDF')),
+                  Icon(Icons.filter_list, color: colorScheme.secondary),
+                  const SizedBox(width: AppConfig.spacingSmall),
+                  const Expanded(
+                    child: Text('Gefilterte Artikelliste als PDF'),
+                  ),
                 ],
               ),
             ),
@@ -760,11 +793,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 );
                 if (!mounted) return;
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.description_outlined, color: Colors.blue),
-                  SizedBox(width: 8),
-                  Expanded(child: Text('Einzelner Artikel als Detail-PDF')),
+                  Icon(
+                    Icons.description_outlined,
+                    color: colorScheme.primary,
+                  ),
+                  const SizedBox(width: AppConfig.spacingSmall),
+                  const Expanded(
+                    child: Text('Einzelner Artikel als Detail-PDF'),
+                  ),
                 ],
               ),
             ),

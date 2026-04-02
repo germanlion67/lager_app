@@ -1,4 +1,7 @@
 // lib/screens/artikel_detail_screen.dart
+//
+// O-004 Batch 3: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
 
 import 'dart:async';
 import 'dart:typed_data';
@@ -10,6 +13,7 @@ import 'package:http/http.dart' as http;
 import 'package:logger/logger.dart';
 import 'package:path/path.dart' as p;
 
+import '../config/app_config.dart';
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
@@ -279,18 +283,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           .collection('artikel')
           .update(recordId, body: body, files: files);
 
-      // ⚠️ FIX: Nach Update den aktualisierten Record von PB holen,
-      // damit remoteBildPfad den neuen Dateinamen enthält.
-      // Ohne das bleibt die alte Bild-URL in der Liste gecacht
-      // und das neue Bild wird nicht angezeigt.
       final updatedRecord = await _pbService.client
           .collection('artikel')
           .getOne(recordId);
 
       final neuerBildPfad = updatedRecord.data['bild']?.toString() ?? '';
 
-      // ⚠️ FIX: Alten Bild-Cache invalidieren, damit das neue Bild
-      // beim nächsten Laden der Liste angezeigt wird.
       if (_remoteBildUrl != null) {
         unawaited(CachedNetworkImage.evictFromCache(_remoteBildUrl!));
         _logger.d('Alter Bild-Cache invalidiert: $_remoteBildUrl');
@@ -304,8 +302,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         fach: _fachController.text,
         beschreibung: _beschreibungController.text,
         aktualisiertAm: now,
-        // ⚠️ FIX: remoteBildPfad und remotePath aktualisieren,
-        // damit die Artikelliste das neue Bild anzeigt.
         remoteBildPfad: neuerBildPfad,
         remotePath: recordId,
       );
@@ -433,6 +429,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   // ==================== LÖSCHEN ====================
 
   Future<void> _loeschen() async {
+    final colorScheme = Theme.of(context).colorScheme;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -446,7 +444,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
             child: const Text('Löschen'),
           ),
         ],
@@ -598,6 +598,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     if (!hasPending && !hasRemote && !hasLocal) return;
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     showDialog<void>(
       context: context,
       barrierColor: Colors.black87,
@@ -607,10 +609,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           backgroundColor: Colors.black,
           appBar: AppBar(
             backgroundColor: Colors.black,
-            foregroundColor: Colors.white,
+            foregroundColor: colorScheme.onInverseSurface,
             title: Text(
               widget.artikel.name,
-              style: const TextStyle(color: Colors.white),
             ),
           ),
           body: Center(
@@ -626,6 +627,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   }
 
   Widget _buildVollbildContent() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     if (_pendingBytes != null) {
       return Image.memory(_pendingBytes!, fit: BoxFit.contain);
     }
@@ -636,13 +639,15 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         placeholder: (_, __) =>
             const Center(child: CircularProgressIndicator()),
         errorWidget: (_, __, ___) =>
-            const Icon(Icons.image_not_supported, color: Colors.white, size: 64),
+            Icon(Icons.image_not_supported,
+                color: colorScheme.onInverseSurface, size: 64,),
       );
     }
     if (!kIsWeb && _bildPfad != null) {
       return platform.buildFileImage(_bildPfad!, fit: BoxFit.contain);
     }
-    return const Icon(Icons.image_not_supported, color: Colors.white, size: 64);
+    return Icon(Icons.image_not_supported,
+        color: colorScheme.onInverseSurface, size: 64,);
   }
 
   // ==================== UI ====================
@@ -650,6 +655,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final artikel = widget.artikel;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return PopScope(
       canPop: !(_isEditing && _hasChanged),
@@ -699,7 +706,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           ],
         ),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(AppConfig.spacingLarge),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -710,12 +717,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   labelText: 'Ort',
                   border: const OutlineInputBorder(),
                   filled: true,
-                  fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                  labelStyle: const TextStyle(color: Colors.black),
+                  fillColor: _isEditing
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerLow,
                 ),
-                style: const TextStyle(color: Colors.black),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppConfig.spacingMedium),
 
               TextField(
                 controller: _fachController,
@@ -724,12 +731,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   labelText: 'Fach',
                   border: const OutlineInputBorder(),
                   filled: true,
-                  fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                  labelStyle: const TextStyle(color: Colors.black),
+                  fillColor: _isEditing
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerLow,
                 ),
-                style: const TextStyle(color: Colors.black),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
 
               Row(
                 children: [
@@ -744,15 +751,14 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   ),
                   Text(
                     'Art.-Nr.: ${artikel.artikelnummer ?? "-"}',
-                    style: const TextStyle(
-                      fontSize: 12,
+                    style: textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w500,
-                      color: Colors.grey,
-                  ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
 
               TextField(
                 controller: _beschreibungController,
@@ -760,13 +766,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                 decoration: InputDecoration(
                   labelText: 'Beschreibung',
                   filled: true,
-                  fillColor: _isEditing ? Colors.white : Colors.grey[100],
-                  labelStyle: const TextStyle(color: Colors.black),
+                  fillColor: _isEditing
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerLow,
                 ),
-                style: const TextStyle(color: Colors.black),
                 maxLines: 3,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
 
               Row(
                 children: [
@@ -776,7 +782,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                     label: const Text('Bild wählen'),
                   ),
                   if (ImagePickerService.isCameraAvailable) ...[
-                    const SizedBox(width: 12),
+                    const SizedBox(width: AppConfig.spacingMedium),
                     FilledButton.tonalIcon(
                       onPressed: _isEditing ? _pickImageCamera : null,
                       icon: const Icon(Icons.camera_alt),
@@ -785,7 +791,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   ],
                 ],
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
 
               // M-012: Anhänge-Sektion
               AnhaengeSektion(
@@ -798,12 +804,14 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               // M-011: Zentrales Bild-Widget mit Vollbild-Tap
               if (_isLoadingRemoteBild)
                 Container(
-                  height: 200,
+                  height: AppConfig.artikelDetailBildHoehe,
                   width: double.infinity,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12),
+                    color: colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(
+                      AppConfig.cardBorderRadiusLarge,
+                    ),
                   ),
                   child: const CircularProgressIndicator(),
                 )
@@ -815,7 +823,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   onTap: _zeigeBildVollbild,
                 ),
 
-              const SizedBox(height: 20),
+              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
 
               ElevatedButton(
                 onPressed: !_isEditing
@@ -857,7 +865,9 @@ class AnhaengeSektion extends StatelessWidget {
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppConfig.borderRadiusXLarge),
+        ),
       ),
       builder: (_) => AnhaengeSheet(
         artikelUuid: artikelUuid,
@@ -924,7 +934,9 @@ class AnhaengeSheetState extends State<AnhaengeSheet> {
       isScrollControlled: true,
       useSafeArea: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppConfig.borderRadiusXLarge),
+        ),
       ),
       builder: (_) => AttachmentUploadWidget(
         artikelUuid: widget.artikelUuid,
@@ -936,6 +948,9 @@ class AnhaengeSheetState extends State<AnhaengeSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     return DraggableScrollableSheet(
       initialChildSize: 0.6,
       minChildSize: 0.4,
@@ -945,38 +960,46 @@ class AnhaengeSheetState extends State<AnhaengeSheet> {
         children: [
           // Handle + Header
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            padding: const EdgeInsets.fromLTRB(
+              AppConfig.spacingLarge,
+              AppConfig.spacingMedium,
+              AppConfig.spacingLarge,
+              0,
+            ),
             child: Column(
               children: [
                 Container(
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey[400],
-                    borderRadius: BorderRadius.circular(2),
+                    color: colorScheme.onSurfaceVariant,
+                    borderRadius: BorderRadius.circular(
+                      AppConfig.borderRadiusXXSmall,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: AppConfig.spacingMedium),
                 Row(
                   children: [
                     const Icon(Icons.attach_file),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: AppConfig.spacingSmall),
                     Text(
                       count > 0 ? 'Anhänge ($count)' : 'Anhänge',
-                      style: const TextStyle(
-                        fontSize: 18,
+                      style: textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const Spacer(),
                     FilledButton.tonalIcon(
                       onPressed: zeigeUploadDialog,
-                      icon: const Icon(Icons.add, size: 18),
+                      icon: const Icon(
+                        Icons.add,
+                      ),
                       label: const Text('Hinzufügen'),
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppConfig.spacingSmall),
                 const Divider(),
               ],
             ),

@@ -1,9 +1,13 @@
 // lib/widgets/sync_conflict_handler.dart
+//
+// O-004 Batch 3: Alle hardcodierten Farben durch colorScheme ersetzt,
+// alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
 
 import 'package:flutter/material.dart';
-import '../services/app_log_service.dart';
 
+import '../config/app_config.dart';
 import '../screens/conflict_resolution_screen.dart';
+import '../services/app_log_service.dart';
 import '../services/sync_service.dart';
 
 class SyncConflictHandler {
@@ -15,20 +19,20 @@ class SyncConflictHandler {
   ) async {
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
 
-    // FIX: await + explizites Typargument <void> für DialogRoute
     await nav.push(
       DialogRoute<void>(
         context: context,
         barrierDismissible: false,
         builder: (_) => const Dialog(
           child: Padding(
-            padding: EdgeInsets.all(24.0),
+            padding: EdgeInsets.all(AppConfig.spacingXLarge),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 CircularProgressIndicator(),
-                SizedBox(width: 16),
+                SizedBox(width: AppConfig.spacingLarge),
                 Text('Synchronisiere...'),
               ],
             ),
@@ -41,20 +45,19 @@ class SyncConflictHandler {
       final result = await syncService.syncWithConflictResolution();
 
       if (!context.mounted) return false;
-      nav.pop(); // Schließe Loading Dialog
+      nav.pop();
 
       if (result['success'] == true) {
         messenger.showSnackBar(
           SnackBar(
-            // FIX: .toString() — dynamic → String
             content: Text(
               result['message']?.toString() ?? 'Synchronisation erfolgreich',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: colorScheme.tertiary,
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: 'OK',
-              textColor: Colors.white,
+              textColor: colorScheme.onTertiary,
               onPressed: () {},
             ),
           ),
@@ -83,13 +86,13 @@ class SyncConflictHandler {
 
           if (resolved > 0 && skipped == 0) {
             message = '$resolved Konflikte erfolgreich aufgelöst';
-            color = Colors.green;
+            color = colorScheme.tertiary;
           } else if (resolved > 0 && skipped > 0) {
             message = '$resolved Konflikte aufgelöst, $skipped übersprungen';
-            color = Colors.orange;
+            color = colorScheme.secondary;
           } else {
             message = 'Alle Konflikte übersprungen';
-            color = Colors.grey;
+            color = colorScheme.onSurfaceVariant;
           }
 
           messenger.showSnackBar(
@@ -103,22 +106,19 @@ class SyncConflictHandler {
           return resolved > 0;
         }
       } else {
-        // Fehler bei der Synchronisation
         messenger.showSnackBar(
           SnackBar(
-            // FIX: .toString() — dynamic → String
             content: Text(
               result['message']?.toString() ?? 'Synchronisation fehlgeschlagen',
             ),
-            backgroundColor: Colors.red,
+            backgroundColor: colorScheme.error,
             behavior: SnackBarBehavior.floating,
             action: SnackBarAction(
               label: 'Details',
-              textColor: Colors.white,
+              textColor: colorScheme.onError,
               onPressed: () {
                 _showErrorDialog(
                   context,
-                  // FIX: .toString() — dynamic → String
                   result['error']?.toString() ?? 'Unbekannter Fehler',
                 );
               },
@@ -141,7 +141,7 @@ class SyncConflictHandler {
         messenger.showSnackBar(
           SnackBar(
             content: Text('Synchronisation fehlgeschlagen: $e'),
-            backgroundColor: Colors.red,
+            backgroundColor: colorScheme.error,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -152,14 +152,17 @@ class SyncConflictHandler {
   }
 
   static void _showErrorDialog(BuildContext context, String error) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.error_outline, color: Colors.red),
-            SizedBox(width: 8),
-            Text('Synchronisationsfehler'),
+            Icon(Icons.error_outline, color: colorScheme.error),
+            const SizedBox(width: AppConfig.spacingSmall),
+            const Text('Synchronisationsfehler'),
           ],
         ),
         content: SingleChildScrollView(
@@ -171,28 +174,29 @@ class SyncConflictHandler {
                 'Bei der Synchronisation ist ein Fehler aufgetreten:',
                 style: TextStyle(fontWeight: FontWeight.w500),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: AppConfig.spacingSmall),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(AppConfig.spacingMedium),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
+                  color: colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(
+                    AppConfig.borderRadiusMedium,
+                  ),
+                  border: Border.all(color: colorScheme.outlineVariant),
                 ),
                 child: Text(
                   error,
-                  style: const TextStyle(
+                  style: textTheme.bodySmall?.copyWith(
                     fontFamily: 'monospace',
-                    fontSize: 12,
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: AppConfig.spacingMedium),
               const Text(
                 'Mögliche Lösungen:',
                 style: TextStyle(fontWeight: FontWeight.w500),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: AppConfig.spacingXSmall),
               const Text('• Internetverbindung prüfen'),
               const Text('• Nextcloud-Einstellungen überprüfen'),
               const Text('• Später erneut versuchen'),
@@ -218,8 +222,6 @@ class SyncConflictHandler {
       onPressed: () => handleSyncWithConflicts(context, syncService),
       icon: const Icon(Icons.sync),
       label: const Text('Sync'),
-      backgroundColor: Colors.blue,
-      foregroundColor: Colors.white,
     );
   }
 
@@ -232,15 +234,17 @@ class SyncConflictHandler {
     if (isSyncing) {
       return const Card(
         child: Padding(
-          padding: EdgeInsets.all(12.0),
+          padding: EdgeInsets.all(AppConfig.spacingMedium),
           child: Row(
             children: [
               SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                width: AppConfig.iconSizeSmall,
+                height: AppConfig.iconSizeSmall,
+                child: CircularProgressIndicator(
+                  strokeWidth: AppConfig.strokeWidthMedium,
+                ),
               ),
-              SizedBox(width: 8),
+              SizedBox(width: AppConfig.spacingSmall),
               Text('Synchronisiere...'),
             ],
           ),
@@ -248,31 +252,52 @@ class SyncConflictHandler {
       );
     }
 
+    return _SyncStatusCard(
+      lastSync: lastSync,
+      conflictCount: conflictCount,
+    );
+  }
+}
+
+/// Separates Widget für den Sync-Status, damit BuildContext verfügbar ist.
+class _SyncStatusCard extends StatelessWidget {
+  final DateTime? lastSync;
+  final int? conflictCount;
+
+  const _SyncStatusCard({
+    required this.lastSync,
+    required this.conflictCount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     final Color statusColor;
     final String statusText;
     final IconData statusIcon;
 
     if (lastSync == null) {
-      statusColor = Colors.grey;
+      statusColor = colorScheme.onSurfaceVariant;
       statusText = 'Noch nicht synchronisiert';
       statusIcon = Icons.sync_disabled;
     } else {
-      final timeDiff = DateTime.now().difference(lastSync);
+      final timeDiff = DateTime.now().difference(lastSync!);
 
-      if (conflictCount != null && conflictCount > 0) {
-        statusColor = Colors.orange;
+      if (conflictCount != null && conflictCount! > 0) {
+        statusColor = colorScheme.secondary;
         statusText = '$conflictCount Konflikte';
         statusIcon = Icons.warning;
       } else if (timeDiff.inMinutes < 5) {
-        statusColor = Colors.green;
+        statusColor = colorScheme.tertiary;
         statusText = 'Gerade synchronisiert';
         statusIcon = Icons.check_circle;
       } else if (timeDiff.inHours < 1) {
-        statusColor = Colors.blue;
+        statusColor = colorScheme.primary;
         statusText = 'Vor ${timeDiff.inMinutes}m synchronisiert';
         statusIcon = Icons.sync;
       } else {
-        statusColor = Colors.grey;
+        statusColor = colorScheme.onSurfaceVariant;
         statusText = 'Vor ${timeDiff.inHours}h synchronisiert';
         statusIcon = Icons.sync;
       }
@@ -280,11 +305,15 @@ class SyncConflictHandler {
 
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(12.0),
+        padding: const EdgeInsets.all(AppConfig.spacingMedium),
         child: Row(
           children: [
-            Icon(statusIcon, color: statusColor, size: 16),
-            const SizedBox(width: 8),
+            Icon(
+              statusIcon,
+              color: statusColor,
+              size: AppConfig.iconSizeSmall,
+            ),
+            const SizedBox(width: AppConfig.spacingSmall),
             Text(
               statusText,
               style: TextStyle(color: statusColor),
