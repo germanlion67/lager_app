@@ -2,6 +2,35 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### v0.7.5+0 — 2026-04-02 — M-007 abgeschlossen: UI für Konfliktlösung
+
+**Kontext:** Prüfung des M-007-Status ergab, dass die Implementierung bereits
+vollständig vorhanden war. Die Datei `conflict_resolution_screen.dart` enthielt
+`ConflictData`, `ConflictResolution`-Enum, den `ConflictResolutionScreen` mit
+Side-by-Side-Vergleich, Multi-Konflikt-Navigation und einen vollständigen
+`_MergeDialog` für manuelle Zusammenführung.
+
+**Durchgeführte Arbeiten:**
+- OPTIMIZATIONS.md bereinigt: Doppelung M-007 (alt) → K-003 umbenannt
+- M-007 als erledigt markiert und nach ✅ Abgeschlossen verschoben
+- 37 Unit-Tests erstellt (`conflict_resolution_test.dart`)
+- Neue Aufgabe T-001 für ausstehende manuelle Integrationstests erstellt
+
+**Entscheidungen:**
+- Widget-Tests für `ConflictResolutionScreen` wurden zurückgestellt, da
+  `SyncService` nicht ohne echte `NextcloudClient`/`ArtikelDbService`-Abhängigkeiten
+  instanziierbar ist. Stattdessen manuelle Integrationstests (T-001.6–T-001.12).
+- `ConflictData` hat keine `differences`/`diffCount`-Getter — der Feld-Vergleich
+  erfolgt direkt über die Artikel-Properties in `_buildVersionCard()`. Die Tests
+  bilden diese Logik nach.
+
+**Kumulierter Projektfortschritt:**
+- 17 von 28 Aufgaben erledigt (61%)
+- 0 offene Aufgaben mit hoher Priorität
+- Phase 4 (Multi-Plattform & Politur) bei ~45%
+
+---
+
 ### v0.7.4+4 — 2026-04-01 — O-004 Batch 2: Sync-Cluster migriert
 
 **Kontext:** Fortsetzung der systematischen Migration hardcodierter UI-Werte

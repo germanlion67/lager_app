@@ -2,6 +2,39 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.5+0] - 2026-04-02
+
+### Feature (M-007): UI für Konfliktlösung — Abgeschlossen
+- **M-007 als erledigt markiert**: `ConflictResolutionScreen` war bereits vollständig
+  implementiert (seit O-004 Batch 2), fehlte nur in der OPTIMIZATIONS.md-Dokumentation
+- **K-003 umbenannt**: Alte M-007 (Artikelnummer & Indizes) zu K-003 umbenannt,
+  um Doppelung zu beseitigen
+
+### Bestehende Implementierung (verifiziert)
+- `ConflictResolutionScreen` mit Side-by-Side-Vergleich (Lokale vs. Remote Version)
+- `ConflictData`-Klasse und `ConflictResolution`-Enum in `conflict_resolution_screen.dart`
+- Multi-Konflikt-Navigation mit Fortschrittsanzeige und LinearProgressIndicator
+- `_MergeDialog` für manuelle Feld-für-Feld-Zusammenführung mit Bild-Auswahl
+- Entscheidungs-Callbacks: `useLocal`, `useRemote`, `merge`, `skip`
+- Vollständige Integration mit `SyncConflictHandler` und `SyncService`
+- Hilfe-Dialog mit Erklärung aller Konfliktarten und Lösungsoptionen
+
+### Tests (T-001)
+- **Neue Testdatei:** `app/test/conflict_resolution_test.dart`
+  - 37 Unit-Tests in 6 Gruppen
+  - T-001.1: `ConflictData` — Konstruktor, Felder, Null-Handling (11 Tests)
+  - T-001.2: `ConflictResolution` Enum — Werte, Index, `byName` (6 Tests)
+  - T-001.4: Konflikt-Grund-Szenarien (5 Tests)
+  - T-001.extra: Feld-Vergleiche über Artikel-Properties (11 Tests)
+  - T-001.extra: ConflictData in Collections und Resolution-Tracking (4 Tests)
+- **T-001 als neue Aufgabe** in OPTIMIZATIONS.md erstellt (manuelle Integrationstests ausstehend)
+
+### Dokumentation
+- `OPTIMIZATIONS.md` — M-007 nach ✅ verschoben, K-003 umbenannt, T-001 erstellt,
+  Fortschritts-Übersicht aktualisiert (17/28 erledigt), Version auf 0.7.5+0
+- `CHANGELOG.md` — Aktualisiert für v0.7.5+0
+- `HISTORY.md` — Meilenstein v0.7.5+0 dokumentiert
+
 ## [0.7.4+7] - 2026-04-02
 
 ### Refactoring (O-004): UI-Hardcoded Werte migrieren — Batch 5 (Cleanup, O-004 abgeschlossen ✅)
