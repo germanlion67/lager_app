@@ -14,6 +14,7 @@ import '../services/pocketbase_service.dart';
 import '../services/app_log_service.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
+import '../widgets/backup_status_widget.dart';
 
 class SettingsScreen extends StatefulWidget {
   /// ── M-009: Callback für Logout — wird von AuthGate in main.dart
@@ -355,41 +356,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ==================== UI ====================
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Einstellungen'),
-        actions: [
-          IconButton(
-            onPressed: _saveSettings,
-            icon: const Icon(Icons.save),
-            tooltip: 'Einstellungen speichern',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConfig.spacingLarge),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildAccountCard(),
-              const SizedBox(height: AppConfig.spacingLarge),
-              _buildPocketBaseCard(),
-              const SizedBox(height: AppConfig.spacingLarge),
-              if (!kIsWeb) _buildArtikelNummerCard(),
-              if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-              _buildInfoCard(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   // ==================== M-009: ACCOUNT CARD ====================
 
@@ -637,6 +604,44 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  // ==================== UI ====================
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Einstellungen'),
+        actions: [
+          IconButton(
+            onPressed: _saveSettings,
+            icon: const Icon(Icons.save),
+            tooltip: 'Einstellungen speichern',
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildAccountCard(),
+              const SizedBox(height: AppConfig.spacingLarge),
+              _buildPocketBaseCard(),
+              const SizedBox(height: AppConfig.spacingLarge),
+              const BackupStatusWidget(),                          // ← NEU
+              const SizedBox(height: AppConfig.spacingLarge),      // ← NEU
+              if (!kIsWeb) _buildArtikelNummerCard(),
+              if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
+              _buildInfoCard(),
+            ],
+          ),
         ),
       ),
     );

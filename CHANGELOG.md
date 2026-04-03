@@ -2,6 +2,23 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.5+1] - 2026-04-03
+
+### Feature (M-008): Backup-Status im Settings-Screen anzeigen — Abgeschlossen
+Neues Feature: Backup-Status wird im Settings-Screen als Card angezeigt.
+
+Änderungen:
+- BackupStatusService: Liest last_backup.json via HTTP vom PocketBase-Server
+- BackupStatusWidget: Farbcodierte Status-Card (Grün <24h, Gelb 1-3d, Rot >3d)
+  - Loading/Error/Unknown-States
+  - Detail-Zeilen: Zeitpunkt, Datei, Größe, Backup-Anzahl, Rotation
+  - Fehler-Details bei fehlgeschlagenem Backup
+  - Refresh-Button zum manuellen Aktualisieren
+- settings_screen.dart: BackupStatusWidget zwischen PocketBase- und Artikelnummer-Card
+- backup.sh: write_status() kopiert last_backup.json nach pb_public für HTTP-Zugriff
+- docker-compose.prod.yml: pb_public Volume für Backup-Container ergänzt
+- M-008 als erledigt markiert (18/28 Aufgaben abgeschlossen)
+
 ## [0.7.5+0] - 2026-04-02
 
 ### Feature (M-007): UI für Konfliktlösung — Abgeschlossen

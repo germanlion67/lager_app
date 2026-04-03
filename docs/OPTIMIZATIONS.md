@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.5+0 | **Zuletzt aktualisiert:** 02.04.2026
+**Version:** 0.7.5+1 | **Zuletzt aktualisiert:** 03.04.2026
 
 ---
 
@@ -59,6 +59,13 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 
 ### M-002: AppLogService Integration — Erledigt in v0.3.0
 - Konsistentes Logging im gesamten Projekt ✅
+
+### M-008: Backup-Status in der App anzeigen — Erledigt in v0.7.5+1
+- `BackupStatusService` liest `last_backup.json` via HTTP ✅
+- `BackupStatusWidget` mit Farbcodierung (Grün/Gelb/Rot) ✅
+- Integration im Settings-Screen ✅
+- `backup.sh` kopiert Status-JSON nach `pb_public` ✅
+- `docker-compose.prod.yml` Volume für Backup-Container ergänzt ✅
 
 ### N-004: Roboto Font — Erledigt in v0.3.0
 - Roboto als Standard-Schriftart via `google_fonts` ✅
@@ -179,9 +186,6 @@ Konsistente Lade-Indikatoren in allen Screens.
 ### M-006: Input Validation
 Pflichtfelder, Bereichsprüfungen, Duplikat-Checks.
 
-### M-008: Backup-Status in der App anzeigen
-`last_backup.json` im Settings-Screen anzeigen.
-
 ### T-001: Tests für Konfliktlösung (M-007)
 Manuelle Integrationstests und Unit-Tests für die gesamte Konflikt-Pipeline.
 
@@ -223,11 +227,11 @@ Erfordert Apple Developer Account.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 17 | 17 | 0 |
+| ✅ Abgeschlossen | 18 | 18 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 7 | 0 | 7 |
+| 🟡 Mittel | 6 | 0 | 6 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **28** | **17** | **11** |
+| **Gesamt** | **28** | **18** | **10** |
 
 ---
 
@@ -235,6 +239,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-03 | v0.7.5+1 | M-008 als erledigt markiert |
 | 2026-04-02 | v0.7.5+0 | M-007 als erledigt markiert, K-003 umbenannt (ex M-007 alt), T-001 erstellt, Unit-Tests hinzugefügt |
 | 2026-04-02 | v0.7.4+7 | O-004 Batch 5 erledigt + O-004 abgeschlossen: Restliche 11 Dateien migriert (~80 Hardcodes), ~41 bewusst beibehalten |
 | 2026-04-02 | v0.7.4+6 | O-004 Batch 4 erledigt: Attachment-Widgets + Setup/Login migriert, 13 neue AppConfig-Tokens |

@@ -125,6 +125,13 @@ write_status() {
     "error": "${error}"
 }
 EOF
+    # M-008: Kopie nach pb_public für HTTP-Zugriff durch die App
+    if [[ -d "/pb_public" ]]; then
+        cp "$PB_BACKUPS_DIR/last_backup.json" "/pb_public/last_backup.json" 2>/dev/null \
+            && log_info "Status-JSON nach pb_public kopiert" \
+            || log_warn "Konnte Status-JSON nicht nach pb_public kopieren"
+    fi
+
 }
 
 # ── Hauptprogramm ────────────────────────────────────────────────────────────

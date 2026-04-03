@@ -242,6 +242,7 @@ services:
       - ./server/pb_data:/pb_data:ro
       # Schreibzugriff für Backups
       - ./server/pb_backups:/pb_backups
+      - ./server/pb_public:/pb_public    # ← NEU: für last_backup.json
     depends_on:
       pocketbase:
         condition: service_healthy
