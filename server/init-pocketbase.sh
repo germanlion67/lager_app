@@ -15,6 +15,8 @@ SUPERUSER_MARKER_FILE="${PB_DATA_DIR}/.superuser_initialized"
 PB_TEST_USER_EMAIL="${PB_TEST_USER_EMAIL:-}"
 PB_TEST_USER_PASSWORD="${PB_TEST_USER_PASSWORD:-}"
 PB_TEST_USER_ENABLED="${PB_TEST_USER_ENABLED:-0}"
+# Neu: Wenn 1, dann Test-User "idempotent" sicherstellen (create-or-update Passwort)
+PB_TEST_USER_UPSERT="${PB_TEST_USER_UPSERT:-0}"
 TESTUSER_MARKER_FILE="${PB_DATA_DIR}/.testuser_initialized"
 
 echo "Data directory: $PB_DATA_DIR"
@@ -74,9 +76,9 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
   if [ -z "$PB_TEST_USER_EMAIL" ] || [ -z "$PB_TEST_USER_PASSWORD" ]; then
     echo ""
     echo "⚠️  WARNING: PB_TEST_USER_ENABLED=1 but email or password is empty. Skipping."
-  elif [ ! -f "$TESTUSER_MARKER_FILE" ]; then
+  elif [ "$PB_TEST_USER_UPSERT" = "1" ] || [ "$PB_TEST_USER_UPSERT" = "true" ] || [ ! -f "$TESTUSER_MARKER_FILE" ]; then
     echo ""
-    echo "Creating test user: $PB_TEST_USER_EMAIL ..."
+    echo "Ensuring test user: $PB_TEST_USER_EMAIL ..."
 
     # Auth-Token vom Superuser holen (PocketBase v0.23+)
     echo "  Authenticating as superuser..."
@@ -97,7 +99,7 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
       else
         echo "  ✅ Admin authenticated successfully."
 
-        # User über die users Collection erstellen
+        # 1) User über die users Collection erstellen (kann bereits existieren)
         CREATE_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\"}" \
           --header="Content-Type: application/json" \
           --header="Authorization: Bearer $ADMIN_TOKEN" \
@@ -105,11 +107,43 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
 
         if echo "$CREATE_RESPONSE" | grep -q '"id"'; then
           echo "  ✅ Test user created successfully: $PB_TEST_USER_EMAIL"
-          touch "$TESTUSER_MARKER_FILE"
+          touch "$TESTUSER_MARKER_FILE" || true
           echo "  Marker written."
         elif echo "$CREATE_RESPONSE" | grep -qi 'not_unique\|already exists\|UNIQUE constraint'; then
-          echo "  ℹ️  Test user already exists. Skipping."
-          touch "$TESTUSER_MARKER_FILE"
+          echo "  ℹ️  Test user already exists."
+
+          # 2) Wenn UPSERT aktiv: Passwort setzen/ändern
+          if [ "$PB_TEST_USER_UPSERT" = "1" ] || [ "$PB_TEST_USER_UPSERT" = "true" ]; then
+            echo "  🔁 UPSERT enabled -> updating existing user's password..."
+
+            # User per Filter finden (PocketBase supports filter param)
+            FIND_RESPONSE=$(wget --content-on-error -qO- \
+              --header="Authorization: Bearer $ADMIN_TOKEN" \
+              "http://localhost:8080/api/collections/users/records?perPage=1&filter=email%3D%22$PB_TEST_USER_EMAIL%22" 2>/dev/null || echo "")
+
+            USER_ID=$(echo "$FIND_RESPONSE" | grep -o '\"id\":\"[^\"]*\"' | head -1 | cut -d'\"' -f4)
+
+            if [ -z "$USER_ID" ]; then
+              echo "  ⚠️  Could not resolve existing user id for $PB_TEST_USER_EMAIL. Skipping password update."
+            else
+              UPDATE_RESPONSE=$(wget --content-on-error -qO- --method=PATCH \
+                --body-data "{\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\"}" \
+                --header="Content-Type: application/json" \
+                --header="Authorization: Bearer $ADMIN_TOKEN" \
+                "http://localhost:8080/api/collections/users/records/$USER_ID" 2>/dev/null || echo "")
+
+              if echo "$UPDATE_RESPONSE" | grep -q "\"id\":\"$USER_ID\""; then
+                echo "  ✅ Password updated for: $PB_TEST_USER_EMAIL"
+              else
+                echo "  ⚠️  Could not update password. Response:"
+                echo "  $UPDATE_RESPONSE"
+              fi
+            fi
+          else
+            echo "  (Set PB_TEST_USER_UPSERT=1 to force password update on existing user.)"
+          fi
+
+          touch "$TESTUSER_MARKER_FILE" || true
           echo "  Marker written."
         else
           echo "  ⚠️  Could not create test user. Response:"
@@ -120,7 +154,7 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
     fi
   else
     echo ""
-    echo "Test-User marker exists -> skipping creation."
+    echo "Test-User marker exists -> skipping creation. (Set PB_TEST_USER_UPSERT=1 to upsert anyway.)"
   fi
 else
   echo ""
