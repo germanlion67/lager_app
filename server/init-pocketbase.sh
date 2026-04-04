@@ -15,7 +15,7 @@ SUPERUSER_MARKER_FILE="${PB_DATA_DIR}/.superuser_initialized"
 PB_TEST_USER_EMAIL="${PB_TEST_USER_EMAIL:-}"
 PB_TEST_USER_PASSWORD="${PB_TEST_USER_PASSWORD:-}"
 PB_TEST_USER_ENABLED="${PB_TEST_USER_ENABLED:-0}"
-# Neu: Wenn 1, dann Test-User "idempotent" sicherstellen (create-or-update Passwort)
+# Wenn 1, dann Test-User "idempotent" sicherstellen (create-or-update Passwort)
 PB_TEST_USER_UPSERT="${PB_TEST_USER_UPSERT:-0}"
 TESTUSER_MARKER_FILE="${PB_DATA_DIR}/.testuser_initialized"
 
@@ -100,7 +100,8 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
         echo "  ✅ Admin authenticated successfully."
 
         # 1) User über die users Collection erstellen (kann bereits existieren)
-        CREATE_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\"}" \
+        #    Neu: verified=true setzen, damit Login sofort funktioniert.
+        CREATE_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
           --header="Content-Type: application/json" \
           --header="Authorization: Bearer $ADMIN_TOKEN" \
           "http://localhost:8080/api/collections/users/records" 2>/dev/null || echo "")
@@ -112,11 +113,11 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
         elif echo "$CREATE_RESPONSE" | grep -qi 'not_unique\|already exists\|UNIQUE constraint'; then
           echo "  ℹ️  Test user already exists."
 
-          # 2) Wenn UPSERT aktiv: Passwort setzen/ändern
+          # 2) Wenn UPSERT aktiv: Passwort setzen/ändern + verified=true
           if [ "$PB_TEST_USER_UPSERT" = "1" ] || [ "$PB_TEST_USER_UPSERT" = "true" ]; then
-            echo "  🔁 UPSERT enabled -> updating existing user's password..."
+            echo "  🔁 UPSERT enabled -> updating existing user's password + verified=true ..."
 
-            # User per Filter finden (PocketBase supports filter param)
+            # User per Filter finden
             FIND_RESPONSE=$(wget --content-on-error -qO- \
               --header="Authorization: Bearer $ADMIN_TOKEN" \
               "http://localhost:8080/api/collections/users/records?perPage=1&filter=email%3D%22$PB_TEST_USER_EMAIL%22" 2>/dev/null || echo "")
@@ -124,23 +125,23 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
             USER_ID=$(echo "$FIND_RESPONSE" | grep -o '\"id\":\"[^\"]*\"' | head -1 | cut -d'\"' -f4)
 
             if [ -z "$USER_ID" ]; then
-              echo "  ⚠️  Could not resolve existing user id for $PB_TEST_USER_EMAIL. Skipping password update."
+              echo "  ⚠️  Could not resolve existing user id for $PB_TEST_USER_EMAIL. Skipping update."
             else
               UPDATE_RESPONSE=$(wget --content-on-error -qO- --method=PATCH \
-                --body-data "{\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\"}" \
+                --body-data "{\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
                 --header="Content-Type: application/json" \
                 --header="Authorization: Bearer $ADMIN_TOKEN" \
                 "http://localhost:8080/api/collections/users/records/$USER_ID" 2>/dev/null || echo "")
 
               if echo "$UPDATE_RESPONSE" | grep -q "\"id\":\"$USER_ID\""; then
-                echo "  ✅ Password updated for: $PB_TEST_USER_EMAIL"
+                echo "  ✅ Updated user: $PB_TEST_USER_EMAIL"
               else
-                echo "  ⚠️  Could not update password. Response:"
+                echo "  ⚠️  Could not update user. Response:"
                 echo "  $UPDATE_RESPONSE"
               fi
             fi
           else
-            echo "  (Set PB_TEST_USER_UPSERT=1 to force password update on existing user.)"
+            echo "  (Set PB_TEST_USER_UPSERT=1 to force password/verified update on existing user.)"
           fi
 
           touch "$TESTUSER_MARKER_FILE" || true

@@ -35,6 +35,9 @@ RUN chmod +x /pb/entrypoint.sh
 # Create directories
 RUN mkdir -p /pb_data /pb_public /pb_migrations
 
+# Copy PocketBase migrations into the image
+COPY pb_migrations/ /pb_migrations/
+
 # Set working directory
 WORKDIR /pb
 

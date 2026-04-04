@@ -1,6 +1,6 @@
 # 🐳 Portainer Prod Setup (NPM läuft auf anderem Rechner)
 
-Stand: 2026-04-03  
+Stand: 2026-04-04  
 Ziel: PocketBase (API) ist über **https://api.germanlion67.de** erreichbar, damit **Mobile/Tablet/Desktop** die Datenbank nutzen können.  
 Dein aktuelles Setup: Portainer Stack veröffentlicht Ports **8080/8081** auf dem Server, Nginx Proxy Manager (NPM) läuft **auf einem anderen Rechner**.
 
@@ -89,13 +89,22 @@ Wenn du **bei der Erstinstallation** direkt einen Login-User für die App haben 
 
 - `PB_TEST_USER_ENABLED` = `1`
 - `PB_TEST_USER_EMAIL` = `user@lager.app`
-- `PB_TEST_USER_PASSWORD` = `<PASSWORT>`
+- `PB_TEST_USER_PASSWORD` = `<PASSWORT (mind. 8 Zeichen)>`
 
 Optional (empfohlen für “idempotent” Setup / Passwort später ändern ohne Volume-Reset):
 - `PB_TEST_USER_UPSERT` = `1`
 
 > Hinweis: Der PocketBase **Superuser** (`PB_ADMIN_*`) ist **nicht** automatisch ein App-User.  
 > Die App authentifiziert sich gegen die Collection `users`.
+
+### ⚠️ Wichtig: Sonderzeichen in Passwörtern (Portainer / Compose)
+Einige Zeichen werden bei Environment-Variablen in Docker/Portainer/Compose leicht “falsch” interpretiert:
+- Besonders **`$`** (wird oft als Variable/Substitution interpretiert)
+- manchmal auch **`&`** (je nach UI/Parser)
+
+Empfehlung:
+- Verwende für `PB_TEST_USER_PASSWORD` (und auch `PB_ADMIN_PASSWORD`) Passwörter **ohne `$`**,
+  oder escapen den Wert korrekt (siehe `stack.env` Hinweis unten).
 
 ---
 
@@ -119,6 +128,9 @@ PB_TEST_USER_EMAIL=user@lager.app
 PB_TEST_USER_PASSWORD=...
 PB_TEST_USER_UPSERT=1
 ```
+
+> Tipp (Compose): Wenn du unbedingt ein `$` im Passwort brauchst, muss es je nach Compose-Parsing
+> oft als `$$` geschrieben werden (z. B. `pa$$word`), sonst wird es als Variable interpretiert.
 
 ---
 
