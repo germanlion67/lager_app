@@ -82,6 +82,46 @@ Wenn du *noch kein* Web unter Domain hast und nur testen willst:
 
 ---
 
+## ✅ First install ready (optional): ersten App-User automatisch anlegen
+
+Wenn du **bei der Erstinstallation** direkt einen Login-User für die App haben willst
+(Collection `users`), setze zusätzlich:
+
+- `PB_TEST_USER_ENABLED` = `1`
+- `PB_TEST_USER_EMAIL` = `user@lager.app`
+- `PB_TEST_USER_PASSWORD` = `<PASSWORT>`
+
+Optional (empfohlen für “idempotent” Setup / Passwort später ändern ohne Volume-Reset):
+- `PB_TEST_USER_UPSERT` = `1`
+
+> Hinweis: Der PocketBase **Superuser** (`PB_ADMIN_*`) ist **nicht** automatisch ein App-User.  
+> Die App authentifiziert sich gegen die Collection `users`.
+
+---
+
+## Alternative zu “Environment variables” direkt eintippen: stack.env / Upload
+
+Du kannst die Variablen statt im UI einzeln einzutippen auch als Datei pflegen:
+
+- **Variante A:** `stack.env` (oder `.env`) lokal anlegen und in Portainer beim Stack als *Environment file* verwenden (falls in deiner Portainer-Version verfügbar).
+- **Variante B:** Eine ENV-Datei in Portainer hochladen/importieren (falls verfügbar) und dem Stack zuweisen.
+
+Beispiel `stack.env` (minimal):
+
+```env
+PB_ADMIN_EMAIL=admin@germanlion67.de
+PB_ADMIN_PASSWORD=...
+POCKETBASE_URL=https://api.germanlion67.de
+CORS_ALLOWED_ORIGINS=https://lager.germanlion67.de
+
+PB_TEST_USER_ENABLED=1
+PB_TEST_USER_EMAIL=user@lager.app
+PB_TEST_USER_PASSWORD=...
+PB_TEST_USER_UPSERT=1
+```
+
+---
+
 ## 4) Stack deployen / neu starten
 
 In Portainer:
