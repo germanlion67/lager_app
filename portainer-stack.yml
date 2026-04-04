@@ -21,38 +21,52 @@ services:
     image: ghcr.io/germanlion67/lager_app_pocketbase:latest
     container_name: lager_pocketbase
     restart: unless-stopped
-    
+
     environment:
-      # Admin Credentials
+      # ===== Superuser (PocketBase Admin UI / _superusers) =====
       - PB_ADMIN_EMAIL=${PB_ADMIN_EMAIL:-admin@example.com}
-      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD}
-      
-      # PocketBase Config
+      - PB_ADMIN_PASSWORD=${PB_ADMIN_PASSWORD}   # in Portainer zwingend setzen!
+
+      # Optional: bei Bedarf Superuser bei jedem Start upserten
+      - PB_FORCE_SUPERUSER_UPSERT=${PB_FORCE_SUPERUSER_UPSERT:-0}
+
+      # ===== Erstinstallation: optionaler App-User (Collection `users`) =====
+      # Default: aus (sicher für Prod). Für Erstinstallation kannst du das auf 1 setzen.
+      - PB_TEST_USER_ENABLED=${PB_TEST_USER_ENABLED:-0}
+      - PB_TEST_USER_EMAIL=${PB_TEST_USER_EMAIL:-}
+      - PB_TEST_USER_PASSWORD=${PB_TEST_USER_PASSWORD:-}
+
+      # ===== PocketBase intern =====
       - PB_DATA_DIR=/pb_data
       - PB_MIGRATIONS_DIR=/pb_migrations
-      - PB_DEV_MODE=0
-      
-      # CORS (optional, falls nötig)
+
+      # Achtung: PB_DEV_MODE ist PocketBase/Rules-abhängig (bei dir im Stack vorhanden).
+      # In Produktion auf 0 lassen.
+      - PB_DEV_MODE=${PB_DEV_MODE:-0}
+
+      # ===== CORS (nur Browser/Web relevant) =====
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-*}
-    
+
+      # Optional/Quality: TZ für Logs/Backups
+      - TZ=${TZ:-Europe/Berlin}
+
     ports:
-      - "${PB_PORT:-8080}:8080"  # PocketBase API
-    
+      - "${PB_PORT:-8080}:8080"
+
     volumes:
       - pb_data:/pb_data
       - pb_public:/pb_public
       - pb_backups:/pb_backups
-    
+
     networks:
       - lager_network
-    
+
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 15s
-
   # ============================================================
   # Flutter Web Frontend
   # ============================================================
@@ -60,20 +74,22 @@ services:
     image: ghcr.io/germanlion67/lager_app_web:latest
     container_name: lager_app
     restart: unless-stopped
-    
+
     environment:
-      - POCKETBASE_URL=${POCKETBASE_URL:-http://pocketbase:8080}
-    
+      # WICHTIG: Diese URL muss aus dem Browser erreichbar sein!
+      # In Prod typischerweise: https://api.deine-domain.tld
+      - POCKETBASE_URL=${POCKETBASE_URL:-http://localhost:8080}
+
     ports:
-      - "${WEB_PORT:-8081}:8081"  # Frontend
-    
+      - "${WEB_PORT:-8081}:8081"
+
     networks:
       - lager_network
-    
+
     depends_on:
       pocketbase:
         condition: service_healthy
-    
+
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:8081/"]
       interval: 30s
