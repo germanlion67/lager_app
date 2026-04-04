@@ -1,5 +1,10 @@
 /// Migration: API-Regeln auf Authentifizierung setzen
 /// Nur eingeloggte User können auf artikel und attachments zugreifen.
+///
+/// Wichtig:
+/// - Diese Migration muss NACH dem Anlegen der Collections laufen.
+/// - Sie ist defensiv: wenn die Collection (noch) nicht existiert, wird sie übersprungen,
+///   damit ein frisches Setup nicht crasht.
 
 migrate(
   // UP — Regeln verschärfen
@@ -8,7 +13,19 @@ migrate(
     const authRule = '@request.auth.id != ""';
 
     for (const name of collections) {
-      const collection = app.findCollectionByNameOrId(name);
+      let collection = null;
+
+      try {
+        collection = app.findCollectionByNameOrId(name);
+      } catch (e) {
+        // PocketBase kann hier intern "sql: no rows..." werfen
+        collection = null;
+      }
+
+      if (!collection) {
+        console.log(`⚠️  Collection nicht gefunden (skip): ${name}`);
+        continue;
+      }
 
       collection.listRule   = authRule;
       collection.viewRule   = authRule;
@@ -26,7 +43,18 @@ migrate(
     const collections = ["artikel", "attachments"];
 
     for (const name of collections) {
-      const collection = app.findCollectionByNameOrId(name);
+      let collection = null;
+
+      try {
+        collection = app.findCollectionByNameOrId(name);
+      } catch (e) {
+        collection = null;
+      }
+
+      if (!collection) {
+        console.log(`⚠️  Collection nicht gefunden (skip): ${name}`);
+        continue;
+      }
 
       collection.listRule   = "";
       collection.viewRule   = "";

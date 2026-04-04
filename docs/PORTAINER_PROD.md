@@ -176,6 +176,11 @@ Speichern.
 
 Wenn das geht, ist Mobile-Konnektivität grundsätzlich da.
 
+
+Datenbankanmeldung mit SuperUser:
+
+- `https://api.germanlion67.de/_/`
+
 ---
 
 ## 6) Mobile App: Server-URL setzen (Pflicht)

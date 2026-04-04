@@ -4,30 +4,22 @@ set -e
 # ============================================================
 # PocketBase Entrypoint with CORS Configuration (H-002)
 #
-# Liest CORS_ALLOWED_ORIGINS aus der Umgebung und übergibt
-# die Origins als --origins Flag an PocketBase.
-#
-# Beispiele für CORS_ALLOWED_ORIGINS:
-#   "*"                                          → Alle Origins (Entwicklung)
-#   "https://lager.example.com"                  → Einzelne Domain
-#   "https://lager.example.com,https://admin.example.com"  → Mehrere Domains
-#   "https://lager.example.com,http://localhost:8081"       → Produktion + lokale Entwicklung
-#
-# PocketBase v0.36+ akzeptiert --origins als komma-getrennte Liste.
-# Mobile Apps (Android/iOS/Desktop) senden keinen Origin-Header,
-# CORS betrifft nur Browser-Requests.
+# - Kopiert Migrationen vor dem Start nach ${PB_DATA_DIR}/migrations (via init-pocketbase.sh)
+# - Startet PocketBase mit --migrationsDir=${PB_DATA_DIR}/migrations, damit automigrate die richtige Quelle nutzt.
 # ============================================================
 
 CORS="${CORS_ALLOWED_ORIGINS:-*}"
+PB_DIR="${PB_DATA_DIR:-/pb_data}"
+PB_MIG_DIR="${PB_DIR}/migrations"
 
 echo "============================================"
 echo "PocketBase Entrypoint"
 echo "============================================"
 echo "CORS_ALLOWED_ORIGINS: $CORS"
-echo "Data directory:       ${PB_DATA_DIR:-/pb_data}"
+echo "Data directory:       ${PB_DIR}"
+echo "Migrations dir:       ${PB_MIG_DIR}"
 echo "============================================"
 
-# Validierung: Warnung bei Wildcard in Produktion
 if [ "$CORS" = "*" ]; then
   echo ""
   echo "⚠️  WARNING: CORS is set to wildcard (*)"
@@ -36,27 +28,43 @@ if [ "$CORS" = "*" ]; then
   echo ""
 fi
 
-# PocketBase im Hintergrund starten MIT/OHNE --origins Flag
+# 1) Init-Script VOR PocketBase Start (damit Migrationen rechtzeitig da sind)
+#    Hinweis: init-pocketbase.sh wartet auf die API. Deshalb darf es NICHT mehr warten,
+#    bevor PocketBase läuft. Unser init-pocketbase.sh kopiert Migrationen früh, aber
+#    der Rest (superuser/testuser) braucht die API.
+#
+#    Daher splitten wir den Ablauf:
+#    - early migrations copy passiert hier direkt (kleiner Block),
+#    - danach PocketBase starten,
+#    - danach init-pocketbase.sh laufen lassen (wie bisher).
+
+# Early migrations copy (minimal, robust)
+mkdir -p "${PB_MIG_DIR}" || true
+if [ -d "${PB_MIGRATIONS_DIR:-/pb_migrations}" ] && [ "$(ls -A "${PB_MIGRATIONS_DIR:-/pb_migrations}" 2>/dev/null)" ]; then
+  cp -r "${PB_MIGRATIONS_DIR:-/pb_migrations}"/* "${PB_MIG_DIR}/" 2>/dev/null || true
+fi
+
+# 2) PocketBase starten (im Hintergrund), damit init-pocketbase.sh die API nutzen kann
 if [ "$CORS" = "*" ]; then
-  # Wildcard: kein --origins Flag → PocketBase Default (alles erlaubt)
   echo "Starting PocketBase (CORS: wildcard/default)..."
   /pb/pocketbase serve \
     --http=0.0.0.0:8080 \
-    --dir="${PB_DATA_DIR:-/pb_data}" &
+    --dir="${PB_DIR}" \
+    --migrationsDir="${PB_MIG_DIR}" &
 else
-  # Spezifische Origins: --origins Flag setzen
   echo "Starting PocketBase (CORS: restricted)..."
   /pb/pocketbase serve \
     --http=0.0.0.0:8080 \
-    --dir="${PB_DATA_DIR:-/pb_data}" \
+    --dir="${PB_DIR}" \
+    --migrationsDir="${PB_MIG_DIR}" \
     --origins="$CORS" &
 fi
 
 PB_PID=$!
 
-# Warten bis PocketBase bereit ist, dann Init-Script ausführen
+# 3) Init-Script (superuser/testuser) nachdem PB läuft
 sleep 3
 /pb/init-pocketbase.sh
 
-# Auf PocketBase-Prozess warten (Container läuft solange PB läuft)
+# 4) Container läuft solange PB läuft
 wait $PB_PID

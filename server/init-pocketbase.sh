@@ -29,6 +29,34 @@ else
   echo "Test-User: disabled"
 fi
 
+# ============================================================
+# Copy migrations EARLY (best-effort)
+# WICHTIG: muss passieren, bevor PocketBase startet/automigrate läuft.
+# ============================================================
+mkdir -p "$PB_DATA_DIR/migrations" || true
+if [ -d "$PB_MIGRATIONS_DIR" ] && [ "$(ls -A "$PB_MIGRATIONS_DIR" 2>/dev/null)" ]; then
+  echo ""
+  echo "Copying migration files into $PB_DATA_DIR/migrations/ (early) ..."
+
+  EXISTING_MIGRATIONS=$(ls "$PB_DATA_DIR/migrations/" 2>/dev/null || echo "")
+
+  cp -r "$PB_MIGRATIONS_DIR"/* "$PB_DATA_DIR/migrations/" 2>/dev/null || true
+
+  echo "Migration files status:"
+  for f in "$PB_MIGRATIONS_DIR"/*; do
+    filename=$(basename "$f")
+    if echo "$EXISTING_MIGRATIONS" | grep -qF "$filename"; then
+      echo "  [SKIP]  $filename (already existed)"
+    else
+      echo "  [NEW]   $filename (freshly copied -> can be applied by PocketBase)"
+    fi
+  done
+
+  echo "Migrations copied (early)."
+else
+  echo "No migration files found in $PB_MIGRATIONS_DIR"
+fi
+
 # Wait for PocketBase API to be ready
 MAX_RETRIES="${PB_READY_MAX_RETRIES:-30}"
 RETRY_COUNT=0
@@ -99,8 +127,6 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
       else
         echo "  ✅ Admin authenticated successfully."
 
-        # 1) User über die users Collection erstellen (kann bereits existieren)
-        #    Neu: verified=true setzen, damit Login sofort funktioniert.
         CREATE_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
           --header="Content-Type: application/json" \
           --header="Authorization: Bearer $ADMIN_TOKEN" \
@@ -113,11 +139,9 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
         elif echo "$CREATE_RESPONSE" | grep -qi 'not_unique\|already exists\|UNIQUE constraint'; then
           echo "  ℹ️  Test user already exists."
 
-          # 2) Wenn UPSERT aktiv: Passwort setzen/ändern + verified=true
           if [ "$PB_TEST_USER_UPSERT" = "1" ] || [ "$PB_TEST_USER_UPSERT" = "true" ]; then
             echo "  🔁 UPSERT enabled -> updating existing user's password + verified=true ..."
 
-            # User per Filter finden
             FIND_RESPONSE=$(wget --content-on-error -qO- \
               --header="Authorization: Bearer $ADMIN_TOKEN" \
               "http://localhost:8080/api/collections/users/records?perPage=1&filter=email%3D%22$PB_TEST_USER_EMAIL%22" 2>/dev/null || echo "")
@@ -160,33 +184,6 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
 else
   echo ""
   echo "Test-User creation disabled (set PB_TEST_USER_ENABLED=1 to enable)."
-fi
-
-# Copy migrations best-effort
-mkdir -p "$PB_DATA_DIR/migrations" || true
-if [ -d "$PB_MIGRATIONS_DIR" ] && [ "$(ls -A "$PB_MIGRATIONS_DIR" 2>/dev/null)" ]; then
-  echo ""
-  echo "Copying migration files into $PB_DATA_DIR/migrations/ ..."
-
-  # Vorher: welche Dateien existieren bereits?
-  EXISTING_MIGRATIONS=$(ls "$PB_DATA_DIR/migrations/" 2>/dev/null || echo "")
-
-  cp -r "$PB_MIGRATIONS_DIR"/* "$PB_DATA_DIR/migrations/" 2>/dev/null || true
-
-  # Nachher: neue Dateien erkennen und loggen
-  echo "Migration files status:"
-  for f in "$PB_MIGRATIONS_DIR"/*; do
-    filename=$(basename "$f")
-    if echo "$EXISTING_MIGRATIONS" | grep -qF "$filename"; then
-      echo "  [SKIP]  $filename (already existed)"
-    else
-      echo "  [NEW]   $filename (freshly copied -> will be applied by PocketBase)"
-    fi
-  done
-
-  echo "Migrations copied."
-else
-  echo "No migration files found in $PB_MIGRATIONS_DIR"
 fi
 
 echo ""
