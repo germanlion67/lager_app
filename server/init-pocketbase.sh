@@ -141,7 +141,7 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
         USER_ID=$(echo "$FIND_RESPONSE" | sed -n 's/.*"items":\[\({"[^}]*"id":"\([^"]*\)".*\)\].*/\2/p')
         # Fallback (wenn sed pattern nicht matcht)
         if [ -z "$USER_ID" ]; then
-          USER_ID=$(echo "$FIND_RESPONSE" | sed -n 's/.*"items":\[\{"[^}]*"id":"\([^"]*\)".*/\1/p')
+          USER_ID=$(echo "$FIND_RESPONSE" | sed -n 's/.*"items":\[{"id":"\([^"]*\)".*/\1/p')
         fi
 
         if [ -z "$USER_ID" ]; then
