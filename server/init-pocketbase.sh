@@ -19,6 +19,10 @@ PB_TEST_USER_ENABLED="${PB_TEST_USER_ENABLED:-0}"
 PB_TEST_USER_UPSERT="${PB_TEST_USER_UPSERT:-0}"
 TESTUSER_MARKER_FILE="${PB_DATA_DIR}/.testuser_initialized"
 
+# Ready-Wait Konfiguration
+MAX_RETRIES="${PB_READY_MAX_RETRIES:-30}"
+SLEEP_SECONDS="${PB_READY_SLEEP_SECONDS:-1}"
+
 echo "Data directory: $PB_DATA_DIR"
 echo "Migrations directory: $PB_MIGRATIONS_DIR"
 echo "Force superuser upsert: $PB_FORCE_SUPERUSER_UPSERT"
@@ -57,10 +61,10 @@ else
   echo "No migration files found in $PB_MIGRATIONS_DIR"
 fi
 
+# ============================================================
 # Wait for PocketBase API to be ready
-MAX_RETRIES="${PB_READY_MAX_RETRIES:-30}"
+# ============================================================
 RETRY_COUNT=0
-
 echo "Waiting for PocketBase to be ready..."
 while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]; do
   if wget --spider -q http://localhost:8080/api/health 2>/dev/null; then
@@ -69,7 +73,7 @@ while [ "$RETRY_COUNT" -lt "$MAX_RETRIES" ]; do
   fi
   RETRY_COUNT=$((RETRY_COUNT + 1))
   echo "  Attempt $RETRY_COUNT/$MAX_RETRIES..."
-  sleep 1
+  sleep "$SLEEP_SECONDS"
 done
 
 if [ "$RETRY_COUNT" -eq "$MAX_RETRIES" ]; then
@@ -77,7 +81,9 @@ if [ "$RETRY_COUNT" -eq "$MAX_RETRIES" ]; then
   exit 1
 fi
 
+# ============================================================
 # Ensure superuser on first start, optionally on later starts
+# ============================================================
 if [ ! -f "$SUPERUSER_MARKER_FILE" ]; then
   echo ""
   echo "First start (no marker) -> ensuring superuser via upsert..."
@@ -127,54 +133,60 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
       else
         echo "  ✅ Admin authenticated successfully."
 
-        CREATE_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
-          --header="Content-Type: application/json" \
+        # 0) Erst prüfen, ob User bereits existiert (robuster als "create und dann regex-match")
+        FIND_RESPONSE=$(wget --content-on-error -qO- \
           --header="Authorization: Bearer $ADMIN_TOKEN" \
-          "http://localhost:8080/api/collections/users/records" 2>/dev/null || echo "")
+          "http://localhost:8080/api/collections/users/records?perPage=1&filter=email%3D%22$PB_TEST_USER_EMAIL%22" 2>/dev/null || echo "")
 
-        if echo "$CREATE_RESPONSE" | grep -q '"id"'; then
-          echo "  ✅ Test user created successfully: $PB_TEST_USER_EMAIL"
-          touch "$TESTUSER_MARKER_FILE" || true
-          echo "  Marker written."
-        elif echo "$CREATE_RESPONSE" | grep -qi 'not_unique\|already exists\|UNIQUE constraint'; then
-          echo "  ℹ️  Test user already exists."
+        USER_ID=$(echo "$FIND_RESPONSE" | sed -n 's/.*"items":\[\({"[^}]*"id":"\([^"]*\)".*\)\].*/\2/p')
+        # Fallback (wenn sed pattern nicht matcht)
+        if [ -z "$USER_ID" ]; then
+          USER_ID=$(echo "$FIND_RESPONSE" | sed -n 's/.*"items":\[\{"[^}]*"id":"\([^"]*\)".*/\1/p')
+        fi
 
+        if [ -z "$USER_ID" ]; then
+          # 1) User existiert nicht -> erstellen
+          CREATE_RESPONSE=$(wget --content-on-error -qO- --post-data "{\"email\":\"$PB_TEST_USER_EMAIL\",\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
+            --header="Content-Type: application/json" \
+            --header="Authorization: Bearer $ADMIN_TOKEN" \
+            "http://localhost:8080/api/collections/users/records" 2>/dev/null || echo "")
+
+          if echo "$CREATE_RESPONSE" | grep -q '"id"'; then
+            echo "  ✅ Test user created successfully: $PB_TEST_USER_EMAIL"
+            touch "$TESTUSER_MARKER_FILE" || true
+            echo "  Marker written."
+          else
+            echo "  ⚠️  Could not create test user. Response:"
+            echo "  $CREATE_RESPONSE"
+            echo "  This is non-fatal. The app will still work."
+          fi
+        else
+          echo "  ℹ️  Test user already exists (id=$USER_ID)."
+
+          # 2) Update nur wenn UPSERT aktiv
           if [ "$PB_TEST_USER_UPSERT" = "1" ] || [ "$PB_TEST_USER_UPSERT" = "true" ]; then
             echo "  🔁 UPSERT enabled -> updating existing user's password + verified=true ..."
 
-            # User per Filter finden
-            FIND_RESPONSE=$(wget --content-on-error -qO- \
+            UPDATE_RESPONSE=$(wget --content-on-error -qO- --method=PATCH \
+              --body-data "{\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
+              --header="Content-Type: application/json" \
               --header="Authorization: Bearer $ADMIN_TOKEN" \
-              "http://localhost:8080/api/collections/users/records?perPage=1&filter=email%3D%22$PB_TEST_USER_EMAIL%22" 2>/dev/null || echo "")
+              "http://localhost:8080/api/collections/users/records/$USER_ID" 2>/dev/null || echo "")
 
-            USER_ID=$(echo "$FIND_RESPONSE" | sed -n 's/.*"items":\[\{"[^}]*"id":"\([^"]*\)".*/\1/p')
-            echo "  Resolved USER_ID: $USER_ID"
-
-            if [ -z "$USER_ID" ]; then
-              echo "  ⚠️  Could not resolve existing user id for $PB_TEST_USER_EMAIL. Find response:"
-              echo "  $FIND_RESPONSE"
-              echo "  Skipping update."
+            if echo "$UPDATE_RESPONSE" | grep -q "\"id\":\"$USER_ID\""; then
+              echo "  ✅ Updated user: $PB_TEST_USER_EMAIL"
+              touch "$TESTUSER_MARKER_FILE" || true
+              echo "  Marker written."
             else
-              UPDATE_RESPONSE=$(wget --content-on-error -qO- --method=PATCH \
-                --body-data "{\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
-                --header="Content-Type: application/json" \
-                --header="Authorization: Bearer $ADMIN_TOKEN" \
-                "http://localhost:8080/api/collections/users/records/$USER_ID" 2>/dev/null || echo "")
-
-              if echo "$UPDATE_RESPONSE" | grep -q "\"id\":\"$USER_ID\""; then
-                echo "  ✅ Updated user: $PB_TEST_USER_EMAIL"
-              else
-                echo "  ⚠️  Could not update user. Response:"
-                echo "  $UPDATE_RESPONSE"
-              fi
+              echo "  ⚠️  Could not update user. Response:"
+              echo "  $UPDATE_RESPONSE"
+              echo "  Not writing marker so it can retry next start."
             fi
-
-          touch "$TESTUSER_MARKER_FILE" || true
-          echo "  Marker written."
-        else
-          echo "  ⚠️  Could not create test user. Response:"
-          echo "  $CREATE_RESPONSE"
-          echo "  This is non-fatal. The app will still work."
+          else
+            echo "  (Set PB_TEST_USER_UPSERT=1 to force password/verified update on existing user.)"
+            touch "$TESTUSER_MARKER_FILE" || true
+            echo "  Marker written."
+          fi
         fi
       fi
     fi
