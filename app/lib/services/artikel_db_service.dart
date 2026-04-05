@@ -5,7 +5,7 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
 import 'package:logger/logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -608,8 +608,8 @@ class ArtikelDbService {
       final db = await database;
       final maps = await db.query(
         'artikel',
-        where: 'bildPfad IS NOT NULL AND bildPfad != "" '
-            'AND (remoteBildPfad IS NULL OR remoteBildPfad = "")',
+        where: "bildPfad IS NOT NULL AND bildPfad != '' "
+            "AND (remoteBildPfad IS NULL OR remoteBildPfad = '')",
         orderBy: 'id DESC',
       );
       _logger.d(
@@ -1079,4 +1079,12 @@ class ArtikelDbService {
       );
     }
   }
+
+  /// Nur für Tests — injiziert eine externe DB-Instanz.
+  /// Umgeht _initDb() und damit den plattformspezifischen Dateipfad.
+  @visibleForTesting
+  void injectDatabase(Database db) {
+    _db = db;
+  }
+
 }

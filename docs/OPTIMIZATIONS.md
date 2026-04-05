@@ -14,7 +14,7 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 | Phase 1: Grundlagen | 100% | ✅ |
 | Phase 2: Deployment & Security | 100% | ✅ |
 | Phase 3: Performance & Optimierung | 100% | ✅ |
-| Phase 4: Multi-Plattform & Politur | 45% | 🔴 |
+| Phase 4: Multi-Plattform & Politur | 52% | 🔴 |
 
 ### Plattform-Status
 
@@ -149,22 +149,16 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
   `list_screen_mobile_actions_stub.dart` (kein BuildContext),
   `_dokumente_button.dart` (deprecated)
 
-### M-003: Error Handling - Erledigt in v0.7.6+3
-Einheitliche Fehlerbehandlung (Result-Type oder Exception-Klassen).
-- Neue AppException-Hierarchie (sealed class):
-  NetworkException, ServerException, AuthException,
-  SyncException, StorageException, ValidationException
-- Neuer AppErrorHandler mit:
-  · classify()                  — übersetzt rohe Exceptions
-  · log()                       — level-bewusstes Logging
-  · showSnackBar()              — einfacher Fehler-SnackBar
-  · showSnackBarWithDetails()   — SnackBar + Details-Dialog-Button
-  · showErrorDialog()           — modaler Fehler-Dialog
-  · _getSuggestions()           — kontextabhängige Lösungsvorschläge
-- sync_conflict_handler: $e-Strings → AppErrorHandler,
-  DialogRoute-Ladeindikator entfernt (M-004 Overlap bereinigt)
-- SocketException / TimeoutException / ClientException
-  werden automatisch klassifiziert
+
+### M-006: Input Validation — Erledigt in v0.7.6+1
+- Pflichtfelder: Name, Ort, Fach mit Inline-Fehlermeldungen ✅
+- Name: Mindestlänge 2 Zeichen, max. 100 Zeichen ✅
+- Menge: Nur positive Ganzzahlen (≥ 0), max. 999.999, via `FilteringTextInputFormatter` ✅
+- Artikelnummer: Automatisch vorgegeben (≥ 1000), manuell änderbar ✅
+- Duplikat-Check: Name + Ort + Fach (Kombination), lokal + PocketBase ✅
+- Duplikat-Check: Artikelnummer, lokal + PocketBase ✅
+- 5 neue `AppConfig`-Tokens für Validierungsgrenzen ✅
+- Neue DB-Methoden: `existsKombination()`, `existsArtikelnummer()` ✅
 
 ### M-004: Loading States — Erledigt in v0.7.6+2
 - Zentrales `AppLoadingOverlay`-Widget mit optionalem Text ✅
@@ -176,15 +170,41 @@ Einheitliche Fehlerbehandlung (Result-Type oder Exception-Klassen).
 - `sync_management_screen.dart`: Overlay während aktivem Sync ✅
 - 10 neue `AppConfig`-Tokens für Skeleton und Overlay ✅
 
-### M-006: Input Validation — Erledigt in v0.7.6+1
-- Pflichtfelder: Name, Ort, Fach mit Inline-Fehlermeldungen ✅
-- Name: Mindestlänge 2 Zeichen, max. 100 Zeichen ✅
-- Menge: Nur positive Ganzzahlen (≥ 0), max. 999.999, via `FilteringTextInputFormatter` ✅
-- Artikelnummer: Automatisch vorgegeben (≥ 1000), manuell änderbar ✅
-- Duplikat-Check: Name + Ort + Fach (Kombination), lokal + PocketBase ✅
-- Duplikat-Check: Artikelnummer, lokal + PocketBase ✅
-- 5 neue `AppConfig`-Tokens für Validierungsgrenzen ✅
-- Neue DB-Methoden: `existsKombination()`, `existsArtikelnummer()` ✅
+### M-003: Error Handling — Erledigt in v0.7.6+3
+- Neue `AppException`-Hierarchie (`sealed class`):
+`NetworkException`, `ServerException`, `AuthException`,
+`SyncException`, `StorageException`, `ValidationException`,
+`UnknownException` (konkreter Fallback) ✅
+- Neuer `AppErrorHandler` mit:
+  · `classify()` — übersetzt rohe Exceptions automatisch ✅
+  · `log()` — level-bewusstes Logging (warning vs. error) ✅
+  · `showSnackBar()` — einfacher Fehler-SnackBar ✅
+  · `showSnackBarWithDetails()` — SnackBar + Details-Dialog-Button ✅
+  · `showErrorDialog()` — modaler Fehler-Dialog ✅
+  · `_getSuggestions()` — kontextabhängige Lösungsvorschläge ✅
+- `sync_conflict_handler.dart`: rohe `$e`-Strings → `AppErrorHandler` ✅
+- `SocketException` / `HandshakeException` / `TimeoutException` /
+`ClientException` werden automatisch klassifiziert ✅
+- Lint-Fixes: `instantiate_abstract_class, unnecessary_null_comparison
+(×2), unreachable_switch_case` behoben ✅
+
+### O-002: Unit-Tests für ArtikelDbService — Erledigt in v0.7.6+4
+- 75 Tests, alle grün ✅
+- `sqflite_common_ffi mit inMemoryDatabasePath` — kein Dateisystem ✅
+- `injectDatabase() (@visibleForTesting`) für saubere Test-Isolation ✅
+- `ArtikelDbServiceTestHelper` — wiederverwendbarer In-Memory-Setup ✅
+- Abgedeckte Methoden: `insertArtikel, getAlleArtikel, updateArtikel,
+deleteArtikel, getArtikelByUUID, getArtikelByRemotePath,
+getPendingChanges, markSynced, upsertArtikel, searchArtikel,
+existsKombination, existsArtikelnummer, setLastSyncTime,
+getLastSyncTime, isDatabaseEmpty, getMaxArtikelnummer,
+deleteAlleArtikel, insertArtikelList, updateBildPfad,
+updateRemoteBildPfad, setBildPfadByUuid, setThumbnailPfadByUuid,
+setThumbnailEtagByUuid, setRemoteBildPfadByUuid,
+getUnsyncedArtikel` ✅
+- Produktionsbug gefunden und gefixt: `getUnsyncedArtikel()` nutzte
+`""` statt `''` für SQL-Leerstring-Literale — auf Mobile nicht
+sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 
 ### M-007: UI für Konfliktlösung — Erledigt in v0.7.5+0
 - `ConflictResolutionScreen` mit Side-by-Side-Vergleich ✅
@@ -211,11 +231,8 @@ Einheitliche Fehlerbehandlung (Result-Type oder Exception-Klassen).
 - `image_processing_utils.dart`: Kompression
 - `artikel_model.dart`: `fromMap` / `toMap` mit Null-Werten
 
-
-
 ### M-005: Pagination
 `ListView.builder` mit Lazy-Loading und PocketBase-Pagination.
-
 
 ### T-001: Tests für Konfliktlösung (M-007)
 Manuelle Integrationstests und Unit-Tests für die gesamte Konflikt-Pipeline.
@@ -258,11 +275,11 @@ Erfordert Apple Developer Account.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 18 | 18 | 0 |
+| ✅ Abgeschlossen | 20 | 20 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 6 | 0 | 6 |
+| 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **28** | **18** | **10** |
+| **Gesamt** | **27** | **20** | **7** |
 
 ---
 
@@ -270,6 +287,8 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-05 | v0.7.6+4 | O-002 ArtikelDbService abgeschlossen (75/75 ✅), Produktionsbug in getUnsyncedArtikel() gefixt abgeschlossen |
+| 2026-04-05 | v0.7.6+3 | M-003 Zentrales Error Handling abgeschlossen |
 | 2026-04-05 | v0.7.6+2 | M-004 (Loading States) abgeschlossen |
 | 2026-04-05 | v0.7.6+1 | M-006 (Input Validation) abgeschlossen |
 | 2026-04-03 | v0.7.5+1 | M-008 als erledigt markiert |
