@@ -149,6 +149,23 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
   `list_screen_mobile_actions_stub.dart` (kein BuildContext),
   `_dokumente_button.dart` (deprecated)
 
+### M-003: Error Handling - Erledigt in v0.7.6+3
+Einheitliche Fehlerbehandlung (Result-Type oder Exception-Klassen).
+- Neue AppException-Hierarchie (sealed class):
+  NetworkException, ServerException, AuthException,
+  SyncException, StorageException, ValidationException
+- Neuer AppErrorHandler mit:
+  · classify()                  — übersetzt rohe Exceptions
+  · log()                       — level-bewusstes Logging
+  · showSnackBar()              — einfacher Fehler-SnackBar
+  · showSnackBarWithDetails()   — SnackBar + Details-Dialog-Button
+  · showErrorDialog()           — modaler Fehler-Dialog
+  · _getSuggestions()           — kontextabhängige Lösungsvorschläge
+- sync_conflict_handler: $e-Strings → AppErrorHandler,
+  DialogRoute-Ladeindikator entfernt (M-004 Overlap bereinigt)
+- SocketException / TimeoutException / ClientException
+  werden automatisch klassifiziert
+
 ### M-004: Loading States — Erledigt in v0.7.6+2
 - Zentrales `AppLoadingOverlay`-Widget mit optionalem Text ✅
 - `AppLoadingIndicator` für Inline-Bereiche ✅
@@ -194,8 +211,7 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 - `image_processing_utils.dart`: Kompression
 - `artikel_model.dart`: `fromMap` / `toMap` mit Null-Werten
 
-### M-003: Error Handling
-Einheitliche Fehlerbehandlung (Result-Type oder Exception-Klassen).
+
 
 ### M-005: Pagination
 `ListView.builder` mit Lazy-Loading und PocketBase-Pagination.

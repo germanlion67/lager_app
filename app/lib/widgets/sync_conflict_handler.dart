@@ -2,17 +2,28 @@
 //
 // O-004 Batch 3: Alle hardcodierten Farben durch colorScheme ersetzt,
 // alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
+//
+// M-004: DialogRoute-Ladeindikator → AppLoadingOverlay (via _isSyncing State).
+// M-003: Rohe $e-Strings → AppErrorHandler.showSnackBarWithDetails().
+//        _showErrorDialog() → AppErrorHandler._showErrorDialog() intern.
 
 import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
+import '../core/app_exception.dart';
 import '../screens/conflict_resolution_screen.dart';
 import '../services/app_log_service.dart';
 import '../services/sync_service.dart';
+import '../widgets/app_error_handler.dart';
+
 
 class SyncConflictHandler {
   static final _logger = AppLogService.logger;
 
+  // M-003 + M-004: Kein DialogRoute mehr.
+  // Der Aufrufer (SyncCapable.performSync) setzt _isSyncing = true,
+  // wodurch das AppLoadingOverlay im Stack des jeweiligen Screens
+  // erscheint. handleSyncWithConflicts() selbst zeigt kein Overlay.
   static Future<bool> handleSyncWithConflicts(
     BuildContext context,
     SyncService syncService,
@@ -21,37 +32,17 @@ class SyncConflictHandler {
     final messenger = ScaffoldMessenger.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    await nav.push(
-      DialogRoute<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Dialog(
-          child: Padding(
-            padding: EdgeInsets.all(AppConfig.spacingXLarge),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(width: AppConfig.spacingLarge),
-                Text('Synchronisiere...'),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
     try {
       final result = await syncService.syncWithConflictResolution();
 
       if (!context.mounted) return false;
-      nav.pop();
 
       if (result['success'] == true) {
         messenger.showSnackBar(
           SnackBar(
             content: Text(
-              result['message']?.toString() ?? 'Synchronisation erfolgreich',
+              result['message']?.toString() ??
+                  'Synchronisation erfolgreich',
             ),
             backgroundColor: colorScheme.tertiary,
             behavior: SnackBarBehavior.floating,
@@ -88,7 +79,8 @@ class SyncConflictHandler {
             message = '$resolved Konflikte erfolgreich aufgelöst';
             color = colorScheme.tertiary;
           } else if (resolved > 0 && skipped > 0) {
-            message = '$resolved Konflikte aufgelöst, $skipped übersprungen';
+            message =
+                '$resolved Konflikte aufgelöst, $skipped übersprungen';
             color = colorScheme.secondary;
           } else {
             message = 'Alle Konflikte übersprungen';
@@ -106,25 +98,18 @@ class SyncConflictHandler {
           return resolved > 0;
         }
       } else {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text(
-              result['message']?.toString() ?? 'Synchronisation fehlgeschlagen',
-            ),
-            backgroundColor: colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-            action: SnackBarAction(
-              label: 'Details',
-              textColor: colorScheme.onError,
-              onPressed: () {
-                _showErrorDialog(
-                  context,
-                  result['error']?.toString() ?? 'Unbekannter Fehler',
-                );
-              },
-            ),
-          ),
-        );
+        // M-003: Sync-Fehler aus result['error'] als SyncException
+        //        klassifizieren und mit Details-Button anzeigen.
+        final rawError = result['error']?.toString();
+        final appEx = rawError != null
+            ? SyncException(
+                message: result['message']?.toString() ??
+                    'Synchronisation fehlgeschlagen.',
+                technicalDetail: rawError,
+              )
+            : const SyncException();
+
+        AppErrorHandler.showSnackBarWithDetails(context, appEx);
       }
 
       return false;
@@ -135,82 +120,19 @@ class SyncConflictHandler {
         stackTrace: st,
       );
 
-      if (context.mounted) nav.pop();
+      if (!context.mounted) return false;
 
-      if (context.mounted) {
-        messenger.showSnackBar(
-          SnackBar(
-            content: Text('Synchronisation fehlgeschlagen: $e'),
-            backgroundColor: colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      // M-003: Roher $e-String → AppErrorHandler klassifiziert automatisch
+      //        (SocketException → NetworkException etc.)
+      AppErrorHandler.showSnackBarWithDetails(
+        context,
+        e,
+        stackTrace: st,
+        contextLabel: 'SyncConflictHandler',
+      );
 
       return false;
     }
-  }
-
-  static void _showErrorDialog(BuildContext context, String error) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.error_outline, color: colorScheme.error),
-            const SizedBox(width: AppConfig.spacingSmall),
-            const Text('Synchronisationsfehler'),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Bei der Synchronisation ist ein Fehler aufgetreten:',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: AppConfig.spacingSmall),
-              Container(
-                padding: const EdgeInsets.all(AppConfig.spacingMedium),
-                decoration: BoxDecoration(
-                  color: colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(
-                    AppConfig.borderRadiusMedium,
-                  ),
-                  border: Border.all(color: colorScheme.outlineVariant),
-                ),
-                child: Text(
-                  error,
-                  style: textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppConfig.spacingMedium),
-              const Text(
-                'Mögliche Lösungen:',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: AppConfig.spacingXSmall),
-              const Text('• Internetverbindung prüfen'),
-              const Text('• Nextcloud-Einstellungen überprüfen'),
-              const Text('• Später erneut versuchen'),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   /// Widget für Sync-Button mit Konfliktbehandlung.
