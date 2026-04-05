@@ -423,6 +423,9 @@ Die Collection `attachments` speichert Dateianhänge pro Artikel.
 ---
 ## 🐳 Portainer Stack Deployment
 
+> 📖 **Detaillierte Betriebshinweise** (Erststart, Cold-Start-Verifikation, Fehlerbehebung) findest du in
+> [`docs/PORTAINER_PROD.md`](docs/PORTAINER_PROD.md).
+
 ### Voraussetzungen
 
 - Portainer installiert und erreichbar

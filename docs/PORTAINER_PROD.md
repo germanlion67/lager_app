@@ -1,6 +1,6 @@
 # 🐳 Portainer Prod Setup (NPM läuft auf anderem Rechner)
 
-Stand: 2026-04-04  
+Stand: 2026-04-05  
 Ziel: PocketBase (API) ist über **https://api.germanlion67.de** erreichbar, damit **Mobile/Tablet/Desktop** die Datenbank nutzen können.  
 Dein aktuelles Setup: Portainer Stack veröffentlicht Ports **8080/8081** auf dem Server, Nginx Proxy Manager (NPM) läuft **auf einem anderen Rechner**.
 
@@ -140,11 +140,76 @@ In Portainer:
 - Stack **Update the stack** (oder Redeploy)
 - Warten bis beide Services **healthy** sind (`pocketbase`, `app`)
 
-Optional testen auf dem Server selbst:
+---
+
+## 4a) Verifiziertes Startverhalten
+
+Der Portainer-Stack-Betrieb ist für beide Szenarien verifiziert:
+
+### Erststart (frisches `/pb_data`-Volume)
+- Collections, Superuser und optionaler Test-User werden **automatisch angelegt**.
+- Die Marker-Dateien werden beim ersten erfolgreichen Durchlauf geschrieben:
+  - `/pb_data/.superuser_initialized`
+  - `/pb_data/.testuser_initialized`
+- PocketBase gibt beim Start ggf. einen „Create your first superuser"-Dashboard-Link aus –
+  das ist **erwartetes Verhalten**, da das Init-Script den Superuser kurz danach automatisch erstellt.
+
+### Normaler Folgestart
+- Das Init-Script verhält sich **idempotent**: Es prüft, was bereits existiert, und überspringt
+  bereits erledigte Schritte (erkennbar an den Marker-Dateien).
+- Mit `PB_FORCE_SUPERUSER_UPSERT=1` wird der Superuser bei jedem Start neu gesetzt
+  (nützlich nach Passwortänderung).
+- Mit `PB_TEST_USER_UPSERT=1` wird der Test-User bei jedem Start aktualisiert
+  (Passwort + `verified=true`).
+
+### Schnell-Verifikation (Health-Check)
 
 ```bash
-curl -sS http://127.0.0.1:8080/api/health
+curl http://127.0.0.1:8080/api/health
+# Erwartete Antwort (HTTP 200):
+# {"message":"API is healthy."}
 ```
+
+---
+
+## 4b) Cold-Start-Verifikation (Neuinstallation simulieren)
+
+Damit lässt sich ein Erststart sicher testen, **ohne** die Produktionsdaten dauerhaft zu löschen:
+
+> ⚠️ **Achtung:** Der folgende Schritt löscht **alle PocketBase-Daten** (Collections, User, Attachments).
+> Nur auf Test-/Dev-Systemen oder nach einem Backup durchführen!
+
+1. Stack in Portainer **stoppen**.
+2. Nur das PocketBase-Daten-Volume entfernen:
+   ```bash
+   docker volume rm <stack-name>_pb_data
+   # z. B.: docker volume rm lager_app_pb_data
+   ```
+3. Stack in Portainer **neu deployen**.
+4. Logs des `pocketbase`-Containers prüfen – erwartet:
+   - Keine `[SKIP]`-Zeilen für Migrationen (alles neu)
+   - `Successfully saved superuser ...`
+   - `✅ Test user created` (falls `PB_TEST_USER_ENABLED=1`)
+5. Health-Check:
+   ```bash
+   curl http://127.0.0.1:8080/api/health
+   # → HTTP 200, {"message":"API is healthy."}
+   ```
+
+---
+
+## 4c) Fehlerbehebung: Alpine/BusyBox `sed`-Regex-Inkompatibilität
+
+Im Init-Script wird `sed` auf Alpine Linux (BusyBox) verwendet. BusyBox `sed` unterstützt
+**keine ERE-Quantoren mit `{}`** in Basis-Regex-Ausdrücken ohne `-E`-Flag.
+
+**Symptom:** Fehlermeldung in den Container-Logs:
+```
+sed: bad regex '...': Invalid contents of {}
+```
+
+**Lösung:** BusyBox-kompatible Muster verwenden (z. B. `[0-9][0-9]*` statt `[0-9]{1,}`)
+oder auf `jq` wechseln, das im Container-Image verfügbar ist.
 
 ---
 
