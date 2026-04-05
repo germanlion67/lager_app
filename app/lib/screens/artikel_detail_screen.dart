@@ -2,6 +2,9 @@
 //
 // O-004 Batch 3: Alle hardcodierten Farben durch colorScheme ersetzt,
 // alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
+//
+// M-004: Loading States — _isSaving, _isDeleting, AppLoadingOverlay,
+//        AppLoadingButton. Inkonsistenter ElevatedButton ersetzt.
 
 import 'dart:async';
 import 'dart:typed_data';
@@ -21,6 +24,8 @@ import '../services/image_picker.dart';
 import '../services/pocketbase_service.dart';
 // M-011: Zentrales Bild-Widget
 import '../widgets/artikel_bild_widget.dart';
+// M-004: Zentrales Loading-Widget
+import '../widgets/app_loading_overlay.dart';
 
 import 'detail_screen_io.dart'
     if (dart.library.html) 'detail_screen_stub.dart' as platform;
@@ -50,6 +55,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   late int _menge;
   bool _isEditing = false;
   bool _hasChanged = false;
+
+  // M-004: Loading States für Speichern und Löschen
+  bool _isSaving = false;
+  bool _isDeleting = false;
 
   // M-011: pendingBytes für neu gewähltes (noch nicht gespeichertes) Bild
   Uint8List? _pendingBytes;
@@ -143,13 +152,17 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   Future<void> _pickImageFile() async {
     _logger.i('Bildauswahl (Datei) gestartet');
 
-    final PickedImage picked = await ImagePickerService.pickImageFile(context);
+    final PickedImage picked =
+        await ImagePickerService.pickImageFile(context);
     if (!picked.hasImage) {
       _logger.w('Bildauswahl abgebrochen – kein Bild gewählt');
       return;
     }
 
-    _logger.d('Bild gewählt – Pfad: ${picked.pfad}, Bytes: ${picked.bytes?.length ?? 0}');
+    _logger.d(
+      'Bild gewählt – Pfad: ${picked.pfad}, '
+      'Bytes: ${picked.bytes?.length ?? 0}',
+    );
     await _applyPickedImage(picked);
   }
 
@@ -161,13 +174,16 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     _logger.i('Bildauswahl (Kamera) gestartet');
 
-    final PickedImage picked = await ImagePickerService.pickImageCamera(context);
+    final PickedImage picked =
+        await ImagePickerService.pickImageCamera(context);
     if (!picked.hasImage) {
       _logger.w('Kameraaufnahme abgebrochen');
       return;
     }
 
-    _logger.d('Kamerabild aufgenommen – Bytes: ${picked.bytes?.length ?? 0}');
+    _logger.d(
+      'Kamerabild aufgenommen – Bytes: ${picked.bytes?.length ?? 0}',
+    );
     await _applyPickedImage(picked);
   }
 
@@ -184,7 +200,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           artikelId: artikelId,
           artikelName: widget.artikel.name,
           onThumbnailSaved: (thumbPath) async {
-            await _db.setThumbnailPfadByUuid(widget.artikel.uuid, thumbPath);
+            await _db.setThumbnailPfadByUuid(
+              widget.artikel.uuid,
+              thumbPath,
+            );
             _logger.d('Thumbnail sofort gespeichert: $thumbPath');
           },
         );
@@ -197,18 +216,23 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           _bildPfad = persistenterPfad;
           _hasChanged = true;
         });
-
       } catch (e, st) {
-        _logger.e('Persistentes Speichern fehlgeschlagen', error: e, stackTrace: st);
+        _logger.e(
+          'Persistentes Speichern fehlgeschlagen',
+          error: e,
+          stackTrace: st,
+        );
         setState(() {
           _pendingBytes = picked.bytes;
           _bildPfad = null;
           _hasChanged = true;
         });
       }
-
     } else {
-      _logger.d('Web-Modus: Bild als Bytes gemerkt (${picked.bytes?.length ?? 0} bytes)');
+      _logger.d(
+        'Web-Modus: Bild als Bytes gemerkt '
+        '(${picked.bytes?.length ?? 0} bytes)',
+      );
       setState(() {
         _pendingBytes = picked.bytes;
         _bildPfad = picked.pfad;
@@ -232,11 +256,18 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   // ==================== SPEICHERN ====================
 
+  // M-004: _speichern() setzt _isSaving und zeigt AppLoadingOverlay.
   Future<void> _speichern() async {
-    if (kIsWeb) {
-      await _speichernWeb();
-    } else {
-      await _speichernMobile();
+    if (mounted) setState(() => _isSaving = true);
+    try {
+      if (kIsWeb) {
+        await _speichernWeb();
+      } else {
+        await _speichernMobile();
+      }
+    } finally {
+      // Nur zurücksetzen wenn noch mounted und nicht bereits via pop beendet.
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -272,11 +303,13 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       final List<http.MultipartFile> files = [];
       if (_pendingBytes != null) {
-        files.add(http.MultipartFile.fromBytes(
-          'bild',
-          _pendingBytes!,
-          filename: 'bild_${widget.artikel.uuid}.jpg',
-        ),);
+        files.add(
+          http.MultipartFile.fromBytes(
+            'bild',
+            _pendingBytes!,
+            filename: 'bild_${widget.artikel.uuid}.jpg',
+          ),
+        );
       }
 
       await _pbService.client
@@ -287,7 +320,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           .collection('artikel')
           .getOne(recordId);
 
-      final neuerBildPfad = updatedRecord.data['bild']?.toString() ?? '';
+      final neuerBildPfad =
+          updatedRecord.data['bild']?.toString() ?? '';
 
       if (_remoteBildUrl != null) {
         unawaited(CachedNetworkImage.evictFromCache(_remoteBildUrl!));
@@ -314,7 +348,11 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       Navigator.pop(context, gespeicherterArtikel);
     } catch (e, st) {
-      _logger.e('Speichern (Web) fehlgeschlagen:', error: e, stackTrace: st);
+      _logger.e(
+        'Speichern (Web) fehlgeschlagen:',
+        error: e,
+        stackTrace: st,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
@@ -329,8 +367,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     _logger.i('Speichern (Mobile) gestartet');
 
-    final hasNewImage = _bildPfad != null &&
-        _bildPfad != widget.artikel.bildPfad;
+    final hasNewImage =
+        _bildPfad != null && _bildPfad != widget.artikel.bildPfad;
 
     _logger.d('Neues Bild vorhanden: $hasNewImage – Pfad: $_bildPfad');
 
@@ -345,7 +383,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     try {
       await _db.updateArtikel(artikelMitAenderungen);
-      _logger.i('Artikel in DB gespeichert: ${artikelMitAenderungen.name}');
+      _logger.i(
+        'Artikel in DB gespeichert: ${artikelMitAenderungen.name}',
+      );
 
       if (hasNewImage) {
         _logger.d('Starte PocketBase Bild-Upload im Hintergrund...');
@@ -371,9 +411,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       _logger.i('Speichern abgeschlossen – kehre zurück');
       Navigator.pop(context, artikelMitAenderungen);
-
     } catch (e, st) {
-      _logger.e('Speichern (Mobile) fehlgeschlagen', error: e, stackTrace: st);
+      _logger.e(
+        'Speichern (Mobile) fehlgeschlagen',
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Speichern fehlgeschlagen: $e')),
@@ -411,7 +454,11 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       await _pbService.client.collection('artikel').update(
         recordId,
         files: [
-          http.MultipartFile.fromBytes('bild', bytes, filename: filename),
+          http.MultipartFile.fromBytes(
+            'bild',
+            bytes,
+            filename: filename,
+          ),
         ],
       );
 
@@ -428,6 +475,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   // ==================== LÖSCHEN ====================
 
+  // M-004: _loeschen() setzt _isDeleting und zeigt AppLoadingOverlay.
   Future<void> _loeschen() async {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -435,8 +483,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Artikel löschen?'),
-        content:
-            Text('Möchtest du "${widget.artikel.name}" wirklich löschen?'),
+        content: Text(
+          'Möchtest du "${widget.artikel.name}" wirklich löschen?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -456,11 +505,15 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     if (confirm != true) return;
     if (!mounted) return;
 
+    // M-004: Loading-State setzen
+    setState(() => _isDeleting = true);
+
     try {
       // M-012: Anhänge zuerst löschen
       unawaited(
         _attachmentService.deleteAllForArtikel(widget.artikel.uuid),
       );
+
       if (kIsWeb) {
         final filter = 'uuid = "${widget.artikel.uuid}"';
         final list = await _pbService.client
@@ -484,6 +537,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           SnackBar(content: Text('Löschen fehlgeschlagen: $e')),
         );
       }
+    } finally {
+      // M-004: Loading-State zurücksetzen
+      if (mounted) setState(() => _isDeleting = false);
     }
   }
 
@@ -502,7 +558,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
 
     try {
-      _logger.i('PDF-Export gestartet für Artikel: ${widget.artikel.name}');
+      _logger.i(
+        'PDF-Export gestartet für Artikel: ${widget.artikel.name}',
+      );
 
       final pdfService = PdfService();
 
@@ -610,9 +668,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           appBar: AppBar(
             backgroundColor: Colors.black,
             foregroundColor: colorScheme.onInverseSurface,
-            title: Text(
-              widget.artikel.name,
-            ),
+            title: Text(widget.artikel.name),
           ),
           body: Center(
             child: InteractiveViewer(
@@ -638,16 +694,21 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         fit: BoxFit.contain,
         placeholder: (_, __) =>
             const Center(child: CircularProgressIndicator()),
-        errorWidget: (_, __, ___) =>
-            Icon(Icons.image_not_supported,
-                color: colorScheme.onInverseSurface, size: 64,),
+        errorWidget: (_, __, ___) => Icon(
+          Icons.image_not_supported,
+          color: colorScheme.onInverseSurface,
+          size: 64,
+        ),
       );
     }
     if (!kIsWeb && _bildPfad != null) {
       return platform.buildFileImage(_bildPfad!, fit: BoxFit.contain);
     }
-    return Icon(Icons.image_not_supported,
-        color: colorScheme.onInverseSurface, size: 64,);
+    return Icon(
+      Icons.image_not_supported,
+      color: colorScheme.onInverseSurface,
+      size: 64,
+    );
   }
 
   // ==================== UI ====================
@@ -657,6 +718,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     final artikel = widget.artikel;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+
+    // M-004: Interaktion während Loading sperren
+    final bool isBlocked = _isSaving || _isDeleting;
 
     return PopScope(
       canPop: !(_isEditing && _hasChanged),
@@ -670,7 +734,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Änderungen verwerfen?'),
-            content: const Text('Ungespeicherte Änderungen gehen verloren.'),
+            content: const Text(
+              'Ungespeicherte Änderungen gehen verloren.',
+            ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
@@ -687,157 +753,190 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         if (discard != true) return;
         nav.pop();
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text(widget.artikel.name),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf),
-              onPressed: _generateArtikelDetailPdf,
-              tooltip: 'Artikel als PDF exportieren',
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: _isEditing ? null : _loeschen,
-              tooltip: _isEditing
-                  ? 'Erst speichern oder Bearbeitung abbrechen'
-                  : 'Artikel löschen',
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConfig.spacingLarge),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: _ortController,
-                enabled: _isEditing,
-                decoration: InputDecoration(
-                  labelText: 'Ort',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: _isEditing
-                      ? colorScheme.surface
-                      : colorScheme.surfaceContainerLow,
-                ),
-              ),
-              const SizedBox(height: AppConfig.spacingMedium),
 
-              TextField(
-                controller: _fachController,
-                enabled: _isEditing,
-                decoration: InputDecoration(
-                  labelText: 'Fach',
-                  border: const OutlineInputBorder(),
-                  filled: true,
-                  fillColor: _isEditing
-                      ? colorScheme.surface
-                      : colorScheme.surfaceContainerLow,
+      // M-004: Stack für AppLoadingOverlay
+      child: Stack(
+        children: [
+          Scaffold(
+            appBar: AppBar(
+              title: Text(widget.artikel.name),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.picture_as_pdf),
+                  // M-004: während Loading deaktiviert
+                  onPressed: isBlocked ? null : _generateArtikelDetailPdf,
+                  tooltip: 'Artikel als PDF exportieren',
                 ),
-              ),
-              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
-
-              Row(
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  // M-004: während Loading oder Bearbeitung deaktiviert
+                  onPressed: (_isEditing || isBlocked) ? null : _loeschen,
+                  tooltip: _isEditing
+                      ? 'Erst speichern oder Bearbeitung abbrechen'
+                      : 'Artikel löschen',
+                ),
+              ],
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppConfig.spacingLarge),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Menge: $_menge'),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: _isEditing ? _mengeErhoehen : null,
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.remove),
-                    onPressed: _isEditing ? _mengeVerringern : null,
-                  ),
-                  Text(
-                    'Art.-Nr.: ${artikel.artikelnummer ?? "-"}',
-                    style: textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.w500,
-                      color: colorScheme.onSurfaceVariant,
+                  TextField(
+                    controller: _ortController,
+                    enabled: _isEditing && !isBlocked,
+                    decoration: InputDecoration(
+                      labelText: 'Ort',
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      fillColor: _isEditing
+                          ? colorScheme.surface
+                          : colorScheme.surfaceContainerLow,
                     ),
+                  ),
+                  const SizedBox(height: AppConfig.spacingMedium),
+
+                  TextField(
+                    controller: _fachController,
+                    enabled: _isEditing && !isBlocked,
+                    decoration: InputDecoration(
+                      labelText: 'Fach',
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      fillColor: _isEditing
+                          ? colorScheme.surface
+                          : colorScheme.surfaceContainerLow,
+                    ),
+                  ),
+                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+
+                  Row(
+                    children: [
+                      Text('Menge: $_menge'),
+                      IconButton(
+                        icon: const Icon(Icons.add),
+                        onPressed:
+                            (_isEditing && !isBlocked)
+                                ? _mengeErhoehen
+                                : null,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.remove),
+                        onPressed:
+                            (_isEditing && !isBlocked)
+                                ? _mengeVerringern
+                                : null,
+                      ),
+                      Text(
+                        'Art.-Nr.: ${artikel.artikelnummer ?? "-"}',
+                        style: textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+
+                  TextField(
+                    controller: _beschreibungController,
+                    enabled: _isEditing && !isBlocked,
+                    decoration: InputDecoration(
+                      labelText: 'Beschreibung',
+                      filled: true,
+                      fillColor: _isEditing
+                          ? colorScheme.surface
+                          : colorScheme.surfaceContainerLow,
+                    ),
+                    maxLines: 3,
+                  ),
+                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+
+                  Row(
+                    children: [
+                      FilledButton.tonalIcon(
+                        onPressed:
+                            (_isEditing && !isBlocked)
+                                ? _pickImageFile
+                                : null,
+                        icon: const Icon(Icons.image),
+                        label: const Text('Bild wählen'),
+                      ),
+                      if (ImagePickerService.isCameraAvailable) ...[
+                        const SizedBox(width: AppConfig.spacingMedium),
+                        FilledButton.tonalIcon(
+                          onPressed:
+                              (_isEditing && !isBlocked)
+                                  ? _pickImageCamera
+                                  : null,
+                          icon: const Icon(Icons.camera_alt),
+                          label: const Text('Kamera'),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+
+                  // M-012: Anhänge-Sektion
+                  AnhaengeSektion(
+                    artikelUuid: widget.artikel.uuid,
+                    anhangCount: _anhangCount,
+                    onCountChanged: (count) =>
+                        setState(() => _anhangCount = count),
+                  ),
+                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+
+                  // M-011: Zentrales Bild-Widget mit Vollbild-Tap
+                  if (_isLoadingRemoteBild)
+                    Container(
+                      height: AppConfig.artikelDetailBildHoehe,
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(
+                          AppConfig.cardBorderRadiusLarge,
+                        ),
+                      ),
+                      child: const CircularProgressIndicator(),
+                    )
+                  else
+                    ArtikelDetailBild(
+                      artikel: artikel,
+                      pendingBytes: _pendingBytes,
+                      remoteBildUrl: _remoteBildUrl,
+                      onTap: _zeigeBildVollbild,
+                    ),
+
+                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+
+                  // M-004: AppLoadingButton ersetzt ElevatedButton
+                  AppLoadingButton(
+                    isLoading: _isSaving,
+                    onPressed: !_isEditing
+                        ? _enableEdit
+                        : (_hasChanged ? _speichern : null),
+                    label: !_isEditing
+                        ? 'Ändern'
+                        : (_hasChanged
+                            ? 'Speichern'
+                            : 'Speichern (inaktiv)'),
+                    loadingLabel: 'Speichern...',
+                    icon: !_isEditing ? Icons.edit : Icons.save,
                   ),
                 ],
               ),
-              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
-
-              TextField(
-                controller: _beschreibungController,
-                enabled: _isEditing,
-                decoration: InputDecoration(
-                  labelText: 'Beschreibung',
-                  filled: true,
-                  fillColor: _isEditing
-                      ? colorScheme.surface
-                      : colorScheme.surfaceContainerLow,
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
-
-              Row(
-                children: [
-                  FilledButton.tonalIcon(
-                    onPressed: _isEditing ? _pickImageFile : null,
-                    icon: const Icon(Icons.image),
-                    label: const Text('Bild wählen'),
-                  ),
-                  if (ImagePickerService.isCameraAvailable) ...[
-                    const SizedBox(width: AppConfig.spacingMedium),
-                    FilledButton.tonalIcon(
-                      onPressed: _isEditing ? _pickImageCamera : null,
-                      icon: const Icon(Icons.camera_alt),
-                      label: const Text('Kamera'),
-                    ),
-                  ],
-                ],
-              ),
-              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
-
-              // M-012: Anhänge-Sektion
-              AnhaengeSektion(
-                artikelUuid: widget.artikel.uuid,
-                anhangCount: _anhangCount,
-                onCountChanged: (count) =>
-                    setState(() => _anhangCount = count),
-              ),
-
-              // M-011: Zentrales Bild-Widget mit Vollbild-Tap
-              if (_isLoadingRemoteBild)
-                Container(
-                  height: AppConfig.artikelDetailBildHoehe,
-                  width: double.infinity,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(
-                      AppConfig.cardBorderRadiusLarge,
-                    ),
-                  ),
-                  child: const CircularProgressIndicator(),
-                )
-              else
-                ArtikelDetailBild(
-                  artikel: artikel,
-                  pendingBytes: _pendingBytes,
-                  remoteBildUrl: _remoteBildUrl,
-                  onTap: _zeigeBildVollbild,
-                ),
-
-              const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
-
-              ElevatedButton(
-                onPressed: !_isEditing
-                    ? _enableEdit
-                    : (_hasChanged ? _speichern : null),
-                child: Text(
-                  !_isEditing
-                      ? 'Ändern'
-                      : (_hasChanged ? 'Speichern' : 'Speichern (inaktiv)'),
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
+
+          // M-004: Overlay beim Speichern
+          if (_isSaving)
+            const AppLoadingOverlay(message: 'Speichern...'),
+
+          // M-004: Overlay beim Löschen
+          if (_isDeleting)
+            const AppLoadingOverlay(message: 'Löschen...'),
+        ],
       ),
     );
   }
@@ -992,9 +1091,7 @@ class AnhaengeSheetState extends State<AnhaengeSheet> {
                     const Spacer(),
                     FilledButton.tonalIcon(
                       onPressed: zeigeUploadDialog,
-                      icon: const Icon(
-                        Icons.add,
-                      ),
+                      icon: const Icon(Icons.add),
                       label: const Text('Hinzufügen'),
                     ),
                   ],

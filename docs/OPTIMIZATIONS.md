@@ -149,6 +149,16 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
   `list_screen_mobile_actions_stub.dart` (kein BuildContext),
   `_dokumente_button.dart` (deprecated)
 
+### M-004: Loading States — Erledigt in v0.7.6+2
+- Zentrales `AppLoadingOverlay`-Widget mit optionalem Text ✅
+- `AppLoadingIndicator` für Inline-Bereiche ✅
+- `AppLoadingButton` ersetzt alle manuellen Spinner-in-Button Konstrukte ✅
+- `ArtikelSkeletonTile` + `ArtikelSkeletonList` mit Shimmer-Animation ✅
+- `artikel_list_screen.dart`: Skeleton statt `CircularProgressIndicator` ✅
+- `artikel_detail_screen.dart`: Overlay beim Speichern und Löschen ✅
+- `sync_management_screen.dart`: Overlay während aktivem Sync ✅
+- 10 neue `AppConfig`-Tokens für Skeleton und Overlay ✅
+
 ### M-006: Input Validation — Erledigt in v0.7.6+1
 - Pflichtfelder: Name, Ort, Fach mit Inline-Fehlermeldungen ✅
 - Name: Mindestlänge 2 Zeichen, max. 100 Zeichen ✅
@@ -186,9 +196,6 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 
 ### M-003: Error Handling
 Einheitliche Fehlerbehandlung (Result-Type oder Exception-Klassen).
-
-### M-004: Loading States
-Konsistente Lade-Indikatoren in allen Screens.
 
 ### M-005: Pagination
 `ListView.builder` mit Lazy-Loading und PocketBase-Pagination.
@@ -247,6 +254,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-05 | v0.7.6+2 | M-004 (Loading States) abgeschlossen |
 | 2026-04-05 | v0.7.6+1 | M-006 (Input Validation) abgeschlossen |
 | 2026-04-03 | v0.7.5+1 | M-008 als erledigt markiert |
 | 2026-04-02 | v0.7.5+0 | M-007 als erledigt markiert, K-003 umbenannt (ex M-007 alt), T-001 erstellt, Unit-Tests hinzugefügt |

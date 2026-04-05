@@ -2,6 +2,9 @@
 //
 // O-004 Batch 2: Alle hardcodierten Farben durch colorScheme ersetzt,
 // alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
+//
+// M-004: Loading States — _isCheckingConflicts, AppLoadingOverlay.
+//        Inkonsistenter DialogRoute-Ladeindikator ersetzt.
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -10,6 +13,8 @@ import '../config/app_config.dart';
 import '../services/sync_service.dart';
 import '../widgets/sync_conflict_handler.dart';
 import '../services/app_log_service.dart';
+// M-004: Zentrales Loading-Widget
+import '../widgets/app_loading_overlay.dart';
 
 /// Screen für die erweiterte Synchronisationsverwaltung.
 class SyncManagementScreen extends StatefulWidget {
@@ -27,186 +32,211 @@ class SyncManagementScreen extends StatefulWidget {
 class _SyncManagementScreenState extends State<SyncManagementScreen>
     with SyncCapable {
 
+  // M-004: Loading State für Konflikt-Suche
+  bool _isCheckingConflicts = false;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Synchronisation'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            onPressed: _showSyncHelp,
+    // M-004: Stack für AppLoadingOverlay
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            title: const Text('Synchronisation'),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.help_outline),
+                // M-004: während Loading deaktiviert
+                onPressed: (isSyncing || _isCheckingConflicts)
+                    ? null
+                    : _showSyncHelp,
+              ),
+            ],
           ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConfig.spacingLarge),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Sync Status Card
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppConfig.spacingLarge),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Synchronisationsstatus',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppConfig.spacingMedium),
-                    buildSyncStatusWidget(),
-                    const SizedBox(height: AppConfig.spacingLarge),
-
-                    // Sync Button
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: isSyncing
-                            ? null
-                            : () => performSync(widget.syncService),
-                        icon: Icon(
-                          isSyncing
-                              ? Icons.hourglass_empty
-                              : Icons.sync,
-                        ),
-                        label: Text(
-                          isSyncing
-                              ? 'Synchronisiere...'
-                              : 'Jetzt synchronisieren',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: AppConfig.buttonPaddingVertical,
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppConfig.spacingLarge),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Sync Status Card
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppConfig.spacingLarge),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Synchronisationsstatus',
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                        const SizedBox(height: AppConfig.spacingMedium),
+                        buildSyncStatusWidget(),
+                        const SizedBox(height: AppConfig.spacingLarge),
 
-            const SizedBox(height: AppConfig.spacingLarge),
-
-            // Konflikteinstellungen
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppConfig.spacingLarge),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Konfliktauflösung',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppConfig.spacingMedium),
-                    const Text(
-                      'Bei Synchronisationskonflikten wird eine interaktive '
-                      'Auflösung angeboten:',
-                    ),
-                    const SizedBox(height: AppConfig.spacingSmall),
-                    _buildFeatureList(context),
-                    const SizedBox(height: AppConfig.spacingLarge),
-                    OutlinedButton.icon(
-                      onPressed: _checkForConflicts,
-                      icon: const Icon(Icons.search),
-                      label: const Text('Nach Konflikten suchen'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: AppConfig.spacingLarge),
-
-            // Erweiterte Optionen
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(AppConfig.spacingLarge),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Erweiterte Optionen',
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: AppConfig.spacingMedium),
-
-                    ListTile(
-                      leading: const Icon(Icons.upload),
-                      title: const Text('Alle lokalen Änderungen hochladen'),
-                      subtitle: const Text(
-                        'Forciert Upload aller lokalen Artikel',
-                      ),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _forceUploadAll,
-                    ),
-
-                    const Divider(),
-
-                    ListTile(
-                      leading: const Icon(Icons.download),
-                      title:
-                          const Text('Alle Remote-Änderungen herunterladen'),
-                      subtitle:
-                          const Text('Überschreibt lokale Änderungen'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _forceDownloadAll,
-                    ),
-
-                    const Divider(),
-
-                    ListTile(
-                      leading: Icon(
-                        Icons.refresh,
-                        color: colorScheme.secondary,
-                      ),
-                      title: const Text('Sync-Status zurücksetzen'),
-                      subtitle: const Text('Setzt alle ETags zurück'),
-                      trailing: const Icon(Icons.chevron_right),
-                      onTap: _resetSyncStatus,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: AppConfig.spacingLarge),
-
-            if (kDebugMode)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppConfig.spacingLarge),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Debug Informationen',
-                        style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        // M-004: AppLoadingButton ersetzt manuellen
+                        //        isSyncing-Icon-Wechsel im ElevatedButton
+                        SizedBox(
+                          width: double.infinity,
+                          child: AppLoadingButton(
+                            isLoading: isSyncing,
+                            onPressed: _isCheckingConflicts
+                                ? null
+                                : () => performSync(widget.syncService),
+                            label: 'Jetzt synchronisieren',
+                            loadingLabel: 'Synchronisiere...',
+                            icon: Icons.sync,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppConfig.spacingMedium),
-                      _buildDebugInfo(),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-          ],
+
+                const SizedBox(height: AppConfig.spacingLarge),
+
+                // Konflikteinstellungen
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppConfig.spacingLarge),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Konfliktauflösung',
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: AppConfig.spacingMedium),
+                        const Text(
+                          'Bei Synchronisationskonflikten wird eine '
+                          'interaktive Auflösung angeboten:',
+                        ),
+                        const SizedBox(height: AppConfig.spacingSmall),
+                        _buildFeatureList(context),
+                        const SizedBox(height: AppConfig.spacingLarge),
+                        OutlinedButton.icon(
+                          // M-004: während Loading deaktiviert
+                          onPressed: (isSyncing || _isCheckingConflicts)
+                              ? null
+                              : _checkForConflicts,
+                          icon: const Icon(Icons.search),
+                          label: const Text('Nach Konflikten suchen'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: AppConfig.spacingLarge),
+
+                // Erweiterte Optionen
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppConfig.spacingLarge),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Erweiterte Optionen',
+                          style: textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: AppConfig.spacingMedium),
+
+                        ListTile(
+                          leading: const Icon(Icons.upload),
+                          title: const Text(
+                            'Alle lokalen Änderungen hochladen',
+                          ),
+                          subtitle: const Text(
+                            'Forciert Upload aller lokalen Artikel',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          // M-004: während Loading deaktiviert
+                          onTap: (isSyncing || _isCheckingConflicts)
+                              ? null
+                              : _forceUploadAll,
+                        ),
+
+                        const Divider(),
+
+                        ListTile(
+                          leading: const Icon(Icons.download),
+                          title: const Text(
+                            'Alle Remote-Änderungen herunterladen',
+                          ),
+                          subtitle: const Text(
+                            'Überschreibt lokale Änderungen',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          // M-004: während Loading deaktiviert
+                          onTap: (isSyncing || _isCheckingConflicts)
+                              ? null
+                              : _forceDownloadAll,
+                        ),
+
+                        const Divider(),
+
+                        ListTile(
+                          leading: Icon(
+                            Icons.refresh,
+                            color: colorScheme.secondary,
+                          ),
+                          title: const Text('Sync-Status zurücksetzen'),
+                          subtitle: const Text('Setzt alle ETags zurück'),
+                          trailing: const Icon(Icons.chevron_right),
+                          // M-004: während Loading deaktiviert
+                          onTap: (isSyncing || _isCheckingConflicts)
+                              ? null
+                              : _resetSyncStatus,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: AppConfig.spacingLarge),
+
+                if (kDebugMode)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppConfig.spacingLarge),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Debug Informationen',
+                            style: textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: AppConfig.spacingMedium),
+                          _buildDebugInfo(),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          floatingActionButton: buildSyncFab(widget.syncService),
         ),
-      ),
-      floatingActionButton: buildSyncFab(widget.syncService),
+
+        // M-004: Overlay während aktivem Sync
+        if (isSyncing)
+          const AppLoadingOverlay(message: 'Synchronisiere...'),
+
+        // M-004: Overlay während Konflikt-Suche
+        if (_isCheckingConflicts)
+          const AppLoadingOverlay(message: 'Suche nach Konflikten...'),
+      ],
     );
   }
 
@@ -268,36 +298,19 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
     );
   }
 
+  // M-004: _checkForConflicts() verwendet jetzt _isCheckingConflicts +
+  //        AppLoadingOverlay statt manuellem DialogRoute.
   Future<void> _checkForConflicts() async {
-    final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    try {
-      await nav.push(
-        DialogRoute<void>(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const Dialog(
-            child: Padding(
-              padding: EdgeInsets.all(AppConfig.spacingXLarge),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(width: AppConfig.spacingLarge),
-                  Text('Suche nach Konflikten...'),
-                ],
-              ),
-            ),
-          ),
-        ),
-      );
+    // M-004: Loading-State setzen → Overlay erscheint
+    setState(() => _isCheckingConflicts = true);
 
+    try {
       final conflicts = await widget.syncService.detectConflicts();
 
       if (!mounted) return;
-      nav.pop();
 
       if (conflicts.isEmpty) {
         messenger.showSnackBar(
@@ -336,16 +349,21 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
         }
       }
     } catch (e, st) {
-      AppLogService.logger
-          .e('Konflikt-Suche fehlgeschlagen', error: e, stackTrace: st);
+      AppLogService.logger.e(
+        'Konflikt-Suche fehlgeschlagen',
+        error: e,
+        stackTrace: st,
+      );
       if (!mounted) return;
-      nav.pop();
       messenger.showSnackBar(
         SnackBar(
           content: Text('Fehler beim Suchen nach Konflikten: $e'),
           backgroundColor: colorScheme.error,
         ),
       );
+    } finally {
+      // M-004: Loading-State immer zurücksetzen
+      if (mounted) setState(() => _isCheckingConflicts = false);
     }
   }
 
@@ -460,7 +478,9 @@ class _SyncManagementScreenState extends State<SyncManagementScreen>
 
   void _showSyncLogs() {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sync-Logs werden implementiert...')),
+      const SnackBar(
+        content: Text('Sync-Logs werden implementiert...'),
+      ),
     );
   }
 

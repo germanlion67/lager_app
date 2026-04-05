@@ -34,6 +34,8 @@ import 'list_screen_mobile_actions.dart'
     if (dart.library.html) 'list_screen_web_actions.dart'
     as mobile_actions;
 
+import '../widgets/app_loading_overlay.dart';
+
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({super.key});
 
@@ -321,7 +323,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const ArtikelSkeletonList(count: 8)   // M-004: Skeleton
                 : gefiltert.isEmpty
                     ? Center(
                         child: Text(

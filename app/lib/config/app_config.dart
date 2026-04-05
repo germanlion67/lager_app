@@ -297,4 +297,18 @@ static const int inputMaxLengthFach = 60;
 static const int inputMaxMenge = 999999;
 static const int inputMinArtikelnummer = 1000;
 
+
+// ── Loading & Skeleton (M-004) ────────────────────────────────────
+static const double overlayOpacity = 0.6;
+static const double cardElevationHigh = 8.0;
+static const double skeletonOpacityMin = 0.05;
+static const double skeletonOpacityMax = 0.15;
+static const double skeletonLeadingSize = 56.0;
+static const double skeletonTitleHeight = 14.0;
+static const double skeletonSubtitleHeight = 10.0;
+static const double skeletonSubtitleWidth = 120.0;
+static const double skeletonOrtFachWidth = 160.0;
+static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
+
+
 }
