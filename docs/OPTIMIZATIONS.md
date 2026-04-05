@@ -149,6 +149,16 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
   `list_screen_mobile_actions_stub.dart` (kein BuildContext),
   `_dokumente_button.dart` (deprecated)
 
+### M-006: Input Validation — Erledigt in v0.7.6+1
+- Pflichtfelder: Name, Ort, Fach mit Inline-Fehlermeldungen ✅
+- Name: Mindestlänge 2 Zeichen, max. 100 Zeichen ✅
+- Menge: Nur positive Ganzzahlen (≥ 0), max. 999.999, via `FilteringTextInputFormatter` ✅
+- Artikelnummer: Automatisch vorgegeben (≥ 1000), manuell änderbar ✅
+- Duplikat-Check: Name + Ort + Fach (Kombination), lokal + PocketBase ✅
+- Duplikat-Check: Artikelnummer, lokal + PocketBase ✅
+- 5 neue `AppConfig`-Tokens für Validierungsgrenzen ✅
+- Neue DB-Methoden: `existsKombination()`, `existsArtikelnummer()` ✅
+
 ### M-007: UI für Konfliktlösung — Erledigt in v0.7.5+0
 - `ConflictResolutionScreen` mit Side-by-Side-Vergleich ✅
 - `ConflictData` + `ConflictResolution` Enum ✅
@@ -183,8 +193,6 @@ Konsistente Lade-Indikatoren in allen Screens.
 ### M-005: Pagination
 `ListView.builder` mit Lazy-Loading und PocketBase-Pagination.
 
-### M-006: Input Validation
-Pflichtfelder, Bereichsprüfungen, Duplikat-Checks.
 
 ### T-001: Tests für Konfliktlösung (M-007)
 Manuelle Integrationstests und Unit-Tests für die gesamte Konflikt-Pipeline.
@@ -239,6 +247,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-05 | v0.7.6+1 | M-006 (Input Validation) abgeschlossen |
 | 2026-04-03 | v0.7.5+1 | M-008 als erledigt markiert |
 | 2026-04-02 | v0.7.5+0 | M-007 als erledigt markiert, K-003 umbenannt (ex M-007 alt), T-001 erstellt, Unit-Tests hinzugefügt |
 | 2026-04-02 | v0.7.4+7 | O-004 Batch 5 erledigt + O-004 abgeschlossen: Restliche 11 Dateien migriert (~80 Hardcodes), ~41 bewusst beibehalten |

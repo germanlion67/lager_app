@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:http/http.dart' as http;
 
 import '../config/app_config.dart';
@@ -26,7 +27,6 @@ class ArtikelErfassenScreen extends StatefulWidget {
 }
 
 class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
-  // M-002: Verwende AppLogService statt lokalem Logger
   final _logger = AppLogService.logger;
 
   final _formKey = GlobalKey<FormState>();
@@ -35,6 +35,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   final _ortCtrl = TextEditingController();
   final _fachCtrl = TextEditingController();
   final _mengeCtrl = TextEditingController(text: '0');
+  final _artikelnummerCtrl = TextEditingController();
 
   String? _bildPfad;
   Uint8List? _bildBytes;
@@ -43,8 +44,13 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
 
+  // Hält die automatisch ermittelte Nummer für den Duplikat-Check
+  int? _suggestedArtikelnummer;
+
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
+
+  // ==================== INIT & DISPOSE ====================
 
   @override
   void initState() {
@@ -57,6 +63,20 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _ortCtrl.addListener(_markDirty);
     _fachCtrl.addListener(_markDirty);
     _mengeCtrl.addListener(_markDirty);
+    _artikelnummerCtrl.addListener(_markDirty);
+
+    // Artikelnummer beim Start vorbelegen
+    _initArtikelnummer();
+  }
+
+  Future<void> _initArtikelnummer() async {
+    final next = await _getNextArtikelnummer();
+    _suggestedArtikelnummer = next;
+    if (mounted) {
+      setState(() {
+        _artikelnummerCtrl.text = next.toString();
+      });
+    }
   }
 
   void _markDirty() {
@@ -70,18 +90,16 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _ortCtrl.dispose();
     _fachCtrl.dispose();
     _mengeCtrl.dispose();
+    _artikelnummerCtrl.dispose();
     super.dispose();
   }
 
   // ==================== HILFSFUNKTIONEN ====================
 
-  /// ✅ FIX: Prüft ob der Pfad eine externe Quelldatei ist
-  /// (nicht bereits ein intern kopiertes App-Bild)
   bool _isExternalPath(String pfad) {
     return !pfad.contains('/images/');
   }
 
-  /// ✅ FIX: State nach Speichern vollständig zurücksetzen
   void _resetBildState() {
     setState(() {
       _bildPfad = null;
@@ -91,13 +109,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   }
 
   /// Ermittelt die nächste freie Artikelnummer.
-  /// Prüft sowohl lokale DB als auch PocketBase und nimmt das Maximum.
-  /// Start bei 1000 wenn noch keine Artikel existieren.
+  /// Prüft lokale DB + PocketBase und nimmt das Maximum.
   Future<int> _getNextArtikelnummer() async {
     const int startNummer = 1000;
     int maxNummer = startNummer - 1;
 
-    // 1. Lokale DB prüfen (nur auf nicht-Web-Plattformen relevant)
     if (!kIsWeb) {
       try {
         final localMax = await _db.getMaxArtikelnummer();
@@ -113,7 +129,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       }
     }
 
-    // 2. PocketBase prüfen (höchste Nummer remote)
     if (_pbService.hasClient) {
       try {
         final result = await _pbService.client
@@ -127,9 +142,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         if (result.items.isNotEmpty) {
           final remoteMax =
               result.items.first.data['artikelnummer'] as int? ?? 0;
-          if (remoteMax > maxNummer) {
-            maxNummer = remoteMax;
-          }
+          if (remoteMax > maxNummer) maxNummer = remoteMax;
         }
       } catch (e, st) {
         _logger.w(
@@ -141,6 +154,94 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     }
 
     return maxNummer + 1;
+  }
+
+  // ==================== VALIDIERUNG ====================
+
+  /// Prüft ob die Kombination Name + Ort + Fach bereits existiert.
+  /// Gibt [true] zurück wenn ein Duplikat gefunden wurde.
+  Future<bool> _isDuplicateKombination({
+    required String name,
+    required String ort,
+    required String fach,
+  }) async {
+    // Lokale DB prüfen (nur native)
+    if (!kIsWeb) {
+      try {
+        final exists = await _db.existsKombination(
+          name: name,
+          ort: ort,
+          fach: fach,
+        );
+        if (exists) return true;
+      } catch (e, st) {
+        _logger.w(
+          'Duplikat-Check (lokal) fehlgeschlagen',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
+    // PocketBase prüfen
+    if (_pbService.hasClient) {
+      try {
+        final filter =
+            'name = "$name" && ort = "$ort" && fach = "$fach" && deleted = false';
+        final result = await _pbService.client
+            .collection('artikel')
+            .getList(page: 1, perPage: 1, filter: filter);
+        if (result.items.isNotEmpty) return true;
+      } catch (e, st) {
+        _logger.w(
+          'Duplikat-Check (PocketBase) fehlgeschlagen',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
+    return false;
+  }
+
+  /// Prüft ob eine Artikelnummer bereits vergeben ist.
+  Future<bool> _isArtikelnummerTaken(int nummer) async {
+    // Automatisch vorgeschlagene Nummer ist immer frei
+    if (nummer == _suggestedArtikelnummer) return false;
+
+    if (!kIsWeb) {
+      try {
+        final exists = await _db.existsArtikelnummer(nummer);
+        if (exists) return true;
+      } catch (e, st) {
+        _logger.w(
+          'Artikelnummer-Check (lokal) fehlgeschlagen',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
+    if (_pbService.hasClient) {
+      try {
+        final result = await _pbService.client
+            .collection('artikel')
+            .getList(
+              page: 1,
+              perPage: 1,
+              filter: 'artikelnummer = $nummer && deleted = false',
+            );
+        if (result.items.isNotEmpty) return true;
+      } catch (e, st) {
+        _logger.w(
+          'Artikelnummer-Check (PocketBase) fehlgeschlagen',
+          error: e,
+          stackTrace: st,
+        );
+      }
+    }
+
+    return false;
   }
 
   // ==================== BILD AUSWAHL ====================
@@ -200,31 +301,73 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       ),
     );
 
-    if (discard == true && mounted) {
-      Navigator.pop(context);
-    }
+    if (discard == true && mounted) Navigator.pop(context);
   }
 
   // ==================== SPEICHERN ====================
 
   Future<void> _save() async {
     _logger.d('_save() gestartet.');
+
+    // 1. Synchrone Formularvalidierung (Pflichtfelder, Format)
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final menge = int.tryParse(_mengeCtrl.text.trim()) ?? 0;
     setState(() => _isSaving = true);
-    _logger.d('_isSaving auf true gesetzt.');
 
     try {
-      // Nächste Artikelnummer automatisch ermitteln
-      final int nextNummer = await _getNextArtikelnummer();
-      _logger.d('Nächste Artikelnummer: $nextNummer');
+      final name = _nameCtrl.text.trim();
+      final ort = _ortCtrl.text.trim();
+      final fach = _fachCtrl.text.trim();
+      final menge = int.tryParse(_mengeCtrl.text.trim()) ?? 0;
+      final artikelnummer =
+          int.tryParse(_artikelnummerCtrl.text.trim()) ??
+          _suggestedArtikelnummer ??
+          await _getNextArtikelnummer();
+
+      // 2. Asynchrone Validierung: Duplikat-Checks
+      final isDuplicate = await _isDuplicateKombination(
+        name: name,
+        ort: ort,
+        fach: fach,
+      );
+      if (isDuplicate) {
+        if (mounted) {
+          // Formular neu validieren damit Inline-Fehler erscheinen
+          _formKey.currentState?.validate();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Ein Artikel mit diesem Namen, Ort und Fach existiert bereits.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final isNrTaken = await _isArtikelnummerTaken(artikelnummer);
+      if (isNrTaken) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Artikelnummer $artikelnummer ist bereits vergeben.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      // 3. Artikel-Objekt erstellen und speichern
       final artikel = Artikel(
-        name: _nameCtrl.text.trim(),
-        artikelnummer: nextNummer,
+        name: name,
+        artikelnummer: artikelnummer,
         beschreibung: _beschreibungCtrl.text.trim(),
-        ort: _ortCtrl.text.trim(),
-        fach: _fachCtrl.text.trim(),
+        ort: ort,
+        fach: fach,
         menge: menge,
         bildPfad: '',
         remoteBildPfad: '',
@@ -233,12 +376,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       );
 
       _logger.d('Artikel-Objekt erstellt. kIsWeb: $kIsWeb');
+
       if (kIsWeb) {
         await _saveWeb(artikel);
-        _logger.d('_saveWeb() abgeschlossen.');
       } else {
         await _saveMobile(artikel);
-        _logger.d('_saveMobile() abgeschlossen.');
       }
     } catch (e, st) {
       _logger.e('Fehler beim Speichern:', error: e, stackTrace: st);
@@ -271,15 +413,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           filename: _bildDateiname,
         ),
       );
-      _logger.d('Bilddatei für Upload hinzugefügt: $_bildDateiname');
     }
 
     final record = await pb.collection('artikel').create(
       body: body,
       files: files,
-    );
-    _logger.d(
-      'PocketBase create-Request abgeschlossen. Record ID: ${record.id}',
     );
 
     if (mounted) {
@@ -290,20 +428,14 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           remoteBildPfad: record.data['bild'] as String? ?? '',
         ),
       );
-      _logger.d('Navigator.pop() aufgerufen.');
     }
   }
 
   Future<void> _saveMobile(Artikel artikel) async {
     final artikelId = await _db.insertArtikel(artikel);
-    _logger.d('artikelId: $artikelId');
-    _logger.d('_bildBytes null: ${_bildBytes == null}');
-    _logger.d('_bildPfad (raw): $_bildPfad');
 
     final String? quellPfad =
         _bildPfad != null && _isExternalPath(_bildPfad!) ? _bildPfad : null;
-
-    _logger.d('quellPfad (nach Filter): $quellPfad');
 
     String? localImagePath;
     if (_bildBytes != null || quellPfad != null) {
@@ -316,7 +448,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
       if (localImagePath != null) {
         await _db.updateBildPfad(artikelId, localImagePath);
-        _logger.d('localImagePath gespeichert: $localImagePath');
       }
     }
 
@@ -353,7 +484,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   }) async {
     try {
       final pb = _pbService.client;
-
       final filter = 'uuid = "${artikel.uuid}"';
       final list = await pb.collection('artikel').getList(filter: filter);
       if (list.items.isEmpty) return;
@@ -383,11 +513,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       await _db.markSynced(artikel.uuid, recordId);
       _logger.i('Bild zu PocketBase hochgeladen: $filename');
     } catch (e, st) {
-      _logger.e(
-        'PocketBase Bild-Upload fehlgeschlagen:',
-        error: e,
-        stackTrace: st,
-      );
+      _logger.e('PocketBase Bild-Upload fehlgeschlagen:', error: e, stackTrace: st);
     }
   }
 
@@ -409,18 +535,29 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
             child: ListView(
               padding: const EdgeInsets.all(AppConfig.spacingLarge),
               children: [
+                // ── Name ──────────────────────────────────────
                 TextFormField(
                   controller: _nameCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Name',
+                    labelText: 'Name *',
                     border: OutlineInputBorder(),
+                    helperText: 'Pflichtfeld',
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Bitte Name eingeben'
-                      : null,
+                  maxLength: AppConfig.inputMaxLengthName,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Bitte einen Namen eingeben';
+                    }
+                    if (v.trim().length < 2) {
+                      return 'Name muss mindestens 2 Zeichen lang sein';
+                    }
+                    return null;
+                  },
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: AppConfig.spacingMedium),
+
+                // ── Beschreibung ───────────────────────────────
                 TextFormField(
                   controller: _beschreibungCtrl,
                   decoration: const InputDecoration(
@@ -428,49 +565,105 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                     border: OutlineInputBorder(),
                   ),
                   maxLines: 2,
+                  maxLength: AppConfig.inputMaxLengthBeschreibung,
                 ),
                 const SizedBox(height: AppConfig.spacingMedium),
+
+                // ── Ort ───────────────────────────────────────
                 TextFormField(
                   controller: _ortCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Ort',
+                    labelText: 'Ort *',
                     border: OutlineInputBorder(),
+                    helperText: 'Pflichtfeld',
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Bitte Ort eingeben'
-                      : null,
+                  maxLength: AppConfig.inputMaxLengthOrt,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Bitte einen Ort eingeben';
+                    }
+                    return null;
+                  },
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: AppConfig.spacingMedium),
+
+                // ── Fach ──────────────────────────────────────
                 TextFormField(
                   controller: _fachCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'Fach',
+                    labelText: 'Fach *',
                     border: OutlineInputBorder(),
+                    helperText: 'Pflichtfeld',
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty)
-                      ? 'Bitte Fach eingeben'
-                      : null,
+                  maxLength: AppConfig.inputMaxLengthFach,
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Bitte ein Fach eingeben';
+                    }
+                    return null;
+                  },
                   textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: AppConfig.spacingMedium),
+
+                // ── Menge ─────────────────────────────────────
                 TextFormField(
                   controller: _mengeCtrl,
                   decoration: const InputDecoration(
                     labelText: 'Menge',
                     border: OutlineInputBorder(),
+                    helperText: 'Nur positive Ganzzahlen (≥ 0)',
                   ),
                   keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Bitte eine Menge eingeben';
+                    }
                     final n = int.tryParse(v.trim());
-                    if (n == null || n < 0) return 'Ungültige Menge';
+                    if (n == null) return 'Bitte eine gültige Zahl eingeben';
+                    if (n < 0) return 'Menge darf nicht negativ sein';
+                    if (n > AppConfig.inputMaxMenge) {
+                      return 'Menge darf maximal ${AppConfig.inputMaxMenge} betragen';
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: AppConfig.spacingMedium),
 
-                // Bild-Auswahl
+                // ── Artikelnummer ─────────────────────────────
+                TextFormField(
+                  controller: _artikelnummerCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Artikelnummer',
+                    border: OutlineInputBorder(),
+                    helperText: 'Automatisch vergeben — kann geändert werden',
+                    prefixIcon: Icon(Icons.tag),
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) {
+                      return 'Bitte eine Artikelnummer eingeben';
+                    }
+                    final n = int.tryParse(v.trim());
+                    if (n == null) {
+                      return 'Bitte eine gültige Zahl eingeben';
+                    }
+                    if (n < 1000) {
+                      return 'Artikelnummer muss mindestens 1000 sein';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppConfig.spacingMedium),
+
+                // ── Bild-Auswahl ──────────────────────────────
                 Row(
                   children: [
                     FilledButton.tonalIcon(
@@ -502,7 +695,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                     aspectRatio: 16 / 9,
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(
-                          AppConfig.borderRadiusMedium,),
+                        AppConfig.borderRadiusMedium,
+                      ),
                       child: Image.memory(_bildBytes!, fit: BoxFit.cover),
                     ),
                   ),
@@ -510,7 +704,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
                 const SizedBox(height: AppConfig.spacingLarge),
 
-                // Buttons
+                // ── Buttons ───────────────────────────────────
                 Row(
                   children: [
                     Expanded(

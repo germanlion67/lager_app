@@ -287,4 +287,14 @@ class AppConfig {
 
   /// Icon-Größe für Fehler-Fallback in Bild-Anhängen.
   static const double uploadAreaIconSize = 40.0;
+
+
+// ── Input Validation ─────────────────────────────────────────────
+static const int inputMaxLengthName = 100;
+static const int inputMaxLengthBeschreibung = 500;
+static const int inputMaxLengthOrt = 60;
+static const int inputMaxLengthFach = 60;
+static const int inputMaxMenge = 999999;
+static const int inputMinArtikelnummer = 1000;
+
 }

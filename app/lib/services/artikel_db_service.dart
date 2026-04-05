@@ -145,7 +145,6 @@ class ArtikelDbService {
         );
         _logger.i("✅ Migration v4: Spalte 'artikelnummer' hinzugefügt.");
       }
-
     } catch (e, stack) {
       _logger.e(
         '❌ Fehler bei der Datenbank-Migration von Version '
@@ -171,6 +170,16 @@ class ArtikelDbService {
       );
       await db.execute(
         'CREATE INDEX IF NOT EXISTS idx_artikel_name ON artikel(name)',
+      );
+      // M-006: Index für Duplikat-Check (Name + Ort + Fach)
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_artikel_name_ort_fach '
+        'ON artikel(name, ort, fach)',
+      );
+      // M-006: Index für Artikelnummer-Duplikat-Check
+      await db.execute(
+        'CREATE INDEX IF NOT EXISTS idx_artikel_artikelnummer '
+        'ON artikel(artikelnummer)',
       );
       _logger.i('✅ Indizes erstellt/aktualisiert.');
     } catch (e, stack) {
@@ -521,7 +530,6 @@ class ArtikelDbService {
           'remoteBildPfad': remoteBildPfad,
           'updated_at': DateTime.now().millisecondsSinceEpoch,
           // FIX Finding 2: etag nullen → Artikel wird als pending erkannt.
-          // markAsDirty() ist damit nicht mehr nötig und wurde entfernt.
           'etag': null,
         },
         where: 'uuid = ?',
@@ -647,7 +655,11 @@ class ArtikelDbService {
 
   /// FIX Finding 3: remote_path wird zusammen mit etag gesetzt,
   /// damit getArtikelByRemotePath() nach einem Push funktioniert.
-  Future<void> markSynced(String uuid, String etag, {String? remotePath}) async {
+  Future<void> markSynced(
+    String uuid,
+    String etag, {
+    String? remotePath,
+  }) async {
     try {
       final db = await database;
       final data = <String, dynamic>{'etag': etag};
@@ -738,7 +750,10 @@ class ArtikelDbService {
       final artikelData = json.decode(jsonBody) as Map<String, dynamic>;
       // FIX: fromPocketBase statt fromMap —
       // fromMap würde bildPfad='' setzen und lokalen Pfad überschreiben.
-      final artikel = Artikel.fromPocketBase(artikelData, artikelData['id']?.toString() ?? '');
+      final artikel = Artikel.fromPocketBase(
+        artikelData,
+        artikelData['id']?.toString() ?? '',
+      );
       await upsertArtikel(artikel, etag: etag);
       _logger.d(
         '✅ Artikel von Remote über upsertArtikel() verarbeitet.',
@@ -825,6 +840,71 @@ class ArtikelDbService {
         stackTrace: stack,
       );
       return [];
+    }
+  }
+
+  // ==================== VALIDIERUNG (M-006) ====================
+
+  /// Prüft ob ein Artikel mit exakt dieser Name+Ort+Fach-Kombination
+  /// bereits existiert. Ignoriert soft-gelöschte Einträge.
+  /// Gibt [true] zurück wenn ein Duplikat gefunden wurde.
+  Future<bool> existsKombination({
+    required String name,
+    required String ort,
+    required String fach,
+  }) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'artikel',
+        where: 'name = ? AND ort = ? AND fach = ? AND deleted = 0',
+        whereArgs: [name, ort, fach],
+        limit: 1,
+      );
+      final exists = result.isNotEmpty;
+      _logger.d(
+        '🔍 Duplikat-Check (Name+Ort+Fach): '
+        '"$name" / "$ort" / "$fach" → ${exists ? "DUPLIKAT" : "frei"}',
+      );
+      return exists;
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Duplikat-Check (Kombination) '
+        'für "$name" / "$ort" / "$fach": $e',
+        error: e,
+        stackTrace: stack,
+      );
+      // Im Fehlerfall: kein false-positive Duplikat melden
+      return false;
+    }
+  }
+
+  /// Prüft ob eine Artikelnummer bereits vergeben ist.
+  /// Ignoriert soft-gelöschte Einträge.
+  /// Gibt [true] zurück wenn die Nummer bereits existiert.
+  Future<bool> existsArtikelnummer(int nummer) async {
+    try {
+      final db = await database;
+      final result = await db.query(
+        'artikel',
+        where: 'artikelnummer = ? AND deleted = 0',
+        whereArgs: [nummer],
+        limit: 1,
+      );
+      final exists = result.isNotEmpty;
+      _logger.d(
+        '🔍 Duplikat-Check (Artikelnummer): '
+        '$nummer → ${exists ? "VERGEBEN" : "frei"}',
+      );
+      return exists;
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Duplikat-Check (Artikelnummer) für $nummer: $e',
+        error: e,
+        stackTrace: stack,
+      );
+      // Im Fehlerfall: kein false-positive Duplikat melden
+      return false;
     }
   }
 
@@ -965,7 +1045,7 @@ class ArtikelDbService {
     }
   }
 
-/// Gibt die höchste vergebene Artikelnummer zurück, oder null wenn
+  /// Gibt die höchste vergebene Artikelnummer zurück, oder null wenn
   /// keine Artikel mit Artikelnummer existieren.
   Future<int?> getMaxArtikelnummer() async {
     try {
