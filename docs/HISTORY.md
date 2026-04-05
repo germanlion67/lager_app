@@ -2,6 +2,38 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### v0.7.7 — 2026-04-05 — Release: Qualitäts-Release mit Tests & Dokumentation
+
+Dieses Release fasst die v0.7.6+x-Zwischenstände zusammen und bringt die Version auf 0.7.7.
+
+**M-003: Zentrales Error Handling (v0.7.6+3)**
+- `AppException`-Hierarchie (`sealed class`): `NetworkException`, `ServerException`, `AuthException`,
+  `SyncException`, `StorageException`, `ValidationException`, `UnknownException`
+- `AppErrorHandler` mit `classify()`, `log()`, `showSnackBar()`, `showErrorDialog()`
+- `sync_conflict_handler.dart` auf `AppErrorHandler` umgestellt
+- `SocketException`, `HandshakeException`, `TimeoutException`, `ClientException` automatisch klassifiziert
+
+**M-004: Loading States (v0.7.6+2)**
+- `AppLoadingOverlay`, `AppLoadingIndicator`, `AppLoadingButton`
+- `ArtikelSkeletonTile` + `ArtikelSkeletonList` mit Shimmer-Animation
+- 10 neue `AppConfig`-Tokens für Skeleton und Overlay
+
+**M-006: Input Validation (v0.7.6+1)**
+- Pflichtfeld-Validierung mit Inline-Fehlermeldungen
+- Duplikat-Check für Name+Ort+Fach und Artikelnummer (lokal + PocketBase)
+- Neue DB-Methoden: `existsKombination()`, `existsArtikelnummer()`
+
+**O-002: Unit-Tests für Core-Utilities (v0.7.6+4)**
+- 75 Tests für `ArtikelDbService` (In-Memory-SQLite via `sqflite_common_ffi`)
+- 64 Tests für `ArtikelModel` (Konstruktor, `toMap`/`fromMap`, Roundtrip, `copyWith`)
+- 30 Tests für `ImageProcessingUtils` (Kompression, Rotation, Thumbnail)
+- 23 Tests für `UuidGenerator` (RFC-4122-V4-Format, Eindeutigkeit)
+- Produktionsbug gefunden und gefixt: `getUnsyncedArtikel()` SQL-Leerstring-Bug
+
+**Dokumentation:**
+- `docs/TESTING.md` neu erstellt — beschreibt alle 258 Tests und lokalen Aufruf
+- `CHANGELOG.md`, `OPTIMIZATIONS.md`, `HISTORY.md`, `README.md` aktualisiert
+
 ### v0.7.5+1 — 2026-04-03 — M-008 abgeschlossen: Backup-Status im Settings-Screen anzeigen
 
 Neues Feature: Backup-Status wird im Settings-Screen als Card angezeigt.

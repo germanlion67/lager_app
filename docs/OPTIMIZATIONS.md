@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.5+1 | **Zuletzt aktualisiert:** 03.04.2026
+**Version:** 0.7.7 | **Zuletzt aktualisiert:** 05.04.2026
 
 ---
 
@@ -225,12 +225,6 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 
 ## 🟡 Priorität: Mittel
 
-### O-002: Unit-Tests für Core-Utilities
-**Zu testende Komponenten:**
-- `uuid_generator.dart`: Eindeutigkeit
-- `image_processing_utils.dart`: Kompression
-- `artikel_model.dart`: `fromMap` / `toMap` mit Null-Werten
-
 ### M-005: Pagination
 `ListView.builder` mit Lazy-Loading und PocketBase-Pagination.
 
@@ -275,11 +269,11 @@ Erfordert Apple Developer Account.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 20 | 20 | 0 |
+| ✅ Abgeschlossen | 21 | 21 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 3 | 0 | 3 |
+| 🟡 Mittel | 2 | 0 | 2 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **27** | **20** | **7** |
+| **Gesamt** | **27** | **21** | **6** |
 
 ---
 
@@ -287,7 +281,8 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
-| 2026-04-05 | v0.7.6+4 | O-002 ArtikelDbService abgeschlossen (75/75 ✅), Produktionsbug in getUnsyncedArtikel() gefixt abgeschlossen |
+| 2026-04-05 | v0.7.7 | Release v0.7.7: Dokumentation aktualisiert, TESTING.md erstellt, Version hochgezogen |
+| 2026-04-05 | v0.7.6+4 | O-002 abgeschlossen: ArtikelDbService (75 Tests), ArtikelModel (64), ImageProcessingUtils (30), UuidGenerator (23) — 128 neue Tests gesamt |
 | 2026-04-05 | v0.7.6+3 | M-003 Zentrales Error Handling abgeschlossen |
 | 2026-04-05 | v0.7.6+2 | M-004 (Loading States) abgeschlossen |
 | 2026-04-05 | v0.7.6+1 | M-006 (Input Validation) abgeschlossen |
