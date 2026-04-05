@@ -142,14 +142,18 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
           if [ "$PB_TEST_USER_UPSERT" = "1" ] || [ "$PB_TEST_USER_UPSERT" = "true" ]; then
             echo "  🔁 UPSERT enabled -> updating existing user's password + verified=true ..."
 
+            # User per Filter finden
             FIND_RESPONSE=$(wget --content-on-error -qO- \
               --header="Authorization: Bearer $ADMIN_TOKEN" \
               "http://localhost:8080/api/collections/users/records?perPage=1&filter=email%3D%22$PB_TEST_USER_EMAIL%22" 2>/dev/null || echo "")
 
-            USER_ID=$(echo "$FIND_RESPONSE" | grep -o '\"id\":\"[^\"]*\"' | head -1 | cut -d'\"' -f4)
+            USER_ID=$(echo "$FIND_RESPONSE" | sed -n 's/.*"items":\[\{"[^}]*"id":"\([^"]*\)".*/\1/p')
+            echo "  Resolved USER_ID: $USER_ID"
 
             if [ -z "$USER_ID" ]; then
-              echo "  ⚠️  Could not resolve existing user id for $PB_TEST_USER_EMAIL. Skipping update."
+              echo "  ⚠️  Could not resolve existing user id for $PB_TEST_USER_EMAIL. Find response:"
+              echo "  $FIND_RESPONSE"
+              echo "  Skipping update."
             else
               UPDATE_RESPONSE=$(wget --content-on-error -qO- --method=PATCH \
                 --body-data "{\"password\":\"$PB_TEST_USER_PASSWORD\",\"passwordConfirm\":\"$PB_TEST_USER_PASSWORD\",\"verified\":true}" \
@@ -164,9 +168,6 @@ if [ "$PB_TEST_USER_ENABLED" = "1" ] || [ "$PB_TEST_USER_ENABLED" = "true" ]; th
                 echo "  $UPDATE_RESPONSE"
               fi
             fi
-          else
-            echo "  (Set PB_TEST_USER_UPSERT=1 to force password/verified update on existing user.)"
-          fi
 
           touch "$TESTUSER_MARKER_FILE" || true
           echo "  Marker written."
