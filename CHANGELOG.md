@@ -2,6 +2,81 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.7] - 2026-04-05
+
+### Release-Zusammenfassung
+Qualitäts-Release: Zentrales Error Handling, Loading States, Input Validation, umfangreiche Unit-Tests und neue Test-Dokumentation.
+
+### Feature (M-003): Zentrales Error Handling — Abgeschlossen
+- Neue `AppException`-Hierarchie (`sealed class`): `NetworkException`, `ServerException`,
+  `AuthException`, `SyncException`, `StorageException`, `ValidationException`, `UnknownException`
+- Neuer `AppErrorHandler` mit:
+  - `classify()` — übersetzt rohe Exceptions automatisch
+  - `log()` — level-bewusstes Logging (warning vs. error)
+  - `showSnackBar()` — einfacher Fehler-SnackBar
+  - `showSnackBarWithDetails()` — SnackBar + Details-Dialog-Button
+  - `showErrorDialog()` — modaler Fehler-Dialog
+  - `_getSuggestions()` — kontextabhängige Lösungsvorschläge
+- `sync_conflict_handler.dart`: rohe `$e`-Strings → `AppErrorHandler`
+- `SocketException` / `HandshakeException` / `TimeoutException` / `ClientException` automatisch klassifiziert
+- Lint-Fixes: `instantiate_abstract_class`, `unnecessary_null_comparison`, `unreachable_switch_case`
+
+### Feature (M-004): Loading States — Abgeschlossen
+- Zentrales `AppLoadingOverlay`-Widget mit optionalem Text
+- `AppLoadingIndicator` für Inline-Bereiche
+- `AppLoadingButton` ersetzt alle manuellen Spinner-in-Button-Konstrukte
+- `ArtikelSkeletonTile` + `ArtikelSkeletonList` mit Shimmer-Animation
+- `artikel_list_screen.dart`: Skeleton statt `CircularProgressIndicator`
+- `artikel_detail_screen.dart`: Overlay beim Speichern und Löschen
+- `sync_management_screen.dart`: Overlay während aktivem Sync
+- 10 neue `AppConfig`-Tokens für Skeleton und Overlay
+
+### Feature (M-006): Input Validation — Abgeschlossen
+- Pflichtfelder: Name, Ort, Fach mit Inline-Fehlermeldungen
+- Name: Mindestlänge 2 Zeichen, max. 100 Zeichen
+- Menge: Nur positive Ganzzahlen (≥ 0), max. 999.999, via `FilteringTextInputFormatter`
+- Artikelnummer: Automatisch vorgegeben (≥ 1000), manuell änderbar
+- Duplikat-Check: Name + Ort + Fach (Kombination), lokal + PocketBase
+- Duplikat-Check: Artikelnummer, lokal + PocketBase
+- 5 neue `AppConfig`-Tokens für Validierungsgrenzen
+- Neue DB-Methoden: `existsKombination()`, `existsArtikelnummer()`
+
+### Tests (O-002): Unit-Tests für Core-Utilities — Abgeschlossen (128 neue Tests)
+**ArtikelDbService (75 Tests)**
+- `sqflite_common_ffi` mit `inMemoryDatabasePath` — kein Dateisystem nötig
+- `injectDatabase()` (`@visibleForTesting`) für saubere Test-Isolation
+- `ArtikelDbServiceTestHelper` — wiederverwendbarer In-Memory-Setup
+- Abgedeckte Methoden: `insertArtikel`, `getAlleArtikel`, `updateArtikel`, `deleteArtikel`,
+  `getArtikelByUUID`, `getArtikelByRemotePath`, `getPendingChanges`, `markSynced`,
+  `upsertArtikel`, `searchArtikel`, `existsKombination`, `existsArtikelnummer`,
+  `setLastSyncTime`, `getLastSyncTime`, `isDatabaseEmpty`, `getMaxArtikelnummer`,
+  `deleteAlleArtikel`, `insertArtikelList`, `updateBildPfad`, `updateRemoteBildPfad`,
+  `setBildPfadByUuid`, `setThumbnailPfadByUuid`, `setThumbnailEtagByUuid`,
+  `setRemoteBildPfadByUuid`, `getUnsyncedArtikel`
+
+**ArtikelModel (64 Tests)**
+- Konstruktor, `isValid()`, `toMap()`, `fromMap()`, Roundtrip, `copyWith()`, `==`/`hashCode`/`toString()`
+
+**ImageProcessingUtils (30 Tests)**
+- Kompression, Rotation, Thumbnail-Generierung vollständig abgedeckt
+- `rotateClockwise()`: quadratische + rechteckige Bilder, 4 Richtungen
+- Randwerte: leere Byte-Arrays, ungültige Formate
+
+**UuidGenerator (23 Tests)**
+- Eindeutigkeit: 10.000 UUIDs ohne Kollision
+- RFC-4122 V4 Format-Validierung (8-4-4-4-12, version-bit, variant-bit)
+- `isValidV4()`: gültige + ungültige Eingaben, Leerstring, Sonderzeichen
+
+### Bugfix
+- `getUnsyncedArtikel()` nutzte `""` statt `''` für SQL-Leerstring-Literale
+  (auf Mobile nicht sichtbar, von `sqflite_common_ffi` korrekt abgelehnt)
+
+### Dokumentation
+- `docs/TESTING.md` — Neues Dokument: alle Tests beschrieben, lokaler Aufruf erklärt
+- `OPTIMIZATIONS.md` — O-002 als abgeschlossen markiert, Version auf 0.7.7
+- `HISTORY.md` — Meilensteine v0.7.6+x und v0.7.7 dokumentiert
+- `README.md` — Link zu TESTING.md ergänzt
+
 ## [0.7.5+1] - 2026-04-03
 
 ### Feature (M-008): Backup-Status im Settings-Screen anzeigen — Abgeschlossen

@@ -108,7 +108,8 @@ Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 - 📐 **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** Projektstruktur, Datenmodell und Design-Entscheidungen
 - 🗄️ **[DATABASE.md](docs/DATABASE.md):** Datenbank-Design, Sync-Logik, Bild- und Dokumenten-Synchronisation
 - 🎨 **[THEMING.md](docs/THEMING.md):** Infos zu AppConfig, AppTheme und Design-Tokens
-- 📝 **[LOGGING.md](docs/LOGGING.md):** Details zum integrierten Logging-System
+- 📝 **[LOGGING.md](docs/LOGGER.md):** Details zum integrierten Logging-System
+- 🧪 **[TESTING.md](docs/TESTING.md):** Alle Tests beschrieben — Ziele, Abdeckung und lokaler Aufruf
 
 ### 📈 Projektstatus
 - ✅ **[CHECKLIST.md](docs/CHECKLIST.md):** Aktueller Stand der Implementierung
