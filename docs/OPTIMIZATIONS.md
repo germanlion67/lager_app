@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.7 | **Zuletzt aktualisiert:** 05.04.2026
+**Version:** 0.7.7+1 | **Zuletzt aktualisiert:** 06.04.2026
 
 ---
 
@@ -213,7 +213,7 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Merge-Dialog für manuelle Zusammenführung ✅
 - Integration mit `SyncConflictHandler` und `SyncService` ✅
 - Entscheidungs-Callbacks (`useLocal`, `useRemote`, `merge`, `skip`) ✅
-- Unit-Tests erstellt (T-001) ✅
+- Unit- und Widget-Tests erstellt (T-001, 77 Tests) ✅
 
 ---
 
@@ -229,14 +229,14 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 `ListView.builder` mit Lazy-Loading und PocketBase-Pagination.
 
 ### T-001: Tests für Konfliktlösung (M-007)
-Manuelle Integrationstests und Unit-Tests für die gesamte Konflikt-Pipeline.
+Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 
-**Unit-Tests:**
-- [ ] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling
-- [ ] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index
-- [ ] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
-- [ ] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien
-- [ ] **T-001.5** — `ConflictResolutionScreen`: Widget-Test (erfordert SyncService-Mock)
+**Unit- und Widget-Tests — Abgeschlossen ✅ (77 Tests)**
+- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling (11 Tests)
+- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index (6 Tests)
+- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen (9 Tests)
+- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien (15 Tests)
+- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit SyncService-Mock (20 Tests)
 
 **Manuelle Integrationstests:**
 - [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
@@ -246,7 +246,6 @@ Manuelle Integrationstests und Unit-Tests für die gesamte Konflikt-Pipeline.
 - [ ] **T-001.10** — „Überspringen" → Konflikt bleibt, erscheint beim nächsten Sync erneut
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
 - [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
-
 ---
 
 ## 🟢 Priorität: Nice-to-Have
@@ -281,6 +280,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-06 | v0.7.7+1 | T-001 Unit- und Widget-Tests abgeschlossen (77 Tests), TESTING.md aktualisiert (298 Tests gesamt) |
 | 2026-04-05 | v0.7.7 | Release v0.7.7: Dokumentation aktualisiert, TESTING.md erstellt, Version hochgezogen |
 | 2026-04-05 | v0.7.6+4 | O-002 abgeschlossen: ArtikelDbService (75 Tests), ArtikelModel (64), ImageProcessingUtils (30), UuidGenerator (23) — 128 neue Tests gesamt |
 | 2026-04-05 | v0.7.6+3 | M-003 Zentrales Error Handling abgeschlossen |

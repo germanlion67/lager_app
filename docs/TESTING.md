@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.7.7 | **Zuletzt aktualisiert:** 05.04.2026
+**Version:** 0.7.7+1 | **Zuletzt aktualisiert:** 06.04.2026
 
 ---
 
@@ -22,7 +22,7 @@ flutter test
 
 | Datei | Kategorie | Anzahl Tests | Aufgabe |
 |---|---|---|---|
-| `test/conflict_resolution_test.dart` | Unit | 37 | T-001 |
+| `test/conflict_resolution_test.dart` | Unit + Widget | 77 | T-001 |
 | `test/models/artikel_model_test.dart` | Unit | 64 | O-002 |
 | `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 |
 | `test/utils/image_processing_utils_test.dart` | Unit | 30 | O-002 |
@@ -34,7 +34,7 @@ flutter test
 | `test/services/artikel_export_service_test.dart` | Unit | 2 | – |
 | `test/widgets/dokumente_button_test.dart` | Widget | 1 | – |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1* | – |
-| **Gesamt** | | **258** | |
+| **Gesamt** | | **298** | |
 
 > \* Performance-Test erfordert externe Testdaten (siehe [unten](#performance-tests)).
 
@@ -42,42 +42,28 @@ flutter test
 
 ## 🔬 Test-Beschreibungen
 
-### `conflict_resolution_test.dart` — T-001 (37 Tests)
+### `conflict_resolution_test.dart` — T-001 (77 Tests)
 
-**Ziel:** Testet die Konfliktlösungs-Pipeline aus `M-007`.
+**Ziel:** Testet die vollständige Konfliktlösungs-Pipeline aus `M-007`.
 
-**Abgedeckte Klassen:** `ConflictData`, `ConflictResolution` (Enum)
+**Abgedeckte Klassen:** `ConflictData`, `ConflictResolution` (Enum), `SyncService.detectConflicts()`, `ConflictResolutionScreen`
 
 | Gruppe | Tests | Was wird geprüft |
 |---|---|---|
 | T-001.1: ConflictData | 11 | Konstruktor, Pflichtfelder, Null-Handling |
 | T-001.2: ConflictResolution Enum | 6 | Enum-Werte, Index, `byName` |
-| T-001.4: Konflikt-Grund-Szenarien | 5 | Zeitstempel-Vergleiche |
-| T-001.extra: Feld-Vergleiche | 11 | Artikel-Properties als Vergleichsgrundlage |
+| T-001.3: detectConflicts() | 9 | ETag-Vergleich, Konflikt-Erkennung, Fehlerbehandlung |
+| T-001.4: _determineConflictReason() | 15 | Zeitstempel-Szenarien (gleich, zeitnah, lokal/remote neuer) |
+| T-001.5: Widget-Tests | 20 | ConflictResolutionScreen UI, Navigation, Dialog, Pop-Result |
+| T-001.extra: Feld-Vergleiche | 10 | Artikel-Properties als Vergleichsgrundlage |
 | T-001.extra: Collections | 4 | ConflictData in Listen, Resolution-Tracking |
+
+**Besonderheit:** Widget-Tests laufen mit `setSurfaceSize(1024×900)` — der Standard-Viewport
+(800×600) ist zu klein für die Side-by-Side-Versionskarten nach Auswahl. `addTearDown` stellt
+den Default-Viewport nach jedem Test wieder her.
 
 ```bash
 flutter test test/conflict_resolution_test.dart
-```
-
----
-
-### `models/artikel_model_test.dart` — O-002 (64 Tests)
-
-**Ziel:** Vollständige Abdeckung des `Artikel`-Datenmodells.
-
-| Gruppe | Tests | Was wird geprüft |
-|---|---|---|
-| Konstruktor | ~8 | Pflichtfelder, Auto-UUID, Auto-`updatedAt` |
-| `isValid()` | ~6 | Gültige und ungültige Kombis (Name, Ort, Fach) |
-| `toMap()` | ~10 | Alle Felder, `bool`→`int`, bedingte `id` |
-| `fromMap()` | ~20 | Null-Handling, Typ-Koercion, `snake_case`/`camelCase`, UTC |
-| Roundtrip | ~5 | `fromMap()` → `toMap()` → `fromMap()` idempotent |
-| `copyWith()` | ~8 | Nullable Felder via `_Undefined`-Sentinel |
-| `==`, `hashCode`, `toString()` | ~7 | Gleichheit und Darstellung |
-
-```bash
-flutter test test/models/artikel_model_test.dart
 ```
 
 ---

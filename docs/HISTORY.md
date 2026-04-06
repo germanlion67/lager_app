@@ -2,6 +2,28 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### v0.7.7+1 — 2026-04-06 — T-001 Widget-Tests abgeschlossen
+
+**T-001: Tests für Konfliktlösung — Unit- und Widget-Tests vollständig (77 Tests)**
+
+Alle automatisierbaren Tests für die Konfliktlösungs-Pipeline sind abgeschlossen.
+
+- T-001.3: `SyncService.detectConflicts()` — 9 Tests mit `MockNextcloudClient` und
+  `MockArtikelDbService` via Mockito
+- T-001.4: `_determineConflictReason()` — 15 Tests für alle Zeitstempel-Szenarien
+  (gleich, zeitnah <60s, lokal/remote neuer in Minuten/Stunden/Tagen)
+- T-001.5: `ConflictResolutionScreen` Widget-Tests — 20 Tests mit `MockSyncService`
+  (UI-Zustand, Navigation, Dialoge, Pop-Result)
+
+**Technische Besonderheit:** Widget-Tests laufen mit `setSurfaceSize(1024×900)`.
+Der Standard-Viewport (800×600) ist zu klein für die Side-by-Side-Versionskarten
+nach Auswahl (`isSelected=true` fügt `Icons.check_circle` hinzu → +4px Overflow).
+`addTearDown` stellt den Default-Viewport nach jedem Test wieder her.
+
+**Ausstehend (manuell):** T-001.6–T-001.12 (erfordern zwei verbundene Geräte).
+
+**Gesamtstand Tests:** 298 Tests, alle grün.
+
 ### v0.7.7 — 2026-04-05 — Release: Qualitäts-Release mit Tests & Dokumentation
 
 Dieses Release fasst die v0.7.6+x-Zwischenstände zusammen und bringt die Version auf 0.7.7.

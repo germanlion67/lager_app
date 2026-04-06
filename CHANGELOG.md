@@ -2,6 +2,44 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.7+1] - 2026-04-06
+
+### Tests (T-001): Konfliktlösungs-Tests — Widget-Tests abgeschlossen
+- **T-001.3** — `SyncService.detectConflicts()`: 9 Tests mit Mockito-Mocks
+  (`MockNextcloudClient`, `MockArtikelDbService`)
+  - ETag-Übereinstimmung → kein Konflikt
+  - ETag-Abweichung → Konflikt erkannt, `downloadItem()` aufgerufen
+  - Mehrere Konflikte gleichzeitig
+  - Fehlerbehandlung: DB-Fehler, `downloadItem()`-Fehler (graceful)
+  - `detectedAt` liegt im erwarteten Zeitfenster
+- **T-001.4** — `_determineConflictReason()` via `detectConflicts()`: 15 Tests
+  - Gleiche Zeitstempel → `'Gleichzeitige Bearbeitung'`
+  - |diff| < 60s → `'Zeitnahe Bearbeitung (Xs Unterschied)'`
+  - Grenzfall 60s → `'Lokale Version neuer (1m)'`
+  - Lokal neuer: Minuten, Stunden, Tage
+  - Remote neuer: Minuten, Stunden
+- **T-001.5** — `ConflictResolutionScreen` Widget-Tests: 20 Tests
+  - Leere Liste, Fortschrittsanzeige, LinearProgressIndicator
+  - `useLocal` / `useRemote` aktiviert `'Auflösen'`-Button
+  - `applyConflictResolution()` wird korrekt aufgerufen
+  - `skip` ruft `applyConflictResolution()` nicht auf
+  - Pop-Result enthält `resolved`/`skipped` als `Map<String, dynamic>`
+  - Multi-Konflikt-Navigation (`1/2` → `2/2`)
+  - Hilfe-Dialog öffnen/schließen
+  - Merge-Dialog öffnet sich
+
+### Bugfix
+- `RenderFlex`-Overflow (+4px) in Widget-Tests behoben:
+  `setSurfaceSize(1024×900)` + `addTearDown(reset)` in `pumpConflictScreen()`
+
+### Dokumentation
+- `docs/TESTING.md` — T-001 auf 77 Tests aktualisiert, Kategorie `Unit + Widget`,
+  `setSurfaceSize`-Besonderheit dokumentiert, Gesamtzahl auf 298 aktualisiert
+- `OPTIMIZATIONS.md` — T-001 Unit/Widget-Tests als abgeschlossen markiert,
+  Version auf 0.7.7+1, Datum auf 06.04.2026
+- `HISTORY.md` — Meilenstein v0.7.7+1 dokumentiert
+- `CHANGELOG.md` — Aktualisiert
+
 ## [0.7.7] - 2026-04-05
 
 ### Release-Zusammenfassung
