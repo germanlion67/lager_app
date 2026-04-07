@@ -14,6 +14,7 @@ import '../services/pocketbase_service.dart';
 import '../services/artikel_db_service.dart';
 import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
+import '../utils/image_processing_utils.dart';
 import '../widgets/article_icons.dart';
 
 import 'artikel_erfassen_io.dart'
@@ -268,6 +269,36 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       _bildBytes = picked.bytes;
       _bildDateiname = picked.dateiname;
       _hasUnsavedChanges = true;
+    });
+  }
+
+  /// Öffnet den Crop-Dialog optional nach Aufnahme/Auswahl.
+  Future<void> _cropImage() async {
+    if (_bildBytes == null) return;
+    final cropResult = await ImagePickerService.openCropDialog(
+      context,
+      _bildBytes,
+    );
+    if (!mounted) return;
+    if (cropResult == null) return;
+
+    final Uint8List? processedBytes;
+    try {
+      processedBytes = await ImageProcessingUtils.ensureTargetFormat(
+        cropResult.bytes,
+        crop: cropResult.cropped,
+      );
+    } catch (e, st) {
+      _logger.e(
+        '_cropImage: Bildverarbeitung fehlgeschlagen',
+        error: e,
+        stackTrace: st,
+      );
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _bildBytes = processedBytes ?? cropResult.bytes;
     });
   }
 
@@ -698,6 +729,15 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                         AppConfig.borderRadiusMedium,
                       ),
                       child: Image.memory(_bildBytes!, fit: BoxFit.cover),
+                    ),
+                  ),
+                  const SizedBox(height: AppConfig.spacingSmall),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: OutlinedButton.icon(
+                      onPressed: _cropImage,
+                      icon: const Icon(Icons.crop),
+                      label: const Text('Zuschneiden'),
                     ),
                   ),
                 ],

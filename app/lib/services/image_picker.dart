@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
 
+import '../config/app_config.dart';
 import '../services/app_log_service.dart';
 import '../utils/image_processing_utils.dart';
 import '../widgets/image_crop_dialog.dart';
@@ -296,6 +297,10 @@ class ImagePickerService {
   /// Nimmt ein Bild mit der Kamera auf.
   ///
   /// ⚠️ Nur auf Android und iOS verfügbar.
+  ///
+  /// Kein automatischer Crop-Dialog mehr – die Vorschau wird sofort
+  /// nach der Aufnahme angezeigt. Zuschneiden ist optional per Button
+  /// im aufrufenden Screen möglich.
   static Future<PickedImage> pickImageCamera(BuildContext context) async {
     if (!isCameraAvailable) return PickedImage.empty;
 
@@ -305,7 +310,9 @@ class ImagePickerService {
     try {
       pickedFile = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 90,
+        maxWidth: AppConfig.cameraTargetMaxWidth.toDouble(),
+        maxHeight: AppConfig.cameraTargetMaxHeight.toDouble(),
+        imageQuality: AppConfig.cameraImageQuality,
       );
     } catch (e, st) {
       _logger.e(
@@ -346,16 +353,13 @@ class ImagePickerService {
       return PickedImage.empty;
     }
 
-    if (!context.mounted) return PickedImage.empty;
-
-    final cropResult = await _openCropDialog(context, bytes);
-    if (cropResult == null) return PickedImage.empty;
-
+    // Kein automatischer Crop-Dialog – Bytes direkt verarbeiten (kein Crop)
+    // und sofort zurückgeben, damit die UI ohne Verzögerung eine Vorschau zeigt.
     final Uint8List? processedBytes;
     try {
       processedBytes = await ImageProcessingUtils.ensureTargetFormat(
-        cropResult.bytes,
-        crop: cropResult.cropped,
+        bytes,
+        crop: false,
       );
     } catch (e, st) {
       _logger.e(
@@ -368,7 +372,7 @@ class ImagePickerService {
 
     return PickedImage(
       pfad: pickedFile.path,
-      bytes: processedBytes ?? cropResult.bytes,
+      bytes: processedBytes ?? bytes,
       dateiname: pickedFile.name,
     );
   }
@@ -383,7 +387,10 @@ class ImagePickerService {
           defaultTargetPlatform == TargetPlatform.iOS);
 
   /// Öffnet den Crop-Dialog für das gewählte Bild.
-  static Future<ImageCropDialogResult?> _openCropDialog(
+  ///
+  /// Kann direkt aus einem Screen aufgerufen werden, um optionales Zuschneiden
+  /// nach der Aufnahme/Auswahl zu ermöglichen.
+  static Future<ImageCropDialogResult?> openCropDialog(
     BuildContext context,
     Uint8List? originalBytes,
   ) async {
@@ -398,4 +405,10 @@ class ImagePickerService {
       ),
     );
   }
+
+  /// Öffnet den Crop-Dialog für das gewählte Bild.
+  static Future<ImageCropDialogResult?> _openCropDialog(
+    BuildContext context,
+    Uint8List? originalBytes,
+  ) => openCropDialog(context, originalBytes);
 }
