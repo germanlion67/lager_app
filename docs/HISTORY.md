@@ -2,6 +2,29 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### v0.7.7+2 — 2026-04-07 — P-001: Kamera-Vorschau-Delay auf Android behoben
+
+**Problem:** `pickImageCamera()` blockierte mehrere Sekunden auf Android, weil
+der Crop-Dialog und der anschließende Re-Encode synchron im Capture-Flow liefen.
+Zusätzlich waren die Zieldimensionen hardcodiert auf 1600px.
+
+**Lösung:**
+- Crop-Dialog aus dem Capture-Flow entfernt — `ensureTargetFormat(crop: false)`
+  gibt Bytes sofort zurück
+- `maxWidth = 800`, `maxHeight = 800`, `imageQuality = 85` werden direkt an
+  `picker.pickImage()` übergeben → kleinere Rohdatei, weniger Re-Encode-Aufwand
+- `openCropDialog()` als public static Methode — Screens können Crop on demand
+  auslösen
+- `ArtikelErfassenScreen`: optionaler „Zuschneiden"-Button erscheint nach Capture
+  unterhalb der Vorschau
+
+**Ergebnis:** Kamera → sofortige Vorschau auf Android, Crop bleibt optional.
+
+**Geänderte Dateien:**
+- `app/lib/config/app_config.dart` — 3 neue Kamera-Tokens
+- `app/lib/services/image_picker_service.dart` — Crop entfernt, AppConfig genutzt
+- `app/lib/screens/artikel_erfassen_screen.dart` — `_cropImage()` + Crop-Button
+
 ### v0.7.7+1 — 2026-04-06 — T-001 Widget-Tests abgeschlossen
 
 **T-001: Tests für Konfliktlösung — Unit- und Widget-Tests vollständig (77 Tests)**

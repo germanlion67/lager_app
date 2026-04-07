@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.7+1 | **Zuletzt aktualisiert:** 06.04.2026
+**Version:** 0.7.7+2 | **Zuletzt aktualisiert:** 07.04.2026
 
 ---
 
@@ -215,6 +215,13 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Entscheidungs-Callbacks (`useLocal`, `useRemote`, `merge`, `skip`) ✅
 - Unit- und Widget-Tests erstellt (T-001, 77 Tests) ✅
 
+### P-001: Kamera-Vorschau-Delay auf Android — Erledigt in v0.7.7+2
+- Crop-Dialog aus `pickImageCamera()` entfernt → sofortige Vorschau ✅
+- `maxWidth`/`maxHeight`/`imageQuality` aus AppConfig übergeben (800px, Q85) ✅
+- Hardcodierte 1600px-Dimensionen entfernt ✅
+- `openCropDialog()` als public static Methode für On-Demand-Nutzung ✅
+- Optionaler „Zuschneiden"-Button in `ArtikelErfassenScreen` ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -268,11 +275,11 @@ Erfordert Apple Developer Account.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 21 | 21 | 0 |
+| ✅ Abgeschlossen | 22 | 22 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 2 | 0 | 2 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **27** | **21** | **6** |
+| **Gesamt** | **28** | **22** | **6** |
 
 ---
 
@@ -280,6 +287,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-07 | v0.7.7+2 | P-001 abgeschlossen: Kamera-Delay auf Android behoben, optionaler Crop-Button |
 | 2026-04-06 | v0.7.7+1 | T-001 Unit- und Widget-Tests abgeschlossen (77 Tests), TESTING.md aktualisiert (298 Tests gesamt) |
 | 2026-04-05 | v0.7.7 | Release v0.7.7: Dokumentation aktualisiert, TESTING.md erstellt, Version hochgezogen |
 | 2026-04-05 | v0.7.6+4 | O-002 abgeschlossen: ArtikelDbService (75 Tests), ArtikelModel (64), ImageProcessingUtils (30), UuidGenerator (23) — 128 neue Tests gesamt |

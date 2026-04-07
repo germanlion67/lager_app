@@ -2,6 +2,34 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.7+2] - 2026-04-07
+
+### Performance (P-001): Kamera-Vorschau-Delay auf Android behoben
+
+**Problem:** Kamera-Capture auf Android verursachte Multi-Sekunden-Delays vor der
+Vorschau, da Crop-Dialog + Re-Encode `pickImageCamera()` synchron blockierten.
+Bildbreite war zusätzlich hardcodiert auf 1600px.
+
+**AppConfig — neue Kamera-Tokens**
+- `cameraTargetMaxWidth = 800`
+- `cameraTargetMaxHeight = 800`
+- `cameraImageQuality = 85`
+
+**ImagePickerService**
+- `pickImageCamera()` übergibt `maxWidth`/`maxHeight`/`imageQuality` aus AppConfig
+  → reduziert Dateigröße direkt an der Quelle
+- Automatischer Crop-Dialog entfernt — gibt Bytes sofort nach Capture zurück
+  (`ensureTargetFormat(crop: false)`)
+- `openCropDialog()` als public static Methode verfügbar
+
+**ArtikelErfassenScreen**
+- `_cropImage()`: öffnet `ImageCropDialog`, führt `ensureTargetFormat` auf Ergebnis
+  aus und ruft `setState`
+- „Zuschneiden" `OutlinedButton` rechts unterhalb der Vorschau,
+  nur sichtbar wenn `_bildBytes != null`
+
+**Neuer Flow:**
+
 ## [0.7.7+1] - 2026-04-06
 
 ### Tests (T-001): Konfliktlösungs-Tests — Widget-Tests abgeschlossen
