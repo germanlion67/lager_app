@@ -298,6 +298,17 @@ static const int inputMaxMenge = 999999;
 static const int inputMinArtikelnummer = 1000;
 
 
+// ── Kamera / Bildverarbeitung ─────────────────────────────────────
+
+  /// Maximale Breite (px) bei der Kameraaufnahme (image_picker maxWidth).
+  static const int cameraTargetMaxWidth = 800;
+
+  /// Maximale Höhe (px) bei der Kameraaufnahme (image_picker maxHeight).
+  static const int cameraTargetMaxHeight = 800;
+
+  /// JPEG-Qualität (0–100) für Kameraaufnahmen.
+  static const int cameraImageQuality = 85;
+
 // ── Loading & Skeleton (M-004) ────────────────────────────────────
 static const double overlayOpacity = 0.6;
 static const double cardElevationHigh = 8.0;
