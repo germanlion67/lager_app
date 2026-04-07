@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.7+2 | **Zuletzt aktualisiert:** 07.04.2026
+**Version:** 0.7.7+3 | **Zuletzt aktualisiert:** 07.04.2026
 
 ---
 
@@ -253,6 +253,57 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] **T-001.10** — „Überspringen" → Konflikt bleibt, erscheint beim nächsten Sync erneut
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
 - [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+
+### T-002: Unit-Tests SyncService
+Mock-basierte Tests für die Kern-Sync-Logik.
+- [ ] `syncAll()` — Haupt-Einstiegspunkt
+- [ ] `uploadPendingChanges()` — ETag/If-Match Handling
+- [ ] `downloadNewItems()` — Remote-Artikel lokal einfügen
+- [ ] `applyConflictResolution()` — useLocal/useRemote/merge/skip
+- [ ] `deleteRemoteItem()` — Soft-Delete Sync
+
+### T-003: Unit-Tests NextcloudClient
+- [ ] `_parsePropfindResponse()` — XML-Fixtures direkt testen
+- [ ] `_parseHttpDate()` — RFC-7231-Datumsformate, Edge Cases
+- [ ] `uploadItem()` mit `If-Match` — Mock `http.Client`
+
+### T-004: Widget-Tests Merge-Dialog
+- [ ] Felder einzeln auswählen (lokal/remote pro Feld)
+- [ ] Merge-Ergebnis korrekt an `applyConflictResolution()` übergeben
+- [ ] Validierung: kein leerer Name möglich
+
+### T-005: Unit-Tests AttachmentService
+- [ ] Upload, Download, Delete gegen PocketBase-Mock
+- [ ] MIME-Type-Validierung
+- [ ] Max-Anhänge / Max-Dateigröße Grenzen
+
+### T-006: Unit-Tests BackupStatusService
+- [ ] HTTP-Mock für `last_backup.json`
+- [ ] Farblogik: Grün/Gelb/Rot Schwellwerte
+- [ ] Fehlerfall: Server nicht erreichbar
+
+### O-005: Deprecated Code entfernen
+`_dokumente_button.dart` ist als deprecated markiert aber noch vorhanden.
+- [ ] Datei und alle Referenzen entfernen
+- [ ] Sicherstellen dass kein Screen noch importiert
+
+### O-006: Tests für pickImageCamera() nach P-001
+P-001 hat die Logik in `ImagePickerService` geändert — Tests fehlen.
+- [ ] `pickImageCamera()` mit Mock-Picker
+- [ ] `openCropDialog()` public API testen
+- [ ] `ensureTargetFormat(crop: false)` Pfad abdecken
+
+### P-002: Suche Debounce
+`searchArtikel()` feuert bei jedem Tastendruck eine DB-Abfrage.
+- [ ] `Debouncer` mit 300ms in `artikel_list_screen.dart`
+- [ ] Unit-Test: Debounce verhindert mehrfache Aufrufe
+
+### P-003: Bild-Caching
+Remote-Bilder werden bei jedem Scroll neu geladen.
+- [ ] `cached_network_image` Paket einbinden
+- [ ] `ArtikelBildWidget` auf `CachedNetworkImage` umstellen
+- [ ] Cache-Invalidierung bei ETag-Änderung
+
 ---
 
 ## 🟢 Priorität: Nice-to-Have
@@ -266,8 +317,12 @@ Eigener Splash-Screen mit App-Logo.
 ### N-006: Nextcloud-Workflow
 WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
-### H-001 (alt): iOS/macOS Vorbereitung
-Erfordert Apple Developer Account.
+---
+
+## ⏭️ Future (nicht in Planung)
+
+### H-001: iOS/macOS Vorbereitung
+Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 ---
 
@@ -277,9 +332,10 @@ Erfordert Apple Developer Account.
 |---|---|---|---|
 | ✅ Abgeschlossen | 22 | 22 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 2 | 0 | 2 |
-| 🟢 Nice-to-Have | 4 | 0 | 4 |
-| **Gesamt** | **28** | **22** | **6** |
+| 🟡 Mittel | 10 | 0 | 10 |
+| 🟢 Nice-to-Have | 3 | 0 | 3 |
+| ⏭️ Future | 1 | 0 | 1 |
+| **Gesamt** | **36** | **22** | **14** |
 
 ---
 
@@ -287,6 +343,7 @@ Erfordert Apple Developer Account.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-07 | v0.7.7+3 | H-001 nach Future verschoben, T-002–T-006, O-005–O-006, P-002–P-003 neu erfasst |
 | 2026-04-07 | v0.7.7+2 | P-001 abgeschlossen: Kamera-Delay auf Android behoben, optionaler Crop-Button |
 | 2026-04-06 | v0.7.7+1 | T-001 Unit- und Widget-Tests abgeschlossen (77 Tests), TESTING.md aktualisiert (298 Tests gesamt) |
 | 2026-04-05 | v0.7.7 | Release v0.7.7: Dokumentation aktualisiert, TESTING.md erstellt, Version hochgezogen |
