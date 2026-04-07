@@ -47,10 +47,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   final Logger _logger = AppLogService.logger;
 
   List<Artikel> _artikelListe = [];
-  String _suchbegriff = '';
-  String _filterOrt = '';
-  bool _isLoading = true;
-  bool? _pbConnected;
+    String _suchbegriff = '';
+    String _filterOrt = '';
+    bool _isLoading = true;
+    bool? _pbConnected;
+
+    // M-005: Pagination
+    final ScrollController _scrollController = ScrollController();
+    bool _isLoadingMore = false;
+    bool _hasMore = true;
+    int _currentOffset = 0;
 
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
@@ -60,77 +66,136 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== LIFECYCLE ====================
 
   @override
-  void initState() {
-    super.initState();
+    void initState() {
+      super.initState();
 
-    _db = ArtikelDbService();
-    _pbService = PocketBaseService();
+      _db = ArtikelDbService();
+      _pbService = PocketBaseService();
 
-    _ladeArtikel();
+      // M-005: Scroll-Listener für Pagination
+      _scrollController.addListener(_onScroll);
 
-    if (kIsWeb) {
-      _pbConnected = true;
-    } else {
-      _checkPocketBaseConnection();
+      _ladeArtikel();
 
-      try {
-        _nextcloudService = NextcloudConnectionService();
-        _nextcloudService!.startPeriodicCheck();
-      } catch (e, st) {
-        _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
+      if (kIsWeb) {
+        _pbConnected = true;
+      } else {
+        _checkPocketBaseConnection();
+
+        try {
+          _nextcloudService = NextcloudConnectionService();
+          _nextcloudService!.startPeriodicCheck();
+        } catch (e, st) {
+          _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
+        }
       }
     }
-  }
 
   @override
-  void dispose() {
-    _nextcloudService?.dispose();
-    super.dispose();
-  }
+    void dispose() {
+      _scrollController.dispose();
+      _nextcloudService?.dispose();
+      super.dispose();
+    }
 
   // ==================== DATEN LADEN ====================
 
   Future<void> _ladeArtikel() async {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = true;
+        _currentOffset = 0;
+        _hasMore = true;
+        _artikelListe = [];
+      });
+
+      try {
+        if (kIsWeb) {
+          // Web: PocketBase liefert alles auf einmal — Pagination nicht nötig
+          final records = await _pbService.client
+              .collection('artikel')
+              .getFullList(sort: '-created')
+              .timeout(
+                const Duration(seconds: 15),
+                onTimeout: () =>
+                    throw TimeoutException('PocketBase antwortet nicht'),
+              );
+
+          _artikelListe = records.map((r) {
+            final created = r.data['created'] as String? ?? '';
+            final updated = r.data['updated'] as String? ?? '';
+            return Artikel.fromPocketBase(
+              r.data,
+              r.id,
+              created: created,
+              updated: updated,
+            );
+          }).toList();
+          _hasMore = false; // Web lädt alles auf einmal
+        } else {
+          // M-005: Erste Seite laden
+          final seite = await _db.getAlleArtikel(
+            limit: AppConfig.paginationPageSize,
+            offset: 0,
+          );
+          _artikelListe = seite;
+          _currentOffset = seite.length;
+          _hasMore = seite.length >= AppConfig.paginationPageSize;
+        }
+      } catch (e, st) {
+        _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
+        if (mounted) {
+          final colorScheme = Theme.of(context).colorScheme;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Fehler beim Laden: $e'),
+              backgroundColor: colorScheme.error,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    }
+
+// M-005: Nächste Seite laden
+  Future<void> _ladeNaechsteSeite() async {
+    if (_isLoadingMore || !_hasMore || _suchbegriff.isNotEmpty) return;
     if (!mounted) return;
-    setState(() => _isLoading = true);
+
+    setState(() => _isLoadingMore = true);
 
     try {
-      if (kIsWeb) {
-        final records = await _pbService.client
-            .collection('artikel')
-            .getFullList(sort: '-created')
-            .timeout(
-              const Duration(seconds: 15),
-              onTimeout: () =>
-                  throw TimeoutException('PocketBase antwortet nicht'),
-            );
+      final seite = await _db.getAlleArtikel(
+        limit: AppConfig.paginationPageSize,
+        offset: _currentOffset,
+      );
 
-        _artikelListe = records.map((r) {
-          final created = r.data['created'] as String? ?? '';
-          final updated = r.data['updated'] as String? ?? '';
-          return Artikel.fromPocketBase(
-            r.data,
-            r.id,
-            created: created,
-            updated: updated,
-          );
-        }).toList();
-      } else {
-        _artikelListe = await _db.getAlleArtikel();
-      }
+      if (!mounted) return;
+      setState(() {
+        _artikelListe.addAll(seite);
+        _currentOffset += seite.length;
+        _hasMore = seite.length >= AppConfig.paginationPageSize;
+      });
+      _logger.d(
+        'M-005: Seite geladen — ${seite.length} Artikel, '
+        'Offset jetzt $_currentOffset, hasMore: $_hasMore',
+      );
     } catch (e, st) {
-      _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
-      if (mounted) {
-        final colorScheme = Theme.of(context).colorScheme;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Fehler beim Laden: $e'),
-            backgroundColor: colorScheme.error,
-          ),
-        );
-      }
+      _logger.e('Fehler beim Nachladen:', error: e, stackTrace: st);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  // M-005: Scroll-Listener
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final threshold =
+        position.maxScrollExtent - AppConfig.paginationScrollThreshold;
+    if (position.pixels >= threshold) {
+      _ladeNaechsteSeite();
     }
   }
 
@@ -150,17 +215,20 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== FILTER ====================
 
   List<Artikel> _gefilterteArtikel() {
-    return _artikelListe.where((artikel) {
-      final suchLower = _suchbegriff.toLowerCase();
-      final passtName = artikel.name.toLowerCase().contains(suchLower);
-      final passtBeschreibung =
-          artikel.beschreibung.toLowerCase().contains(suchLower);
-      final passtOrt =
-          _filterOrt.isEmpty || artikel.ort.trim() == _filterOrt.trim();
+      // M-005: Bei aktiver Suche wird clientseitig über die geladene
+      // Liste gefiltert. Für große Bestände empfiehlt sich T-002/P-002
+      // (Debounce + DB-Suche), das ist aber ein separater Task.
+      return _artikelListe.where((artikel) {
+        final suchLower = _suchbegriff.toLowerCase();
+        final passtName = artikel.name.toLowerCase().contains(suchLower);
+        final passtBeschreibung =
+            artikel.beschreibung.toLowerCase().contains(suchLower);
+        final passtOrt =
+            _filterOrt.isEmpty || artikel.ort.trim() == _filterOrt.trim();
 
-      return (passtName || passtBeschreibung) && passtOrt;
-    }).toList();
-  }
+        return (passtName || passtBeschreibung) && passtOrt;
+      }).toList();
+    }
 
   // ==================== AKTIONEN ====================
 
@@ -336,8 +404,28 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     : RefreshIndicator(
                         onRefresh: _ladeArtikel,
                         child: ListView.builder(
-                          itemCount: gefiltert.length,
+                          controller: _scrollController,
+                          // M-005: +1 für den Lade-Footer
+                          itemCount: gefiltert.length + (_hasMore ? 1 : 0),
                           itemBuilder: (context, index) {
+                            // M-005: Letztes Element = Lade-Indikator
+                            if (index == gefiltert.length) {
+                              return const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  vertical: AppConfig.spacingLarge,
+                                ),
+                                child: Center(
+                                  child: SizedBox(
+                                    width: AppConfig.progressIndicatorSizeSmall,
+                                    height:
+                                        AppConfig.progressIndicatorSizeSmall,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: AppConfig.strokeWidthMedium,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
                             return _buildArtikelTile(gefiltert[index]);
                           },
                         ),

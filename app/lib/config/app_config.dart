@@ -322,4 +322,12 @@ static const double skeletonOrtFachWidth = 160.0;
 static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
 
 
+// ── Pagination (M-005) ────────────────────────────────────────────
+
+  /// Anzahl Artikel pro Seite (Mobile/Desktop).
+  static const int paginationPageSize = 30;
+
+  /// Schwellwert in Pixeln vor Listenende → nächste Seite laden.
+  static const double paginationScrollThreshold = 200.0;
+
 }

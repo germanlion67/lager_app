@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.7+3 | **Zuletzt aktualisiert:** 07.04.2026
+**Version:** 0.7.7+4 | **Zuletzt aktualisiert:** 07.04.2026
 
 ---
 
@@ -222,6 +222,14 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - `openCropDialog()` als public static Methode für On-Demand-Nutzung ✅
 - Optionaler „Zuschneiden"-Button in `ArtikelErfassenScreen` ✅
 
+### M-005: Pagination — Erledigt in v0.7.7+4
+- `ScrollController` mit `_onScroll()`-Listener ✅
+- `_ladeArtikel()`: Reset + erste Seite (offset = 0) ✅
+- `_ladeNaechsteSeite()`: Offset-Pagination, Guard gegen Doppel-Requests ✅
+- Lade-Footer (`CircularProgressIndicator`) am Listenende ✅
+- Web: `_hasMore = false` — `getFullList()` unverändert ✅
+- 2 neue AppConfig-Tokens: `paginationPageSize`, `paginationScrollThreshold` ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -231,9 +239,6 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 ---
 
 ## 🟡 Priorität: Mittel
-
-### M-005: Pagination
-`ListView.builder` mit Lazy-Loading und PocketBase-Pagination.
 
 ### T-001: Tests für Konfliktlösung (M-007)
 Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
@@ -330,12 +335,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 22 | 22 | 0 |
+| ✅ Abgeschlossen | 23 | 23 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 10 | 0 | 10 |
+| 🟡 Mittel | 9 | 0 | 9 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **36** | **22** | **14** |
+| **Gesamt** | **36** | **23** | **13** |
 
 ---
 
@@ -343,6 +348,7 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-07 | v0.7.7+4 | M-005 abgeschlossen: Offset-Pagination, ScrollController, Lade-Footer |
 | 2026-04-07 | v0.7.7+3 | H-001 nach Future verschoben, T-002–T-006, O-005–O-006, P-002–P-003 neu erfasst |
 | 2026-04-07 | v0.7.7+2 | P-001 abgeschlossen: Kamera-Delay auf Android behoben, optionaler Crop-Button |
 | 2026-04-06 | v0.7.7+1 | T-001 Unit- und Widget-Tests abgeschlossen (77 Tests), TESTING.md aktualisiert (298 Tests gesamt) |

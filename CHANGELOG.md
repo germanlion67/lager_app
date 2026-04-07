@@ -2,6 +2,29 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.7+4] - 2026-04-07
+
+### Feature (M-005): Pagination für Artikelliste
+
+**Problem:** Alle Artikel wurden beim Start auf einmal aus SQLite geladen —
+bei großen Beständen führte das zu spürbaren Verzögerungen und hohem
+Speicherverbrauch.
+
+**AppConfig — neue Pagination-Tokens**
+- `paginationPageSize = 30`
+- `paginationScrollThreshold = 200.0`
+
+**artikel_list_screen.dart**
+- `ScrollController` mit `_onScroll()`-Listener
+- `_ladeArtikel()`: Reset + erste Seite laden
+- `_ladeNaechsteSeite()`: Offset-basiertes Nachladen mit Guard gegen
+  Doppel-Requests und aktive Suche
+- `ListView.builder`: Lade-Footer (`CircularProgressIndicator`) am
+  Listenende solange `_hasMore = true`
+- Web: `_hasMore = false` — `getFullList()` lädt weiterhin alles auf einmal
+
+**Neuer Flow (Mobile/Desktop):**
+
 ## [0.7.7+2] - 2026-04-07
 
 ### Performance (P-001): Kamera-Vorschau-Delay auf Android behoben

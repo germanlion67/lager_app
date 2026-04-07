@@ -2,6 +2,32 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### v0.7.7+4 — 2026-04-07 — M-005: Pagination für Artikelliste
+
+**Problem:** Alle Artikel wurden beim Start auf einmal aus SQLite geladen.
+Bei großen Beständen führte das zu spürbaren Verzögerungen und hohem
+Speicherverbrauch.
+
+**Lösung:**
+- `ScrollController` mit `_onScroll()`-Listener — erkennt 200px vor
+  Listenende und löst `_ladeNaechsteSeite()` aus
+- `_ladeArtikel()`: setzt `_currentOffset = 0`, `_hasMore = true`,
+  `_artikelListe = []` — sauberer Reset bei Pull-to-Refresh
+- `_ladeNaechsteSeite()`: lädt offset-basiert nach, Guard verhindert
+  Doppel-Requests und Nachladen bei aktiver Suche
+- Lade-Footer am Listenende solange `_hasMore = true`
+- Web bleibt unverändert: `getFullList()` + `_hasMore = false`
+- 2 neue AppConfig-Tokens: `paginationPageSize = 30`,
+  `paginationScrollThreshold = 200.0`
+
+**Ergebnis:** Start lädt nur 30 Artikel — weitere Seiten werden
+on-demand beim Scrollen nachgeladen.
+
+**Geänderte Dateien:**
+- `app/lib/config/app_config.dart` — 2 neue Pagination-Tokens
+- `app/lib/screens/artikel_list_screen.dart` — ScrollController,
+  Pagination-State, _ladeNaechsteSeite(), Lade-Footer
+
 ### v0.7.7+2 — 2026-04-07 — P-001: Kamera-Vorschau-Delay auf Android behoben
 
 **Problem:** `pickImageCamera()` blockierte mehrere Sekunden auf Android, weil
