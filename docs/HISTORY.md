@@ -2,6 +2,8 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+
+
 ### v0.7.7+4 — 2026-04-07 — M-005: Pagination für Artikelliste
 
 **Problem:** Alle Artikel wurden beim Start auf einmal aus SQLite geladen.
@@ -27,6 +29,11 @@ on-demand beim Scrollen nachgeladen.
 - `app/lib/config/app_config.dart` — 2 neue Pagination-Tokens
 - `app/lib/screens/artikel_list_screen.dart` — ScrollController,
   Pagination-State, _ladeNaechsteSeite(), Lade-Footer
+
+**Chore (O-005): Deprecated DokumenteButton entfernt**
+- 5 Dateien gelöscht (Button, Stub, Utils, 2 Testdateien)
+- `cached_network_image` bleibt — anderweitig aktiv genutzt
+- `flutter analyze`: 0 Issues nach Cleanup
 
 ### v0.7.7+2 — 2026-04-07 — P-001: Kamera-Vorschau-Delay auf Android behoben
 

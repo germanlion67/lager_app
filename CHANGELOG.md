@@ -23,6 +23,20 @@ Speicherverbrauch.
   Listenende solange `_hasMore = true`
 - Web: `_hasMore = false` — `getFullList()` lädt weiterhin alles auf einmal
 
+### Chore (O-005): Deprecated Code entfernt
+
+Seit M-012 nicht mehr verwendete Dateien gelöscht.
+
+**Entfernt:**
+- `lib/screens/_dokumente_button.dart`
+- `lib/screens/_dokumente_button_stub.dart`
+- `lib/utils/dokumente_utils.dart`
+- `test/dokumente_utils_test.dart`
+- `test/widgets/dokumente_button_test.dart`
+
+`cached_network_image` bleibt — wird in `artikel_bild_widget.dart`,
+`artikel_detail_screen.dart` und `attachment_list_widget.dart` genutzt.
+
 **Neuer Flow (Mobile/Desktop):**
 
 ## [0.7.7+2] - 2026-04-07

@@ -230,6 +230,13 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Web: `_hasMore = false` — `getFullList()` unverändert ✅
 - 2 neue AppConfig-Tokens: `paginationPageSize`, `paginationScrollThreshold` ✅
 
+### O-005: Deprecated Code entfernt — Erledigt in v0.7.7+4
+- `_dokumente_button.dart` gelöscht ✅
+- `_dokumente_button_stub.dart` gelöscht ✅
+- `dokumente_utils.dart` gelöscht ✅
+- Zugehörige Testdateien gelöscht ✅
+- `flutter analyze`: 0 Issues ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -287,10 +294,6 @@ Mock-basierte Tests für die Kern-Sync-Logik.
 - [ ] Farblogik: Grün/Gelb/Rot Schwellwerte
 - [ ] Fehlerfall: Server nicht erreichbar
 
-### O-005: Deprecated Code entfernen
-`_dokumente_button.dart` ist als deprecated markiert aber noch vorhanden.
-- [ ] Datei und alle Referenzen entfernen
-- [ ] Sicherstellen dass kein Screen noch importiert
 
 ### O-006: Tests für pickImageCamera() nach P-001
 P-001 hat die Logik in `ImagePickerService` geändert — Tests fehlen.
@@ -335,12 +338,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 23 | 23 | 0 |
+| ✅ Abgeschlossen | 24 | 24 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 9 | 0 | 9 |
+| 🟡 Mittel | 8 | 0 | 8 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **36** | **23** | **13** |
+| **Gesamt** | **36** | **24** | **12** |
 
 ---
 
@@ -348,6 +351,7 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-07 | v0.7.7+4 | O-005 abgeschlossen: 5 deprecated Dateien + Teststubs entfernt, 0 analyze-Issues |
 | 2026-04-07 | v0.7.7+4 | M-005 abgeschlossen: Offset-Pagination, ScrollController, Lade-Footer |
 | 2026-04-07 | v0.7.7+3 | H-001 nach Future verschoben, T-002–T-006, O-005–O-006, P-002–P-003 neu erfasst |
 | 2026-04-07 | v0.7.7+2 | P-001 abgeschlossen: Kamera-Delay auf Android behoben, optionaler Crop-Button |
