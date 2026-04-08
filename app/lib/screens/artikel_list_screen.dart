@@ -58,6 +58,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     bool _hasMore = true;
     int _currentOffset = 0;
 
+    // P-002: Debounce
+    Timer? _debounceTimer;
+    List<Artikel> _suchErgebnisse = [];
+    bool _isSuche = false;
+
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
 
@@ -93,6 +98,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   @override
     void dispose() {
+      _debounceTimer?.cancel();
       _scrollController.dispose();
       _nextcloudService?.dispose();
       super.dispose();
@@ -199,6 +205,63 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
+// P-002: Debounce-Handler für Sucheingabe
+  void _onSuchbegriffChanged(String value) {
+    _debounceTimer?.cancel();
+
+    if (value.isEmpty) {
+      // Suche beendet → zurück zur paginierten Liste
+      setState(() {
+        _suchbegriff = '';
+        _isSuche = false;
+        _suchErgebnisse = [];
+      });
+      return;
+    }
+
+    setState(() => _suchbegriff = value);
+
+    _debounceTimer = Timer(AppConfig.searchDebounceDuration, () {
+      _fuehreSucheAus(value);
+    });
+  }
+
+  // P-002: DB-Suche ausführen (Mobile) oder clientseitig filtern (Web)
+  Future<void> _fuehreSucheAus(String query) async {
+    if (!mounted) return;
+    setState(() => _isSuche = true);
+
+    try {
+      if (kIsWeb) {
+        // Web: clientseitig über die bereits geladene Liste filtern
+        final lower = query.toLowerCase();
+        setState(() {
+          _suchErgebnisse = _artikelListe.where((a) {
+            return a.name.toLowerCase().contains(lower) ||
+                a.beschreibung.toLowerCase().contains(lower);
+          }).toList();
+        });
+      } else {
+        // Mobile/Desktop: DB-Suche via searchArtikel()
+        final ergebnisse = await _db.searchArtikel(
+          query,
+          limit: AppConfig.searchResultLimit,
+        );
+        if (!mounted) return;
+        setState(() => _suchErgebnisse = ergebnisse);
+      }
+      _logger.d(
+        'P-002: Suche "$query" → ${_suchErgebnisse.length} Treffer',
+      );
+    } catch (e, st) {
+      _logger.e('P-002: Fehler bei Suche "$query":', error: e, stackTrace: st);
+      if (mounted) setState(() => _suchErgebnisse = []);
+    } finally {
+      if (mounted) setState(() => _isSuche = false);
+    }
+  }
+
+
   // ==================== VERBINDUNG ====================
 
   Future<void> _checkPocketBaseConnection() async {
@@ -215,19 +278,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== FILTER ====================
 
   List<Artikel> _gefilterteArtikel() {
-      // M-005: Bei aktiver Suche wird clientseitig über die geladene
-      // Liste gefiltert. Für große Bestände empfiehlt sich T-002/P-002
-      // (Debounce + DB-Suche), das ist aber ein separater Task.
-      return _artikelListe.where((artikel) {
-        final suchLower = _suchbegriff.toLowerCase();
-        final passtName = artikel.name.toLowerCase().contains(suchLower);
-        final passtBeschreibung =
-            artikel.beschreibung.toLowerCase().contains(suchLower);
-        final passtOrt =
-            _filterOrt.isEmpty || artikel.ort.trim() == _filterOrt.trim();
+      // P-002: Bei aktiver Suche → _suchErgebnisse nutzen (DB-Suche)
+      // Sonst → paginierte _artikelListe clientseitig nach Ort filtern
+      final basis = _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
 
-        return (passtName || passtBeschreibung) && passtOrt;
-      }).toList();
+      if (_filterOrt.isEmpty) return basis;
+
+      return basis
+          .where((a) => a.ort.trim() == _filterOrt.trim())
+          .toList();
     }
 
   // ==================== AKTIONEN ====================
@@ -359,7 +418,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
-              onChanged: (value) => setState(() => _suchbegriff = value),
+              // P-002: Debounce statt direktem setState
+              onChanged: _onSuchbegriffChanged,
             ),
           ),
           Padding(
@@ -391,45 +451,52 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
           Expanded(
             child: _isLoading
-                ? const ArtikelSkeletonList(count: 8)   // M-004: Skeleton
-                : gefiltert.isEmpty
-                    ? Center(
-                        child: Text(
-                          'Keine Artikel gefunden',
-                          style: textTheme.titleSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _ladeArtikel,
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          // M-005: +1 für den Lade-Footer
-                          itemCount: gefiltert.length + (_hasMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            // M-005: Letztes Element = Lade-Indikator
-                            if (index == gefiltert.length) {
-                              return const Padding(
-                                padding: EdgeInsets.symmetric(
-                                  vertical: AppConfig.spacingLarge,
-                                ),
-                                child: Center(
-                                  child: SizedBox(
-                                    width: AppConfig.progressIndicatorSizeSmall,
-                                    height:
-                                        AppConfig.progressIndicatorSizeSmall,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: AppConfig.strokeWidthMedium,
+                ? const ArtikelSkeletonList(count: 8)
+                // P-002: Skeleton auch während DB-Suche
+                : _isSuche
+                    ? const ArtikelSkeletonList(count: 4)
+                    : gefiltert.isEmpty
+                        ? Center(
+                            child: Text(
+                              _suchbegriff.isNotEmpty
+                                  ? 'Keine Artikel für "$_suchbegriff" gefunden'
+                                  : 'Keine Artikel gefunden',
+                              style: textTheme.titleSmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        : RefreshIndicator(
+                            onRefresh: _ladeArtikel,
+                            child: ListView.builder(
+                              controller: _scrollController,
+                              // M-005: Footer nur wenn keine Suche aktiv
+                              itemCount: gefiltert.length +
+                                  (_hasMore && _suchbegriff.isEmpty ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                if (index == gefiltert.length) {
+                                  return const Padding(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: AppConfig.spacingLarge,
                                     ),
-                                  ),
-                                ),
-                              );
-                            }
-                            return _buildArtikelTile(gefiltert[index]);
-                          },
-                        ),
-                      ),
+                                    child: Center(
+                                      child: SizedBox(
+                                        width:
+                                            AppConfig.progressIndicatorSizeSmall,
+                                        height:
+                                            AppConfig.progressIndicatorSizeSmall,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth:
+                                              AppConfig.strokeWidthMedium,
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return _buildArtikelTile(gefiltert[index]);
+                              },
+                            ),
+                          ),
           ),
         ],
       ),

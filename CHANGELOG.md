@@ -2,6 +2,30 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.7.7+5] - 2026-04-08
+
+### Feature (P-002): Suche Debounce + DB-Suche
+
+**Problem:** Jeder Tastendruck löste sofort einen clientseitigen Filter
+über die gesamte geladene Liste aus — bei großen Beständen spürbar träge.
+
+**AppConfig — neue Tokens:**
+- `searchDebounceDuration = 300ms`
+- `searchResultLimit = 100`
+
+**artikel_list_screen.dart:**
+- `_onSuchbegriffChanged()`: Timer(300ms) — feuert erst nach Tipp-Pause
+- `_fuehreSucheAus()`: Mobile → `_db.searchArtikel()` (SQL LIKE),
+  Web → clientseitig filtern
+- Skeleton (count: 4) während laufender DB-Suche
+- Pagination-Footer ausgeblendet bei aktiver Suche
+- Leermeldung zeigt Suchbegriff an
+
+**Neuer Such-Flow:**
+Tastendruck → 300ms Pause → DB-Suche
+Feld leeren → sofort zurück zur paginierten Liste
+Suche aktiv → kein Pagination-Nachladen
+
 ## [0.7.7+4] - 2026-04-07
 
 ### Feature (M-005): Pagination für Artikelliste

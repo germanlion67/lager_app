@@ -237,6 +237,14 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Zugehörige Testdateien gelöscht ✅
 - `flutter analyze`: 0 Issues ✅
 
+### P-002: Suche Debounce — Erledigt in v0.7.7+5
+- `Timer`-basierter Debounce (300ms) ✅
+- Mobile: `_db.searchArtikel()` (SQL LIKE) ✅
+- Web: clientseitiger Filter über geladene Liste ✅
+- Skeleton während DB-Suche ✅
+- Pagination-Footer bei aktiver Suche ausgeblendet ✅
+- 2 neue AppConfig-Tokens: `searchDebounceDuration`, `searchResultLimit` ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -301,10 +309,6 @@ P-001 hat die Logik in `ImagePickerService` geändert — Tests fehlen.
 - [ ] `openCropDialog()` public API testen
 - [ ] `ensureTargetFormat(crop: false)` Pfad abdecken
 
-### P-002: Suche Debounce
-`searchArtikel()` feuert bei jedem Tastendruck eine DB-Abfrage.
-- [ ] `Debouncer` mit 300ms in `artikel_list_screen.dart`
-- [ ] Unit-Test: Debounce verhindert mehrfache Aufrufe
 
 ### P-003: Bild-Caching
 Remote-Bilder werden bei jedem Scroll neu geladen.
@@ -338,12 +342,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 24 | 24 | 0 |
+| ✅ Abgeschlossen | 25 | 25 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 8 | 0 | 8 |
+| 🟡 Mittel | 7 | 0 | 7 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **36** | **24** | **12** |
+| **Gesamt** | **36** | **25** | **11** |
 
 ---
 
@@ -351,7 +355,8 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Datum | Version | Änderung |
 |---|---|---|
-| 2026-04-07 | v0.7.7+4 | O-005 abgeschlossen: 5 deprecated Dateien + Teststubs entfernt, 0 analyze-Issues |
+| 2026-04-08 | v0.7.7+5 | P-002 abgeschlossen: Debounce 300ms, DB-Suche Mobile, clientseitig Web |
+| 2026-04-08 | v0.7.7+4 | O-005 abgeschlossen: 5 deprecated Dateien + Teststubs entfernt, 0 analyze-Issues |
 | 2026-04-07 | v0.7.7+4 | M-005 abgeschlossen: Offset-Pagination, ScrollController, Lade-Footer |
 | 2026-04-07 | v0.7.7+3 | H-001 nach Future verschoben, T-002–T-006, O-005–O-006, P-002–P-003 neu erfasst |
 | 2026-04-07 | v0.7.7+2 | P-001 abgeschlossen: Kamera-Delay auf Android behoben, optionaler Crop-Button |

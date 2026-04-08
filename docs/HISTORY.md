@@ -2,9 +2,14 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### v0.7.7+5 — 2026-04-08 - P-002: Suche Debounce + DB-Suche**
+- Timer(300ms) verhindert Suche bei jedem Tastendruck
+- Mobile: SQL LIKE via `_db.searchArtikel()`
+- Web: clientseitiger Filter über geladene PocketBase-Liste
+- Skeleton während laufender Suche, Footer bei aktiver Suche versteckt
+- Leer-Feld → sofortiger Reset zur paginierten Liste
 
-
-### v0.7.7+4 — 2026-04-07 — M-005: Pagination für Artikelliste
+### v0.7.7+4 — 2026-04-08 — M-005: Pagination für Artikelliste
 
 **Problem:** Alle Artikel wurden beim Start auf einmal aus SQLite geladen.
 Bei großen Beständen führte das zu spürbaren Verzögerungen und hohem

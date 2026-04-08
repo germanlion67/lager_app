@@ -322,12 +322,18 @@ static const double skeletonOrtFachWidth = 160.0;
 static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
 
 
-// ── Pagination (M-005) ────────────────────────────────────────────
+  // ── Pagination (M-005) ────────────────────────────────────────────
 
   /// Anzahl Artikel pro Seite (Mobile/Desktop).
   static const int paginationPageSize = 30;
 
   /// Schwellwert in Pixeln vor Listenende → nächste Seite laden.
   static const double paginationScrollThreshold = 200.0;
+
+  /// Wartezeit nach letztem Tastendruck bevor die Suche ausgelöst wird.
+  static const Duration searchDebounceDuration = Duration(milliseconds: 300);
+
+  /// Maximale Anzahl Suchergebnisse aus der DB.
+  static const int searchResultLimit = 100;
 
 }
