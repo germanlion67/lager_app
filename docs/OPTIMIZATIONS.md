@@ -245,6 +245,11 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Pagination-Footer bei aktiver Suche ausgeblendet ✅
 - 2 neue AppConfig-Tokens: `searchDebounceDuration`, `searchResultLimit` ✅
 
+### O-006: Widget-Tests ArtikelErfassenScreen — Erledigt in v0.7.7+5
+- 11 Tests, alle grün ✅
+- Render, Validierung, Abbrechen-Pfade abgedeckt ✅
+- `tester.view.physicalSize` + `scrollUntilVisible()` für ListView ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -342,12 +347,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 25 | 25 | 0 |
+| ✅ Abgeschlossen | 26 | 26 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 7 | 0 | 7 |
+| 🟡 Mittel | 6 | 0 | 6 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **36** | **25** | **11** |
+| **Gesamt** | **36** | **26** | **10** |
 
 ---
 
@@ -355,6 +360,7 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-08 | v0.7.7+5 | O-006 abgeschlossen: 11 Widget-Tests ArtikelErfassenScreen, alle grün |
 | 2026-04-08 | v0.7.7+5 | P-002 abgeschlossen: Debounce 300ms, DB-Suche Mobile, clientseitig Web |
 | 2026-04-08 | v0.7.7+4 | O-005 abgeschlossen: 5 deprecated Dateien + Teststubs entfernt, 0 analyze-Issues |
 | 2026-04-07 | v0.7.7+4 | M-005 abgeschlossen: Offset-Pagination, ScrollController, Lade-Footer |

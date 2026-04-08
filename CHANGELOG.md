@@ -4,6 +4,19 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
 ## [0.7.7+5] - 2026-04-08
 
+### Test (O-006): Widget-Tests ArtikelErfassenScreen
+
+11 Widget-Tests für `artikel_erfassen_screen.dart`.
+
+**Render:** Pflichtfeld-Labels, Bilddatei-Button, Kamera-Button-Sichtbarkeit,
+Speichern + Abbrechen vorhanden.
+
+**Validierung:** Leere Pflichtfelder, Name < 2 Zeichen,
+Artikelnummer < 1000, Menge 0 gültig.
+
+**Abbrechen:** Ohne Änderungen kein Dialog, nach Eingabe Dialog,
+Weiter bearbeiten schließt Dialog.
+
 ### Feature (P-002): Suche Debounce + DB-Suche
 
 **Problem:** Jeder Tastendruck löste sofort einen clientseitigen Filter
