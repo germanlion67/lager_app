@@ -1,6 +1,7 @@
 // test/widgets/artikel_erfassen_test.dart
 //
 // O-006: Widget-Tests für ArtikelErfassenScreen
+// v0.7.8: Bild-Buttons sind jetzt IconButton (Punkt 6) — Tests angepasst
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,20 +72,30 @@ void main() {
       expect(find.text('Fach *'), findsOneWidget);
     });
 
+    // v0.7.8 Punkt 6: Bild-Button ist jetzt IconButton mit Icons.image
     testWidgets('Bilddatei-Button ist sichtbar', (tester) async {
       await _pumpScreen(tester);
 
-      final btn = find.widgetWithText(FilledButton, 'Bilddatei wählen');
+      final btn = find.byWidgetPredicate(
+        (widget) =>
+            widget is IconButton &&
+            widget.tooltip == 'Bilddatei wählen',
+      );
       await _scrollTo(tester, btn);
       expect(btn, findsOneWidget);
     });
 
+    // v0.7.8 Punkt 6: Kamera-Button ist jetzt IconButton mit Icons.camera_alt
     testWidgets(
         'Kamera-Button Sichtbarkeit entspricht isCameraAvailable',
         (tester) async {
       await _pumpScreen(tester);
 
-      final btn = find.widgetWithText(FilledButton, 'Kamera');
+      final btn = find.byWidgetPredicate(
+        (widget) =>
+            widget is IconButton &&
+            widget.tooltip == 'Kamera',
+      );
 
       if (ImagePickerService.isCameraAvailable) {
         await _scrollTo(tester, btn);
