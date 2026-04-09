@@ -9,10 +9,13 @@
 // v0.7.8: Punkt 7 — QR-Scan-Button direkt neben Suchfeld (kein FAB mehr)
 //         Punkt 8 — „Neuer Artikel"-Button in AppBar (FAB entfernt)
 //         Punkt 9 — DB-Icon grün bei Verbindung
+//
+// v0.7.9: Testability — nextcloudService + initialArtikel als optionale
+//         Parameter (DI). Bestehende Aufrufe ohne Parameter unverändert.
 
 import 'dart:async';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 
@@ -25,6 +28,7 @@ import '../services/artikel_import_service.dart';
 import '../services/nextcloud_connection_service.dart';
 import '../services/pocketbase_service.dart';
 import '../services/scan_service.dart';
+import '../services/nextcloud_service_interface.dart';  // ✅ NEU
 
 // M-011: Neues zentrales Bild-Widget
 import '../widgets/artikel_bild_widget.dart';
@@ -40,8 +44,25 @@ import 'list_screen_mobile_actions.dart'
 
 import '../widgets/app_loading_overlay.dart';
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ✅ ÄNDERUNG 1: Zwei optionale Parameter im StatefulWidget
+// ═══════════════════════════════════════════════════════════════════════════
+
 class ArtikelListScreen extends StatefulWidget {
-  const ArtikelListScreen({super.key});
+  const ArtikelListScreen({
+    super.key,
+    this.nextcloudService,  // ✅ NEU
+    this.initialArtikel,    // ✅ NEU
+  });
+
+  /// Wenn null → wird in initState() eine neue NextcloudConnectionService-
+  /// Instanz erzeugt (bisheriges Verhalten).
+  /// Im Test: NoOpNextcloudService übergeben → kein Timer.
+  final NextcloudServiceInterface? nextcloudService;  // War: NextcloudConnectionService?
+
+  /// Wenn null → _ladeArtikel() wird in initState() aufgerufen (bisheriges
+  /// Verhalten). Wenn gesetzt → Artikelliste direkt verwenden, kein DB-Load.
+  final List<Artikel>? initialArtikel;  // ✅ NEU
 
   @override
   State<ArtikelListScreen> createState() => _ArtikelListScreenState();
@@ -70,9 +91,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
 
-  NextcloudConnectionService? _nextcloudService;
+  NextcloudServiceInterface? _nextcloudService;  // War: NextcloudConnectionService?
 
   // ==================== LIFECYCLE ====================
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // ✅ ÄNDERUNG 2: initState() nutzt die injizierten Parameter
+  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
   void initState() {
@@ -83,7 +108,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
     _scrollController.addListener(_onScroll);
 
-    _ladeArtikel();
+    // ✅ NEU: Injizierte Artikel verwenden ODER aus DB laden
+    if (widget.initialArtikel != null) {
+      _artikelListe = List<Artikel>.from(widget.initialArtikel!);
+      _isLoading = false;
+    } else {
+      _ladeArtikel();
+    }
 
     if (kIsWeb) {
       _pbConnected = true;
@@ -91,7 +122,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       _checkPocketBaseConnection();
 
       try {
-        _nextcloudService = NextcloudConnectionService();
+        // ✅ NEU: Injizierte Instanz verwenden ODER neue erzeugen
+        _nextcloudService =
+            widget.nextcloudService ?? NextcloudConnectionService();
         _nextcloudService!.startPeriodicCheck();
       } catch (e, st) {
         _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
@@ -687,7 +720,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             context,
             MaterialPageRoute<void>(
               builder: (_) => NextcloudSettingsScreen(
-                connectionService: _nextcloudService!,
+                connectionService:
+                    _nextcloudService as NextcloudConnectionService, // ✅ NEU: Cast nötig wegen Interface
               ),
             ),
           );

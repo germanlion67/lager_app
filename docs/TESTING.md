@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.7.8 | **Zuletzt aktualisiert:** 09.04.2026
+**Version:** 0.7.9 | **Zuletzt aktualisiert:** 09.04.2026
 
 ---
 
@@ -35,11 +35,9 @@ flutter test
 | `test/widgets/dokumente_button_test.dart` | Widget | 1 | – |
 | `test/widgets/artikel_erfassen_test.dart` | Widget | 11 | O-006 |
 | `test/widgets/artikel_detail_screen_test.dart` | Widget | 24 | O-006 |
-| `test/widgets/artikel_list_screen_test.dart` | Widget | 15 ⚠️ | O-006 |
+| `test/widgets/artikel_list_screen_test.dart` | Widget | 15 | O-006 |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1* | – |
 | **Gesamt** | | **348** | |
-
-> ⚠️ `artikel_list_screen_test.dart`: 12/15 Tests grün. 3 Tests schlagen fehl wegen eines noch nicht gelösten Periodic-Timer-Problems (`NextcloudConnectionService.startPeriodicCheck()` in `initState`). Bekanntes Problem, kein Blocker.
 
 > \* Performance-Test erfordert externe Testdaten (siehe [unten](#performance-tests)).
 
@@ -277,27 +275,34 @@ flutter test test/widgets/artikel_detail_screen_test.dart
 
 ---
 
-### `widgets/artikel_list_screen_test.dart` — O-006 (15 Widget-Tests) ⚠️
+### `widgets/artikel_list_screen_test.dart` — O-006 (15 Widget-Tests) ✅
+
 
 **Ziel:** Widget-Tests für `ArtikelListScreen`.
 
-**Strategie:**
+**Strategie (v0.7.9 - Refactored):**
 - `sqflite_common_ffi` In-Memory-DB via `injectDatabase()`
 - Vollständiges Schema (inkl. `deleted`, `uuid`, `updated_at`)
-- `pump(Duration)` statt `pumpAndSettle()` — ignoriert laufende HTTP-Timer
-- `_pumpUntilLoaded()` — wartet bis `_isLoading = false`
-- `stopPeriodicCheck()` — stoppt Nextcloud Periodic-Timer
+- `NoOpNextcloudService` — Timer-freier Test-Double via `NextcloudServiceInterface
+- `initialArtikel: []` — überspringt async DB-Load, `_isLoading` sofort `false`
+- Einfaches `pump()` reicht — kein `pumpAndSettle()`, kein `runAsync()`, kein Timer-Workaround
+
+Architektur-Änderungen (v0.7.9):
 
 | Gruppe | Tests | Status | Was wird geprüft |
 |---|---|---|---|
 | Render | 4 | ✅ | AppBar-Titel, Suchfeld, Dropdown, DB-Icon |
 | QR-Button (Punkt 7) | 2 | ✅ | QR-Button neben Suchfeld, kein FAB |
-| Neuer Artikel AppBar (Punkt 8) | 4 | ⚠️ 3✅ 1❌ | AppBar-Buttons, Navigation zu ErfassenScreen |
+| Neuer Artikel AppBar (Punkt 8) | 4 | ✅ | AppBar-Buttons, Navigation zu ErfassenScreen |
 | Menü | 2 | ✅ | more_vert Button, Menü-Einträge |
-| Suche | 2 | ⚠️ 1✅ 1❌ | Texteingabe, Leer-Hinweis |
+| Suche | 2 | ✅ | Texteingabe, Leer-Hinweis |
 | DB-Icon Farbe (Punkt 9) | 1 | ✅ | Icon-Farbe nicht null |
 
-> ⚠️ **Bekanntes Problem:** 3 Tests schlagen fehl wegen `A Timer is still pending`. Ursache: `NextcloudConnectionService.startPeriodicCheck()` wird in `initState` gestartet und kann im Test-Kontext nicht vollständig gestoppt werden. Kein Blocker für den Commit.
+Gelöstes Problem: In v0.7.8 schlugen 3 Tests mit A Timer is still pending fehl, weil
+NextcloudConnectionService.startPeriodicCheck() in initState() einen Timer.periodic
+startete, der im Test-Kontext nicht gestoppt werden konnte (Singleton + Factory-Konstruktor).
+Die Lösung: Dependency Injection über ein Interface — der Test injiziert einen
+NoOpNextcloudService, der keinen Timer startet.
 
 ```bash
 flutter test test/widgets/artikel_list_screen_test.dart
@@ -386,3 +391,18 @@ Die folgenden Tests sind **nicht automatisierbar** und müssen manuell durchgef�
 ---
 
 *Dieses Dokument wird bei jeder neuen Test-Suite aktualisiert.*
+
+--- 
+
+## Änderungen gegenüber v0.7.8
+
+| Stelle | Vorher (v0.7.8) | Nachher (v0.7.9) |
+|---|---|---|
+| **Version** | 0.7.8 | 0.7.9 |
+| **Übersichtstabelle** | `15 ⚠️` | `15 ✅` |
+| **Warnhinweis unter Tabelle** | ⚠️ 3 Tests schlagen fehl wegen Timer | Entfernt |
+| **artikel_list_screen Abschnitt** | ⚠️ Status, Workaround-Strategie | ✅ Alle grün, DI-Strategie dokumentiert |
+| **Architektur-Änderungen** | – | NEU: Tabelle mit 4 geänderten Dateien |
+| **Gelöstes Problem** | – | NEU: Erklärung des Timer-Problems + Lösung |
+| **Status-Tabelle** | 3✅ 1❌ / 1✅ 1❌ | Alle ✅ |
+| **Test-Infrastruktur** | – | NEU: Eigener Abschnitt für Helpers + Interfaces |

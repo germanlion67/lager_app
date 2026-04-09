@@ -9,10 +9,12 @@ import 'package:logger/logger.dart';
 
 import '../screens/nextcloud_settings_screen.dart';
 import 'nextcloud_credentials.dart';
+import 'nextcloud_service_interface.dart';
 
 enum NextcloudConnectionStatus { online, offline, unknown }
 
-class NextcloudConnectionService {
+// ✅ ÄNDERUNG: implements NextcloudServiceInterface hinzugefügt
+class NextcloudConnectionService implements NextcloudServiceInterface {
   static final NextcloudConnectionService _instance =
       NextcloudConnectionService._internal();
   factory NextcloudConnectionService() => _instance;
@@ -27,10 +29,12 @@ class NextcloudConnectionService {
   Timer? _timer;
   NextcloudCredentials? _currentCredentials;
 
+  @override
   ValueNotifier<NextcloudConnectionStatus> get connectionStatus =>
       _connectionStatus;
 
   /// Startet die periodische Verbindungsprüfung.
+  @override
   Future<void> startPeriodicCheck() async {
     _logger.i('Starting Nextcloud connection monitoring');
 
@@ -67,6 +71,7 @@ class NextcloudConnectionService {
   }
 
   /// Stoppt die periodische Verbindungsprüfung.
+  @override
   void stopPeriodicCheck() {
     _logger.i('Stopping Nextcloud connection monitoring');
     _timer?.cancel();
@@ -75,11 +80,13 @@ class NextcloudConnectionService {
   }
 
   /// Löst manuell eine Verbindungsprüfung aus.
+  @override
   Future<void> checkConnectionNow() async {
     await _checkConnection();
   }
 
   /// Startet das Monitoring neu (z. B. nach Einstellungsänderung).
+  @override
   Future<void> restartMonitoring() async {
     stopPeriodicCheck();
     await startPeriodicCheck();
@@ -143,6 +150,7 @@ class NextcloudConnectionService {
   }
 
   /// Singleton-sicheres dispose — nur aufrufen wenn App vollständig beendet.
+  @override
   void dispose() {
     _timer?.cancel();
     _timer = null;
