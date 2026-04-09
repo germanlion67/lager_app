@@ -2,7 +2,53 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
+### [0.7.8] - 2026-04-09 ✨ Verbessert - UI Ansicht
 
+#### 🖼️ Artikel-Detail-Screen
+- **Artikelname editierbar:** Name kann direkt im Detail-Screen geändert werden
+  — neues Textfeld als erstes Eingabefeld, AppBar-Titel aktualisiert sich live
+- **Crop-Button:** Nach Bildauswahl erscheint ein „Zuschneiden"-Button
+  direkt unter dem Bild (nur im Edit-Modus, nur wenn neues Bild gewählt)
+- **Aufgeräumter Body:** Bild-Buttons, Anhänge-Button und Speichern-Button
+  aus dem Body entfernt — alle Aktionen jetzt übersichtlich in der AppBar
+
+#### 🎛️ AppBar-Aktionen (Detail-Screen)
+- **Bild wählen / Kamera:** Icons erscheinen nur im Edit-Modus
+- **Anhänge:** Immer sichtbar, mit Badge-Zähler bei vorhandenen Anhängen
+- **Ändern / Speichern:** Edit- und Save-Icon ersetzen den Body-Button
+- **PDF-Export & Löschen:** Unverändert, jetzt konsistent in der AppBar
+
+#### 📝 Artikel-Erfassen-Screen
+- **Großbuchstabe am Anfang:** `textCapitalization: sentences` für Name,
+  Beschreibung, Ort und Fach — Menge und Artikelnummer bleiben numerisch
+- **Menge-Feld:** Beim Antippen wird der gesamte Inhalt automatisch
+  markiert — die voreingestellte `0` muss nicht mehr manuell gelöscht werden
+- **Bild-Buttons kompakter:** „Bilddatei wählen" und „Kamera" jetzt als
+  schlanke `IconButton` statt breiter `FilledButton.tonalIcon`
+
+#### 🔍 Artikel-Liste
+- **QR-Scanner neben Suchfeld:** Scanner-Button direkt als `IconButton.filled`
+  rechts neben dem Suchfeld — kein separater FAB mehr nötig
+- **„Neuer Artikel" in AppBar:** `Icons.add` in der AppBar ersetzt den
+  `FloatingActionButton.extended` — spart Platz, wirkt aufgeräumter
+- **DB-Icon grün bei Verbindung:** PocketBase-Verbindungsicon zeigt nun
+  `AppConfig.statusColorConnected` (Material Green 500) statt
+  `colorScheme.tertiary` — eindeutigeres visuelles Feedback
+
+#### 🔧 Technisch
+
+- `AppConfig.statusColorConnected` (`Color(0xFF4CAF50)`) als neues
+  semantisches Token für den Online-Status ergänzt
+- `import 'package:flutter/material.dart' show BoxFit, Color, EdgeInsets;`
+  in `app_config.dart` um `Color` erweitert
+- `AnhaengeSektion.build()` gibt `SizedBox.shrink()` zurück —
+  Sheet wird ausschließlich über AppBar-Icon geöffnet
+- `FocusNode _mengeFocus` mit automatischer Vollauswahl in
+  `artikel_erfassen_screen.dart` eingeführt
+- `_nameController` in `artikel_detail_screen.dart` vollständig in
+  `initState`, `dispose`, `_speichernWeb`, `_speichernMobile` und
+  `_generateArtikelDetailPdf` integriert
+- `flutter analyze`: **0 Issues**
 
 ### v0.7.7+5 — 2026-04-08 - P-002: Suche Debounce + DB-Suche**
 - Timer(300ms) verhindert Suche bei jedem Tastendruck

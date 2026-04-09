@@ -5,6 +5,10 @@
 //
 // M-011: _buildArtikelBild() und _buildPocketBaseBild() ersetzt durch
 //        ArtikelListBild-Widget aus artikel_bild_widget.dart.
+//
+// v0.7.8: Punkt 7 — QR-Scan-Button direkt neben Suchfeld (kein FAB mehr)
+//         Punkt 8 — „Neuer Artikel"-Button in AppBar (FAB entfernt)
+//         Punkt 9 — DB-Icon grün bei Verbindung
 
 import 'dart:async';
 
@@ -21,7 +25,7 @@ import '../services/artikel_import_service.dart';
 import '../services/nextcloud_connection_service.dart';
 import '../services/pocketbase_service.dart';
 import '../services/scan_service.dart';
-import '../widgets/article_icons.dart';
+
 // M-011: Neues zentrales Bild-Widget
 import '../widgets/artikel_bild_widget.dart';
 
@@ -47,21 +51,21 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   final Logger _logger = AppLogService.logger;
 
   List<Artikel> _artikelListe = [];
-    String _suchbegriff = '';
-    String _filterOrt = '';
-    bool _isLoading = true;
-    bool? _pbConnected;
+  String _suchbegriff = '';
+  String _filterOrt = '';
+  bool _isLoading = true;
+  bool? _pbConnected;
 
-    // M-005: Pagination
-    final ScrollController _scrollController = ScrollController();
-    bool _isLoadingMore = false;
-    bool _hasMore = true;
-    int _currentOffset = 0;
+  // M-005: Pagination
+  final ScrollController _scrollController = ScrollController();
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentOffset = 0;
 
-    // P-002: Debounce
-    Timer? _debounceTimer;
-    List<Artikel> _suchErgebnisse = [];
-    bool _isSuche = false;
+  // P-002: Debounce
+  Timer? _debounceTimer;
+  List<Artikel> _suchErgebnisse = [];
+  bool _isSuche = false;
 
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
@@ -71,100 +75,96 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== LIFECYCLE ====================
 
   @override
-    void initState() {
-      super.initState();
+  void initState() {
+    super.initState();
 
-      _db = ArtikelDbService();
-      _pbService = PocketBaseService();
+    _db = ArtikelDbService();
+    _pbService = PocketBaseService();
 
-      // M-005: Scroll-Listener für Pagination
-      _scrollController.addListener(_onScroll);
+    _scrollController.addListener(_onScroll);
 
-      _ladeArtikel();
+    _ladeArtikel();
 
-      if (kIsWeb) {
-        _pbConnected = true;
-      } else {
-        _checkPocketBaseConnection();
+    if (kIsWeb) {
+      _pbConnected = true;
+    } else {
+      _checkPocketBaseConnection();
 
-        try {
-          _nextcloudService = NextcloudConnectionService();
-          _nextcloudService!.startPeriodicCheck();
-        } catch (e, st) {
-          _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
-        }
+      try {
+        _nextcloudService = NextcloudConnectionService();
+        _nextcloudService!.startPeriodicCheck();
+      } catch (e, st) {
+        _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
       }
     }
+  }
 
   @override
-    void dispose() {
-      _debounceTimer?.cancel();
-      _scrollController.dispose();
-      _nextcloudService?.dispose();
-      super.dispose();
-    }
+  void dispose() {
+    _debounceTimer?.cancel();
+    _scrollController.dispose();
+    _nextcloudService?.dispose();
+    super.dispose();
+  }
 
   // ==================== DATEN LADEN ====================
 
   Future<void> _ladeArtikel() async {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = true;
-        _currentOffset = 0;
-        _hasMore = true;
-        _artikelListe = [];
-      });
+    if (!mounted) return;
+    setState(() {
+      _isLoading = true;
+      _currentOffset = 0;
+      _hasMore = true;
+      _artikelListe = [];
+    });
 
-      try {
-        if (kIsWeb) {
-          // Web: PocketBase liefert alles auf einmal — Pagination nicht nötig
-          final records = await _pbService.client
-              .collection('artikel')
-              .getFullList(sort: '-created')
-              .timeout(
-                const Duration(seconds: 15),
-                onTimeout: () =>
-                    throw TimeoutException('PocketBase antwortet nicht'),
-              );
-
-          _artikelListe = records.map((r) {
-            final created = r.data['created'] as String? ?? '';
-            final updated = r.data['updated'] as String? ?? '';
-            return Artikel.fromPocketBase(
-              r.data,
-              r.id,
-              created: created,
-              updated: updated,
+    try {
+      if (kIsWeb) {
+        final records = await _pbService.client
+            .collection('artikel')
+            .getFullList(sort: '-created')
+            .timeout(
+              const Duration(seconds: 15),
+              onTimeout: () =>
+                  throw TimeoutException('PocketBase antwortet nicht'),
             );
-          }).toList();
-          _hasMore = false; // Web lädt alles auf einmal
-        } else {
-          // M-005: Erste Seite laden
-          final seite = await _db.getAlleArtikel(
-            limit: AppConfig.paginationPageSize,
-            offset: 0,
-          );
-          _artikelListe = seite;
-          _currentOffset = seite.length;
-          _hasMore = seite.length >= AppConfig.paginationPageSize;
-        }
-      } catch (e, st) {
-        _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
-        if (mounted) {
-          final colorScheme = Theme.of(context).colorScheme;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Fehler beim Laden: $e'),
-              backgroundColor: colorScheme.error,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
-      }
-    }
 
-// M-005: Nächste Seite laden
+        _artikelListe = records.map((r) {
+          final created = r.data['created'] as String? ?? '';
+          final updated = r.data['updated'] as String? ?? '';
+          return Artikel.fromPocketBase(
+            r.data,
+            r.id,
+            created: created,
+            updated: updated,
+          );
+        }).toList();
+        _hasMore = false;
+      } else {
+        final seite = await _db.getAlleArtikel(
+          limit: AppConfig.paginationPageSize,
+          offset: 0,
+        );
+        _artikelListe = seite;
+        _currentOffset = seite.length;
+        _hasMore = seite.length >= AppConfig.paginationPageSize;
+      }
+    } catch (e, st) {
+      _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
+      if (mounted) {
+        final colorScheme = Theme.of(context).colorScheme;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fehler beim Laden: $e'),
+            backgroundColor: colorScheme.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _ladeNaechsteSeite() async {
     if (_isLoadingMore || !_hasMore || _suchbegriff.isNotEmpty) return;
     if (!mounted) return;
@@ -194,7 +194,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
-  // M-005: Scroll-Listener
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
@@ -205,12 +204,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
-// P-002: Debounce-Handler für Sucheingabe
   void _onSuchbegriffChanged(String value) {
     _debounceTimer?.cancel();
 
     if (value.isEmpty) {
-      // Suche beendet → zurück zur paginierten Liste
       setState(() {
         _suchbegriff = '';
         _isSuche = false;
@@ -226,14 +223,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     });
   }
 
-  // P-002: DB-Suche ausführen (Mobile) oder clientseitig filtern (Web)
   Future<void> _fuehreSucheAus(String query) async {
     if (!mounted) return;
     setState(() => _isSuche = true);
 
     try {
       if (kIsWeb) {
-        // Web: clientseitig über die bereits geladene Liste filtern
         final lower = query.toLowerCase();
         setState(() {
           _suchErgebnisse = _artikelListe.where((a) {
@@ -242,7 +237,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           }).toList();
         });
       } else {
-        // Mobile/Desktop: DB-Suche via searchArtikel()
         final ergebnisse = await _db.searchArtikel(
           query,
           limit: AppConfig.searchResultLimit,
@@ -261,7 +255,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
-
   // ==================== VERBINDUNG ====================
 
   Future<void> _checkPocketBaseConnection() async {
@@ -278,16 +271,14 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ==================== FILTER ====================
 
   List<Artikel> _gefilterteArtikel() {
-      // P-002: Bei aktiver Suche → _suchErgebnisse nutzen (DB-Suche)
-      // Sonst → paginierte _artikelListe clientseitig nach Ort filtern
-      final basis = _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
+    final basis = _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
 
-      if (_filterOrt.isEmpty) return basis;
+    if (_filterOrt.isEmpty) return basis;
 
-      return basis
-          .where((a) => a.ort.trim() == _filterOrt.trim())
-          .toList();
-    }
+    return basis
+        .where((a) => a.ort.trim() == _filterOrt.trim())
+        .toList();
+  }
 
   // ==================== AKTIONEN ====================
 
@@ -314,8 +305,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     final String pbTooltip;
 
     switch (_pbConnected) {
+      // v0.7.8 Punkt 9: Grün statt colorScheme.tertiary bei Verbindung
       case true:
-        pbColor = colorScheme.tertiary;
+        pbColor = AppConfig.statusColorConnected;
         pbTooltip = 'PocketBase: Online';
       case false:
         pbColor = colorScheme.error;
@@ -332,11 +324,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           onTap: _checkPocketBaseConnection,
           child: Tooltip(
             message: pbTooltip,
-            child: Icon(Icons.dns, color: pbColor, size: AppConfig.iconSizeMedium),
+            child: Icon(
+              Icons.dns,
+              color: pbColor,
+              size: AppConfig.iconSizeMedium,
+            ),
           ),
         ),
         if (!kIsWeb && _nextcloudService != null) ...[
-          const SizedBox(width: AppConfig.spacingSmall - 2), // 6
+          const SizedBox(width: AppConfig.spacingSmall - 2),
           _buildNextcloudIcon(),
         ],
       ],
@@ -397,6 +393,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ],
         ),
         actions: [
+          // v0.7.8 Punkt 8: „Neuer Artikel"-Button in AppBar
+          IconButton(
+            icon: const Icon(Icons.add),
+            tooltip: 'Neuen Artikel erfassen',
+            onPressed: _neuenArtikelErfassen,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Aktualisieren',
@@ -410,16 +412,43 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       ),
       body: Column(
         children: [
+          // v0.7.8 Punkt 7: Suchfeld + QR-Button als Row
           Padding(
             padding: const EdgeInsets.all(AppConfig.spacingSmall),
-            child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Suche nach Name oder Beschreibung',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
-              ),
-              // P-002: Debounce statt direktem setState
-              onChanged: _onSuchbegriffChanged,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      labelText: 'Suche nach Name oder Beschreibung',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: _onSuchbegriffChanged,
+                  ),
+                ),
+                const SizedBox(width: AppConfig.spacingSmall),
+                // v0.7.8 Punkt 7: QR-Scan-Button direkt neben Suchfeld
+                IconButton.filled(
+                  icon: Icon(
+                    ScanService.hasCameraScanner
+                        ? Icons.qr_code_scanner
+                        : Icons.search,
+                  ),
+                  tooltip: ScanService.hasCameraScanner
+                      ? 'Artikel scannen'
+                      : 'Artikel per UUID suchen',
+                  onPressed: () async {
+                    await ScanService.scanArtikel(
+                      context,
+                      _artikelListe,
+                      _ladeArtikel,
+                      setState,
+                      _db,
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           Padding(
@@ -452,7 +481,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           Expanded(
             child: _isLoading
                 ? const ArtikelSkeletonList(count: 8)
-                // P-002: Skeleton auch während DB-Suche
                 : _isSuche
                     ? const ArtikelSkeletonList(count: 4)
                     : gefiltert.isEmpty
@@ -470,7 +498,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                             onRefresh: _ladeArtikel,
                             child: ListView.builder(
                               controller: _scrollController,
-                              // M-005: Footer nur wenn keine Suche aktiv
                               itemCount: gefiltert.length +
                                   (_hasMore && _suchbegriff.isEmpty ? 1 : 0),
                               itemBuilder: (context, index) {
@@ -500,38 +527,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ],
       ),
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            heroTag: 'scan',
-            onPressed: () async {
-              await ScanService.scanArtikel(
-                context,
-                _artikelListe,
-                _ladeArtikel,
-                setState,
-                _db,
-              );
-            },
-            tooltip: ScanService.hasCameraScanner
-                ? 'Artikel scannen'
-                : 'Artikel per UUID suchen',
-            child: Icon(
-              ScanService.hasCameraScanner
-                  ? Icons.qr_code_scanner
-                  : Icons.search,
-            ),
-          ),
-          const SizedBox(width: AppConfig.spacingMedium),
-          FloatingActionButton.extended(
-            heroTag: 'new',
-            onPressed: _neuenArtikelErfassen,
-            icon: const AddArticleIcon(),
-            label: const Text('Neuer Artikel'),
-          ),
-        ],
-      ),
+      // v0.7.8 Punkt 7 + 8: floatingActionButton komplett entfernt
     );
   }
 
@@ -542,7 +538,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return ListTile(
-      // M-011: Zentrales Bild-Widget statt inline Image.network / Image.file
       leading: ArtikelListBild(artikel: artikel),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -565,7 +560,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // M-007: Artikelnummer anzeigen
           if (artikel.artikelnummer != null)
             Text(
               'Art.-Nr.: ${artikel.artikelnummer}',

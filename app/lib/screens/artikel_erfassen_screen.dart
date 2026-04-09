@@ -1,4 +1,8 @@
 // lib/screens/artikel_erfassen_screen.dart
+//
+// v0.7.8: Punkt 3 — textCapitalization: sentences für Name, Beschreibung, Ort, Fach
+//         Punkt 4 — FocusNode für Menge: Vorauswahl beim Fokus
+//         Punkt 6 — Bild-Buttons als IconButton statt FilledButton.tonalIcon
 
 import 'dart:async' show unawaited;
 import 'dart:typed_data';
@@ -15,7 +19,7 @@ import '../services/artikel_db_service.dart';
 import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
 import '../utils/image_processing_utils.dart';
-import '../widgets/article_icons.dart';
+
 
 import 'artikel_erfassen_io.dart'
     if (dart.library.html) 'artikel_erfassen_stub.dart' as platform;
@@ -38,6 +42,9 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   final _mengeCtrl = TextEditingController(text: '0');
   final _artikelnummerCtrl = TextEditingController();
 
+  // v0.7.8 Punkt 4: FocusNode für Menge-Feld
+  final FocusNode _mengeFocus = FocusNode();
+
   String? _bildPfad;
   Uint8List? _bildBytes;
   String? _bildDateiname;
@@ -45,7 +52,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
 
-  // Hält die automatisch ermittelte Nummer für den Duplikat-Check
   int? _suggestedArtikelnummer;
 
   late final ArtikelDbService _db;
@@ -66,7 +72,16 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _mengeCtrl.addListener(_markDirty);
     _artikelnummerCtrl.addListener(_markDirty);
 
-    // Artikelnummer beim Start vorbelegen
+    // v0.7.8 Punkt 4: Beim Fokus den gesamten Inhalt des Menge-Felds markieren
+    _mengeFocus.addListener(() {
+      if (_mengeFocus.hasFocus) {
+        _mengeCtrl.selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: _mengeCtrl.text.length,
+        );
+      }
+    });
+
     _initArtikelnummer();
   }
 
@@ -92,6 +107,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _fachCtrl.dispose();
     _mengeCtrl.dispose();
     _artikelnummerCtrl.dispose();
+    // v0.7.8 Punkt 4: FocusNode disposen
+    _mengeFocus.dispose();
     super.dispose();
   }
 
@@ -109,8 +126,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     });
   }
 
-  /// Ermittelt die nächste freie Artikelnummer.
-  /// Prüft lokale DB + PocketBase und nimmt das Maximum.
   Future<int> _getNextArtikelnummer() async {
     const int startNummer = 1000;
     int maxNummer = startNummer - 1;
@@ -159,14 +174,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
   // ==================== VALIDIERUNG ====================
 
-  /// Prüft ob die Kombination Name + Ort + Fach bereits existiert.
-  /// Gibt [true] zurück wenn ein Duplikat gefunden wurde.
   Future<bool> _isDuplicateKombination({
     required String name,
     required String ort,
     required String fach,
   }) async {
-    // Lokale DB prüfen (nur native)
     if (!kIsWeb) {
       try {
         final exists = await _db.existsKombination(
@@ -184,7 +196,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       }
     }
 
-    // PocketBase prüfen
     if (_pbService.hasClient) {
       try {
         final filter =
@@ -205,9 +216,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     return false;
   }
 
-  /// Prüft ob eine Artikelnummer bereits vergeben ist.
   Future<bool> _isArtikelnummerTaken(int nummer) async {
-    // Automatisch vorgeschlagene Nummer ist immer frei
     if (nummer == _suggestedArtikelnummer) return false;
 
     if (!kIsWeb) {
@@ -272,7 +281,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     });
   }
 
-  /// Öffnet den Crop-Dialog optional nach Aufnahme/Auswahl.
   Future<void> _cropImage() async {
     if (_bildBytes == null) return;
     final cropResult = await ImagePickerService.openCropDialog(
@@ -340,7 +348,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   Future<void> _save() async {
     _logger.d('_save() gestartet.');
 
-    // 1. Synchrone Formularvalidierung (Pflichtfelder, Format)
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     setState(() => _isSaving = true);
@@ -355,7 +362,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           _suggestedArtikelnummer ??
           await _getNextArtikelnummer();
 
-      // 2. Asynchrone Validierung: Duplikat-Checks
       final isDuplicate = await _isDuplicateKombination(
         name: name,
         ort: ort,
@@ -363,7 +369,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       );
       if (isDuplicate) {
         if (mounted) {
-          // Formular neu validieren damit Inline-Fehler erscheinen
           _formKey.currentState?.validate();
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -392,7 +397,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         return;
       }
 
-      // 3. Artikel-Objekt erstellen und speichern
       final artikel = Artikel(
         name: name,
         artikelnummer: artikelnummer,
@@ -544,7 +548,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       await _db.markSynced(artikel.uuid, recordId);
       _logger.i('Bild zu PocketBase hochgeladen: $filename');
     } catch (e, st) {
-      _logger.e('PocketBase Bild-Upload fehlgeschlagen:', error: e, stackTrace: st);
+      _logger.e(
+        'PocketBase Bild-Upload fehlgeschlagen:',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
@@ -567,8 +575,10 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
               padding: const EdgeInsets.all(AppConfig.spacingLarge),
               children: [
                 // ── Name ──────────────────────────────────────
+                // v0.7.8 Punkt 3: textCapitalization ergänzt
                 TextFormField(
                   controller: _nameCtrl,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                     labelText: 'Name *',
                     border: OutlineInputBorder(),
@@ -589,8 +599,10 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                 const SizedBox(height: AppConfig.spacingMedium),
 
                 // ── Beschreibung ───────────────────────────────
+                // v0.7.8 Punkt 3: textCapitalization ergänzt
                 TextFormField(
                   controller: _beschreibungCtrl,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                     labelText: 'Beschreibung',
                     border: OutlineInputBorder(),
@@ -601,8 +613,10 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                 const SizedBox(height: AppConfig.spacingMedium),
 
                 // ── Ort ───────────────────────────────────────
+                // v0.7.8 Punkt 3: textCapitalization ergänzt
                 TextFormField(
                   controller: _ortCtrl,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                     labelText: 'Ort *',
                     border: OutlineInputBorder(),
@@ -620,8 +634,10 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                 const SizedBox(height: AppConfig.spacingMedium),
 
                 // ── Fach ──────────────────────────────────────
+                // v0.7.8 Punkt 3: textCapitalization ergänzt
                 TextFormField(
                   controller: _fachCtrl,
+                  textCapitalization: TextCapitalization.sentences,
                   decoration: const InputDecoration(
                     labelText: 'Fach *',
                     border: OutlineInputBorder(),
@@ -639,8 +655,10 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                 const SizedBox(height: AppConfig.spacingMedium),
 
                 // ── Menge ─────────────────────────────────────
+                // v0.7.8 Punkt 4: focusNode ergänzt
                 TextFormField(
                   controller: _mengeCtrl,
+                  focusNode: _mengeFocus,
                   decoration: const InputDecoration(
                     labelText: 'Menge',
                     border: OutlineInputBorder(),
@@ -666,6 +684,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                 const SizedBox(height: AppConfig.spacingMedium),
 
                 // ── Artikelnummer ─────────────────────────────
+                // Keine textCapitalization — numerisches Feld
                 TextFormField(
                   controller: _artikelnummerCtrl,
                   decoration: const InputDecoration(
@@ -695,26 +714,26 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                 const SizedBox(height: AppConfig.spacingMedium),
 
                 // ── Bild-Auswahl ──────────────────────────────
+                // v0.7.8 Punkt 6: IconButton statt FilledButton.tonalIcon
                 Row(
                   children: [
-                    FilledButton.tonalIcon(
+                    IconButton(
+                      icon: const Icon(Icons.image),
+                      tooltip: 'Bilddatei wählen',
                       onPressed: _pickImageFile,
-                      icon: const ImageFileIcon(),
-                      label: const Text('Bilddatei wählen'),
                     ),
-                    if (ImagePickerService.isCameraAvailable) ...[
-                      const SizedBox(width: AppConfig.spacingMedium),
-                      FilledButton.tonalIcon(
-                        onPressed: _pickImageCamera,
+                    if (ImagePickerService.isCameraAvailable)
+                      IconButton(
                         icon: const Icon(Icons.camera_alt),
-                        label: const Text('Kamera'),
+                        tooltip: 'Kamera',
+                        onPressed: _pickImageCamera,
                       ),
-                    ],
-                    const SizedBox(width: AppConfig.spacingMedium),
+                    const SizedBox(width: AppConfig.spacingSmall),
                     Expanded(
                       child: Text(
                         _bildDateiname ?? 'Keine Datei ausgewählt',
                         overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall,
                       ),
                     ),
                   ],

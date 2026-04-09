@@ -14,7 +14,7 @@
 // Setup-Screen eingegeben und in SharedPreferences gespeichert.
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:flutter/material.dart' show BoxFit, EdgeInsets;
+import 'package:flutter/material.dart' show BoxFit, Color, EdgeInsets;
 import 'package:runtime_env_config/runtime_env_config.dart';
 
 class AppConfig {
@@ -244,6 +244,11 @@ class AppConfig {
 
   /// Vertikale Padding-Höhe für Buttons mit mehr Gewicht (12.0).
   static const double buttonPaddingVertical = 12.0;
+
+  // ── Status-Farben (v0.7.8 Punkt 9) ──────────────────────────────
+  /// Grün für „PocketBase verbunden" — semantisch klarer als colorScheme.tertiary.
+  static const Color statusColorConnected = Color(0xFF4CAF50); // Material Green 500
+
 
   // ============================================================================
   // Layout-Konstanten Batch 4 (O-004)

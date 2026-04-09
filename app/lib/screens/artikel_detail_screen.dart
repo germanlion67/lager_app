@@ -5,6 +5,10 @@
 //
 // M-004: Loading States — _isSaving, _isDeleting, AppLoadingOverlay,
 //        AppLoadingButton. Inkonsistenter ElevatedButton ersetzt.
+//
+// v0.7.8: Punkt 1 — _cropImage() + Crop-Button im Edit-Modus
+//         Punkt 2 — _nameController: Artikelname editierbar
+//         Punkt 5 — Bild-Buttons + Anhänge + Speichern in AppBar
 
 import 'dart:async';
 import 'dart:typed_data';
@@ -49,6 +53,8 @@ class ArtikelDetailScreen extends StatefulWidget {
 class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   final Logger _logger = AppLogService.logger;
 
+  // v0.7.8 Punkt 2: Name-Controller
+  late final TextEditingController _nameController;
   late final TextEditingController _beschreibungController;
   late final TextEditingController _ortController;
   late final TextEditingController _fachController;
@@ -81,6 +87,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     _db = ArtikelDbService();
     _pbService = PocketBaseService();
 
+    // v0.7.8 Punkt 2: Name-Controller initialisieren
+    _nameController = TextEditingController(text: widget.artikel.name)
+      ..addListener(_onChanged);
     _beschreibungController =
         TextEditingController(text: widget.artikel.beschreibung)
           ..addListener(_onChanged);
@@ -141,6 +150,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   @override
   void dispose() {
+    // v0.7.8 Punkt 2: Name-Controller disposen
+    _nameController.dispose();
     _beschreibungController.dispose();
     _ortController.dispose();
     _fachController.dispose();
@@ -241,6 +252,21 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
   }
 
+  // v0.7.8 Punkt 1: Crop-Methode für Detail-Screen
+  Future<void> _cropImage() async {
+    if (_pendingBytes == null) return;
+    final cropResult = await ImagePickerService.openCropDialog(
+      context,
+      _pendingBytes,
+    );
+    if (!mounted) return;
+    if (cropResult == null) return;
+    setState(() {
+      _pendingBytes = cropResult.bytes;
+      _hasChanged = true;
+    });
+  }
+
   void _clearImageCache() {
     _logger.d('Image-Cache wird geleert');
     imageCache.clear();
@@ -256,7 +282,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   // ==================== SPEICHERN ====================
 
-  // M-004: _speichern() setzt _isSaving und zeigt AppLoadingOverlay.
   Future<void> _speichern() async {
     if (mounted) setState(() => _isSaving = true);
     try {
@@ -266,7 +291,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         await _speichernMobile();
       }
     } finally {
-      // Nur zurücksetzen wenn noch mounted und nicht bereits via pop beendet.
       if (mounted) setState(() => _isSaving = false);
     }
   }
@@ -292,7 +316,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       final recordId = list.items.first.id;
       final now = DateTime.now().toUtc();
 
+      // v0.7.8 Punkt 2: name in body ergänzt
       final body = <String, dynamic>{
+        'name': _nameController.text.trim(),
         'menge': _menge,
         'ort': _ortController.text,
         'fach': _fachController.text,
@@ -330,7 +356,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       if (!mounted) return;
 
+      // v0.7.8 Punkt 2: name in copyWith ergänzt
       final gespeicherterArtikel = widget.artikel.copyWith(
+        name: _nameController.text.trim(),
         menge: _menge,
         ort: _ortController.text,
         fach: _fachController.text,
@@ -372,7 +400,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
     _logger.d('Neues Bild vorhanden: $hasNewImage – Pfad: $_bildPfad');
 
+    // v0.7.8 Punkt 2: name in copyWith ergänzt
     final artikelMitAenderungen = widget.artikel.copyWith(
+      name: _nameController.text.trim(),
       menge: _menge,
       ort: _ortController.text,
       fach: _fachController.text,
@@ -475,7 +505,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   // ==================== LÖSCHEN ====================
 
-  // M-004: _loeschen() setzt _isDeleting und zeigt AppLoadingOverlay.
   Future<void> _loeschen() async {
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -505,11 +534,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     if (confirm != true) return;
     if (!mounted) return;
 
-    // M-004: Loading-State setzen
     setState(() => _isDeleting = true);
 
     try {
-      // M-012: Anhänge zuerst löschen
       unawaited(
         _attachmentService.deleteAllForArtikel(widget.artikel.uuid),
       );
@@ -538,7 +565,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         );
       }
     } finally {
-      // M-004: Loading-State zurücksetzen
       if (mounted) setState(() => _isDeleting = false);
     }
   }
@@ -565,6 +591,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       final pdfService = PdfService();
 
       final aktuellerArtikel = widget.artikel.copyWith(
+        name: _nameController.text.trim(),
         menge: _menge,
         ort: _ortController.text,
         fach: _fachController.text,
@@ -648,7 +675,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
   // ==================== VOLLBILD ====================
 
-  /// M-011: Vollbild-Overlay mit InteractiveViewer.
   void _zeigeBildVollbild() {
     final hasPending = _pendingBytes != null;
     final hasRemote = kIsWeb && _remoteBildUrl != null;
@@ -668,7 +694,10 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           appBar: AppBar(
             backgroundColor: Colors.black,
             foregroundColor: colorScheme.onInverseSurface,
-            title: Text(widget.artikel.name),
+            // v0.7.8 Punkt 2: Dynamischer Titel auch im Vollbild
+            title: Text(_nameController.text.isNotEmpty
+                ? _nameController.text
+                : widget.artikel.name,),
           ),
           body: Center(
             child: InteractiveViewer(
@@ -719,7 +748,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    // M-004: Interaktion während Loading sperren
     final bool isBlocked = _isSaving || _isDeleting;
 
     return PopScope(
@@ -754,22 +782,99 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         nav.pop();
       },
 
-      // M-004: Stack für AppLoadingOverlay
       child: Stack(
         children: [
           Scaffold(
             appBar: AppBar(
-              title: Text(widget.artikel.name),
+              // v0.7.8 Punkt 2: Dynamischer AppBar-Titel
+              title: Text(
+                _isEditing
+                    ? (_nameController.text.isEmpty
+                        ? widget.artikel.name
+                        : _nameController.text)
+                    : widget.artikel.name,
+              ),
+              // v0.7.8 Punkt 5: Alle Aktionen in die AppBar
               actions: [
+                // Bild wählen (nur im Edit-Modus)
+                if (_isEditing) ...[
+                  IconButton(
+                    icon: const Icon(Icons.image),
+                    tooltip: 'Bild wählen',
+                    onPressed: isBlocked ? null : _pickImageFile,
+                  ),
+                  if (ImagePickerService.isCameraAvailable)
+                    IconButton(
+                      icon: const Icon(Icons.camera_alt),
+                      tooltip: 'Kamera',
+                      onPressed: isBlocked ? null : _pickImageCamera,
+                    ),
+                ],
+                // Anhänge (immer sichtbar, mit Badge)
+                Stack(
+                  alignment: Alignment.topRight,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.attach_file),
+                      tooltip: _anhangCount == 0
+                          ? 'Anhänge'
+                          : 'Anhänge ($_anhangCount)',
+                      onPressed: isBlocked
+                          ? null
+                          : () => AnhaengeSektion(
+                                artikelUuid: widget.artikel.uuid,
+                                anhangCount: _anhangCount,
+                                onCountChanged: (c) =>
+                                    setState(() => _anhangCount = c),
+                              ).zeigeAnhaengeSheet(context),
+                    ),
+                    if (_anhangCount > 0)
+                      Positioned(
+                        right: 6,
+                        top: 6,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 14,
+                            minHeight: 14,
+                          ),
+                          child: Text(
+                            '$_anhangCount',
+                            style: TextStyle(
+                              color: colorScheme.onPrimary,
+                              fontSize: AppConfig.fontSizeXSmall,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                // Ändern / Speichern
+                IconButton(
+                  icon: Icon(!_isEditing ? Icons.edit : Icons.save),
+                  tooltip: !_isEditing
+                      ? 'Ändern'
+                      : (_hasChanged ? 'Speichern' : 'Keine Änderungen'),
+                  onPressed: isBlocked
+                      ? null
+                      : !_isEditing
+                          ? _enableEdit
+                          : (_hasChanged ? _speichern : null),
+                ),
+                // PDF
                 IconButton(
                   icon: const Icon(Icons.picture_as_pdf),
-                  // M-004: während Loading deaktiviert
                   onPressed: isBlocked ? null : _generateArtikelDetailPdf,
-                  tooltip: 'Artikel als PDF exportieren',
+                  tooltip: 'Als PDF exportieren',
                 ),
+                // Löschen
                 IconButton(
                   icon: const Icon(Icons.delete),
-                  // M-004: während Loading oder Bearbeitung deaktiviert
                   onPressed: (_isEditing || isBlocked) ? null : _loeschen,
                   tooltip: _isEditing
                       ? 'Erst speichern oder Bearbeitung abbrechen'
@@ -782,6 +887,22 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // v0.7.8 Punkt 2: Name-Feld als erstes Feld
+                  TextField(
+                    controller: _nameController,
+                    enabled: _isEditing && !isBlocked,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      border: const OutlineInputBorder(),
+                      filled: true,
+                      fillColor: _isEditing
+                          ? colorScheme.surface
+                          : colorScheme.surfaceContainerLow,
+                    ),
+                  ),
+                  const SizedBox(height: AppConfig.spacingMedium),
+
                   TextField(
                     controller: _ortController,
                     enabled: _isEditing && !isBlocked,
@@ -808,24 +929,22 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                           : colorScheme.surfaceContainerLow,
                     ),
                   ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+                  const SizedBox(height: AppConfig.spacingXLarge - 4),
 
                   Row(
                     children: [
                       Text('Menge: $_menge'),
                       IconButton(
                         icon: const Icon(Icons.add),
-                        onPressed:
-                            (_isEditing && !isBlocked)
-                                ? _mengeErhoehen
-                                : null,
+                        onPressed: (_isEditing && !isBlocked)
+                            ? _mengeErhoehen
+                            : null,
                       ),
                       IconButton(
                         icon: const Icon(Icons.remove),
-                        onPressed:
-                            (_isEditing && !isBlocked)
-                                ? _mengeVerringern
-                                : null,
+                        onPressed: (_isEditing && !isBlocked)
+                            ? _mengeVerringern
+                            : null,
                       ),
                       Text(
                         'Art.-Nr.: ${artikel.artikelnummer ?? "-"}',
@@ -836,7 +955,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+                  const SizedBox(height: AppConfig.spacingXLarge - 4),
 
                   TextField(
                     controller: _beschreibungController,
@@ -850,41 +969,23 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                     ),
                     maxLines: 3,
                   ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+                  const SizedBox(height: AppConfig.spacingXLarge - 4),
 
-                  Row(
-                    children: [
-                      FilledButton.tonalIcon(
-                        onPressed:
-                            (_isEditing && !isBlocked)
-                                ? _pickImageFile
-                                : null,
-                        icon: const Icon(Icons.image),
-                        label: const Text('Bild wählen'),
+                  // v0.7.8 Punkt 5: Bild-Buttons aus Body entfernt (jetzt in AppBar)
+                  // v0.7.8 Punkt 5: AnhaengeSektion aus Body entfernt (jetzt in AppBar)
+                  // Optional: Info-Zeile für Anhang-Anzahl
+                  if (_anhangCount > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        bottom: AppConfig.spacingMedium,
                       ),
-                      if (ImagePickerService.isCameraAvailable) ...[
-                        const SizedBox(width: AppConfig.spacingMedium),
-                        FilledButton.tonalIcon(
-                          onPressed:
-                              (_isEditing && !isBlocked)
-                                  ? _pickImageCamera
-                                  : null,
-                          icon: const Icon(Icons.camera_alt),
-                          label: const Text('Kamera'),
+                      child: Text(
+                        'Anhänge: $_anhangCount',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
                         ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
-
-                  // M-012: Anhänge-Sektion
-                  AnhaengeSektion(
-                    artikelUuid: widget.artikel.uuid,
-                    anhangCount: _anhangCount,
-                    onCountChanged: (count) =>
-                        setState(() => _anhangCount = count),
-                  ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+                      ),
+                    ),
 
                   // M-011: Zentrales Bild-Widget mit Vollbild-Tap
                   if (_isLoadingRemoteBild)
@@ -908,22 +1009,22 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                       onTap: _zeigeBildVollbild,
                     ),
 
-                  const SizedBox(height: AppConfig.spacingXLarge - 4), // 20
+                  // v0.7.8 Punkt 1: Crop-Button unter dem Bild (nur im Edit-Modus
+                  // wenn ein neues Bild ausgewählt wurde)
+                  if (_isEditing && _pendingBytes != null) ...[
+                    const SizedBox(height: AppConfig.spacingSmall),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: OutlinedButton.icon(
+                        onPressed: isBlocked ? null : _cropImage,
+                        icon: const Icon(Icons.crop),
+                        label: const Text('Zuschneiden'),
+                      ),
+                    ),
+                  ],
 
-                  // M-004: AppLoadingButton ersetzt ElevatedButton
-                  AppLoadingButton(
-                    isLoading: _isSaving,
-                    onPressed: !_isEditing
-                        ? _enableEdit
-                        : (_hasChanged ? _speichern : null),
-                    label: !_isEditing
-                        ? 'Ändern'
-                        : (_hasChanged
-                            ? 'Speichern'
-                            : 'Speichern (inaktiv)'),
-                    loadingLabel: 'Speichern...',
-                    icon: !_isEditing ? Icons.edit : Icons.save,
-                  ),
+                  // v0.7.8 Punkt 5: AppLoadingButton aus Body entfernt
+                  // (Speichern/Ändern jetzt als Icon in AppBar)
                 ],
               ),
             ),
@@ -977,17 +1078,10 @@ class AnhaengeSektion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        ElevatedButton.icon(
-          icon: const Icon(Icons.attach_file),
-          label: Text(
-            anhangCount == 0 ? 'Anhänge' : 'Anhänge ($anhangCount)',
-          ),
-          onPressed: () => zeigeAnhaengeSheet(context),
-        ),
-      ],
-    );
+    // v0.7.8 Punkt 5: AnhaengeSektion wird nur noch über AppBar aufgerufen.
+    // build() wird nicht mehr direkt im Body gerendert, aber die Klasse
+    // bleibt für zeigeAnhaengeSheet() erhalten.
+    return const SizedBox.shrink();
   }
 }
 
