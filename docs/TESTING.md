@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.7.9 | **Zuletzt aktualisiert:** 09.04.2026
+**Version:** 0.8.0 | **Zuletzt aktualisiert:** 10.04.2026
 
 ---
 
@@ -24,14 +24,18 @@ flutter test
 |---|---|---|---|
 | `test/conflict_resolution_test.dart` | Unit + Widget | 77 | T-001 |
 | `test/models/artikel_model_test.dart` | Unit | 64 | O-002 |
+| `test/models/attachment_model_test.dart` | Unit | 30 | O-002 |
 | `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 |
+| `test/services/backup_status_test.dart` | Unit | 22 | – |
+| `test/utils/attachment_utils_test.dart` | Unit | 28 | – |
 | `test/utils/image_processing_utils_test.dart` | Unit | 30 | O-002 |
 | `test/utils/uuid_generator_test.dart` | Unit | 23 | O-002 |
 | `test/services/app_log_service_test.dart` | Unit | 14 | – |
+| `test/services/nextcloud_listfiles_test.dart` | Unit | 1 | – |
 | `test/dokumente_utils_test.dart` | Unit | 3 | – |
 | `test/models/nextcloud_credentials_test.dart` | Unit | 4 | – |
 | `test/services/artikel_import_service_test.dart` | Unit | 4 | – |
-| `test/services/artikel_export_service_test.dart` | Unit | 2 | – |
+| `test/services/artikel_export_service_test.dart` | Unit + Widget | 2 | – |
 | `test/widgets/dokumente_button_test.dart` | Widget | 1 | – |
 | `test/widgets/artikel_erfassen_test.dart` | Widget | 11 | O-006 |
 | `test/widgets/artikel_detail_screen_test.dart` | Widget | 24 | O-006 |
@@ -39,7 +43,7 @@ flutter test
 | `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
 | `test/helpers/fake_sync_status_provider.dart` | Test-Helper | – | K-006 |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1* | – |
-| **Gesamt** | | **353** | |
+| **Gesamt** | | **451** (+3 skipped) | |
 
 > \* Performance-Test erfordert externe Testdaten (siehe [unten](#performance-tests)).
 
@@ -69,6 +73,29 @@ den Default-Viewport nach jedem Test wieder her.
 
 ```bash
 flutter test test/conflict_resolution_test.dart
+```
+
+---
+
+### `models/attachment_model_test.dart` — O-002 (30 Tests) ✅ NEU
+
+**Ziel:** Vollständige Abdeckung des `AttachmentModel` — reine Modell-Logik ohne Abhängigkeiten.
+
+**Abgedeckte Klassen:** `AttachmentModel`, Konstanten (`kErlaubteMimeTypes`, `kMaxAttachmentBytes`, `kMaxAttachmentsPerArtikel`)
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| Konstruktor | 2 | Pflichtfelder, nullable optionale Felder |
+| `fromPocketBase()` | 7 | Vollständiger Record, Null-Handling, String→int, double→int, UTC-Datum, ungültiges Datum, Parameter-Priorität |
+| `dateiGroesseFormatiert` | 8 | null, 0, Bytes, KB, MB, Grenzwerte (1 KB, 1 MB, 10 MB) |
+| `typLabel` | 7 | Bild, PDF, Word, Excel/CSV, Text, Fallback (unbekannt + null) |
+| `istBild` | 3 | true für image/*, false für andere, false bei null |
+| `copyWith()` | 3 | Identische Kopie, Teilüberschreibung, downloadUrl |
+| Gleichheit | 4 | `==` nur auf id, `!=`, `hashCode`, `toString()` |
+| Konstanten | 4 | Whitelist enthält erwartete Typen, keine unsicheren Typen, Limits |
+
+```bash
+flutter test test/models/attachment_model_test.dart
 ```
 
 ---
@@ -110,6 +137,47 @@ flutter test test/services/artikel_db_service_test.dart
 ```
 
 > ⚠️ **Hinweis:** Dieser Test setzt `sqflite_common_ffi` voraus. Unter Linux/Windows läuft er nativ. Unter macOS kann eine zusätzliche FFI-Konfiguration nötig sein.
+
+---
+
+### `services/backup_status_test.dart` (22 Tests) ✅ NEU
+
+**Ziel:** Vollständige Abdeckung der `BackupStatus`-Modell-Logik und des `BackupAge`-Enums.
+
+**Abgedeckte Klassen:** `BackupStatus`, `BackupAge` (Enum)
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| `fromJson()` | 4 | Vollständiges JSON, Null-Handling, String→int Koercion, Fehler-Status |
+| `isSuccess` / `isError` | 3 | success, error, unknown |
+| `lastBackupTime` | 2 | Unix→DateTime UTC, Epoch bei 0 |
+| `ageCategory` | 4 | fresh (<24h), aging (24–72h), critical (>72h), critical bei Error |
+| `ageText` | 6 | "Nie", Stunden, Tage, ⚠️-Warnung, Singular "Tag", Plural "Tagen" |
+| `BackupStatus.unknown` | 3 | Defaults, weder success/error, ageText "Nie" |
+
+```bash
+flutter test test/services/backup_status_test.dart
+```
+
+---
+
+### `utils/attachment_utils_test.dart` (28 Tests) ✅ NEU
+
+**Ziel:** Vollständige Abdeckung der Attachment-Validierung und Hilfs-Funktionen.
+
+**Abgedeckte Funktionen:** `validateAttachment()`, `mimeTypeFromExtension()`, `iconForMimeType()`, `colorForMimeType()`, `AttachmentValidation`
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| `validateAttachment()` | 13 | Gültige PDF/Bild, Limit erreicht/überschritten, zu groß, genau am Limit, leer, unerlaubter MIME, HTML, Erweiterungs-Fallback, alle erlaubten MIMEs, Prüf-Priorität |
+| `mimeTypeFromExtension()` | 11 | PDF, JPG/JPEG, PNG, WebP, DOC/DOCX, XLS/XLSX, CSV, TXT, ODT, unbekannt, ohne Erweiterung |
+| `iconForMimeType()` | 8 | Bild, PDF, Word, Excel, CSV, Text, Fallback, null |
+| `colorForMimeType()` | 8 | Blau/Rot/Indigo/Grün/BlueGrey/Grau für alle Kategorien + null |
+| `AttachmentValidation` | 2 | `ok()` gültig, `fehler()` ungültig mit Nachricht |
+
+```bash
+flutter test test/utils/attachment_utils_test.dart
+```
 
 ---
 
@@ -167,6 +235,18 @@ flutter test test/services/sync_status_provider_test.dart
 
 --- 
 
+### `services/nextcloud_listfiles_test.dart` (1 Test)
+
+**Ziel:** Test für die Nextcloud-Dateilisten-Funktion.
+
+- WebDAV-PROPFIND-Response-Parsing
+
+```bash
+flutter test test/services/nextcloud_listfiles_test.dart
+```
+
+---
+
 ### `services/app_log_service_test.dart` (14 Tests)
 
 **Ziel:** Tests für den zentralen `AppLogService`.
@@ -177,6 +257,18 @@ flutter test test/services/sync_status_provider_test.dart
 
 ```bash
 flutter test test/services/app_log_service_test.dart
+```
+
+---
+
+### `services/nextcloud_listfiles_test.dart` (1 Test)
+
+**Ziel:** Test für die Nextcloud-Dateilisten-Funktion.
+
+- WebDAV-PROPFIND-Response-Parsing
+
+```bash
+flutter test test/services/nextcloud_listfiles_test.dart
 ```
 
 ---
@@ -295,13 +387,12 @@ flutter test test/widgets/artikel_detail_screen_test.dart
 
 ### `widgets/artikel_list_screen_test.dart` — O-006 (15 Widget-Tests) ✅
 
-
 **Ziel:** Widget-Tests für `ArtikelListScreen`.
 
 **Strategie (v0.7.9 - Refactored):**
 - `sqflite_common_ffi` In-Memory-DB via `injectDatabase()`
 - Vollständiges Schema (inkl. `deleted`, `uuid`, `updated_at`)
-- `NoOpNextcloudService` — Timer-freier Test-Double via `NextcloudServiceInterface
+- `NoOpNextcloudService` — Timer-freier Test-Double via `NextcloudServiceInterface`
 - `initialArtikel: []` — überspringt async DB-Load, `_isLoading` sofort `false`
 - Einfaches `pump()` reicht — kein `pumpAndSettle()`, kein `runAsync()`, kein Timer-Workaround
 
@@ -367,7 +458,14 @@ flutter test test/widgets/artikel_erfassen_test.dart \
 flutter test test/services/artikel_db_service_test.dart \
              test/utils/uuid_generator_test.dart \
              test/utils/image_processing_utils_test.dart \
-             test/models/artikel_model_test.dart
+             test/models/artikel_model_test.dart \
+             test/models/attachment_model_test.dart
+
+
+# Nur neue Tests (v0.8.0)
+flutter test test/models/attachment_model_test.dart \
+             test/utils/attachment_utils_test.dart \
+             test/services/backup_status_test.dart
 
 # Verbose-Ausgabe (jeder Testname einzeln)
 flutter test --reporter expanded
@@ -433,7 +531,7 @@ fake.emitIdle();      // → UI im Ruhezustand
 fake.dispose();
 ```
 
---- 
+---
 
 ## 🔗 Verwandte Dokumente
 
@@ -445,17 +543,16 @@ fake.dispose();
 
 *Dieses Dokument wird bei jeder neuen Test-Suite aktualisiert.*
 
---- 
+---
 
-## Änderungen gegenüber v0.7.8
+## Änderungen gegenüber v0.7.9
 
-| Stelle | Vorher (v0.7.8) | Nachher (v0.7.9) |
+| Stelle | Vorher (v0.7.9) | Nachher (v0.8.0) |
 |---|---|---|
-| **Version** | 0.7.8 | 0.7.9 |
-| **Übersichtstabelle** | `15 ⚠️` | `15 ✅` |
-| **Warnhinweis unter Tabelle** | ⚠️ 3 Tests schlagen fehl wegen Timer | Entfernt |
-| **artikel_list_screen Abschnitt** | ⚠️ Status, Workaround-Strategie | ✅ Alle grün, DI-Strategie dokumentiert |
-| **Architektur-Änderungen** | – | NEU: Tabelle mit 4 geänderten Dateien |
-| **Gelöstes Problem** | – | NEU: Erklärung des Timer-Problems + Lösung |
-| **Status-Tabelle** | 3✅ 1❌ / 1✅ 1❌ | Alle ✅ |
-| **Test-Infrastruktur** | – | NEU: Eigener Abschnitt für Helpers + Interfaces |
+| **Version** | 0.7.9 | 0.8.0 |
+| **Testübersicht-Tabelle** | 17 Einträge, 353 Tests | 21 Einträge, 451 Tests (+3 skipped) |
+| **Neue Test-Dateien** | – | `attachment_model_test.dart` (30), `attachment_utils_test.dart` (28), `backup_status_test.dart` (22) |
+| **Fehlende Einträge** | `nextcloud_listfiles_test.dart` fehlte | Hinzugefügt (1 Test) |
+| **O-002 Schnellstart** | 4 Dateien | 5 Dateien (+ `attachment_model_test.dart`) |
+| **Neuer Schnellstart** | – | „Nur neue Tests (v0.8.0)" Kommando |
+| **Änderungslog** | v0.7.8 → v0.7.9 | v0.7.9 → v0.8.0 |

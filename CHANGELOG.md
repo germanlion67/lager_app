@@ -125,9 +125,28 @@ ArtikelListScreen._syncSubscription
 _ladeArtikel() → UI aktualisiert
 
 ### 🧪 Tests
+
+#### Neue Test-Dateien (v0.8.0)
+- `test/models/attachment_model_test.dart` — **30 Tests**
+  Konstruktor, `fromPocketBase()` mit Null/Typ-Koercion, `dateiGroesseFormatiert`
+  (B/KB/MB-Grenzen), `typLabel`, `istBild`, `copyWith()`, Gleichheit, Konstanten
+- `test/utils/attachment_utils_test.dart` — **28 Tests**
+  `validateAttachment()` (Größe, Limit, MIME, Erweiterung, Leer, Prioritäten),
+  `mimeTypeFromExtension()`, `iconForMimeType()`, `colorForMimeType()`,
+  `AttachmentValidation`
+- `test/services/backup_status_test.dart` — **22 Tests**
+  `fromJson()` mit Null/Typ-Koercion, `isSuccess`/`isError`, `lastBackupTime` UTC,
+  `ageCategory` (fresh/aging/critical), `ageText` (Singular/Plural/Warnung),
+  `BackupStatus.unknown`, `BackupAge` Enum
+
+#### Gesamtstand
+| Vorher | Nachher | Differenz |
+|---|---|---|
+| 347 Tests, 15 Dateien | **451 Tests**, 18 Dateien | **+104 Tests**, +3 Dateien |
+
 - `flutter analyze`: **0 Issues**
-- `flutter test`: **347 bestanden**, 3 übersprungen, 1 vorbestehender Fehler
-  (ImageProcessingUtils._rotateImage — nicht durch diese Änderung verursacht)
+- `flutter test`: **451 bestanden**, 3 übersprungen
+- `docs/TESTING.md` auf v0.8.0 aktualisiert
 
 ## [0.7.8] - 2026-04-09 
 

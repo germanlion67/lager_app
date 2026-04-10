@@ -371,6 +371,7 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-10 | v0.8.0 | +104 Tests: AttachmentModel (30), attachment_utils (28), BackupStatus (22) — Gesamt 347→451, TESTING.md aktualisiert |
 | 2026-04-10 | v0.8.0 | K-006 abgeschlossen: Kaltstart-Bug Fix — Sync-UI-Kopplung, Bild-Download, PB-Fallback, Setup-Flow |
 | 2026-04-08 | v0.7.7+5 | O-006 abgeschlossen: 11 Widget-Tests ArtikelErfassenScreen, alle grün |
 | 2026-04-08 | v0.7.7+5 | P-002 abgeschlossen: Debounce 300ms, DB-Suche Mobile, clientseitig Web |

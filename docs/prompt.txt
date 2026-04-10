@@ -6,26 +6,34 @@ Pflicht: Jede neue Abstraktion kurz begründen (1–3 Sätze) und minimal halten
 
 ## 0) Kontext / Stack
 - Monorepo:
-  - `app/` = Flutter Hauptanwendung
+  - `app/` = Flutter Hauptanwendung (Flutter ≥ 3.41.4)
   - `server/` = PocketBase Backend (inkl. `pb_migrations/`, `pb_data/`, Backups)
   - `packages/runtime_env_config/` = dynamische ENV-Injektion zur Laufzeit
 - Plattformen (Hybrid-Cloud / Offline-First):
   - Mobile/Desktop: lokale SQLite + Sync zu PocketBase
   - Web: Flutter Web (SPA) greift direkt auf PocketBase zu (keine lokale SQLite)
+- Aktuelle Version: **0.8.0** (Stand: 10.04.2026)
+- Testsuite: **451 Tests** (alle grün, 3 skipped), 18 Testdateien + 1 Test-Helper
 
 ## 1) Architektur & Struktur (wichtig für jede Änderung)
 Halte dich an die vorhandene Struktur unter `app/lib/`:
 - `config/`  → zentrale Konfiguration (AppConfig/AppTheme/AppImages)
 - `core/`    → Plattform-Abstraktionen (z.B. Logger, Env)
-- `models/`  → Datenklassen
-- `services/`→ Business-Logik (API, DB, Sync, DokumentSync)
+- `models/`  → Datenklassen (Artikel, AttachmentModel, NextcloudCredentials)
+- `services/`→ Business-Logik (API, DB, Sync, DokumentSync, SyncStatusProvider)
 - `screens/` → UI Pages
 - `widgets/` → wiederverwendbare UI-Bausteine
-- `utils/`   → Helper
+- `utils/`   → Helper (attachment_utils, image_processing_utils, uuid_generator)
 
 Plattform-spezifischer Code:
 - Nutze Conditional Imports (`*_io.dart` vs `*_stub.dart`) wenn `dart:io` / Dateisystem betroffen ist.
 - Web darf keine `dart:io`-Abhängigkeiten enthalten.
+- Beispiel: `list_screen_cache_io.dart` / `list_screen_cache_stub.dart` für plattformübergreifendes Image-Cache-Evict.
+
+Bestehende Interfaces/Abstraktionen:
+- `SyncStatusProvider` — Interface für lose Kopplung zwischen SyncOrchestrator und UI
+- `NextcloudServiceInterface` — Interface für Timer-freie Test-Doubles in Widget-Tests
+- `FakeSyncStatusProvider` — Test-Double in `test/helpers/`
 
 ## 2) Datenbank: Besonderheiten, Schema, Sync
 Persistente Speicher:
@@ -35,40 +43,71 @@ Persistente Speicher:
 ### Lokales Schema (SQLite) — Sync-relevante Mechaniken
 - Globaler Identifier: `uuid` (stabil, geräteübergreifend)
 - Server-Bindung: `remote_path` (PocketBase Record-ID)
-- Pending-Erkennung: `etag == NULL` bedeutet lokale Änderung “noch nicht gepusht”
+- Pending-Erkennung: `etag == NULL` bedeutet lokale Änderung "noch nicht gepusht"
 - Delta-Sync: `updated_at` + `sync_meta.last_sync`
 - Soft-Delete: `deleted` (0/1)
+- Silent-Update: `setBildPfadByUuidSilent()` setzt nur `bildPfad` ohne `updated_at`/`etag` zu ändern → kein erneuter Push
 
 Dokumente:
 - Lokale Tabelle `artikel_dokumente` mit `artikel_uuid` + `uuid/etag/updated_at/deleted/remote_path`
 - Dokumente werden separat synchronisiert (eigener Zyklus)
 
 PocketBase:
-- Collections: `artikel`, `artikel_dokumente`, `attachments` (nur PocketBase, kein SQLite-Pendant; Limits/MIME-Whitelist beachten; aktuell API offen, Auth später)
+- Collections: `artikel`, `artikel_dokumente`, `attachments`
+- Attachments: nur PocketBase, kein SQLite-Pendant
+  - Limits: max 20 pro Artikel (`kMaxAttachmentsPerArtikel`), max 10 MB pro Datei (`kMaxAttachmentBytes`)
+  - MIME-Whitelist: `kErlaubteMimeTypes` in `attachment_model.dart`
+  - Validierung: `validateAttachment()` in `attachment_utils.dart` (Größe → Anzahl → MIME, in dieser Priorität)
+  - API-Regeln: Auth-pflichtig seit v0.7.3 (M-009)
 
 Sync-Regeln:
 - Offline-First, Push/Pull, Delta-basiert
 - Soft-Delete lokal → remote Hard-Delete beim Push
-- Konflikte existieren (Pipeline + UI); nicht “wegvereinfachen”, sondern integrieren
+- Konflikte existieren (Pipeline + UI); nicht "wegvereinfachen", sondern integrieren
+- Nach Record-Sync: `downloadMissingImages()` lädt fehlende Bilder von PocketBase File-API
 
 ## 3) Theming / UI-Regeln (Material 3)
 Theming ist zentralisiert und Token-basiert:
 - Keine Magic Numbers: nutze AppConfig Tokens (Spacing/Radien/IconSizes/Opacity/Layout)
 - Keine `Colors.white/black` (oder andere harte Farben) – nutze `Theme.of(context).colorScheme.*`
 - `ThemeMode.system` ist Standard, Dark Mode muss funktionieren
+- `withOpacity()` → `withValues(alpha: AppConfig.opacity*)` (deprecated API vermeiden)
+- ~560 von ~600 Hardcodes bereits migriert (~93%), ~41 bewusst beibehalten (dokumentiert in THEMING.md)
 
 ## 4) Testing-Strategie (muss bei Änderungen mitgezogen werden)
 Tests: `cd app && flutter test`
 
-Bestehende Test-Patterns respektieren:
-- DB-Integration: `sqflite_common_ffi` In-Memory DB
-- Testbarkeit via `injectDatabase()` / Test-Helper
-- Widget-Tests: Timer-/Singleton-Probleme vermeiden (DI via Interface, NoOp-Doubles)
-- Häufig `pump(Duration)` statt `pumpAndSettle()` wenn Timer/Async sonst hängen
+Aktueller Stand (v0.8.0): **451 Tests**, 18 Dateien, 3 skipped
+
+### Bestehende Test-Patterns respektieren:
+- **DB-Integration:** `sqflite_common_ffi` In-Memory DB via `injectDatabase()` + `ArtikelDbServiceTestHelper`
+- **Widget-Tests:** Timer-/Singleton-Probleme vermeiden:
+  - DI via Interface (`NextcloudServiceInterface` → `NoOpNextcloudService`)
+  - `SyncStatusProvider` → `FakeSyncStatusProvider` aus `test/helpers/`
+  - `initialArtikel: []` überspringt async DB-Load
+  - `pump(Duration)` statt `pumpAndSettle()` wenn Timer/Async sonst hängen
+  - `setSurfaceSize()` + `addTearDown` bei Viewport-sensitiven Tests
+- **Reine Modell/Utility-Tests:** Keine Mocks nötig, direkt testen:
+  - Konstruktor, Factory-Methoden, Getter, Gleichheit, `toString()`
+  - Typ-Koercion testen (String→int, double→int, null-Handling)
+  - Grenzwerte testen (0, 1, exakt am Limit, knapp drüber)
+  - Konstanten/Whitelists validieren (enthält erwartete Typen, keine unsicheren)
+- **Mockito:** Für Service-Tests mit externen Abhängigkeiten (`MockNextcloudClient`, `MockArtikelDbService`)
+
+### Test-Kategorien:
+| Kategorie | Dateien | Beispiel |
+|---|---|---|
+| Unit (Modelle) | artikel_model, attachment_model, nextcloud_credentials | Konstruktor, fromMap/toMap, copyWith, Gleichheit |
+| Unit (Utils) | uuid_generator, image_processing, attachment_utils | Validierung, Formatierung, MIME-Erkennung |
+| Unit (Services) | backup_status, app_log_service, sync_status_provider | fromJson, State-Änderungen, Stream-Events |
+| Integration (DB) | artikel_db_service | In-Memory SQLite, alle CRUD-Methoden |
+| Widget | artikel_list/detail/erfassen, conflict_resolution | DI-basiert, pump statt pumpAndSettle |
+| Performance | import_500_smoke | Erfordert externe Testdaten |
 
 Wenn du neue Abstraktionen einführst (pragmatisch erlaubt):
 - Bevorzuge kleine Interfaces + Constructor Injection
 - Gib Test-Doubles/Mocks/NoOp-Implementierungen mit, damit Tests stabil bleiben
+- Neue Test-Helper in `test/helpers/` ablegen
 
 ## 5) Dokumentation aktualisieren (relevant & minimal)
 Wenn deine Änderung Verhalten, Architektur, DB, Sync, Theming, Logging oder Tests beeinflusst, dann aktualisiere die passenden Doku-Dateien:
@@ -80,10 +119,17 @@ Primär:
 - `docs/LOGGER.md` (Logging-Regeln, neue Log-Events/Viewer)
 - `docs/TESTING.md` (neue/angepasste Tests, Run-Commands, neue Helpers)
 
+Sekundär (bei größeren Änderungen):
+- `docs/OPTIMIZATIONS.md` (Aufgaben-Status, Wartungs-Historie)
+- `docs/HISTORY.md` (Meilensteine, technische Entscheidungen)
+- `CHANGELOG.md` (Versionshistorie, unter aktuellem Release-Block)
+
 Regeln:
 - Doku-Änderungen sind kurz, präzise, und spiegeln die Implementierung 1:1 wider
-- Wenn du neue Interfaces/Helper einführst, dokumentiere kurz “Warum” + “Wie testen”
-- Wenn du neue ENV-Variablen/Deployment-relevante Dinge einführst: zusätzlich README/Setup/Deployment-Dokus anpassen, wo es hingehört
+- Wenn du neue Interfaces/Helper einführst, dokumentiere kurz "Warum" + "Wie testen"
+- Wenn du neue ENV-Variablen/Deployment-relevante Dinge einführst: zusätzlich README/Setup/Deployment-Dokus anpassen
+- TESTING.md: Testübersicht-Tabelle + Testzahl aktualisieren, neuen Beschreibungs-Abschnitt hinzufügen, Änderungslog am Ende aktualisieren
+- OPTIMIZATIONS.md: Wartungs-Historie-Zeile ergänzen
 
 ## 6) Logging (AppLogService) — Pflicht bei neuen Flows
 Zentrales Logging: `AppLogService.logger`
@@ -91,6 +137,7 @@ Zentrales Logging: `AppLogService.logger`
 - Fehler immer mit `error` + optional `stackTrace`
 - Keine neuen `print()`/`debugPrint()` einführen
 - Logs sind theming-integriert (Viewer), daher verständliche Messages
+- Fehler-Klassifizierung: `AppErrorHandler.classify()` für automatische Exception-Zuordnung
 
 ## 7) Arbeitsanweisung an dich (wie du liefern sollst)
 Wenn ich dir eine Aufgabe gebe:
@@ -103,10 +150,12 @@ Wenn ich dir eine Aufgabe gebe:
 3. Schreibe/aktualisiere Tests:
    - DB: In-Memory via `sqflite_common_ffi` + `injectDatabase()`
    - UI: Widget-Tests stabil halten (DI/NoOp statt Timer)
+   - Modelle/Utils: Direkt testen, Grenzwerte + Null-Handling + Typ-Koercion abdecken
 4. Aktualisiere relevante Doku (siehe Punkt 5).
 5. Abschlussbericht:
    - betroffene Dateien
    - neue/angepasste Tests + wie ausführen
    - Doku-Änderungen (welche Datei, was geändert)
+   - Commit-Message (konventionell: `feat:`, `fix:`, `test:`, `docs:`, `refactor:`)
 
 # Ende des Prompts
