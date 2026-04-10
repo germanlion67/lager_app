@@ -75,11 +75,37 @@ class ImageProcessingUtils {
   }
 
   // ---------------------------------------------------------------------------
+  // Robuster Decoder (Fallback bei fehlerhafter Auto-Detection)
+  // ---------------------------------------------------------------------------
+
+  /// Versucht zuerst die automatische Format-Erkennung via [img.decodeImage].
+  /// Falls diese unter Speicherdruck fehlschlägt (z.B. PsdDecoder.isValidFile
+  /// RangeError im Gesamttest-Lauf), wird explizit JPEG und dann PNG versucht.
+  static img.Image? _decodeRobust(Uint8List bytes) {
+    try {
+      return img.decodeImage(bytes);
+    } catch (_) {
+      // Auto-Detection fehlgeschlagen → explizite Decoder versuchen
+    }
+    try {
+      return img.decodeJpg(bytes);
+    } catch (_) {
+      // Kein JPEG
+    }
+    try {
+      return img.decodePng(bytes);
+    } catch (_) {
+      // Kein PNG
+    }
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Isolate-Funktionen (static, keine Closures)
   // ---------------------------------------------------------------------------
 
   static Uint8List _processImage(_ProcessArgs args) {
-    final decoded = img.decodeImage(args.sourceBytes);
+    final decoded = _decodeRobust(args.sourceBytes);
     if (decoded == null) return args.sourceBytes;
 
     final adjusted = args.crop ? _cropToAspectRatio(decoded) : decoded;
@@ -90,8 +116,8 @@ class ImageProcessingUtils {
   /// M-011: Thumbnail-Generierung im Isolate.
   /// Schneidet quadratisch zu (center-crop) und skaliert auf 120×120px.
   static Uint8List _generateThumbnailIsolate(Uint8List sourceBytes) {
-    final decoded = img.decodeImage(sourceBytes);
-    if (decoded == null) return sourceBytes;
+    final decoded = _decodeRobust(sourceBytes);
+    if (decoded == null) throw const FormatException('Bild nicht decodierbar');
 
     // Center-Crop auf Quadrat
     final size = decoded.width < decoded.height ? decoded.width : decoded.height;
@@ -120,7 +146,7 @@ class ImageProcessingUtils {
   }
 
   static Uint8List _rotateImage(Uint8List sourceBytes) {
-    final decoded = img.decodeImage(sourceBytes);
+    final decoded = _decodeRobust(sourceBytes);
     if (decoded == null) return sourceBytes;
 
     final rotated = img.copyRotate(decoded, angle: 90);
