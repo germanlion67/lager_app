@@ -304,9 +304,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   /// Wird aufgerufen wenn der Setup-Screen erfolgreich eine URL
   /// konfiguriert hat. Initialisiert die Sync-Services und wechselt
-  /// zur normalen App-Ansicht.
+  /// zur normalen App-Ansicht NACHDEM der initiale Sync abgeschlossen ist.
   void _onServerConfigured() {
-    _log.i('[Main] Server konfiguriert, starte normale App...');
+    _log.i('[Main] Server konfiguriert, starte initialen Sync...');
 
     // Sync-Services neu initialisieren mit dem jetzt verfügbaren Client
     if (_pbService.hasClient) {
@@ -318,17 +318,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
-      // ── M-009: Auth-Check nach Server-Setup
+      // ── GEÄNDERT: Auth-Check + Sync ABWARTEN, dann erst UI wechseln ──
       _checkAuthStatus().then((_) {
         if ((_isLoggedIn || _devMode) && !kIsWeb) {
-          _loadSyncSettings().then((_) {
-            _runInitialSync();
+          _loadSyncSettings().then((_) async {
+            // Initialen Sync durchführen und ABWARTEN
+            _log.i('[Main] Starte initialen Sync nach Setup...');
+            await _runInitialSync();
+            _log.i('[Main] Initialer Sync abgeschlossen');
+
+            // ERST JETZT zur normalen App wechseln
+            if (mounted) {
+              setState(() => _needsSetup = false);
+            }
+
             _startPeriodicSync();
           });
+        } else {
+          // Kein Sync nötig (Web oder nicht eingeloggt) → sofort wechseln
+          _log.i('[Main] Kein Sync nötig → direkt zur App');
+          if (mounted) {
+            setState(() => _needsSetup = false);
+          }
         }
       });
 
-      // Health-Check im Hintergrund
+      // Health-Check im Hintergrund (unverändert)
       if (!kIsWeb) {
         unawaited(
           _pbService.checkHealth().then((ok) {
@@ -343,10 +358,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           }),
         );
       }
-    }
-
-    if (mounted) {
-      setState(() => _needsSetup = false);
+    } else {
+      // Kein Client → trotzdem Setup beenden (Fehlerfall)
+      _log.w('[Main] Kein PocketBase-Client nach Setup → Fehlerfall');
+      if (mounted) {
+        setState(() => _needsSetup = false);
+      }
     }
   }
 
@@ -489,10 +506,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               },
             ),
           ),
-          const ArtikelListScreen(),
+          ArtikelListScreen(syncStatusProvider: _orchestrator), // ← GEÄNDERT
         ],
       );
     }
-    return const ArtikelListScreen();
+    return ArtikelListScreen(syncStatusProvider: _orchestrator); // ← GEÄNDERT
   }
 }

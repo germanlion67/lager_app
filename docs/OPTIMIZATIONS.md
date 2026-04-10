@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.7.7+4 | **Zuletzt aktualisiert:** 07.04.2026
+**Version:** 0.8.0 | **Zuletzt aktualisiert:** 10.04.2026
 
 ---
 
@@ -250,6 +250,17 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Render, Validierung, Abbrechen-Pfade abgedeckt ✅
 - `tester.view.physicalSize` + `scrollUntilVisible()` für ListView ✅
 
+### K-006: Kaltstart-Bug Fix — Erledigt in v0.8.0
+- Sync-UI-Kopplung über `SyncStatusProvider`-Interface ✅
+- Automatischer Bild-Download nach Record-Sync (`downloadMissingImages()`) ✅
+- PocketBase-Bild-Fallback in `_LocalThumbnail` und `ArtikelDetailBild` ✅
+- Setup-Flow wartet auf initialen Sync vor UI-Wechsel ✅
+- Lade-Overlay im Setup-Screen während Sync ✅
+- Gezieltes Image-Cache-Evict statt globalem `imageCache.clear()` ✅
+- Neue DB-Methode `setBildPfadByUuidSilent()` (kein Sync-Trigger) ✅
+- Conditional Import für plattformübergreifendes Cache-Evict ✅
+- `FakeSyncStatusProvider` Test-Double + Unit-Tests ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -347,12 +358,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 26 | 26 | 0 |
+| ✅ Abgeschlossen | 27 | 27 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 6 | 0 | 6 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **36** | **26** | **10** |
+| **Gesamt** | **36** | **27** | **10** |
 
 ---
 
@@ -360,6 +371,7 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-10 | v0.8.0 | K-006 abgeschlossen: Kaltstart-Bug Fix — Sync-UI-Kopplung, Bild-Download, PB-Fallback, Setup-Flow |
 | 2026-04-08 | v0.7.7+5 | O-006 abgeschlossen: 11 Widget-Tests ArtikelErfassenScreen, alle grün |
 | 2026-04-08 | v0.7.7+5 | P-002 abgeschlossen: Debounce 300ms, DB-Suche Mobile, clientseitig Web |
 | 2026-04-08 | v0.7.7+4 | O-005 abgeschlossen: 5 deprecated Dateien + Teststubs entfernt, 0 analyze-Issues |

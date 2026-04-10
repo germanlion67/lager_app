@@ -4,10 +4,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:logger/logger.dart';
 import 'pocketbase_sync_service.dart';
+import 'sync_status_provider.dart'; // ← NEU
 
 enum SyncStatus { idle, running, success, error }
 
-class SyncOrchestrator {
+class SyncOrchestrator implements SyncStatusProvider { // ← GEÄNDERT
   final PocketBaseSyncService _pocketBaseSync;
   final Logger _logger = Logger();
 
@@ -17,11 +18,14 @@ class SyncOrchestrator {
   Timer? _syncTimer;
 
   final _syncStatusController = StreamController<SyncStatus>.broadcast();
+
+  @override // ← NEU
   Stream<SyncStatus> get syncStatus => _syncStatusController.stream;
 
   DateTime? _lastSyncTime;
   DateTime? get lastSyncTime => _lastSyncTime;
 
+  @override // ← NEU
   bool get isSyncing => _isSyncing;
 
   SyncOrchestrator({required PocketBaseSyncService pocketBaseSync})
@@ -56,6 +60,10 @@ class SyncOrchestrator {
 
     try {
       await _pocketBaseSync.syncOnce();
+
+      // ── NEU: Fehlende Bilder nach Record-Sync herunterladen ───────
+      await _pocketBaseSync.downloadMissingImages();
+
       _lastSyncTime = DateTime.now();
       _emit(SyncStatus.success);
       _logger.i('SyncOrchestrator: end (success) – $_lastSyncTime');
@@ -91,7 +99,7 @@ class SyncOrchestrator {
 
   void dispose() {
     _isDisposed = true;
-    _isSyncing = false; // defensiv
+    _isSyncing = false;
     stopPeriodicSync();
     _syncStatusController.close();
     _logger.i('SyncOrchestrator: disposed');

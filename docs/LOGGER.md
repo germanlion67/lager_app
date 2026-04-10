@@ -72,4 +72,24 @@ Alle verbleibenden `debugPrint`-Statements müssen schrittweise ersetzt werden. 
 
 ---
 
+## Neue Log-Events (v0.8.0 — Kaltstart-Fix)
+
+| Logger | Level | Nachricht | Kontext |
+|---|---|---|---|
+| ArtikelList | INFO | `[ArtikelList] Sync abgeschlossen → Liste neu laden` | Nach `SyncStatus.success` |
+| ArtikelList | WARN | `[ArtikelList] Sync fehlgeschlagen` | Nach `SyncStatus.error` |
+| PocketBaseSync | INFO | `PocketBaseSync: downloadMissingImages start` | Beginn Bild-Download-Phase |
+| PocketBaseSync | INFO | `PocketBaseSync: downloadMissingImages end (downloaded: X, skipped: Y, failed: Z)` | Ende mit Statistik |
+| PocketBaseSync | DEBUG | `PocketBaseSync: Downloading image for {uuid}: {url}` | Pro heruntergeladenem Bild |
+| PocketBaseSync | DEBUG | `PocketBaseSync: Bild gespeichert für {uuid}: {path}` | Erfolgreicher Download |
+| PocketBaseSync | WARN | `PocketBaseSync: Image download HTTP {code} für {uuid}` | HTTP-Fehler beim Download |
+| PocketBaseSync | WARN | `PocketBaseSync: Image download failed for {uuid}: {error}` | Allgemeiner Download-Fehler |
+| ArtikelDbService | DEBUG | `✅ Bildpfad für Artikel UUID {uuid} silent aktualisiert` | `setBildPfadByUuidSilent()` |
+| Main | INFO | `[Main] Starte initialen Sync nach Setup...` | Nach URL-Konfiguration |
+| Main | INFO | `[Main] Initialer Sync abgeschlossen` | Sync fertig, UI-Wechsel |
+| Main | INFO | `[Main] Kein Sync nötig → direkt zur App` | Web oder nicht eingeloggt |
+
+--- 
+
+
 [Zurück zur README](../README.md) | [Zum Projekt-Status](CHECKLIST.md)

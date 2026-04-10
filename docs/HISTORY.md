@@ -2,7 +2,134 @@
 
 Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusammenfassungen der **Lager_app**. Es bewahrt das Wissen aus den ursprünglichen Planungs- und Umsetzungsdokumenten.
 
-### [0.7.8] - 2026-04-09 ✨ Verbessert - UI Ansicht
+## [0.8.0] - 2026-04-10
+
+### 🎉 Hauptfeature: Kaltstart-Bug Fix
+
+#### Problem
+Nach einem Kaltstart (App-Daten gelöscht, neue PocketBase-URL konfiguriert)
+blieb die Artikelliste leer, obwohl der Sync im Hintergrund erfolgreich lief.
+Bilder wurden nicht heruntergeladen und der Benutzer sah keine Rückmeldung.
+
+#### Ursachen (4 Stück)
+1. **Sync-UI-Entkopplung:** ArtikelListScreen wusste nicht, wann der Sync
+   abgeschlossen war → Liste wurde nie automatisch neu geladen
+2. **Fehlender Bild-Download:** PocketBase-Sync übertrug nur Metadaten
+   (remoteBildPfad), lud aber keine Bilddateien herunter
+3. **Globaler Image-Cache-Clear:** `imageCache.clear()` verwarf bei jeder
+   Bildänderung ALLE gecachten Bilder → Flackern der gesamten Liste
+4. **Sofortiger UI-Wechsel nach Setup:** Setup-Screen wechselte sofort
+   zur leeren Artikelliste, ohne auf den initialen Sync zu warten
+
+### ✨ Neue Features
+
+#### SyncStatusProvider Interface
+- Neues `SyncStatusProvider`-Interface für lose Kopplung zwischen
+  `SyncOrchestrator` und UI-Komponenten
+- `ArtikelListScreen` hört auf `SyncStatus`-Events und lädt bei
+  `success` automatisch die Artikelliste neu
+- `FakeSyncStatusProvider` als Test-Double für Widget-Tests
+- Sync-Indikator („Synchronisiere Artikel…") bei leerer Liste
+  während laufendem Sync
+
+#### Automatischer Bild-Download
+- Neue Methode `downloadMissingImages()` in `PocketBaseSyncService`
+- Prüft nach jedem Record-Sync alle Artikel auf fehlende lokale Bilder
+- Lädt Bilder von der PocketBase File-API herunter (mit Auth-Header)
+- Speichert im App-Cache-Verzeichnis
+- Neue DB-Methode `setBildPfadByUuidSilent()` — setzt nur `bildPfad`,
+  ohne `updated_at`/`etag` zu ändern → kein erneuter Push
+
+#### PocketBase-Bild-Fallback (Mobile/Desktop)
+- `_LocalThumbnail` zeigt bei fehlendem lokalen Bild ein PocketBase-
+  Thumbnail via `CachedNetworkImage` an (Kaltstart-Überbrückung)
+- `ArtikelDetailBild` mit `_buildPbDetailFallback()` für Vollbild-
+  Fallback aus PocketBase
+
+#### Setup-Flow mit Sync-Abwarten
+- Setup-Screen zeigt Lade-Overlay („Erstmalige Synchronisation…")
+  während der initiale Sync läuft
+- UI wechselt erst zur Artikelliste, wenn Sync abgeschlossen ist
+- Buttons im Setup-Screen werden während Sync deaktiviert
+
+### 🔧 Technisch
+
+#### Neue Dateien
+- `lib/services/sync_status_provider.dart` — Interface
+- `lib/screens/list_screen_cache_io.dart` — Gezieltes Image-Evict (Mobile/Desktop)
+- `lib/screens/list_screen_cache_stub.dart` — No-op für Web
+- `test/helpers/fake_sync_status_provider.dart` — Test-Double
+- `test/services/sync_status_provider_test.dart` — Unit-Tests
+
+#### Geänderte Dateien
+- `lib/services/sync_orchestrator.dart`
+  — `implements SyncStatusProvider`
+  — `downloadMissingImages()` in `runOnce()` eingebunden
+- `lib/services/pocketbase_sync_service.dart`
+  — `downloadMissingImages()`, `_buildImageUrl()`, `_buildAuthHeaders()`
+  — Neue Imports: `dart:io`, `http`, `path_provider`
+- `lib/services/artikel_db_service.dart`
+  — Neue Methode `setBildPfadByUuidSilent()`
+- `lib/screens/artikel_list_screen.dart`
+  — `syncStatusProvider` Parameter + `StreamSubscription`
+  — Sync-Indikator bei leerer Liste + laufendem Sync
+  — Gezieltes `evictLocalImage()` statt `imageCache.clear()`
+  — Conditional Import für Cache-Helper
+- `lib/main.dart`
+  — `_onServerConfigured()`: Sync abwarten vor UI-Wechsel
+  — `_buildHomeWithBackground()`: Orchestrator als `syncStatusProvider`
+- `lib/screens/server_setup_screen.dart`
+  — `_isSyncingAfterSetup` + Lade-Overlay mit `Stack`
+  — Buttons disabled während Sync
+- `lib/widgets/artikel_bild_widget.dart`
+  — `_LocalThumbnail`: PB-URL-Fallback via `CachedNetworkImage`
+  — `ArtikelDetailBild`: `_buildPbDetailFallback()`
+
+#### Performance-Verbesserung
+- `_clearImageCache()` evicted jetzt nur das geänderte Bild + Thumbnail
+  statt den gesamten Image-Cache zu leeren
+- Conditional Import (`list_screen_cache_io.dart` / `_stub.dart`)
+  für plattformübergreifende Kompatibilität
+
+### 📚 Dokumentation
+- `CHANGELOG.md` — Aktualisiert für v0.8.0
+- `OPTIMIZATIONS.md` — Kaltstart-Fix dokumentiert, Version auf 0.8.0
+- `TESTING.md` — Neue Tests dokumentiert, Gesamtzahl aktualisiert
+- `ARCHITECTURE.md` — SyncStatusProvider Interface dokumentiert
+- `DATABASE.md` — `setBildPfadByUuidSilent()` und Bild-Download dokumentiert
+- `LOGGER.md` — Neue Log-Events dokumentiert
+
+### ⚙️ Technische Details
+
+**Bild-Fallback-Kette (Mobile/Desktop):**
+
+| Priorität | Quelle | Geschwindigkeit |
+|---|---|---|
+| 1 (höchste) | Lokales Thumbnail (`thumbnailPfad`) | ⚡ Sofort |
+| 2 | Lokales Vollbild (`bildPfad`) | ⚡ Sofort |
+| 3 | PocketBase-URL via CachedNetworkImage | 🌐 Netzwerk |
+| 4 (niedrigste) | Placeholder-Icon | ⚡ Sofort |
+
+**Sync-Datenfluss:**
+SyncOrchestrator.runOnce()
+→ _emit(SyncStatus.running)
+→ syncOnce() (Push + Pull)
+→ downloadMissingImages()
+→ _emit(SyncStatus.success)
+↓
+syncStatus Stream (broadcast)
+↓
+ArtikelListScreen._syncSubscription
+↓
+_ladeArtikel() → UI aktualisiert
+
+### 🧪 Tests
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **347 bestanden**, 3 übersprungen, 1 vorbestehender Fehler
+  (ImageProcessingUtils._rotateImage — nicht durch diese Änderung verursacht)
+
+
+## [0.7.8] - 2026-04-09 ✨ Verbessert - UI Ansicht
 
 #### 🖼️ Artikel-Detail-Screen
 - **Artikelname editierbar:** Name kann direkt im Detail-Screen geändert werden
@@ -50,7 +177,7 @@ Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusam
   `_generateArtikelDetailPdf` integriert
 - `flutter analyze`: **0 Issues**
 
-### v0.7.7+5 — 2026-04-08 - P-002: Suche Debounce + DB-Suche**
+## v0.7.7+5 — 2026-04-08 - P-002: Suche Debounce + DB-Suche**
 - Timer(300ms) verhindert Suche bei jedem Tastendruck
 - Mobile: SQL LIKE via `_db.searchArtikel()`
 - Web: clientseitiger Filter über geladene PocketBase-Liste
@@ -63,7 +190,7 @@ Dieses Dokument dient als Archiv für alle bisherigen Phasen, Analysen und Zusam
 - `pumpAndSettle(5s)` für async `_initArtikelnummer()`
 
 
-### v0.7.7+4 — 2026-04-08 — M-005: Pagination für Artikelliste
+## v0.7.7+4 — 2026-04-08 — M-005: Pagination für Artikelliste
 
 **Problem:** Alle Artikel wurden beim Start auf einmal aus SQLite geladen.
 Bei großen Beständen führte das zu spürbaren Verzögerungen und hohem
@@ -94,7 +221,7 @@ on-demand beim Scrollen nachgeladen.
 - `cached_network_image` bleibt — anderweitig aktiv genutzt
 - `flutter analyze`: 0 Issues nach Cleanup
 
-### v0.7.7+2 — 2026-04-07 — P-001: Kamera-Vorschau-Delay auf Android behoben
+## v0.7.7+2 — 2026-04-07 — P-001: Kamera-Vorschau-Delay auf Android behoben
 
 **Problem:** `pickImageCamera()` blockierte mehrere Sekunden auf Android, weil
 der Crop-Dialog und der anschließende Re-Encode synchron im Capture-Flow liefen.
@@ -117,7 +244,7 @@ Zusätzlich waren die Zieldimensionen hardcodiert auf 1600px.
 - `app/lib/services/image_picker_service.dart` — Crop entfernt, AppConfig genutzt
 - `app/lib/screens/artikel_erfassen_screen.dart` — `_cropImage()` + Crop-Button
 
-### v0.7.7+1 — 2026-04-06 — T-001 Widget-Tests abgeschlossen
+## v0.7.7+1 — 2026-04-06 — T-001 Widget-Tests abgeschlossen
 
 **T-001: Tests für Konfliktlösung — Unit- und Widget-Tests vollständig (77 Tests)**
 
@@ -139,7 +266,7 @@ nach Auswahl (`isSelected=true` fügt `Icons.check_circle` hinzu → +4px Overfl
 
 **Gesamtstand Tests:** 298 Tests, alle grün.
 
-### v0.7.7 — 2026-04-05 — Release: Qualitäts-Release mit Tests & Dokumentation
+## v0.7.7 — 2026-04-05 — Release: Qualitäts-Release mit Tests & Dokumentation
 
 Dieses Release fasst die v0.7.6+x-Zwischenstände zusammen und bringt die Version auf 0.7.7.
 
@@ -171,7 +298,7 @@ Dieses Release fasst die v0.7.6+x-Zwischenstände zusammen und bringt die Versio
 - `docs/TESTING.md` neu erstellt — beschreibt alle 258 Tests und lokalen Aufruf
 - `CHANGELOG.md`, `OPTIMIZATIONS.md`, `HISTORY.md`, `README.md` aktualisiert
 
-### v0.7.5+1 — 2026-04-03 — M-008 abgeschlossen: Backup-Status im Settings-Screen anzeigen
+## v0.7.5+1 — 2026-04-03 — M-008 abgeschlossen: Backup-Status im Settings-Screen anzeigen
 
 Neues Feature: Backup-Status wird im Settings-Screen als Card angezeigt.
 
@@ -187,7 +314,7 @@ Neues Feature: Backup-Status wird im Settings-Screen als Card angezeigt.
 - docker-compose.prod.yml: pb_public Volume für Backup-Container ergänzt
 - M-008 als erledigt markiert (18/28 Aufgaben abgeschlossen)
 
-### v0.7.5+0 — 2026-04-02 — M-007 abgeschlossen: UI für Konfliktlösung
+## v0.7.5+0 — 2026-04-02 — M-007 abgeschlossen: UI für Konfliktlösung
 
 **Kontext:** Prüfung des M-007-Status ergab, dass die Implementierung bereits
 vollständig vorhanden war. Die Datei `conflict_resolution_screen.dart` enthielt
@@ -216,7 +343,7 @@ Side-by-Side-Vergleich, Multi-Konflikt-Navigation und einen vollständigen
 
 ---
 
-### v0.7.4+4 — 2026-04-01 — O-004 Batch 2: Sync-Cluster migriert
+## v0.7.4+4 — 2026-04-01 — O-004 Batch 2: Sync-Cluster migriert
 
 **Kontext:** Fortsetzung der systematischen Migration hardcodierter UI-Werte
 zum Design-System. Batch 2 fokussiert auf alle Sync-bezogenen Dateien.

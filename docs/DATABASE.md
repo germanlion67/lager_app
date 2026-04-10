@@ -233,4 +233,46 @@ Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes 
 
 ---
 
+## Bild-Download bei Kaltstart (v0.8.0)
+
+Bei einem Kaltstart (App-Daten gelöscht, neue PocketBase-URL) werden
+Artikelbilder in zwei Phasen geladen:
+
+1. **Record-Sync:** `syncOnce()` synchronisiert Metadaten inkl.
+   `remoteBildPfad` (Dateiname auf PocketBase)
+2. **Image-Sync:** `downloadMissingImages()` prüft alle Artikel und
+   lädt fehlende Bilder von der PocketBase File-API herunter
+
+### Neue DB-Methode: `setBildPfadByUuidSilent()`
+
+```dart
+Future<void> setBildPfadByUuidSilent(String uuid, String bildPfad)
+```
+
+Aktualisiert **nur** den lokalen `bildPfad`, ohne `updated_at` oder `etag`
+zu ändern. Dadurch wird kein erneuter Push zum Server ausgelöst.
+
+**Unterschied zu `setBildPfadByUuid()`:**
+
+| Methode | Ändert `bildPfad` | Ändert `updated_at` | Sync-Trigger |
+|---|---|---|---|
+| `setBildPfadByUuid()` | ✅ | ✅ | ✅ Ja (wird als pending erkannt) |
+| `setBildPfadByUuidSilent()` | ✅ | ❌ | ❌ Nein |
+
+### Download-Logik
+
+```
+downloadMissingImages()
+  → getAlleArtikel(limit: 999999)
+  → Für jeden Artikel:
+      → remoteBildPfad leer? → skip
+      → remotePath (Record-ID) leer? → skip
+      → Lokale Datei existiert und > 0 Bytes? → skip
+      → HTTP GET /api/files/artikel/{recordId}/{filename}
+      → Speichern in: {cacheDir}/images/{uuid}/{filename}
+      → setBildPfadByUuidSilent(uuid, localPath)
+```
+
+--- 
+
 [Zurück zur README](../README.md) | [Zum Projekt-Status](CHECKLIST.md)

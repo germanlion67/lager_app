@@ -205,6 +205,53 @@ Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem *
 
 ---
 
+## SyncStatusProvider Interface
+
+### Warum ein Interface?
+
+`ArtikelListScreen` muss auf Sync-Events reagieren (z.B. um die Artikelliste
+nach einem erfolgreichen Sync neu zu laden), braucht aber nicht die volle
+`SyncOrchestrator`-API. Das `SyncStatusProvider`-Interface bietet:
+
+- **Lose Kopplung:** Screen kennt nur den Stream, nicht den Orchestrator
+- **Testbarkeit:** `FakeSyncStatusProvider` ermöglicht Unit-Tests ohne
+  echten Sync-Mechanismus
+- **Single Responsibility:** Orchestrator bleibt für Sync zuständig,
+  Screen nur für Darstellung
+
+### Datenfluss
+
+```
+SyncOrchestrator.runOnce()
+  → _emit(SyncStatus.running)
+  → syncOnce() + downloadMissingImages()
+  → _emit(SyncStatus.success)
+        ↓
+  syncStatus Stream (broadcast)
+        ↓
+  ArtikelListScreen._syncSubscription
+        ↓
+  _ladeArtikel() → UI aktualisiert
+```
+
+### Bild-Fallback-Kette (Mobile/Desktop)
+
+Nach einem Kaltstart existieren keine lokalen Bilddateien. Die Widgets
+nutzen eine 4-stufige Fallback-Kette:
+
+| Priorität | Quelle | Widget |
+|---|---|---|
+| 1 | Lokales Thumbnail (`thumbnailPfad`) | `_LocalThumbnail` |
+| 2 | Lokales Vollbild (`bildPfad`) | `_LocalThumbnail` / `ArtikelDetailBild` |
+| 3 | PocketBase-URL via `CachedNetworkImage` | `_buildPbFallback()` / `_buildPbDetailFallback()` |
+| 4 | Placeholder-Icon | `_BildPlaceholder` / `_Placeholder` |
+
+Die Bilder werden im Hintergrund von `downloadMissingImages()` heruntergeladen.
+Beim nächsten Laden der Artikelliste (nach `SyncStatus.success`) werden die
+lokalen Dateien verwendet (Priorität 1/2).
+
+--- 
+
 ## 🎨 Design-System & Konfiguration
 
 Um die Wartbarkeit zu erhöhen, nutzt die App eine dreistufige Konfiguration in `app/lib/config/`:

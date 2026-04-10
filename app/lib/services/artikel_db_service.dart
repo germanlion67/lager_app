@@ -512,6 +512,40 @@ class ArtikelDbService {
     }
   }
 
+  /// Setzt den lokalen Bildpfad für einen Artikel, OHNE updated_at oder
+  /// etag zu ändern.
+  ///
+  /// Wird von downloadMissingImages() verwendet, um heruntergeladene
+  /// Bilder lokal zu verknüpfen, ohne einen erneuten Push auszulösen.
+  ///
+  /// Unterschied zu setBildPfadByUuid():
+  /// - setBildPfadByUuid() setzt updated_at → Artikel wird als dirty erkannt
+  /// - setBildPfadByUuidSilent() ändert NUR bildPfad → kein Sync-Trigger
+  Future<void> setBildPfadByUuidSilent(String uuid, String bildPfad) async {
+    try {
+      final db = await database;
+      final rowsAffected = await db.update(
+        'artikel',
+        {'bildPfad': bildPfad},
+        where: 'uuid = ?',
+        whereArgs: [uuid],
+      );
+      if (rowsAffected > 0) {
+        _logger.d(
+          '✅ Bildpfad für Artikel UUID $uuid silent aktualisiert '
+          '(kein Sync-Trigger).',
+        );
+      }
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Silent-Setzen des Bildpfades '
+        'für Artikel UUID $uuid: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
   /// Setzt den Remote-Bildpfad und markiert den Artikel gleichzeitig
   /// als dirty (etag = null), damit der nächste PocketBase-Sync-Zyklus
   /// den neuen remoteBildPfad automatisch überträgt.
