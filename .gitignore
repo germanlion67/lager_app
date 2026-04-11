@@ -66,3 +66,8 @@ analyze_output.txt
 # Backup-Dateien
 # Backup-Dateien sind generierte Artefakte und sollten nicht versioniert werden.
 server/*.tar.gz
+
+# Keystore-Dateien
+**/*.jks
+**/*.keystore
+**/key.properties

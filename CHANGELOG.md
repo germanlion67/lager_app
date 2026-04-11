@@ -2,6 +2,16 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.0+1] - 2026-04-11
+
+### 🔑 Infrastruktur: Android Release-Keystore hinzugefügt
+
+- **Neues Feature:** Implementierung eines stabilen Android Release-Keystores für GitHub Actions.
+- **Ziel:** Sicherstellung der Update-Fähigkeit von Android-Apps und sauberer Signierung im Release-Workflow.
+- **Details:** Ausführliche Anleitung zur Erzeugung des Keystores, Base64-Kodierung für GitHub Secrets, Workflow-Anpassung zur Dekodierung und Nutzung der `key.properties`-Datei, sowie Gradle-Konfiguration für das Signieren von Release-Builds.
+- **Sicherheit:** Keystore-Dateien und Passwörter werden niemals im Repository gespeichert (`.gitignore` aktualisiert), sondern sicher über GitHub Secrets verwaltet.
+- **Dokumentation:** Detaillierte Schritte und Hinweise sind in der neuen Datei `ANDROID_RELEASE_KEYSTORE.md` zu finden. Ein Verweis wurde in der `README.md` hinzugefügt.
+
 
 ## [0.8.0] - 2026-04-10
 

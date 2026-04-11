@@ -103,6 +103,7 @@ Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 - 📘 **[INSTALL.md](INSTALL.md):** Detaillierte Installationsanleitung für alle Plattformen
 - 🚀 **[DEPLOYMENT.md](DEPLOYMENT.md):** Produktions-Setup, Nginx Proxy Manager & SSL
 - 💾 **[BACKUP.md](BACKUP.md):** Sicherungsverfahren und Wiederherstellung
+- 🔑 **[ANDROID_RELEASE_KEYSTORE.md](ANDROID_RELEASE_KEYSTORE.md):** Einrichtung eines stabilen Android Release-Keystores für GitHub Actions.
 
 ### 🏗️ Entwicklung & Architektur
 - 📐 **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** Projektstruktur, Datenmodell und Design-Entscheidungen
