@@ -34,7 +34,7 @@ android {
 
     // --- NEUER TEIL: Keystore-Eigenschaften laden und SigningConfigs definieren ---
     val keystoreProperties = Properties()
-    val keystorePropertiesFile = rootProject.file("key.properties")
+    val keystorePropertiesFile = file("../key.properties")
     if (keystorePropertiesFile.exists()) {
         keystoreProperties.load(keystorePropertiesFile.inputStream())
     }
