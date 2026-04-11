@@ -47,7 +47,6 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
                         └───────────────┘      • tar.gz + Rotation
                                                • E-Mail / Webhook
                                                • last_backup.json
-
 ```
 
 ## 🏗️ High-Level Architektur
@@ -65,81 +64,27 @@ Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so ko
 
 ---
 
-## 📂 Projektstruktur
-
-Das Repository ist als Monorepo organisiert, um Code-Teilung zwischen den Plattformen zu ermöglichen.
+## 📂 Projektstruktur (Übersicht)
 
 ```text
 lager_app/
-├── app/                              # Flutter Hauptanwendung
+├── app/                    # Flutter Hauptanwendung
 │   ├── lib/
-│   │   ├── config/                   # Zentrale Steuerung (Theming, Config)
-│   │   ├── core/                     # Plattform-Abstraktion (Logger, Env)
-│   │   ├── models/                   # POJO Datenklassen (Artikel, Dokument, User)
-│   │   ├── screens/                  # UI-Pages (Home, Detail, Sync)
-│   │   ├── services/                 # Business Logik (API, DB, Sync, DokumentSync)
-│   │   ├── utils/                    # Helfer (Validierung, Image-Tools)
-│   │   ├── widgets/                  # Wiederverwendbare UI-Komponenten
-│   │   ├── main.dart                 # App-Einstiegspunkt (gemeinsam)
-│   │   ├── main_io.dart              # Einstiegspunkt für native Plattformen (dart:io)
-│   │   └── main_stub.dart            # Einstiegspunkt für Web (kein dart:io)
-│   ├── android/                      # Android-spezifische Konfiguration
-│   ├── ios/                          # iOS-spezifische Konfiguration
-│   ├── linux/                        # Linux Desktop Konfiguration
-│   ├── macos/                        # macOS-spezifische Konfiguration
-│   ├── windows/                      # Windows Desktop Konfiguration
-│   ├── web/                          # Web-spezifische Assets (index.html)
-│   ├── assets/                       # Statische App-Assets (Bilder, Fonts)
-│   ├── test/                         # Unit- & Integration-Tests
-│   ├── tool/                         # Build-Hilfsskripte
-│   ├── Caddyfile                     # Caddy Webserver-Konfiguration
-│   ├── Dockerfile                    # Container-Build für Flutter Web
-│   ├── docker-entrypoint.sh          # Startskript für den Web-Container
-│   └── pubspec.yaml                  # Flutter Abhängigkeiten & Metadaten
-├── packages/                         # Geteilte lokale Dart-Pakete
-│   └── runtime_env_config/           # Paket für dynamische ENV-Injektion
-├── scripts/                          # Host-Scripts für manuelle Operationen
-│   └── restore.sh                    # Backup-Wiederherstellung (manuell)
-├── server/                           # Backend-Infrastruktur
-│   ├── backup/                       # Backup-Container
-│   │   ├── Dockerfile                # Alpine + Cron + SQLite3
-│   │   ├── entrypoint.sh             # Cron-Setup, SMTP-Config
-│   │   └── backup.sh                 # Backup-Logik (WAL, tar.gz, Rotation)
-│   ├── pb_data/                      # PocketBase-Datenbank & Uploads
-│   ├── pb_backups/                   # Backup-Archiv & Status-JSON
-│   ├── pb_migrations/                # JS-Migrationen für Schema-Versionierung
-│   ├── pb_public/                    # Öffentliche PocketBase-Dateien
-│   └── npm/                          # Nginx Proxy Manager Daten
-│       ├── data/                     # NPM Konfiguration
-│       └── letsencrypt/              # SSL-Zertifikate
-├── docs/                             # Dokumentation & Spezifikationen
-│   ├── ARCHITECTURE.md               # Architektur & Design-Entscheidungen
-│   ├── CHECKLIST.md                  # Aktueller Implementierungsstand
-│   ├── DATABASE.md                   # Datenbank-Design & Synchronisation
-│   ├── HISTORY.md                    # Projekthistorie & Entscheidungslog
-│   ├── IMAGE_TAGGING_STRATEGIE.md    # Docker Image-Tagging Konzept
-│   ├── LOGGER.md                     # Logging-System Dokumentation
-│   ├── OPTIMIZATIONS.md              # Offene Optimierungsaufgaben
-│   ├── THEMING.md                    # AppConfig, AppTheme & Design-Tokens
-│   └── TECHNISCHE_ANALYSE_2026-03.md # Technische Tiefenanalyse (März 2026)
-├── android/                          # Root-Level Android Wrapper
-├── ios/                              # Root-Level iOS Wrapper
-├── linux/                            # Root-Level Linux Wrapper
-├── macos/                            # Root-Level macOS Wrapper
-├── windows/                          # Root-Level Windows Wrapper
-├── .github/                          # GitHub Actions & CI/CD Workflows
-├── docker-compose.yml                # Entwicklungs-Setup
-├── docker-compose.prod.yml           # Produktions-Setup (NPM)
-├── docker-stack.yml                  # Docker Swarm Stack-Definition
-├── portainer-stack.yml               # Portainer Stack (mit NPM, Produktion)
-├── test-deployment.sh                # Deployment-Testskript
-├── CHANGELOG.md                      # Versionshistorie
-├── DEPLOYMENT.md                     # Produktions-Setup & SSL-Anleitung
-├── INSTALL.md                        # Detaillierte Installationsanleitung
-├── README.md                         # Projektübersicht & Schnellstart
-├── .env.example                      # Vorlage für lokale Umgebungsvariablen
-└── .env.production.example           # Vorlage für Produktions-Variablen
+│   │   ├── config/         # Zentrale Steuerung (AppConfig, AppTheme, AppImages)
+│   │   ├── core/           # Plattform-Abstraktion (Logger, Exceptions)
+│   │   ├── models/         # Datenklassen (Artikel, Attachment)
+│   │   ├── screens/        # UI-Pages (15 Dateien + Conditional Imports)
+│   │   ├── services/       # Business-Logik (30 Dateien + Conditional Imports)
+│   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
+│   │   └── widgets/        # Wiederverwendbare UI-Komponenten (12 Widgets)
+│   └── test/               # 451 Tests, 18 Dateien
+├── packages/               # Lokale Dart-Pakete (runtime_env_config)
+├── server/                 # PocketBase Backend + Backup-Container
+├── docs/                   # Dokumentation (16 Dateien)
+└── .github/                # CI/CD Workflows (3 Pipelines)
 ```
+
+→ **Vollständige Dateistruktur mit allen Dateien:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
 
 ---
 
@@ -160,7 +105,7 @@ Das Herzstück der Anwendung ist die Collection `artikel`. Ergänzt wird sie dur
 | `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_sync` |
 | `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_sync` |
 
-### Collection: `artikel_dokumente` (Neu ✨)
+### Collection: `artikel_dokumente`
 
 Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
 Unterstützte Dateitypen: PDF, DOCX, XLSX, TXT und weitere.
@@ -175,7 +120,6 @@ Unterstützte Dateitypen: PDF, DOCX, XLSX, TXT und weitere.
 | `dokument` | File | Die eigentliche Datei (PocketBase File-Field) | — |
 | `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_dok_sync` |
 | `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_dok_sync` |
-
 
 ### Collection: `attachments` (ab v0.7.2)
 
@@ -194,9 +138,10 @@ Dateianhänge pro Artikel. Unterstützt PDF, Office-Dokumente, Bilder und Textda
 | `deleted` | Boolean | Soft-Delete Flag | ✅ `idx_attachments_deleted` |
 | `updated_at` | Number | Unix-Timestamp für Sync | — |
 
-**API-Regeln:** Aktuell offen (kein Auth erforderlich). Wird mit Login-Flow (M-009) auf Auth umgestellt.
+**API-Regeln:** Auth-pflichtig seit v0.7.3 (M-009). Wird über PocketBase Collection Rules gesteuert.
 
 ### Synchronisations-Logik (Offline-First)
+
 Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem **Soft-Delete** Mechanismus:
 1.  **Push**: Lokale Änderungen (SQLite) werden anhand der `uuid` zu PocketBase gepusht.
 2.  **Pull**: Datensätze, deren `updated_at` neuer als der letzte Sync-Zeitpunkt ist, werden heruntergeladen.
@@ -221,7 +166,7 @@ nach einem erfolgreichen Sync neu zu laden), braucht aber nicht die volle
 
 ### Datenfluss
 
-```
+```text
 SyncOrchestrator.runOnce()
   → _emit(SyncStatus.running)
   → syncOnce() + downloadMissingImages()
@@ -250,7 +195,7 @@ Die Bilder werden im Hintergrund von `downloadMissingImages()` heruntergeladen.
 Beim nächsten Laden der Artikelliste (nach `SyncStatus.success`) werden die
 lokalen Dateien verwendet (Priorität 1/2).
 
---- 
+---
 
 ## 🎨 Design-System & Konfiguration
 
@@ -275,6 +220,8 @@ Da `dart:io` (Dateisystem) im Web nicht existiert, nutzt die App **Conditional I
 
 Dies gilt analog für die **Dokumenten-Funktionalität**: Auf nativen Plattformen werden Dokumente lokal gespeichert und via `open_file` geöffnet; im Web erfolgt der Zugriff direkt über den Browser-Download-Mechanismus.
 
+→ **Vollständige Liste aller Conditional Imports:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+
 ---
 
 ## 🛡️ Sicherheits-Architektur
@@ -289,7 +236,7 @@ Dies gilt analog für die **Dokumenten-Funktionalität**: Auf nativen Plattforme
 
 ---
 
-## 📄 Dokument-Verwaltung (Neu ✨)
+## 📄 Dokument-Verwaltung
 
 Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folgende Funktionen bietet:
 
@@ -319,4 +266,4 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folg
 
 ---
 
-[Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md)
+[Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md)

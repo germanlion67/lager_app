@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.0 | **Zuletzt aktualisiert:** 10.04.2026
+**Version:** 0.8.0 | **Zuletzt aktualisiert:** 11.04.2026
 
 ---
 
@@ -148,7 +148,6 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 - Bewusst übersprungen: `detail_screen_io.dart`, `list_screen_io.dart`,
   `list_screen_mobile_actions_stub.dart` (kein BuildContext),
   `_dokumente_button.dart` (deprecated)
-
 
 ### M-006: Input Validation — Erledigt in v0.7.6+1
 - Pflichtfelder: Name, Ort, Fach mit Inline-Fehlermeldungen ✅
@@ -318,19 +317,83 @@ Mock-basierte Tests für die Kern-Sync-Logik.
 - [ ] Farblogik: Grün/Gelb/Rot Schwellwerte
 - [ ] Fehlerfall: Server nicht erreichbar
 
-
 ### O-006: Tests für pickImageCamera() nach P-001
 P-001 hat die Logik in `ImagePickerService` geändert — Tests fehlen.
 - [ ] `pickImageCamera()` mit Mock-Picker
 - [ ] `openCropDialog()` public API testen
 - [ ] `ensureTargetFormat(crop: false)` Pfad abdecken
 
-
 ### P-003: Bild-Caching
 Remote-Bilder werden bei jedem Scroll neu geladen.
 - [ ] `cached_network_image` Paket einbinden
 - [ ] `ArtikelBildWidget` auf `CachedNetworkImage` umstellen
 - [ ] Cache-Invalidierung bei ETag-Änderung
+
+### F-001: Biometrische Authentifizierung (Mobile)
+- [ ] Implementierung der biometrischen Authentifizierung (Fingerabdruck/Gesichtserkennung) für mobile Plattformen.
+- [ ] Optionale Aktivierung in den Einstellungen.
+- [ ] Fallback auf PIN/Passwort bei Fehlschlag oder Nichtverfügbarkeit.
+
+### F-002: Konfigurierbare App-Sperrzeit
+- [ ] Einstellung für eine Zeitspanne, nach der die App eine erneute Authentifizierung verlangt (bei Inaktivität oder Hintergrundwechsel).
+- [ ] Implementierung der Logik zur Überwachung des App-Lebenszyklus und der Inaktivität.
+
+### F-003: Artikeldetailansicht optimieren
+- [ ] Layout-Anpassung in der Artikeldetailansicht, um "Ort" und "Fach" horizontal nebeneinander anzuzeigen.
+- [ ] Sicherstellung der Lesbarkeit und visuellen Trennung auf verschiedenen Bildschirmgrößen.
+
+
+### P-005: Dependency-Update: Sichere Patch/Minor-Updates hochziehen
+
+#### Aufgabe
+Aktualisiere die folgenden 7 Pakete in `app/pubspec.yaml` auf die angegebenen Versionen.
+Alle anderen Pakete bleiben unverändert.
+
+#### Zu aktualisierende Pakete
+
+| Paket                             | Aktuell        | Neu            | Typ    |
+|-----------------------------------|----------------|----------------|--------|
+| `cupertino_icons`                 | ^1.0.8         | ^1.0.9         | Patch  |
+| `shared_preferences`             | ^2.5.4         | ^2.5.5         | Patch  |
+| `mockito` (dev_dependency)        | ^5.6.3         | ^5.6.4         | Patch  |
+| `sqlite3`                         | ^3.2.0         | ^3.3.1         | Minor  |
+| `flutter_plugin_android_lifecycle`| ^2.0.33        | ^2.0.34        | Patch  |
+| `image_picker_android`            | ^0.8.13+14     | ^0.8.13+16     | Patch  |
+| `connectivity_plus`               | ^6.1.5         | ^7.1.1         | Major  |
+
+#### Hinweise
+
+##### connectivity_plus 6 → 7
+- Der bisherige `dependency_overrides`-Block für `connectivity_plus_platform_interface`
+  wurde bereits entfernt (nicht mehr nötig).
+- Die API von `connectivity_plus` 7.x ist weitgehend identisch zu 6.x.
+- Prüfe ob `ConnectivityResult` sich geändert hat — in 7.x gibt
+  `checkConnectivity()` eine `List<ConnectivityResult>` zurück statt
+  eines einzelnen `ConnectivityResult`. Falls der Code `.then((result) => ...)`
+  nutzt, muss er auf `.then((results) => results.first)` oder
+  `.then((results) => results.contains(...))` angepasst werden.
+
+##### flutter_plugin_android_lifecycle / image_picker_android
+- Diese sind transitive Plattform-Pakete. Prüfe ob sie überhaupt direkt
+  in deiner `pubspec.yaml` stehen. Falls nicht, werden sie automatisch
+  hochgezogen — dann nur die Haupt-Pakete anpassen.
+
+##### sqlite3 3.2 → 3.3
+- Minor-Update, neue SQLite-Features. Keine API-Änderungen.
+- Dein DB-Stack (`sqflite_common_ffi`) nutzt `sqlite3` transitiv.
+  Prüfe ob `sqlite3` direkt in `pubspec.yaml` steht oder nur transitiv kommt.
+
+#### Vorgehen
+
+1. Öffne `app/pubspec.yaml`
+2. Ändere nur die Versionen der oben gelisteten Pakete
+   (nur wenn sie direkt in dependencies/dev_dependencies stehen)
+3. Führe aus:
+   ```bash
+   cd app
+   flutter pub get
+   flutter analyze
+   flutter test
 
 ---
 
@@ -360,10 +423,40 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 |---|---|---|---|
 | ✅ Abgeschlossen | 27 | 27 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 6 | 0 | 6 |
+| 🟡 Mittel | 12 | 0 | 12 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **36** | **27** | **10** |
+| **Gesamt** | **43** | **27** | **16** |
+
+---
+
+## 📈 Vorschläge zur Vervollständigung von Phase 4: Multi-Plattform & Politur (100%)
+
+Um Phase 4 auf 100% zu bringen, müssen die verbleibenden Aspekte der Multi-Plattform-Unterstützung und des Feinschliffs abgeschlossen werden. Basierend auf dem aktuellen Stand und den neuen Punkten schlage ich folgende Ergänzungen vor:
+
+### **Neue To-Dos für Phase 4 (Priorität: Hoch/Mittel, je nach Wichtigkeit):**
+
+*   **P-004: Android Kamera-Test abschließen (Hoch)**
+    *   **Beschreibung:** Der aktuelle Status für Android ist "Build stabil, Kamera-Test ausstehend". Dies ist ein kritischer Punkt für die Android-Plattform.
+    *   **Details:** Vollständige manuelle und ggf. automatisierte Tests der Kamerafunktionalität auf verschiedenen Android-Geräten und Versionen. Sicherstellung, dass Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden.
+*   **F-001: Biometrische Authentifizierung (Mobile) (Mittel)**
+    *   **Beschreibung:** Wie bereits besprochen, ist dies eine wichtige "Politur" für die mobile Nutzung.
+*   **F-002: Konfigurierbare App-Sperrzeit (Mittel)**
+    *   **Beschreibung:** Verbessert die Benutzerfreundlichkeit und Sicherheit auf mobilen Geräten.
+*   **F-003: Artikeldetailansicht optimieren (Mittel)**
+    *   **Beschreibung:** Eine UI-Optimierung, die direkt der "Politur" und Benutzerfreundlichkeit dient.
+*   **N-003: App Icon (Nice-to-Have, aber für 100% Politur nötig)**
+    *   **Beschreibung:** Ein professionelles App-Icon ist essentiell für den Feinschliff und die Markenidentität.
+*   **N-005: Splash Screen (Nice-to-Have, aber für 100% Politur nötig)**
+    *   **Beschreibung:** Ein ansprechender Splash Screen verbessert das Nutzererlebnis beim Start der App.
+*   **N-006: Nextcloud-Workflow (Mittel/Nice-to-Have)**
+    *   **Beschreibung:** Wenn die Nextcloud-Integration ein Kernbestandteil der Multi-Plattform-Strategie ist, sollte diese finalisiert und getestet werden.
+
+### **Anpassung der "Fortschritts-Übersicht" für Phase 4:**
+
+Um die 52% in Phase 4 zu erreichen, wurden wahrscheinlich schon einige Punkte dieser Phase abgearbeitet. Die oben genannten Punkte sind die verbleibenden, die für eine 100%ige Fertigstellung notwendig wären.
+
+Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst auf 100% zu setzen, wenn alle oben genannten Punkte (oder die, die du als Teil von Phase 4 definierst) als "Erledigt" markiert sind.
 
 ---
 
@@ -371,6 +464,7 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-11 | v0.8.0 | F-001, F-002, F-003 hinzugefügt und in Priorität "Mittel" einsortiert. Fortschritts-Übersicht aktualisiert. |
 | 2026-04-10 | v0.8.0 | +104 Tests: AttachmentModel (30), attachment_utils (28), BackupStatus (22) — Gesamt 347→451, TESTING.md aktualisiert |
 | 2026-04-10 | v0.8.0 | K-006 abgeschlossen: Kaltstart-Bug Fix — Sync-UI-Kopplung, Bild-Download, PB-Fallback, Setup-Flow |
 | 2026-04-08 | v0.7.7+5 | O-006 abgeschlossen: 11 Widget-Tests ArtikelErfassenScreen, alle grün |
