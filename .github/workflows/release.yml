@@ -115,7 +115,10 @@ jobs:
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app-release.jks
 
           cat > key.properties <<'EOF'
-          storeFile=app-release.jks
+          # Der Pfad zum Keystore muss relativ zum build.gradle.kts des App-Moduls sein.
+          # Da key.properties in app/android liegt und build.gradle.kts in app/android/app,
+          # muss der Pfad im key.properties einen Schritt nach oben gehen.
+          storeFile=../app-release.jks
           storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
           keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
