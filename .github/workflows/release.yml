@@ -109,6 +109,18 @@ jobs:
           fi
           echo "args=$ARGS" >> $GITHUB_OUTPUT
 
+      - name: Decode Android keystore & create key.properties
+        working-directory: ./app/android
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > app-release.jks
+
+          cat > key.properties <<'EOF'
+          storeFile=app-release.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          EOF
+
       - name: Build APK
         working-directory: ./app
         run: flutter build apk --release ${{ steps.build-args.outputs.args }}
