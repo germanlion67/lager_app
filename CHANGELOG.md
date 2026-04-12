@@ -2,6 +2,66 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.0+5] - 2026-04-12
+
+### 🧪 Tests (T-002): Unit-Tests PocketBase SyncService — 17 Tests
+
+**Ziel:** Mock-basierte Unit-Tests für die PocketBase-Sync-Logik (Push, Pull,
+Fehlerbehandlung, Bild-Download).
+
+**Strategie:**
+- Manuelle Fakes statt `@GenerateMocks` — `PocketBaseService` und
+  `ArtikelDbService` sind Singletons mit Factory-Konstruktoren,
+  `PocketBase`/`RecordService` haben komplexe Vererbungsketten
+- `TestableSyncService` repliziert die Sync-Logik mit injizierbaren Fakes
+- `FakeRecordService` erweitert `RecordService` mit exakten Methoden-Signaturen
+  (PocketBase SDK v0.23.2: `skipTotal: bool`, `http.MultipartFile`)
+- `RecordModel.fromJson()` statt Konstruktor-Parameter für `id`/`created`/`updated`
+- Kein `build_runner` nötig — keine Code-Generierung
+
+**Abgedeckte Szenarien (17 Tests):**
+
+| Bereich | Tests | Was wird geprüft |
+|---|---|---|
+| Push: Create | 1 | Neuer Artikel → `create()`, `markSynced` mit remotePath |
+| Push: Update | 1 | Bestehender Artikel → `update()`, kein `create()` |
+| Push: Delete | 1 | Soft-deleted → `delete()` + `markSynced('deleted')` |
+| Push: Delete (nicht remote) | 1 | Gelöscht aber remote nicht vorhanden → nur `markSynced` |
+| Push: Fehlerbehandlung | 1 | Exception bei Artikel 1 → Artikel 2 wird trotzdem verarbeitet |
+| Push: Auth/Owner | 1 | `owner` wird im Body gesetzt wenn authentifiziert |
+| Pull: Insert | 1 | Neuer Remote-Record → `upsertArtikel()` |
+| Pull: Lösch-Sync | 1 | Lokal vorhanden, remote nicht → `deleteArtikel()` |
+| Pull: Leere UUIDs | 1 | Kein Lösch-Check wenn remoteUuids leer |
+| syncOnce: lastSyncTime | 1 | Wird nach erfolgreichem Sync gesetzt |
+| syncOnce: Fehler | 1 | Allgemeiner Fehler wird abgefangen, kein Throw |
+| syncOnce: Nur Pull | 1 | Keine Pending Changes → kein Push, nur Pull |
+| UUID-Sanitization | 1 | Anführungszeichen werden aus UUID entfernt (Finding 5) |
+| Image: Skip-Logik | 4 | Überspringt bei fehlendem remoteBildPfad/remotePath/URL/existierendem Bild |
+
+**Neue Datei:**
+- `test/services/pocketbase_sync_service_test.dart`
+
+**Geänderte Datei:**
+- `lib/services/pocketbase_service.dart` — `PocketBaseService.testable()`
+  Konstruktor hinzugefügt (`@visibleForTesting`) für Subclassing in Tests
+
+**Gesamtstand:**
+
+| Vorher | Nachher | Differenz |
+|---|---|---|
+| 451 Tests, 18 Dateien | **468 Tests**, 19 Dateien | **+17 Tests**, +1 Datei |
+
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **468 bestanden**, 3 übersprungen, 1 vorbestehender Fehler
+
+### 📚 Dokumentation
+- `docs/TESTING.md` — T-002 Tests dokumentiert, Fake-Klassen-Tabelle,
+  Gesamtzahl auf 468 aktualisiert, Version auf 0.8.0+5
+- `docs/OPTIMIZATIONS.md` — T-002 als abgeschlossen markiert,
+  Fortschritts-Übersicht aktualisiert (28/43 erledigt), Version auf 0.8.0+5
+- `CHANGELOG.md` — Aktualisiert für v0.8.0+5
+
+
 ## [0.8.0+1] - 2026-04-11
 
 ### 🔑 Infrastruktur: Android Release-Keystore hinzugefügt

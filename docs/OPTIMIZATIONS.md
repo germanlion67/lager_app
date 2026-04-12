@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.0 | **Zuletzt aktualisiert:** 11.04.2026
+**Version:** 0.8.0+5 | **Zuletzt aktualisiert:** 12.04.2026
 
 ---
 
@@ -260,6 +260,19 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Conditional Import für plattformübergreifendes Cache-Evict ✅
 - `FakeSyncStatusProvider` Test-Double + Unit-Tests ✅
 
+### T-002: Unit-Tests PocketBase SyncService — Erledigt in v0.8.0+5 ✅
+- 17 Tests, alle grün ✅
+- Manuelle Fakes statt `@GenerateMocks` (Singleton-Kompatibilität) ✅
+- `TestableSyncService` repliziert Sync-Logik mit injizierbaren Fakes ✅
+- `FakeRecordService` mit exakten PocketBase SDK v0.23.2 Signaturen ✅
+- `RecordModel.fromJson()` statt Konstruktor für `id`/`created`/`updated` ✅
+- Push-Tests: Create, Update, Delete, Fehlerbehandlung, Auth/Owner ✅
+- Pull-Tests: Insert, Lösch-Sync, leere UUIDs ✅
+- syncOnce()-Tests: Reihenfolge, Fehler-Abfang, Nur-Pull ✅
+- UUID-Sanitization (Finding 5): Anführungszeichen entfernt ✅
+- Image-Download: Skip-Logik für fehlende Felder/URL ✅
+- Kein `build_runner` nötig — keine Code-Generierung ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -289,14 +302,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
 - [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
 
-### T-002: Unit-Tests SyncService
-Mock-basierte Tests für die Kern-Sync-Logik.
-- [ ] `syncAll()` — Haupt-Einstiegspunkt
-- [ ] `uploadPendingChanges()` — ETag/If-Match Handling
-- [ ] `downloadNewItems()` — Remote-Artikel lokal einfügen
-- [ ] `applyConflictResolution()` — useLocal/useRemote/merge/skip
-- [ ] `deleteRemoteItem()` — Soft-Delete Sync
-
 ### T-003: Unit-Tests NextcloudClient
 - [ ] `_parsePropfindResponse()` — XML-Fixtures direkt testen
 - [ ] `_parseHttpDate()` — RFC-7231-Datumsformate, Edge Cases
@@ -316,6 +321,46 @@ Mock-basierte Tests für die Kern-Sync-Logik.
 - [ ] HTTP-Mock für `last_backup.json`
 - [ ] Farblogik: Grün/Gelb/Rot Schwellwerte
 - [ ] Fehlerfall: Server nicht erreichbar
+
+### T-007: Performance-Test Self-Contained machen
+Der Performance-Test (`import_500_smoke_test.dart`) erfordert aktuell externe
+Testdaten, die manuell generiert werden müssen. Ohne die Datei
+`test_data/import_500.json` schlägt `flutter test` (ohne `--exclude-tags performance`)
+fehl. Der Test soll seine Fixtures selbst erzeugen und aufräumen.
+
+**Problem:**
+- `flutter test` ohne `--exclude-tags performance` → **1 Fehler**
+- Entwickler müssen wissen, dass `dart run tool/generate_import_dataset.dart` nötig ist
+- CI-Pipelines brauchen einen Extra-Schritt oder das `--exclude-tags` Flag
+
+**Lösung:**
+- [ ] `setUpAll()` — generiert `test_data/import_500.json` programmatisch
+      (500 Artikel mit Name, UUID, Artikelnummer, optionalem Bild-Pfad)
+- [ ] Test bleibt inhaltlich identisch (Import, Zählung, Zeitmessung)
+- [ ] `tearDownAll()` — löscht `test_data/import_500.json` und leeren
+      `test_data/`-Ordner
+- [ ] `@Tags(['performance'])` bleibt erhalten — Test ist weiterhin
+      separat ausführbar, aber schlägt nicht mehr fehl wenn er
+      versehentlich mitläuft
+- [ ] `tool/generate_import_dataset.dart` bleibt als optionales CLI-Tool
+      für größere Datasets (1000+, 5000+) bestehen
+- [ ] TESTING.md aktualisieren: Hinweis auf externe Testdaten entfernen,
+      `--exclude-tags performance` als optional dokumentieren
+
+**Akzeptanzkriterien:**
+```bash
+# Muss ohne Vorbereitung funktionieren:
+flutter test
+# → 469 bestanden, 3 skipped, 0 Fehler
+
+# Muss weiterhin separat ausführbar sein:
+flutter test test/performance/import_500_smoke_test.dart
+# → 1 bestanden
+
+# Darf keine Dateien hinterlassen:
+ls test_data/
+# → Ordner existiert nicht (oder ist leer)
+
 
 ### O-006: Tests für pickImageCamera() nach P-001
 P-001 hat die Logik in `ImagePickerService` geändert — Tests fehlen.
@@ -341,7 +386,6 @@ Remote-Bilder werden bei jedem Scroll neu geladen.
 ### F-003: Artikeldetailansicht optimieren
 - [ ] Layout-Anpassung in der Artikeldetailansicht, um "Ort" und "Fach" horizontal nebeneinander anzuzeigen.
 - [ ] Sicherstellung der Lesbarkeit und visuellen Trennung auf verschiedenen Bildschirmgrößen.
-
 
 ### P-005: Dependency-Update: Sichere Patch/Minor-Updates hochziehen
 
@@ -421,12 +465,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 27 | 27 | 0 |
+| ✅ Abgeschlossen | 28 | 28 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 12 | 0 | 12 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **43** | **27** | **16** |
+| **Gesamt** | **44** | **28** | **16** |
 
 ---
 
@@ -464,6 +508,7 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-12 | v0.8.0+5 | T-002 abgeschlossen: 17 Unit-Tests PocketBase SyncService — Push/Pull/Fehler/UUID/Image, manuelle Fakes, Gesamt 451→468 |
 | 2026-04-11 | v0.8.0 | F-001, F-002, F-003 hinzugefügt und in Priorität "Mittel" einsortiert. Fortschritts-Übersicht aktualisiert. |
 | 2026-04-10 | v0.8.0 | +104 Tests: AttachmentModel (30), attachment_utils (28), BackupStatus (22) — Gesamt 347→451, TESTING.md aktualisiert |
 | 2026-04-10 | v0.8.0 | K-006 abgeschlossen: Kaltstart-Bug Fix — Sync-UI-Kopplung, Bild-Download, PB-Fallback, Setup-Flow |

@@ -366,6 +366,23 @@ class MockArtikelDbService extends _i1.Mock implements _i11.ArtikelDbService {
       ) as _i7.Future<void>);
 
   @override
+  _i7.Future<void> setBildPfadByUuidSilent(
+    String? uuid,
+    String? bildPfad,
+  ) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #setBildPfadByUuidSilent,
+          [
+            uuid,
+            bildPfad,
+          ],
+        ),
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      ) as _i7.Future<void>);
+
+  @override
   _i7.Future<void> setRemoteBildPfadByUuid(
     String? uuid,
     String? remoteBildPfad,

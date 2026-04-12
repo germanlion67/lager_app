@@ -2,19 +2,24 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.0 | **Zuletzt aktualisiert:** 10.04.2026
+**Version:** 0.8.0+5 | **Zuletzt aktualisiert:** 12.04.2026
 
 ---
 
 ## 🚀 Schnellstart
 
 ```bash
-# Alle Tests ausführen (aus dem app/-Verzeichnis)
+# Alle Tests ausführen — ohne Performance-Tests (aus dem app/-Verzeichnis)
 cd lager_app/app
-flutter test
+flutter test --exclude-tags performance
 ```
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
+
+⚠️ Ohne --exclude-tags performance schlägt der Lauf fehl, wenn die
+Testdaten für den Performance-Test nicht vorhanden sind
+(siehe Performance-Tests).
+Mit dem Flag: 468 Tests bestanden, 3 skipped, 0 Fehler.
 
 ---
 
@@ -27,6 +32,7 @@ flutter test
 | `test/models/attachment_model_test.dart` | Unit | 30 | O-002 |
 | `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 |
 | `test/services/backup_status_test.dart` | Unit | 22 | – |
+| `test/services/pocketbase_sync_service_test.dart` | Unit | 17 | T-002 |
 | `test/utils/attachment_utils_test.dart` | Unit | 28 | – |
 | `test/utils/image_processing_utils_test.dart` | Unit | 30 | O-002 |
 | `test/utils/uuid_generator_test.dart` | Unit | 23 | O-002 |
@@ -43,7 +49,7 @@ flutter test
 | `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
 | `test/helpers/fake_sync_status_provider.dart` | Test-Helper | – | K-006 |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1* | – |
-| **Gesamt** | | **451** (+3 skipped) | |
+| **Gesamt** | | **468** (+3 skipped) | |
 
 > \* Performance-Test erfordert externe Testdaten (siehe [unten](#performance-tests)).
 
@@ -77,7 +83,48 @@ flutter test test/conflict_resolution_test.dart
 
 ---
 
-### `models/attachment_model_test.dart` — O-002 (30 Tests) ✅ NEU
+### `services/pocketbase_sync_service_test.dart` — T-002 (17 Tests) ✅ NEU
+
+**Ziel:** Unit-Tests für die PocketBase-Sync-Logik — Push, Pull, Fehlerbehandlung und Bild-Download.
+
+**Strategie:**
+- Manuelle Fakes statt `@GenerateMocks` — `PocketBaseService` und `ArtikelDbService` sind
+  Singletons mit Factory-Konstruktoren, `PocketBase`/`RecordService` haben komplexe
+  Vererbungsketten die mockito nicht automatisch mocken kann
+- `TestableSyncService` repliziert die Sync-Logik mit injizierbaren Fakes
+- `FakeRecordService` erweitert `RecordService` mit exakten Methoden-Signaturen
+  (PocketBase SDK v0.23.2: `skipTotal: bool`, `http.MultipartFile`)
+- `RecordModel.fromJson()` statt Konstruktor-Parameter für `id`/`created`/`updated`
+- Kein Netzwerk, kein SQLite, kein Dateisystem nötig
+- Kein `build_runner` nötig — keine Code-Generierung
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| Push: Create | 1 | Neuer Artikel → `create()`, `markSynced` mit remotePath |
+| Push: Update | 1 | Bestehender Artikel → `update()`, kein `create()` |
+| Push: Delete | 1 | Soft-deleted → `delete()` + `markSynced('deleted')` |
+| Push: Delete (nicht remote) | 1 | Gelöscht aber remote nicht vorhanden → nur `markSynced` |
+| Push: Fehlerbehandlung | 1 | Exception bei Artikel 1 → Artikel 2 wird trotzdem verarbeitet |
+| Push: Auth/Owner | 1 | `owner` wird im Body gesetzt wenn authentifiziert |
+| Pull: Insert | 1 | Neuer Remote-Record → `upsertArtikel()` |
+| Pull: Lösch-Sync | 1 | Lokal vorhanden, remote nicht → `deleteArtikel()` |
+| Pull: Leere UUIDs | 1 | Kein Lösch-Check wenn remoteUuids leer |
+| syncOnce: lastSyncTime | 1 | Wird nach erfolgreichem Sync gesetzt |
+| syncOnce: Fehler | 1 | Allgemeiner Fehler wird abgefangen, kein Throw |
+| syncOnce: Nur Pull | 1 | Keine Pending Changes → kein Push, nur Pull |
+| UUID-Sanitization | 1 | Anführungszeichen werden aus UUID entfernt (Finding 5) |
+| Image: kein remoteBildPfad | 1 | Überspringt Download |
+| Image: kein remotePath | 1 | Überspringt Download |
+| Image: URL leer | 1 | Überspringt Download |
+| Image: Bild existiert | 1 | Überspringt Download wenn lokal vorhanden |
+
+```bash
+flutter test test/services/pocketbase_sync_service_test.dart
+```
+
+---
+
+### `models/attachment_model_test.dart` — O-002 (30 Tests) ✅
 
 **Ziel:** Vollständige Abdeckung des `AttachmentModel` — reine Modell-Logik ohne Abhängigkeiten.
 
@@ -140,7 +187,7 @@ flutter test test/services/artikel_db_service_test.dart
 
 ---
 
-### `services/backup_status_test.dart` (22 Tests) ✅ NEU
+### `services/backup_status_test.dart` (22 Tests) ✅
 
 **Ziel:** Vollständige Abdeckung der `BackupStatus`-Modell-Logik und des `BackupAge`-Enums.
 
@@ -161,7 +208,7 @@ flutter test test/services/backup_status_test.dart
 
 ---
 
-### `utils/attachment_utils_test.dart` (28 Tests) ✅ NEU
+### `utils/attachment_utils_test.dart` (28 Tests) ✅
 
 **Ziel:** Vollständige Abdeckung der Attachment-Validierung und Hilfs-Funktionen.
 
@@ -257,18 +304,6 @@ flutter test test/services/nextcloud_listfiles_test.dart
 
 ```bash
 flutter test test/services/app_log_service_test.dart
-```
-
----
-
-### `services/nextcloud_listfiles_test.dart` (1 Test)
-
-**Ziel:** Test für die Nextcloud-Dateilisten-Funktion.
-
-- WebDAV-PROPFIND-Response-Parsing
-
-```bash
-flutter test test/services/nextcloud_listfiles_test.dart
 ```
 
 ---
@@ -428,14 +463,28 @@ flutter test test/widgets/artikel_list_screen_test.dart
 
 **Ziel:** Smoke-Test für den Import von 500 Artikeln.
 
-> ⚠️ **Erfordert externe Testdaten:**
-> ```bash
-> dart run tool/generate_import_dataset.dart --count 500
-> ```
-> Ohne die Datei `test_data/import_500.json` schlägt dieser Test mit einer klaren Fehlermeldung fehl.
+> ⚠️ **Dieser Test ist mit `@Tags(['performance'])` markiert und wird bei
+> `flutter test --exclude-tags performance` automatisch übersprungen.**
+>
+> Ohne die Testdaten schlägt er fehl — das ist beabsichtigt.
+> Er soll nur gezielt ausgeführt werden, nicht im regulären CI-Lauf.
 
+**Testdaten generieren und Test ausführen:**
 ```bash
+# 1. Testdaten generieren (einmalig)
+dart run tool/generate_import_dataset.dart --count 500
+
+# 2. Performance-Test ausführen
 flutter test test/performance/import_500_smoke_test.dart
+
+# 3. Optional: Testdaten wieder löschen
+rm -rf test_data/
+```
+
+**Alle Tests inklusive Performance:**
+```bash
+# Nur wenn test_data/import_500.json existiert!
+flutter test
 ```
 
 ---
@@ -461,17 +510,20 @@ flutter test test/services/artikel_db_service_test.dart \
              test/models/artikel_model_test.dart \
              test/models/attachment_model_test.dart
 
+# Nur T-002 Tests (PocketBase Sync)
+flutter test test/services/pocketbase_sync_service_test.dart
 
-# Nur neue Tests (v0.8.0)
-flutter test test/models/attachment_model_test.dart \
+# Nur neue Tests (v0.8.0+5)
+flutter test test/services/pocketbase_sync_service_test.dart \
+             test/models/attachment_model_test.dart \
              test/utils/attachment_utils_test.dart \
              test/services/backup_status_test.dart
 
 # Verbose-Ausgabe (jeder Testname einzeln)
-flutter test --reporter expanded
+flutter test --exclude-tags performance --reporter expanded
 
 # Bei Fehlern: Stack-Trace anzeigen
-flutter test --reporter expanded --no-pub
+flutter test --exclude-tags performance --reporter expanded --no-pub
 ```
 
 ---
@@ -483,7 +535,8 @@ flutter test --reporter expanded --no-pub
 | Flutter SDK | ≥ 3.41.4 (empfohlen: aktuell) |
 | Betriebssystem | Linux, Windows oder macOS |
 | `flutter pub get` | Einmalig im `app/`-Verzeichnis ausführen |
-| Performance-Test | `dart run tool/generate_import_dataset.dart` |
+| `--exclude-tags performance` | Empfohlen für reguläre Testläufe |
+| Performance-Test | Optional: `dart run tool/generate_import_dataset.dart` |
 
 ---
 
@@ -531,11 +584,21 @@ fake.emitIdle();      // → UI im Ruhezustand
 fake.dispose();
 ```
 
+### Fake-Klassen für PocketBase Sync (`pocketbase_sync_service_test.dart`)
+
+| Klasse | Beschreibung |
+|---|---|
+| `FakePbService` | Minimaler Ersatz für `PocketBaseService` — kontrollierbare Properties (`client`, `isAuthenticated`, `currentUserId`, `url`) |
+| `FakeArtikelDbService` | Ersatz für `ArtikelDbService` — speichert Aufrufe in Listen für Assertions |
+| `FakeRecordService` | Erweitert `RecordService` — Handler-Callbacks für `getList`, `getFullList`, `create`, `update`, `delete` |
+| `FakePocketBase` | Erweitert `PocketBase` — leitet `collection()` auf `FakeRecordService` um |
+| `TestableSyncService` | Repliziert `PocketBaseSyncService`-Logik mit injizierbaren Fakes |
+
 ---
 
 ## 🔗 Verwandte Dokumente
 
-- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — Aufgaben-Tracking (O-002, T-001)
+- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — Aufgaben-Tracking (O-002, T-001, T-002)
 - **[DATABASE.md](DATABASE.md)** — Datenbankschema und Sync-Logik
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Gesamtarchitektur
 
@@ -545,14 +608,13 @@ fake.dispose();
 
 ---
 
-## Änderungen gegenüber v0.7.9
+## Änderungen gegenüber v0.8.0
 
-| Stelle | Vorher (v0.7.9) | Nachher (v0.8.0) |
+| Stelle | Vorher (v0.8.0) | Nachher (v0.8.0+5) |
 |---|---|---|
-| **Version** | 0.7.9 | 0.8.0 |
-| **Testübersicht-Tabelle** | 17 Einträge, 353 Tests | 21 Einträge, 451 Tests (+3 skipped) |
-| **Neue Test-Dateien** | – | `attachment_model_test.dart` (30), `attachment_utils_test.dart` (28), `backup_status_test.dart` (22) |
-| **Fehlende Einträge** | `nextcloud_listfiles_test.dart` fehlte | Hinzugefügt (1 Test) |
-| **O-002 Schnellstart** | 4 Dateien | 5 Dateien (+ `attachment_model_test.dart`) |
-| **Neuer Schnellstart** | – | „Nur neue Tests (v0.8.0)" Kommando |
-| **Änderungslog** | v0.7.8 → v0.7.9 | v0.7.9 → v0.8.0 |
+| **Version** | 0.8.0 | 0.8.0+5 |
+| **Testübersicht-Tabelle** | 21 Einträge, 451 Tests | 22 Einträge, 468 Tests (+3 skipped) |
+| **Neue Test-Datei** | – | `pocketbase_sync_service_test.dart` (17 Tests, T-002) |
+| **T-002 Schnellstart** | – | Eigenes Kommando für T-002 Tests |
+| **Test-Infrastruktur** | 1 Helper-Tabelle | 2 Helper-Tabellen (+ Fake-Klassen für PB Sync) |
+| **Änderungslog** | v0.7.9 → v0.8.0 | v0.8.0 → v0.8.0+5 |

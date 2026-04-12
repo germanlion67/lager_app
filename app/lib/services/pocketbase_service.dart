@@ -12,13 +12,14 @@
 // Setup-Screen angezeigt, bis eine gültige URL konfiguriert ist.
 
 import 'dart:async';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:pocketbase/pocketbase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 import '../config/app_config.dart';
 
 class PocketBaseService {
+
   static const String _prefsKey = 'pocketbase_url';
 
   static final Logger _logger = Logger();
@@ -27,6 +28,11 @@ class PocketBaseService {
   static PocketBaseService? _instance;
   factory PocketBaseService() => _instance ??= PocketBaseService._();
   PocketBaseService._();
+
+  /// Nur für Tests — ermöglicht Subclassing für Fakes.
+  /// Umgeht den Singleton-Factory-Konstruktor.
+  @visibleForTesting
+  PocketBaseService.testable();
 
   PocketBase? _client;
   String _currentUrl = '';

@@ -9,7 +9,7 @@ publish_to: none
 # Flutter erwartet version: major.minor.patch+build.
 # Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
 # da versionCode (Android) bzw. CFBundleVersion (iOS) fehlt.
-version: 0.8.0+4
+version: 0.8.0+5
 
 # Fix: SDK-Constraint präzisiert —
 # ">=3.0.0 <4.0.0" erlaubt theoretisch Dart 4.x sobald es erscheint.
@@ -42,7 +42,7 @@ dependencies:
   # behebt mehrere Bugs und unterstützt neuere SQLite-Versionen.
   sqflite_common_ffi: ^2.3.6
 
-  shared_preferences: ^2.2.2
+  shared_preferences: ^2.5.5
   flutter_secure_storage: ^10.0.0
 
   # ==================== UI & NAVIGATION ====================
@@ -58,7 +58,7 @@ dependencies:
 
   url_launcher: ^6.3.1
   cached_network_image: ^3.2.3
-  cupertino_icons: ^1.0.8
+  cupertino_icons: ^1.0.9
 
   # ==================== BILDER & KAMERA ====================
 
@@ -114,7 +114,7 @@ dependencies:
   # Das Package gibt auf Web immer ConnectivityResult.wifi zurück,
   # unabhängig vom tatsächlichen Verbindungstyp.
   # kIsWeb-Check im Code erforderlich.
-  connectivity_plus: ^6.1.1
+  connectivity_plus: ^7.1.1
 
   # Fix: webdav_client nur auf Mobile/Desktop —
   # dart:io wird auf Web nicht unterstützt, webdav_client
@@ -150,7 +150,7 @@ dev_dependencies:
   # N-001: Mocking-Library
   # Entscheidung: mockito (mit @GenerateMocks Code-Generation)
   # mocktail wurde entfernt da es nicht genutzt wurde
-  mockito: ^5.4.2
+  mockito: ^5.6.4
 
   build_runner: ^2.4.6
   flutter_native_splash: ^2.3.10
