@@ -2,6 +2,58 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.1+12] — 2026-04-13
+
+### Tests (T-003): Unit-Tests NextcloudClient — 39 Tests
+
+**Ziel:** Vollständige Unit-Test-Abdeckung für `NextcloudClient` — alle WebDAV-Operationen
+(HEAD, MKCOL, PROPFIND, GET, PUT, DELETE) gegen einen injizierten `MockClient`.
+
+**Strategie:**
+- `MockClient` aus `package:http/testing.dart` — kein Netzwerk nötig
+- Optionaler `http.Client? client`-Parameter im Konstruktor (rückwärtskompatibel)
+- Alle 8 HTTP-Stellen von Top-Level `http.*` / lokalen `http.Client()` auf `_client.*` umgestellt
+- PROPFIND-XML-Responses als Inline-Fixtures
+- `RemoteItemMeta`-Datenklasse separat getestet
+
+**Abgedeckte Gruppen (39 Tests):**
+
+| Gruppe | Tests | Szenarien |
+|---|---|---|
+| RemoteItemMeta | 3 | equality, copyWith, toString |
+| testConnection() | 5 | 200, 404, 500, Exception, Auth-Header |
+| createFolder() | 4 | 201, 405, 500, Exception |
+| listItemsEtags() | 7 | 1 Item, Multi-Item, leer, 403, Non-JSON-Filter, kein ETag, custom Path |
+| downloadItem() | 3 | 200, 404, Netzwerkfehler |
+| uploadItem() | 5 | 201+ETag, If-Match, 412 Conflict, 500, kein ETag |
+| deleteItem() | 4 | 204, 404 idempotent, 500, Exception |
+| uploadAttachment() | 4 | 201+ETag, Content-Type, Default-CT, 500 |
+| downloadAttachment() | 2 | 200+Bytes, 404 |
+| URI-Auflösung | 2 | items-Pfad, attachments-Pfad |
+
+**Neue Datei:**
+- `test/services/nextcloud_client_test.dart`
+
+**Geänderte Datei:**
+- `lib/services/nextcloud_client.dart` — `http.Client` injizierbar via optionalem
+  `client`-Parameter, alle HTTP-Aufrufe über `_client` statt Top-Level/lokale Instanzen
+
+**Gesamtstand:**
+
+| Vorher | Nachher | Differenz |
+|---|---|---|
+| 551 Tests, 25 Dateien | **590 Tests**, 26 Dateien | **+39 Tests**, +1 Datei |
+
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **590 bestanden**, 3 übersprungen
+
+### Dokumentation
+- `docs/TESTING.md` — T-003 Tests dokumentiert, Gesamtzahl auf 590 aktualisiert
+- `docs/OPTIMIZATIONS.md` — T-003 als abgeschlossen markiert,
+  Fortschritts-Übersicht aktualisiert (36/45 erledigt)
+- `CHANGELOG.md` — Aktualisiert für T-003
+
+
 ## [0.8.1+11] — 2026-04-13
 
 ### Tests (T-004): Widget-Tests Merge-Dialog — 18 Tests

@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.1+10 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.1+12 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -302,6 +302,24 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Menge-Feld: Ungültige Eingabe Fallback, Remote-Übernahme (2 Tests) ✅
 - Gesamt: 533 → 551 Tests
 
+### T-003: Unit-Tests NextcloudClient — Erledigt in v0.8.1+12 ✅
+- 39 Tests, alle grün ✅
+- `MockClient` aus `package:http/testing.dart` — kein Netzwerk nötig ✅
+- Optionaler `http.Client? client`-Parameter im Konstruktor (rückwärtskompatibel) ✅
+- Alle 8 HTTP-Stellen auf injizierten `_client` umgestellt ✅
+- `RemoteItemMeta`: equality (path+etag), copyWith, toString (3 Tests) ✅
+- `testConnection()`: 200, 404, 500, Exception, Auth-Header (5 Tests) ✅
+- `createFolder()`: 201, 405, 500, Exception (4 Tests) ✅
+- `listItemsEtags()`: 1 Item, Multi-Item, leer, 403, Non-JSON-Filter, kein ETag, custom Path (7 Tests) ✅
+- `downloadItem()`: 200, 404, Netzwerkfehler (3 Tests) ✅
+- `uploadItem()`: 201+ETag, If-Match, 412 Conflict, 500, kein ETag (5 Tests) ✅
+- `deleteItem()`: 204, 404 idempotent, 500, Exception (4 Tests) ✅
+- `uploadAttachment()`: 201+ETag, Content-Type, Default-CT, 500 (4 Tests) ✅
+- `downloadAttachment()`: 200+Bytes, 404 (2 Tests) ✅
+- URI-Auflösung: items-Pfad, attachments-Pfad (2 Tests) ✅
+- Produktionscode minimal geändert: 1 Feld, 1 Parameter, 8 Aufrufstellen ✅
+- Gesamt: 551 → 590 Tests
+
 ### O-008: Magic-Number-Arithmetik in Spacing-Tokens — Erledigt in v0.8.1+10 ✅
 - Neuer Token `spacingSectionGap` (20.0) in `AppConfig` ✅
 - 3 Stellen `spacingXLarge - 4` → `spacingSectionGap` ersetzt ✅
@@ -442,12 +460,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 35 | 35 | 0 |
+| ✅ Abgeschlossen | 36 | 36 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 6 | 0 | 6 |
+| 🟡 Mittel | 5 | 0 | 5 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **45** | **35** | **10** |
+| **Gesamt** | **45** | **36** | **9** |
 
 ---
 
@@ -484,6 +502,7 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-13 | v0.8.1+12 | T-003 abgeschlossen: 39 Unit-Tests NextcloudClient — testConnection, createFolder, listItemsEtags, downloadItem, uploadItem, deleteItem, uploadAttachment, downloadAttachment, RemoteItemMeta, URI-Auflösung — MockClient injiziert, Produktionscode minimal refactored — Gesamt 551→590 |
 | 2026-04-13 | v0.8.1+11 | T-004 abgeschlossen: 18 Widget-Tests MergeDialog — Grundstruktur, Konflikt-Anzeige, Feld-Auswahl, Bild-Auswahl, Zusammenführen, Dialog-Schließen, Menge-Fallback. O-008 abgeschlossen: spacingSectionGap Token, 3 Stellen ersetzt. Gesamt 533→551 |
 | 2026-04-13 | v0.8.1+10 | T-005 abgeschlossen: 34 Tests AttachmentService — getForArtikel, countForArtikel, upload, updateMetadata, delete, deleteAllForArtikel, Integration — PocketBaseService.overrideForTesting, FakeAttachmentRecordService, fakeClientException — Gesamt 499→533 |
 | 2026-04-13 | v0.8.0+8 | F-003: Artikeldetailansicht — Ort & Fach nebeneinander |

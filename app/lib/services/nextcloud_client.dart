@@ -51,6 +51,7 @@ class RemoteItemMeta {
 class NextcloudClient {
   final Uri baseUrl;
   final String username;
+  final http.Client _client;
 
   final Logger _logger = Logger();
 
@@ -60,7 +61,8 @@ class NextcloudClient {
     required this.baseUrl,
     required this.username,
     required String appPassword,
-  }) {
+    http.Client? client,
+  }) : _client = client ?? http.Client() {
     _headers = {
       'Authorization':
           'Basic ${base64Encode(utf8.encode('$username:$appPassword'))}',
@@ -71,7 +73,7 @@ class NextcloudClient {
   /// Testet die Verbindung zur Nextcloud.
   Future<bool> testConnection() async {
     try {
-      final response = await http
+      final response = await _client
           .head(baseUrl, headers: _headers)
           .timeout(_kRequestTimeout);
 
@@ -85,12 +87,11 @@ class NextcloudClient {
 
   /// Erstellt einen Ordner auf dem Server.
   Future<bool> createFolder(String path) async {
-    final client = http.Client();
     try {
       final request = http.Request('MKCOL', _resolveUri(path));
       request.headers.addAll(_headers);
 
-      final streamedResponse = await client
+      final streamedResponse = await _client
           .send(request)
           .timeout(_kRequestTimeout);
 
@@ -101,8 +102,6 @@ class NextcloudClient {
     } catch (e) {
       _logger.e('Failed to create folder $path: $e');
       return false;
-    } finally {
-      client.close();
     }
   }
 
@@ -118,7 +117,6 @@ class NextcloudClient {
   </d:prop>
 </d:propfind>''';
 
-    final client = http.Client();
     try {
       final request = http.Request('PROPFIND', _resolveUri(folderPath));
       request.headers.addAll({
@@ -128,7 +126,7 @@ class NextcloudClient {
       });
       request.body = propfindBody;
 
-      final streamedResponse = await client
+      final streamedResponse = await _client
           .send(request)
           .timeout(_kRequestTimeout);
 
@@ -143,8 +141,6 @@ class NextcloudClient {
     } catch (e) {
       _logger.e('Failed to list items: $e');
       rethrow;
-    } finally {
-      client.close();
     }
   }
 
@@ -250,7 +246,7 @@ class NextcloudClient {
   /// Lädt eine Datei vom Server herunter.
   Future<String> downloadItem(String path) async {
     try {
-      final response = await http
+      final response = await _client
           .get(_resolveUri('items/$path'), headers: _headers)
           .timeout(_kRequestTimeout);
 
@@ -288,7 +284,7 @@ class NextcloudClient {
         headers['If-Match'] = ifMatch;
       }
 
-      final response = await http
+      final response = await _client
           .put(
             _resolveUri('items/$path'),
             headers: headers,
@@ -319,7 +315,7 @@ class NextcloudClient {
   /// Löscht eine Datei vom Server.
   Future<bool> deleteItem(String path) async {
     try {
-      final response = await http
+      final response = await _client
           .delete(_resolveUri('items/$path'), headers: _headers)
           .timeout(_kRequestTimeout);
 
@@ -347,7 +343,7 @@ class NextcloudClient {
         'Content-Type': contentType ?? 'application/octet-stream',
       };
 
-      final response = await http
+      final response = await _client
           .put(uri, headers: headers, body: data)
           .timeout(_kRequestTimeout);
 
@@ -378,7 +374,7 @@ class NextcloudClient {
     try {
       final uri = _resolveUriSegments(['attachments', itemUUID, filename]);
 
-      final response = await http
+      final response = await _client
           .get(uri, headers: _headers)
           .timeout(_kRequestTimeout);
 

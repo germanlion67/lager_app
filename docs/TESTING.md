@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.1+11 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.1+12 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **551 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
+✅ **590 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
 Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 
 > `--exclude-tags performance` ist weiterhin optional verfügbar, aber nicht mehr erforderlich.
@@ -51,11 +51,50 @@ Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 | `test/helpers/fake_sync_status_provider.dart` | Test-Helper | – | K-006 |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1  | T-007 |
 | `test/widgets/merge_dialog_test.dart` | Widget | 18 | T-004 |
-| **Gesamt** | | **537** (+3 skipped) | |
+| `test/services/nextcloud_client_test.dart`     | Unit          | 39  | T-003  |
+| **Gesamt** | | **576** (+3 skipped) | |
 
 ---
 
 ## 🔬 Test-Beschreibungen
+
+### `services/nextcloud_client_test.dart` — T-003 (39 Tests) ✅ NEU
+
+**Ziel:** Unit-Tests für `NextcloudClient` — alle WebDAV-Operationen (HEAD, MKCOL,
+PROPFIND, GET, PUT, DELETE) gegen einen injizierten `MockClient` ohne Netzwerk.
+
+**Strategie:**
+- `MockClient` aus `package:http/testing.dart` — identisches Pattern wie T-006
+- Optionaler `http.Client? client`-Parameter im `NextcloudClient`-Konstruktor
+  (rückwärtskompatibel — Default: `http.Client()`)
+- Alle 8 HTTP-Stellen von Top-Level `http.get/put/delete/head` und lokalen
+  `http.Client()`-Instanzen auf `_client.get/put/delete/head/send` umgestellt
+- PROPFIND-XML-Responses als Inline-Fixtures
+- `RemoteItemMeta`-Datenklasse separat getestet (equality, copyWith, toString)
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| `RemoteItemMeta` | 3 | equality (path+etag), copyWith, toString |
+| `testConnection()` | 5 | 200, 404, 500, Exception, Auth-Header korrekt |
+| `createFolder()` | 4 | 201 Created, 405 Already Exists, 500, Exception |
+| `listItemsEtags()` | 7 | 1 Item, Multi-Item, leer, 403, Non-JSON-Filter, kein ETag, custom Path |
+| `downloadItem()` | 3 | 200 OK, 404 Not Found, Netzwerkfehler |
+| `uploadItem()` | 5 | 201+ETag, If-Match Header, 412 Conflict, 500, kein ETag |
+| `deleteItem()` | 4 | 204, 404 idempotent, 500, Exception |
+| `uploadAttachment()` | 4 | 201+ETag, Content-Type, Default application/octet-stream, 500 |
+| `downloadAttachment()` | 2 | 200+Bytes, 404 |
+| `URI-Auflösung` | 2 | items-Pfad, attachments-Pfad korrekt aufgelöst |
+
+**Produktionscode-Änderung (minimal):**
+- `NextcloudClient`: Neues Feld `final http.Client _client`
+- Konstruktor: Optionaler `http.Client? client`-Parameter (`_client = client ?? http.Client()`)
+- 6× `http.get/put/delete/head` → `_client.get/put/delete/head`
+- 2× lokaler `http.Client()` + `client.send()` + `client.close()` → `_client.send()` (kein close nötig)
+
+```bash
+flutter test test/services/nextcloud_client_test.dart
+```
+
 
 ### `conflict_resolution_test.dart` — T-001 (77 Tests)
 
@@ -728,15 +767,14 @@ fake.dispose();
 
 ---
 
-## Änderungen gegenüber v0.8.0+7
+## Änderungen gegenüber v0.8.1+11
 
-| **Aspekt** | **v0.8.0+7** | **v0.8.1+11** |
+| **Aspekt** | **v0.8.1+11** | **v0.8.1+12** |
 |---|---|---|
-| **Version** | 0.8.0+7 | 0.8.1+11 |
-| **Testübersicht** | 484 Tests, 23 Einträge | 537 Tests, 25 Einträge |
-| **Gesamtzahl (Schnellstart)** | 499 bestanden | 551 bestanden |
-| **T-004-Sektion** | Nicht vorhanden | Neu: 18 Tests MergeDialog |
-| **T-005-Sektion** | Nicht vorhanden | Neu: 34 Tests AttachmentService |
-| **Testübersicht-Tabelle** | Kein `merge_dialog_test.dart` / `attachment_service_test.dart` | 2 neue Zeilen |
-| **Test-Infrastruktur** | Nur Sync-Fakes | + AttachmentService-Fakes + `fakeClientException()` Helper |
-| **Gesamtzahl-Tabelle** | 484 | 537 |
+| **Version** | 0.8.1+11 | 0.8.1+12 |
+| **Testübersicht** | 537 Tests, 25 Einträge | 576 Tests, 26 Einträge |
+| **Gesamtzahl (Schnellstart)** | 551 bestanden | 590 bestanden |
+| **T-003-Sektion** | Nicht vorhanden | Neu: 39 Tests NextcloudClient |
+| **Testübersicht-Tabelle** | Kein `nextcloud_client_test.dart` | 1 neue Zeile |
+| **Produktionscode** | `NextcloudClient` nutzt Top-Level `http.*` | `NextcloudClient` nutzt injizierten `_client` |
+| **Gesamtzahl-Tabelle** | 537 | 576 |
