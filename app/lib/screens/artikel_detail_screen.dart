@@ -9,6 +9,7 @@
 // v0.7.8: Punkt 1 — _cropImage() + Crop-Button im Edit-Modus
 //         Punkt 2 — _nameController: Artikelname editierbar
 //         Punkt 5 — Bild-Buttons + Anhänge + Speichern in AppBar
+// F-003:  Ort & Fach nebeneinander (Row mit Expanded, detailFieldSpacing)
 
 import 'dart:async';
 import 'dart:typed_data';
@@ -903,31 +904,40 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   ),
                   const SizedBox(height: AppConfig.spacingMedium),
 
-                  TextField(
-                    controller: _ortController,
-                    enabled: _isEditing && !isBlocked,
-                    decoration: InputDecoration(
-                      labelText: 'Ort',
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: _isEditing
-                          ? colorScheme.surface
-                          : colorScheme.surfaceContainerLow,
-                    ),
-                  ),
-                  const SizedBox(height: AppConfig.spacingMedium),
-
-                  TextField(
-                    controller: _fachController,
-                    enabled: _isEditing && !isBlocked,
-                    decoration: InputDecoration(
-                      labelText: 'Fach',
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: _isEditing
-                          ? colorScheme.surface
-                          : colorScheme.surfaceContainerLow,
-                    ),
+// F-003: Ort und Fach nebeneinander (je 50 % Breite)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _ortController,
+                          enabled: _isEditing && !isBlocked,
+                          decoration: InputDecoration(
+                            labelText: 'Ort',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: _isEditing
+                                ? colorScheme.surface
+                                : colorScheme.surfaceContainerLow,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppConfig.detailFieldSpacing),
+                      Expanded(
+                        child: TextField(
+                          controller: _fachController,
+                          enabled: _isEditing && !isBlocked,
+                          decoration: InputDecoration(
+                            labelText: 'Fach',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: _isEditing
+                                ? colorScheme.surface
+                                : colorScheme.surfaceContainerLow,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppConfig.spacingXLarge - 4),
 

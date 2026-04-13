@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.0+7 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.0+8 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -315,6 +315,20 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
   `openCropDialog()` Guards (2), `pickImageCamera()` alle Pfade (4) ✅
 - Gesamt: 469 → 484 Tests
 
+
+### F-003: Artikeldetailansicht — Ort & Fach nebeneinander — Erledigt in v0.8.0+8
+- `artikel_detail_screen.dart`: Ort- und Fach-`TextField` von vertikaler
+  `Column`-Anordnung in eine `Row` mit zwei `Expanded`-Kindern (je 50 %) umgebaut ✅
+- Neuer AppConfig-Token `detailFieldSpacing` (12.0 dp) für den horizontalen
+  Abstand zwischen den beiden Feldern ✅
+- `crossAxisAlignment: CrossAxisAlignment.start` — Felder mit unterschiedlicher
+  Fehlertext-Höhe (Validation) verschieben sich nicht gegenseitig ✅
+- Dark Mode korrekt: `colorScheme.surface / surfaceContainerLow` unverändert ✅
+- Responsive: `Expanded` skaliert automatisch auf 360 dp (Mobile) bis 1200+ dp (Desktop) ✅
+- Kein Hardcoding: einziger neuer Wert in `AppConfig.detailFieldSpacing` ✅
+- Alle 24 bestehenden Widget-Tests grün ✅
+- `flutter analyze` — 0 Issues 
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -374,9 +388,6 @@ Remote-Bilder werden bei jedem Scroll neu geladen.
 - [ ] Einstellung für eine Zeitspanne, nach der die App eine erneute Authentifizierung verlangt (bei Inaktivität oder Hintergrundwechsel).
 - [ ] Implementierung der Logik zur Überwachung des App-Lebenszyklus und der Inaktivität.
 
-### F-003: Artikeldetailansicht optimieren
-- [ ] Layout-Anpassung in der Artikeldetailansicht, um "Ort" und "Fach" horizontal nebeneinander anzuzeigen.
-- [ ] Sicherstellung der Lesbarkeit und visuellen Trennung auf verschiedenen Bildschirmgrößen.
 
 ---
 
@@ -390,6 +401,21 @@ Eigener Splash-Screen mit App-Logo.
 
 ### N-006: Nextcloud-Workflow
 WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
+
+### O-008: Magic-Number-Arithmetik in Spacing-Tokens auflösen
+In artikel_detail_screen.dart wird an 3 Stellen AppConfig.spacingXLarge - 4
+(= 20.0 dp) verwendet. Der Ausdruck ist zwar compile-time-const und technisch
+korrekt, verstößt aber gegen die Projekt-Konvention „keine Magic Numbers im
+Widget-Code" (O-004).
+
+Neuen AppConfig-Token spacingLarge20 (o.ä. spacingSectionGap) mit Wert 20.0 einführen
+3 Vorkommen in artikel_detail_screen.dart ersetzen:
+Nach der Ort/Fach-Row
+Nach der Menge-Row
+Nach dem Beschreibung-TextField
+Prüfen ob spacingXLarge - 4 auch in anderen Screens vorkommt
+flutter analyze — 0 Issues
+Aufwand: ~5 Minuten, 0 Risiko — reines Rename-Refactoring.
 
 ---
 
@@ -407,9 +433,9 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 | ✅ Abgeschlossen | 32 | 32 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 8 | 0 | 8 |
-| 🟢 Nice-to-Have | 3 | 0 | 3 |
+| 🟢 Nice-to-Have | 4 | 0 | 4 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **44** | **32** | **12** |
+| **Gesamt** | **45** | **32** | **13** |
 
 ---
 
@@ -426,8 +452,7 @@ Um Phase 4 auf 100% zu bringen, müssen die verbleibenden Aspekte der Multi-Plat
     *   **Beschreibung:** Wie bereits besprochen, ist dies eine wichtige "Politur" für die mobile Nutzung.
 *   **F-002: Konfigurierbare App-Sperrzeit (Mittel)**
     *   **Beschreibung:** Verbessert die Benutzerfreundlichkeit und Sicherheit auf mobilen Geräten.
-*   **F-003: Artikeldetailansicht optimieren (Mittel)**
-    *   **Beschreibung:** Eine UI-Optimierung, die direkt der "Politur" und Benutzerfreundlichkeit dient.
+*   **F-003: Artikeldetailansicht optimieren (Mittel)** ✅ Erledigt in v0.8.0+8
 *   **N-003: App Icon (Nice-to-Have, aber für 100% Politur nötig)**
     *   **Beschreibung:** Ein professionelles App-Icon ist essentiell für den Feinschliff und die Markenidentität.
 *   **N-005: Splash Screen (Nice-to-Have, aber für 100% Politur nötig)**
@@ -447,6 +472,7 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-13 | v0.8.0+8 | F-003: Artikeldetailansicht — Ort & Fach nebeneinander |
 | 2026-04-13 | v0.8.0+7 | O-007 abgeschlossen: 15 Tests ImagePickerService — FakeImagePicker, isCameraAvailable (5 Plattformen), openCropDialog Guards, pickImageCamera alle Pfade — Gesamt 469→484 |
 | 2026-04-13 | v0.8.0+7 | T-006 abgeschlossen: BackupStatusService (22 Tests seit v0.8.0) formal abgenommen — MockClient, Farblogik, Fehlerfälle |
 | 2026-04-13 | v0.8.0+6 | T-007 abgeschlossen: Performance-Test self-contained — setUpAll/tearDownAll, minimale PNG-Fixtures, Gesamt 468→469 |

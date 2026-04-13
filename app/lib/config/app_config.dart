@@ -160,6 +160,10 @@ class AppConfig {
   static const double spacingXLarge = 24.0;
   static const double spacingXXLarge = 32.0;
 
+  // ── Detail-Screen: Ort/Fach-Row (F-003) ─────────────────────────
+  /// Horizontaler Abstand zwischen nebeneinander liegenden Detail-Feldern.
+  static const double detailFieldSpacing = 12.0;
+
   // ============================================================================
   // Border-Radius-Konstanten
   // ============================================================================

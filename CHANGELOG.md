@@ -2,6 +2,18 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.0+8] – 2026-04-13
+
+### Changed
+- **ArtikelDetailScreen (F-003):** „Ort" und „Fach" werden jetzt
+  nebeneinander in einer Row (je 50 % Breite) angezeigt statt
+  untereinander. Visuelle Trennung über `detailFieldSpacing`-Gap
+  zwischen den OutlineInputBorder-TextFields.
+
+### Added
+- **AppConfig:** Neuer Token `detailFieldSpacing` (12.0 dp).
+
+
 ## [0.8.0+7] — 2026-04-13
 
 ### Tests
