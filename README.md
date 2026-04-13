@@ -1,5 +1,13 @@
 # 📦 Lager_app
 
+[![CI](https://img.shields.io/github/actions/workflow/status/germanlion67/lager_app/ci.yml?branch=main&label=CI&logo=github)](https://github.com/germanlion67/lager_app/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/germanlion67/lager_app?label=Version&logo=github)](https://github.com/germanlion67/lager_app/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![PocketBase](https://img.shields.io/badge/PocketBase-0.25-B8DBE4?logo=pocketbase)](https://pocketbase.io)
+[![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20Web%20%7C%20Linux%20%7C%20Windows-blue)]()
+
+
 Eine professionelle, plattformübergreifende Lagerverwaltung für Elektronikbauteile und Kleinteile.  
 Gebaut mit **Flutter** für maximale Portabilität und **PocketBase** als schlankes, performantes Backend.
 
@@ -16,8 +24,8 @@ Sie bietet die Geschwindigkeit einer lokalen App mit der Sicherheit einer zentra
 - 🖥️ **Desktop (Linux/Windows):** Native Performance mit lokaler Datenhaltung
 - 🌐 **Web (Docker):** Direkter Zugriff auf die Cloud-Daten ohne Installation
 
-> ℹ️ **Ab v0.7.0:** Die Server-URL ist zur Laufzeit konfigurierbar.  
-> Beim ersten Start wird ein Einrichtungsbildschirm angezeigt — kein `--dart-define` mehr zwingend nötig.
+> ℹ️ **Ab v0.8.2:** App-Lock mit biometrischer Authentifizierung für mobile Plattformen.
+> Die App sperrt sich automatisch nach konfigurierbarer Inaktivitätszeit.
 
 ---
 
@@ -27,6 +35,7 @@ Sie bietet die Geschwindigkeit einer lokalen App mit der Sicherheit einer zentra
 - 📷 **Scanner & Bilder:** QR-/Barcode-Scanner (Mobile) und Bildanhänge (Kamera/Galerie)
 - 📎 **Dokumentenverwaltung:** Dokumente (PDF, DOCX, XLSX u. a.) direkt zum Artikel hochladen, synchronisieren und öffnen
 - 🔄 **Smart-Sync:** Intelligente Synchronisation mit Konfliktlösung und Offline-Modus — für Artikel, Bilder und Dokumente
+- 🔐 **App-Lock:** Biometrische Authentifizierung (Fingerabdruck/Face) mit Fallback auf Geräte-PIN — konfigurierbare Sperrzeit bei Inaktivität
 - 🔧 **Flexible Server-Konfiguration:** PocketBase-URL zur Laufzeit konfigurierbar — per Setup-Screen, Einstellungen oder Build-Default
 - 📄 **Reporting:** PDF-Berichte, CSV-/JSON-Export und ZIP-Backups
 - 🛡️ **Enterprise Security:** Gehärtetes Deployment mit Security-Headern und automatischer Initialisierung
