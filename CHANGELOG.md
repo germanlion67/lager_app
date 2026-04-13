@@ -2,6 +2,55 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.1+10] — 2026-04-13
+
+### Tests (T-005): Unit-Tests AttachmentService — 34 Tests
+
+**Ziel:** Vollständige Unit-Test-Abdeckung für `AttachmentService` — alle CRUD-Operationen
+gegen PocketBase ohne Netzwerk und ohne Dateisystem.
+
+**Strategie:**
+- `PocketBaseService.overrideForTesting(FakePocketBase)` injiziert Fake-Client
+  in den echten `AttachmentService`-Singleton — testet den **echten Code**
+- `FakeAttachmentRecordService extends RecordService` mit Callback-Handlern
+  (erweitert gegenüber T-002 um `perPage`/`page`/`sort`-Parameter)
+- `fakeClientException()` Helper — PocketBase SDK v0.23.2 `ClientException`
+  hat keinen `message:`-Parameter, sondern `originalError:`
+- `PocketBaseService.dispose()` im `tearDown` räumt Singleton-State auf
+- Kein `build_runner`, kein `testWidgets`, kein `tester.runAsync()` nötig
+
+**Abgedeckte Methoden (34 Tests):**
+
+| Methode | Tests | Szenarien |
+|---|---|---|
+| `getForArtikel()` | 6 | Leer, 3 Ergebnisse, Filter, perPage, PB-Fehler, fehlende Felder |
+| `countForArtikel()` | 4 | 0, korrekte Anzahl, PB-Fehler, effiziente Query |
+| `upload()` | 10 | Happy-Path, Body-Felder, Limit=20, Limit>20, PB-Fehler (create + count), null/leere Beschreibung, null MIME, Dateiname |
+| `updateMetadata()` | 4 | Erfolg, Trimming, null→leerer String, PB-Fehler |
+| `delete()` | 4 | Erfolg, korrekte ID, PB-Fehler, Netzwerkfehler |
+| `deleteAllForArtikel()` | 4 | Alle löschen, leer, teilweise Fehler, getForArtikel-Fehler |
+| Integration | 2 | Upload→Get-Roundtrip, Grenzwert 19 vs 20 |
+
+**Neue Datei:**
+- `test/services/attachment_service_test.dart`
+
+**Gesamtstand:**
+
+| Vorher | Nachher | Differenz |
+|---|---|---|
+| 499 Tests, 23 Dateien | **533 Tests**, 24 Dateien | **+34 Tests**, +1 Datei |
+
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **533 bestanden**, 3 übersprungen
+
+### Dokumentation
+- `docs/TESTING.md` — T-005 Tests dokumentiert, Fake-Klassen-Tabelle,
+  Gesamtzahl auf 533 aktualisiert, Version auf 0.8.1+10
+- `docs/OPTIMIZATIONS.md` — T-005 als abgeschlossen markiert,
+  Fortschritts-Übersicht aktualisiert (33/45 erledigt), Version auf 0.8.1+10
+- `CHANGELOG.md` — Aktualisiert für v0.8.1+10
+
+
 ## [0.8.0+8] – 2026-04-13
 
 ### Changed

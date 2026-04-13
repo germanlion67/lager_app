@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.0+8 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.1+10 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -273,6 +273,22 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Image-Download: Skip-Logik für fehlende Felder/URL ✅
 - Kein `build_runner` nötig — keine Code-Generierung ✅
 
+### T-005: Unit-Tests AttachmentService — Erledigt in v0.8.1+10 ✅
+- 34 Tests, alle grün ✅
+- `PocketBaseService.overrideForTesting()` injiziert Fake-Client in echten
+  `AttachmentService`-Singleton — testet echten Code statt Kopie ✅
+- `FakeAttachmentRecordService` mit erweiterten Parametern (`perPage`, `page`, `sort`) ✅
+- `fakeClientException()` Helper für PocketBase SDK v0.23.2 (`originalError:` statt `message:`) ✅
+- `getForArtikel()`: Leere Liste, 3 Ergebnisse, Filter, perPage, PB-Fehler, fehlende Felder ✅
+- `countForArtikel()`: 0, korrekte Anzahl, PB-Fehler, effiziente Query ✅
+- `upload()`: Happy-Path, Body-Felder, Limit=20/Limit>20, PB-Fehler, null-Felder, MultipartFile ✅
+- `updateMetadata()`: Erfolg, Trimming, null→leerer String, PB-Fehler ✅
+- `delete()`: Erfolg, korrekte ID, PB-Fehler, Netzwerkfehler ✅
+- `deleteAllForArtikel()`: Alle löschen, leer, teilweise Fehler, getForArtikel-Fehler ✅
+- Integration: Upload→Get-Roundtrip, Grenzwert 19 vs 20 ✅
+- Kein `build_runner`, kein Netzwerk, kein Dateisystem ✅
+- Gesamt: 499 → 533 Tests
+
 ### P-005: Dependency-Update — Erledigt (bereits in v0.8.0+5 enthalten)
 - `cupertino_icons: ^1.0.9` ✅ (war ^1.0.8)
 - `shared_preferences: ^2.5.5` ✅ (war ^2.5.4)
@@ -368,10 +384,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] Merge-Ergebnis korrekt an `applyConflictResolution()` übergeben
 - [ ] Validierung: kein leerer Name möglich
 
-### T-005: Unit-Tests AttachmentService
-- [ ] Upload, Download, Delete gegen PocketBase-Mock
-- [ ] MIME-Type-Validierung
-- [ ] Max-Anhänge / Max-Dateigröße Grenzen
 
 ### P-003: Bild-Caching
 Remote-Bilder werden bei jedem Scroll neu geladen.
@@ -430,12 +442,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 32 | 32 | 0 |
+| ✅ Abgeschlossen | 33 | 33 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 8 | 0 | 8 |
+| 🟡 Mittel | 7 | 0 | 7 |
 | 🟢 Nice-to-Have | 4 | 0 | 4 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **45** | **32** | **13** |
+| **Gesamt** | **45** | **33** | **12** |
 
 ---
 
@@ -472,6 +484,7 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-13 | v0.8.1+10 | T-005 abgeschlossen: 34 Tests AttachmentService — getForArtikel, countForArtikel, upload, updateMetadata, delete, deleteAllForArtikel, Integration — PocketBaseService.overrideForTesting, FakeAttachmentRecordService, fakeClientException — Gesamt 499→533 |
 | 2026-04-13 | v0.8.0+8 | F-003: Artikeldetailansicht — Ort & Fach nebeneinander |
 | 2026-04-13 | v0.8.0+7 | O-007 abgeschlossen: 15 Tests ImagePickerService — FakeImagePicker, isCameraAvailable (5 Plattformen), openCropDialog Guards, pickImageCamera alle Pfade — Gesamt 469→484 |
 | 2026-04-13 | v0.8.0+7 | T-006 abgeschlossen: BackupStatusService (22 Tests seit v0.8.0) formal abgenommen — MockClient, Farblogik, Fehlerfälle |

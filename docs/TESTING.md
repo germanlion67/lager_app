@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.0+7 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.1+10 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **499 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
+✅ **533 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
 Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 
 > `--exclude-tags performance` ist weiterhin optional verfügbar, aber nicht mehr erforderlich.
@@ -31,6 +31,7 @@ Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 | `test/models/attachment_model_test.dart` | Unit | 30 | O-002 |
 | `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 |
 | `test/services/backup_status_test.dart`        | Unit          | 22  | T-006  |
+| `test/services/attachment_service_test.dart`   | Unit          | 34  | T-005  |
 | `test/services/image_picker_service_test.dart` | Unit + Widget | 15  | O-007  |
 | `test/services/pocketbase_sync_service_test.dart` | Unit | 17 | T-002 |
 | `test/utils/attachment_utils_test.dart` | Unit | 28 | – |
@@ -49,7 +50,7 @@ Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 | `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
 | `test/helpers/fake_sync_status_provider.dart` | Test-Helper | – | K-006 |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1  | T-007 |
-| **Gesamt** | | **484** (+3 skipped) | |
+| **Gesamt** | | **519** (+3 skipped) | |
 
 ---
 
@@ -118,6 +119,42 @@ flutter test test/conflict_resolution_test.dart
 
 ```bash
 flutter test test/services/pocketbase_sync_service_test.dart
+```
+
+---
+
+### `services/attachment_service_test.dart` — T-005 (34 Tests) ✅ NEU
+
+**Ziel:** Unit-Tests für `AttachmentService` — alle CRUD-Operationen gegen PocketBase
+ohne Netzwerk, ohne Dateisystem.
+
+**Strategie:**
+- `PocketBaseService.overrideForTesting(FakePocketBase)` injiziert Fake-Client
+  in den echten `AttachmentService`-Singleton — testet den **echten Code**, nicht eine Kopie
+- `FakeAttachmentRecordService extends RecordService` mit Callback-Handlern
+  (identisches Pattern wie T-002, erweitert um `perPage`/`page`/`sort`-Parameter)
+- `FakePocketBaseForAttachment extends PocketBase` leitet `collection()` um
+- `PocketBaseService.dispose()` im `tearDown` räumt Singleton-State auf
+- `fakeClientException()` Helper — `ClientException` hat keinen `message`-Parameter
+  (PocketBase SDK v0.23.2 nutzt `originalError:`)
+- Reiner `test()`-Block — kein `testWidgets`, kein `tester.runAsync()` nötig
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| `getForArtikel()` | 6 | Leere Liste, 3 Ergebnisse, Filter/Sort, perPage-Limit, PB-Fehler, fehlende Felder |
+| `countForArtikel()` | 4 | 0 Ergebnis, korrekte Anzahl, PB-Fehler, effiziente Query (perPage=1) |
+| `upload()` | 10 | Happy-Path, Body-Felder (trimmed, UUID, sort_order), Limit=20, Limit>20, PB-Fehler (create + count), null/leere Beschreibung, null MIME, MultipartFile-Dateiname |
+| `updateMetadata()` | 4 | Erfolg, Trimming, null→leerer String, PB-Fehler |
+| `delete()` | 4 | Erfolg, korrekte ID, PB-Fehler, Netzwerkfehler |
+| `deleteAllForArtikel()` | 4 | Alle löschen, keine vorhanden, teilweise Fehler, getForArtikel-Fehler |
+| Integration | 2 | Upload→Get-Roundtrip, Grenzwert 19 vs 20 |
+
+**Architektur-Entscheidung:** `PocketBaseService.overrideForTesting()` statt
+`TestableAttachmentService` (wie T-002) — weil `PocketBaseService` die Hooks
+bereits anbietet und so der echte `AttachmentService`-Code getestet wird.
+
+```bash
+flutter test test/services/attachment_service_test.dart
 ```
 
 ---
@@ -549,8 +586,12 @@ flutter test test/services/artikel_db_service_test.dart \
 # Nur T-002 Tests (PocketBase Sync)
 flutter test test/services/pocketbase_sync_service_test.dart
 
-# Nur neue Tests (v0.8.0+5)
-flutter test test/services/pocketbase_sync_service_test.dart \
+# Nur T-005 Tests (AttachmentService)
+flutter test test/services/attachment_service_test.dart
+
+# Nur neue Tests (v0.8.1+10)
+flutter test test/services/attachment_service_test.dart \
+             test/services/pocketbase_sync_service_test.dart \
              test/models/attachment_model_test.dart \
              test/utils/attachment_utils_test.dart \
              test/services/backup_status_test.dart
@@ -630,11 +671,20 @@ fake.dispose();
 | `FakePocketBase` | Erweitert `PocketBase` — leitet `collection()` auf `FakeRecordService` um |
 | `TestableSyncService` | Repliziert `PocketBaseSyncService`-Logik mit injizierbaren Fakes |
 
+
+### Fake-Klassen für AttachmentService (`attachment_service_test.dart`)
+
+| Klasse | Beschreibung |
+|---|---|
+| `FakeAttachmentRecordService` | Erweitert `RecordService` — Handler-Callbacks für `getList`, `create`, `update`, `delete` mit erweiterten Parametern (`perPage`, `page`, `sort`) |
+| `FakePocketBaseForAttachment` | Erweitert `PocketBase` — leitet `collection()` auf `FakeAttachmentRecordService` um |
+| `fakeClientException()` | Helper-Funktion — erzeugt `ClientException` mit `originalError:` (PocketBase SDK v0.23.2 hat keinen `message:`-Parameter) |
+
 ---
 
 ## 🔗 Verwandte Dokumente
 
-- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — Aufgaben-Tracking (O-002, T-001, T-002)
+- **[OPTIMIZATIONS.md](OPTIMIZATIONS.md)** — Aufgaben-Tracking
 - **[DATABASE.md](DATABASE.md)** — Datenbankschema und Sync-Logik
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** — Gesamtarchitektur
 
@@ -644,9 +694,15 @@ fake.dispose();
 
 ---
 
-## Änderungen gegenüber v0.8.0+5
+## Änderungen gegenüber v0.8.0+7
 
-+| **Version** | 0.8.0+6 | 0.8.0+7 |
-+| **Testübersicht** | 469 Tests, backup_status ohne Aufgabe | 499 Tests, T-006 + O-007 ergänzt |
-+| **T-006-Sektion** | Aufgabe-Spalte `–` | `T-006` |
-+| **O-007-Sektion** | Nicht vorhanden | Neu: 15 Tests + Strategische Erkenntnisse |
+| **Aspekt** | **v0.8.0+7** | **v0.8.1+10** |
+|---|---|---|
+| **Version** | 0.8.0+7 | 0.8.1+10 |
+| **Testübersicht** | 484 Tests, 23 Einträge | 519 Tests, 24 Einträge |
+| **Gesamtzahl (Schnellstart)** | 499 bestanden | 533 bestanden |
+| **T-005-Sektion** | Nicht vorhanden | Neu: 34 Tests AttachmentService |
+| **Testübersicht-Tabelle** | Kein `attachment_service_test.dart` | Neue Zeile mit 34 Tests, Aufgabe T-005 |
+| **Test-Infrastruktur** | Nur Sync-Fakes | + AttachmentService-Fakes + `fakeClientException()` Helper |
+| **Einzelne Testgruppen** | Kein T-005-Kommando | `flutter test test/services/attachment_service_test.dart` |
+| **Gesamtzahl-Tabelle** | 484 | 519 |
