@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.0+5 | **Zuletzt aktualisiert:** 12.04.2026
+**Version:** 0.8.0+6 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -273,6 +273,25 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Image-Download: Skip-Logik für fehlende Felder/URL ✅
 - Kein `build_runner` nötig — keine Code-Generierung ✅
 
+### P-005: Dependency-Update — Erledigt (bereits in v0.8.0+5 enthalten)
+- `cupertino_icons: ^1.0.9` ✅ (war ^1.0.8)
+- `shared_preferences: ^2.5.5` ✅ (war ^2.5.4)
+- `mockito: ^5.6.4` ✅ (war ^5.6.3)
+- `connectivity_plus: ^7.1.1` ✅ (war ^6.1.5 — Major Update inkl. API-Migration)
+- `sqlite3`, `flutter_plugin_android_lifecycle`, `image_picker_android` — transitiv,
+  kein direkter Eintrag in `pubspec.yaml` erforderlich ✅
+- `connectivity_service.dart` bereits auf `List<ConnectivityResult>`-API migriert ✅
+- `dependency_overrides` für `connectivity_plus_platform_interface` entfernt ✅
+
+### T-007: Performance-Test Self-Contained — Erledigt in v0.8.0+6
+- `setUpAll()` generiert `test_data/import_500.json` (500 Artikel) programmatisch ✅
+- 10 minimale PNG-Fixtures (1×1 Pixel, 67 Byte) werden in `setUpAll()` erzeugt ✅
+- `tearDownAll()` löscht `test_data/images/`, JSON-Fixture und `test_data/` ✅
+- `flutter test` läuft ohne Vorbereitung durch — kein manueller Schritt mehr nötig ✅
+- `@Tags(['performance'])` bleibt — weiterhin separat ausführbar ✅
+- `tool/generate_import_dataset.dart` bleibt als optionales CLI-Tool (1000+, 5000+) ✅
+- Gesamt: 468 → 469 Tests
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -322,46 +341,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] Farblogik: Grün/Gelb/Rot Schwellwerte
 - [ ] Fehlerfall: Server nicht erreichbar
 
-### T-007: Performance-Test Self-Contained machen
-Der Performance-Test (`import_500_smoke_test.dart`) erfordert aktuell externe
-Testdaten, die manuell generiert werden müssen. Ohne die Datei
-`test_data/import_500.json` schlägt `flutter test` (ohne `--exclude-tags performance`)
-fehl. Der Test soll seine Fixtures selbst erzeugen und aufräumen.
-
-**Problem:**
-- `flutter test` ohne `--exclude-tags performance` → **1 Fehler**
-- Entwickler müssen wissen, dass `dart run tool/generate_import_dataset.dart` nötig ist
-- CI-Pipelines brauchen einen Extra-Schritt oder das `--exclude-tags` Flag
-
-**Lösung:**
-- [ ] `setUpAll()` — generiert `test_data/import_500.json` programmatisch
-      (500 Artikel mit Name, UUID, Artikelnummer, optionalem Bild-Pfad)
-- [ ] Test bleibt inhaltlich identisch (Import, Zählung, Zeitmessung)
-- [ ] `tearDownAll()` — löscht `test_data/import_500.json` und leeren
-      `test_data/`-Ordner
-- [ ] `@Tags(['performance'])` bleibt erhalten — Test ist weiterhin
-      separat ausführbar, aber schlägt nicht mehr fehl wenn er
-      versehentlich mitläuft
-- [ ] `tool/generate_import_dataset.dart` bleibt als optionales CLI-Tool
-      für größere Datasets (1000+, 5000+) bestehen
-- [ ] TESTING.md aktualisieren: Hinweis auf externe Testdaten entfernen,
-      `--exclude-tags performance` als optional dokumentieren
-
-**Akzeptanzkriterien:**
-```bash
-# Muss ohne Vorbereitung funktionieren:
-flutter test
-# → 469 bestanden, 3 skipped, 0 Fehler
-
-# Muss weiterhin separat ausführbar sein:
-flutter test test/performance/import_500_smoke_test.dart
-# → 1 bestanden
-
-# Darf keine Dateien hinterlassen:
-ls test_data/
-# → Ordner existiert nicht (oder ist leer)
-
-
 ### O-006: Tests für pickImageCamera() nach P-001
 P-001 hat die Logik in `ImagePickerService` geändert — Tests fehlen.
 - [ ] `pickImageCamera()` mit Mock-Picker
@@ -386,58 +365,6 @@ Remote-Bilder werden bei jedem Scroll neu geladen.
 ### F-003: Artikeldetailansicht optimieren
 - [ ] Layout-Anpassung in der Artikeldetailansicht, um "Ort" und "Fach" horizontal nebeneinander anzuzeigen.
 - [ ] Sicherstellung der Lesbarkeit und visuellen Trennung auf verschiedenen Bildschirmgrößen.
-
-### P-005: Dependency-Update: Sichere Patch/Minor-Updates hochziehen
-
-#### Aufgabe
-Aktualisiere die folgenden 7 Pakete in `app/pubspec.yaml` auf die angegebenen Versionen.
-Alle anderen Pakete bleiben unverändert.
-
-#### Zu aktualisierende Pakete
-
-| Paket                             | Aktuell        | Neu            | Typ    |
-|-----------------------------------|----------------|----------------|--------|
-| `cupertino_icons`                 | ^1.0.8         | ^1.0.9         | Patch  |
-| `shared_preferences`             | ^2.5.4         | ^2.5.5         | Patch  |
-| `mockito` (dev_dependency)        | ^5.6.3         | ^5.6.4         | Patch  |
-| `sqlite3`                         | ^3.2.0         | ^3.3.1         | Minor  |
-| `flutter_plugin_android_lifecycle`| ^2.0.33        | ^2.0.34        | Patch  |
-| `image_picker_android`            | ^0.8.13+14     | ^0.8.13+16     | Patch  |
-| `connectivity_plus`               | ^6.1.5         | ^7.1.1         | Major  |
-
-#### Hinweise
-
-##### connectivity_plus 6 → 7
-- Der bisherige `dependency_overrides`-Block für `connectivity_plus_platform_interface`
-  wurde bereits entfernt (nicht mehr nötig).
-- Die API von `connectivity_plus` 7.x ist weitgehend identisch zu 6.x.
-- Prüfe ob `ConnectivityResult` sich geändert hat — in 7.x gibt
-  `checkConnectivity()` eine `List<ConnectivityResult>` zurück statt
-  eines einzelnen `ConnectivityResult`. Falls der Code `.then((result) => ...)`
-  nutzt, muss er auf `.then((results) => results.first)` oder
-  `.then((results) => results.contains(...))` angepasst werden.
-
-##### flutter_plugin_android_lifecycle / image_picker_android
-- Diese sind transitive Plattform-Pakete. Prüfe ob sie überhaupt direkt
-  in deiner `pubspec.yaml` stehen. Falls nicht, werden sie automatisch
-  hochgezogen — dann nur die Haupt-Pakete anpassen.
-
-##### sqlite3 3.2 → 3.3
-- Minor-Update, neue SQLite-Features. Keine API-Änderungen.
-- Dein DB-Stack (`sqflite_common_ffi`) nutzt `sqlite3` transitiv.
-  Prüfe ob `sqlite3` direkt in `pubspec.yaml` steht oder nur transitiv kommt.
-
-#### Vorgehen
-
-1. Öffne `app/pubspec.yaml`
-2. Ändere nur die Versionen der oben gelisteten Pakete
-   (nur wenn sie direkt in dependencies/dev_dependencies stehen)
-3. Führe aus:
-   ```bash
-   cd app
-   flutter pub get
-   flutter analyze
-   flutter test
 
 ---
 
@@ -465,12 +392,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 28 | 28 | 0 |
+| ✅ Abgeschlossen | 30 | 30 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 12 | 0 | 12 |
+| 🟡 Mittel | 10 | 0 | 10 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **44** | **28** | **16** |
+| **Gesamt** | **44** | **30** | **14** |
 
 ---
 
@@ -508,6 +435,8 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-13 | v0.8.0+6 | T-007 abgeschlossen: Performance-Test self-contained — setUpAll/tearDownAll, minimale PNG-Fixtures, Gesamt 468→469 |
+| 2026-04-13 | v0.8.0+6 | P-005 als erledigt markiert: alle Ziel-Versionen bereits in pubspec.yaml, connectivity_plus v7 API-Migration bereits umgesetzt |
 | 2026-04-12 | v0.8.0+5 | T-002 abgeschlossen: 17 Unit-Tests PocketBase SyncService — Push/Pull/Fehler/UUID/Image, manuelle Fakes, Gesamt 451→468 |
 | 2026-04-11 | v0.8.0 | F-001, F-002, F-003 hinzugefügt und in Priorität "Mittel" einsortiert. Fortschritts-Übersicht aktualisiert. |
 | 2026-04-10 | v0.8.0 | +104 Tests: AttachmentModel (30), attachment_utils (28), BackupStatus (22) — Gesamt 347→451, TESTING.md aktualisiert |

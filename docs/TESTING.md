@@ -2,25 +2,24 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.0+5 | **Zuletzt aktualisiert:** 12.04.2026
+**Version:** 0.8.0+6 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
 ## 🚀 Schnellstart
 
 ```bash
-# Alle Tests ausführen — ohne Performance-Tests (aus dem app/-Verzeichnis)
+# Alle Tests ausführen (aus dem app/-Verzeichnis)
 cd lager_app/app
-flutter test --exclude-tags performance
+flutter test
 ```
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-⚠️ Ohne --exclude-tags performance schlägt der Lauf fehl, wenn die
-Testdaten für den Performance-Test nicht vorhanden sind
-(siehe Performance-Tests).
-Mit dem Flag: 468 Tests bestanden, 3 skipped, 0 Fehler.
+✅ **469 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
+Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 
+> `--exclude-tags performance` ist weiterhin optional verfügbar, aber nicht mehr erforderlich.
 ---
 
 ## 📋 Testübersicht
@@ -48,10 +47,8 @@ Mit dem Flag: 468 Tests bestanden, 3 skipped, 0 Fehler.
 | `test/widgets/artikel_list_screen_test.dart` | Widget | 15 | O-006 |
 | `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
 | `test/helpers/fake_sync_status_provider.dart` | Test-Helper | – | K-006 |
-| `test/performance/import_500_smoke_test.dart` | Performance | 1* | – |
-| **Gesamt** | | **468** (+3 skipped) | |
-
-> \* Performance-Test erfordert externe Testdaten (siehe [unten](#performance-tests)).
+| `test/performance/import_500_smoke_test.dart` | Performance | 1  | T-007 |
+| **Gesamt** | | **469** (+3 skipped) | |
 
 ---
 
@@ -459,32 +456,37 @@ flutter test test/widgets/artikel_list_screen_test.dart
 
 ---
 
-### `performance/import_500_smoke_test.dart` (1 Performance-Test) {#performance-tests}
+### `performance/import_500_smoke_test.dart` — T-007 (1 Performance-Test) ✅
 
-**Ziel:** Smoke-Test für den Import von 500 Artikeln.
+**Ziel:** Smoke-Test für Existenz und Struktur eines 500-Artikel-Datensatzes.
 
-> ⚠️ **Dieser Test ist mit `@Tags(['performance'])` markiert und wird bei
-> `flutter test --exclude-tags performance` automatisch übersprungen.**
->
-> Ohne die Testdaten schlägt er fehl — das ist beabsichtigt.
-> Er soll nur gezielt ausgeführt werden, nicht im regulären CI-Lauf.
+> ℹ️ **Self-contained seit v0.8.0+6:** `setUpAll()` generiert alle benötigten
+> Testdaten programmatisch — kein manueller Vorbereitungsschritt nötig.
+> `@Tags(['performance'])` bleibt erhalten — der Test kann weiterhin via
+> `--exclude-tags performance` übersprungen werden.
 
-**Testdaten generieren und Test ausführen:**
+**Test-Ablauf:**
+
+| Schritt | Aktion |
+|---|---|
+| `setUpAll()` | Erzeugt `test_data/import_500.json` (500 Artikel) + 10 PNG-Fixtures (1×1 Pixel) |
+| Test | Prüft Existenz der Fixture-Datei, JSON-Struktur (Liste, 500 Einträge) und Bild-Fixtures (Index 0–9) |
+| `tearDownAll()` | Löscht `test_data/images/`, `test_data/import_500.json` und `test_data/` (wenn leer) |
+
 ```bash
-# 1. Testdaten generieren (einmalig)
-dart run tool/generate_import_dataset.dart --count 500
+# Im regulären flutter test automatisch enthalten:
+flutter test
 
-# 2. Performance-Test ausführen
+# Gezielt ausführen:
 flutter test test/performance/import_500_smoke_test.dart
 
-# 3. Optional: Testdaten wieder löschen
-rm -rf test_data/
+# Optional überspringen:
+flutter test --exclude-tags performance
 ```
 
-**Alle Tests inklusive Performance:**
+**Für manuelle Großdatensätze (1000+, 5000+):**
 ```bash
-# Nur wenn test_data/import_500.json existiert!
-flutter test
+dart run tool/generate_import_dataset.dart --count 1000
 ```
 
 ---
@@ -608,13 +610,12 @@ fake.dispose();
 
 ---
 
-## Änderungen gegenüber v0.8.0
+## Änderungen gegenüber v0.8.0+5
 
-| Stelle | Vorher (v0.8.0) | Nachher (v0.8.0+5) |
+| Stelle | Vorher (v0.8.0+5) | Nachher (v0.8.0+6) |
 |---|---|---|
-| **Version** | 0.8.0 | 0.8.0+5 |
-| **Testübersicht-Tabelle** | 21 Einträge, 451 Tests | 22 Einträge, 468 Tests (+3 skipped) |
-| **Neue Test-Datei** | – | `pocketbase_sync_service_test.dart` (17 Tests, T-002) |
-| **T-002 Schnellstart** | – | Eigenes Kommando für T-002 Tests |
-| **Test-Infrastruktur** | 1 Helper-Tabelle | 2 Helper-Tabellen (+ Fake-Klassen für PB Sync) |
-| **Änderungslog** | v0.7.9 → v0.8.0 | v0.8.0 → v0.8.0+5 |
+| **Version** | 0.8.0+5 | 0.8.0+6 |
+| **Schnellstart** | Warnung: `--exclude-tags performance` nötig | ✅ `flutter test` ohne Flag |
+| **Testübersicht** | 468 Tests, `*`-Fußnote für Performance | 469 Tests, kein Sonderhinweis |
+| **Performance-Sektion** | Anleitung zur manuellen Datengenerierung | Self-contained, `setUpAll`/`tearDownAll` |
+| **Fußnote** | `\* erfordert externe Testdaten` | Entfernt |
