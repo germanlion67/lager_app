@@ -13,7 +13,7 @@ import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart'
-    show kIsWeb, defaultTargetPlatform, TargetPlatform;
+    show kIsWeb, defaultTargetPlatform, TargetPlatform, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:logger/logger.dart';
@@ -45,6 +45,18 @@ class PickedImage {
 class ImagePickerService {
   static const int _maxFileSizeBytes = 10 * 1024 * 1024;
   static final Logger _logger = AppLogService.logger;
+
+  // Field zur Klasse hinzufügen (nach _logger):
+  /// Austauschbarer [ImagePicker] für Tests.
+  /// Produktionscode lässt diesen null — dann wird [ImagePicker()] verwendet.
+  @visibleForTesting
+  static ImagePicker? overrideImagePicker;  
+
+  @visibleForTesting
+  static int? maxFileSizeBytesOverride;
+
+  static int get _effectiveMaxFileSize =>
+      maxFileSizeBytesOverride ?? _maxFileSizeBytes;
 
   /// Wählt ein Bild aus einer Datei.
   /// Funktioniert auf allen Plattformen (Web, Mobile, Desktop).
@@ -151,7 +163,7 @@ class ImagePickerService {
       return PickedImage.empty;
     }
 
-    if (bytes.length > _maxFileSizeBytes) {
+    if (bytes.length > _effectiveMaxFileSize) {
       _logger.w(
         '_pickImageByFileSelector: Datei zu groß '
         '(${bytes.length} Bytes, max $_maxFileSizeBytes Bytes)',
@@ -259,7 +271,7 @@ class ImagePickerService {
       return PickedImage.empty;
     }
 
-    if (bytes.length > _maxFileSizeBytes) {
+    if (bytes.length > _effectiveMaxFileSize) {
       _logger.w(
         '_pickImageByPathFallback: Datei zu groß '
         '(${bytes.length} Bytes, max $_maxFileSizeBytes Bytes)',
@@ -304,7 +316,7 @@ class ImagePickerService {
   static Future<PickedImage> pickImageCamera(BuildContext context) async {
     if (!isCameraAvailable) return PickedImage.empty;
 
-    final picker = ImagePicker();
+    final picker = overrideImagePicker ?? ImagePicker();
     final XFile? pickedFile;
 
     try {
@@ -345,7 +357,7 @@ class ImagePickerService {
       return PickedImage.empty;
     }
 
-    if (bytes.length > _maxFileSizeBytes) {
+    if (bytes.length > _effectiveMaxFileSize) {
       _logger.w(
         'pickImageCamera: Bild zu groß '
         '(${bytes.length} Bytes, max $_maxFileSizeBytes Bytes)',

@@ -5,6 +5,7 @@
 // über PocketBase pb_public oder pb_backups bereitgestellt.
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
 
 import 'app_log_service.dart';
@@ -115,13 +116,18 @@ class BackupStatusService {
 
   /// Liest den Backup-Status vom Server.
   ///
-  /// Versucht die Datei unter folgenden Pfaden:
-  /// 1. `{pbUrl}/last_backup.json` (pb_public)
-  /// 2. `{pbUrl}/api/backups/status` (falls custom Endpoint)
+  /// [client] — optionaler HTTP-Client (Standard: http.Client()).
+  ///   Im Produktionscode weggelassen, in Tests mit MockClient injiziert.
   ///
-  /// Gibt [BackupStatus.unknown] zurück wenn nicht erreichbar.
-  static Future<BackupStatus> fetchStatus() async {
-    final pbUrl = PocketBaseService().url;
+  /// [pbUrlOverride] — überschreibt PocketBaseService().url in Tests.
+  ///   @visibleForTesting — nur für Unit-Tests bestimmt.
+  static Future<BackupStatus> fetchStatus({
+    http.Client? client,
+    @visibleForTesting String? pbUrlOverride,
+  }) async {
+    final pbUrl = pbUrlOverride ?? PocketBaseService().url;
+    final httpClient = client ?? http.Client();
+
     if (pbUrl.isEmpty) {
       _logger.w('[BackupStatus] Keine PocketBase-URL konfiguriert');
       return BackupStatus.unknown;
@@ -132,7 +138,7 @@ class BackupStatusService {
       final url = '$pbUrl/last_backup.json';
       _logger.d('[BackupStatus] Lade von $url');
 
-      final response = await http
+      final response = await httpClient
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 5));
 
@@ -146,9 +152,7 @@ class BackupStatusService {
         return status;
       }
 
-      _logger.w(
-        '[BackupStatus] HTTP ${response.statusCode} von $url',
-      );
+      _logger.w('[BackupStatus] HTTP ${response.statusCode} von $url');
     } catch (e) {
       _logger.d('[BackupStatus] pb_public nicht erreichbar: $e');
     }
@@ -156,7 +160,7 @@ class BackupStatusService {
     // Versuch 2: Direkter Pfad (falls Backup-Volume anders gemountet)
     try {
       final url = '$pbUrl/backups/last_backup.json';
-      final response = await http
+      final response = await httpClient
           .get(Uri.parse(url))
           .timeout(const Duration(seconds: 5));
 
