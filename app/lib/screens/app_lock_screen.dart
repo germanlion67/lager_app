@@ -76,6 +76,8 @@ class _AppLockScreenState extends State<AppLockScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final useBiometrics =
+        _isBiometricAvailable && AppLockService().isBiometricsEnabled;
 
     return Material(
       color: theme.scaffoldBackgroundColor,
@@ -113,16 +115,12 @@ class _AppLockScreenState extends State<AppLockScreen> {
                   FilledButton.icon(
                     onPressed: _authenticateWithBiometrics,
                     icon: Icon(
-                      _isBiometricAvailable &&
-                              AppLockService().isBiometricsEnabled
+                      useBiometrics
                           ? Icons.fingerprint
                           : Icons.lock_open_rounded,
                     ),
                     label: Text(
-                      _isBiometricAvailable &&
-                              AppLockService().isBiometricsEnabled
-                          ? 'Mit Biometrie entsperren'
-                          : 'Entsperren',
+                      useBiometrics ? 'Mit Biometrie entsperren' : 'Entsperren',
                     ),
                     style: FilledButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
