@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.1+12 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.2+13 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -14,7 +14,7 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 | Phase 1: Grundlagen | 100% | ✅ |
 | Phase 2: Deployment & Security | 100% | ✅ |
 | Phase 3: Performance & Optimierung | 100% | ✅ |
-| Phase 4: Multi-Plattform & Politur | 52% | 🔴 |
+| Phase 4: Multi-Plattform & Politur | 60% | 🔴 |
 
 ### Plattform-Status
 
@@ -383,6 +383,22 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Alle 24 bestehenden Widget-Tests grün ✅
 - `flutter analyze` — 0 Issues 
 
+### F-001: Biometrische Authentifizierung (Mobile) — Erledigt in v0.8.2+13 ✅
+- `AppLockService` Singleton mit SharedPreferences-Persistenz ✅
+- `WidgetsBindingObserver` für App-Lifecycle-Erkennung (Background/Foreground) ✅
+- `AppLockScreen` mit `local_auth 3.0.1` API (biometricOnly, sensitiveTransaction,
+  persistAcrossBackgrounding) ✅
+- Automatischer Start der biometrischen Authentifizierung beim Anzeigen ✅
+- Fallback auf Geräte-PIN/Pattern wenn Biometrie nicht verfügbar ✅
+- Konfigurierbare Inaktivitäts-Timeout (Standard: 5 Minuten) ✅
+- Integration in `main.dart` via `AppLockService().init()` ✅
+
+### F-002: Konfigurierbare App-Sperrzeit — Erledigt in v0.8.2+13 ✅
+- `AppLockService` überwacht App-Lebenszyklus (`didChangeAppLifecycleState`) ✅
+- Inaktivitäts-Timer mit konfigurierbarer Dauer (`lockTimeout`) ✅
+- Sperrzeit persistent in SharedPreferences gespeichert ✅
+- App sperrt automatisch bei Hintergrundwechsel nach Timeout-Ablauf ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -411,11 +427,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] **T-001.10** — „Überspringen" → Konflikt bleibt, erscheint beim nächsten Sync erneut
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
 - [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
-
-### T-003: Unit-Tests NextcloudClient
-- [ ] `_parsePropfindResponse()` — XML-Fixtures direkt testen
-- [ ] `_parseHttpDate()` — RFC-7231-Datumsformate, Edge Cases
-- [ ] `uploadItem()` mit `If-Match` — Mock `http.Client`
 
 
 ### P-003: Bild-Caching
@@ -460,12 +471,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 36 | 36 | 0 |
+| ✅ Abgeschlossen | 38 | 38 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 5 | 0 | 5 |
+| 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **45** | **36** | **9** |
+| **Gesamt** | **45** | **38** | **7** |
 
 ---
 
@@ -502,6 +513,7 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-13 | v0.8.2+13 | F-001 + F-002 abgeschlossen: App-Lock mit biometrischer Authentifizierung — AppLockService (Singleton, SharedPreferences, Lifecycle-Hooks), AppLockScreen (local_auth 3.0.1, Biometrie + PIN-Fallback), konfigurierbare Sperrzeit (Standard 5 Min), Integration in main.dart — Gesamt 38/45 erledigt |
 | 2026-04-13 | v0.8.1+12 | T-003 abgeschlossen: 39 Unit-Tests NextcloudClient — testConnection, createFolder, listItemsEtags, downloadItem, uploadItem, deleteItem, uploadAttachment, downloadAttachment, RemoteItemMeta, URI-Auflösung — MockClient injiziert, Produktionscode minimal refactored — Gesamt 551→590 |
 | 2026-04-13 | v0.8.1+11 | T-004 abgeschlossen: 18 Widget-Tests MergeDialog — Grundstruktur, Konflikt-Anzeige, Feld-Auswahl, Bild-Auswahl, Zusammenführen, Dialog-Schließen, Menge-Fallback. O-008 abgeschlossen: spacingSectionGap Token, 3 Stellen ersetzt. Gesamt 533→551 |
 | 2026-04-13 | v0.8.1+10 | T-005 abgeschlossen: 34 Tests AttachmentService — getForArtikel, countForArtikel, upload, updateMetadata, delete, deleteAllForArtikel, Integration — PocketBaseService.overrideForTesting, FakeAttachmentRecordService, fakeClientException — Gesamt 499→533 |

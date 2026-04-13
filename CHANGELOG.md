@@ -2,6 +2,84 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.2+13] — 2026-04-13
+
+### Feature (F-001): Biometrische Authentifizierung (Mobile)
+
+**Ziel:** App-Sperre mit biometrischer Authentifizierung (Fingerabdruck/Gesichtserkennung)
+und Fallback auf Geräte-PIN/Pattern für mobile Plattformen.
+
+**Implementierung:**
+
+#### AppLockService (`lib/services/app_lock_service.dart`)
+- Singleton mit `WidgetsBindingObserver` für App-Lifecycle-Erkennung
+- `SharedPreferences`-Persistenz für Aktivierungsstatus und Timeout-Dauer
+- `didChangeAppLifecycleState()`: Erkennt Background/Foreground-Wechsel
+- Inaktivitäts-Timer mit konfigurierbarer Dauer (Standard: 5 Minuten)
+- `isLocked` / `isEnabled` State-Management
+- `init()` / `dispose()` Lifecycle-Methoden
+
+#### AppLockScreen (`lib/screens/app_lock_screen.dart`)
+- Vollbild-Sperrbildschirm mit Lock-Icon und Statustext
+- `local_auth 3.0.1` API: `biometricOnly`, `sensitiveTransaction`,
+  `persistAcrossBackgrounding` (keine `AuthenticationOptions`-Klasse)
+- Automatischer Start der biometrischen Authentifizierung bei Anzeige
+- Fallback auf Geräte-PIN/Pattern wenn Biometrie nicht verfügbar
+- `_isBiometricAvailable` Check via `canCheckBiometrics` + `isDeviceSupported()`
+- Loading-State während Authentifizierung
+- `onUnlocked` Callback bei erfolgreicher Entsperrung
+
+#### Integration (`lib/main.dart`)
+- `AppLockService().init()` im App-Start (nur nicht-Web)
+- Plattform-Guard: `!kIsWeb`
+
+### Feature (F-002): Konfigurierbare App-Sperrzeit
+
+- Timeout-Dauer in `AppLockService` konfigurierbar
+- Persistent in SharedPreferences gespeichert
+- App sperrt automatisch nach Inaktivitäts-Timeout bei Hintergrundwechsel
+
+### Neue Dateien
+- `lib/services/app_lock_service.dart`
+- `lib/screens/app_lock_screen.dart`
+
+### Geänderte Dateien
+- `lib/main.dart` — `AppLockService().init()` Aufruf hinzugefügt
+
+### Technische Details
+
+**local_auth 3.0.1 API:**
+- Kein `options:` Parameter, kein `AuthenticationOptions`-Klasse
+- Direkte Parameter: `biometricOnly`, `sensitiveTransaction`, `persistAcrossBackgrounding`
+- `authMessages` mit Default-Werten für iOS, Android, Windows
+
+**App-Lock-Flow:**
+
+App startet → AppLockService.init()
+→ SharedPreferences laden (isEnabled, timeout)
+→ WidgetsBindingObserver registrieren
+
+App → Background:
+→ Zeitstempel speichern
+
+App → Foreground:
+→ Zeitdifferenz prüfen
+→ Falls > timeout → isLocked = true → AppLockScreen anzeigen
+
+AppLockScreen:
+→ Biometrie verfügbar? → authenticate()
+→ Nicht verfügbar? → Geräte-PIN/Pattern
+→ Erfolg → onUnlocked() → isLocked = false
+
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **590 bestanden**, 3 übersprungen
+
+### Dokumentation
+- `docs/OPTIMIZATIONS.md` — F-001 + F-002 als abgeschlossen markiert,
+  Fortschritts-Übersicht aktualisiert (38/45 erledigt), Phase 4 auf 60%
+- `CHANGELOG.md` — Aktualisiert für v0.8.2+13
+
+
 ## [0.8.1+12] — 2026-04-13
 
 ### Tests (T-003): Unit-Tests NextcloudClient — 39 Tests

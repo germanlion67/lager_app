@@ -9,7 +9,7 @@ publish_to: none
 # Flutter erwartet version: major.minor.patch+build.
 # Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
 # da versionCode (Android) bzw. CFBundleVersion (iOS) fehlt.
-version: 0.8.1+12
+version: 0.8.2+13
 
 # Fix: SDK-Constraint präzisiert —
 # ">=3.0.0 <4.0.0" erlaubt theoretisch Dart 4.x sobald es erscheint.
@@ -140,6 +140,7 @@ dependencies:
   logger: ^2.0.2
   google_fonts: ^8.0.2
   package_info_plus: ^9.0.0
+  local_auth: ^3.0.1
 
 dev_dependencies:
   flutter_test:

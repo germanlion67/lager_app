@@ -15,10 +15,12 @@ import 'config/app_images.dart';
 import 'screens/artikel_list_screen.dart';
 import 'screens/login_screen.dart'; // ── M-009: Login-Screen
 import 'screens/settings_screen.dart';
+import 'screens/app_lock_screen.dart';  // ── F-001: Sperrbildschirm
 import 'screens/server_setup_screen.dart';
 import 'services/app_log_service.dart';
 import 'services/artikel_db_service.dart';
 import 'services/pocketbase_service.dart';
+import 'services/app_lock_service.dart';  // ── F-001: App-Lock Service
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
 
@@ -79,6 +81,11 @@ void main() async {
     );
   }
 
+  // ── F-001: App-Lock Service initialisieren ──────────────────────────────
+  if (!kIsWeb) {
+    await AppLockService().init();
+  }
+
   runApp(const MyApp());
 }
 
@@ -109,6 +116,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   /// ── M-009: Steuert ob der Login-Screen angezeigt wird.
   bool _isCheckingAuth = true;
   bool _isLoggedIn = false;
+  bool _isAppLocked = false;  // ── F-001: App-Sperr-Status
 
   /// ── Dev-Mode: Login überspringen wenn PB_DEV_MODE=1
   /// Wird über --dart-define=PB_DEV_MODE=1 gesetzt.
@@ -377,17 +385,27 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     AppLogService.logger.close();
     super.dispose();
   }
-
   @override
+
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
         _cleanupDone = false;
+
+        // ── F-001: Prüfe ob App gesperrt werden muss ──────────────────────
+        if (!kIsWeb && AppLockService().onAppResumed()) {
+          setState(() => _isAppLocked = true);
+        }
+
         if (!kIsWeb && _pbService.hasClient) {
           unawaited(_syncIfConnected());
         }
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
+        // ── F-001: Pause-Zeitpunkt merken ─────────────────────────────────
+        if (!kIsWeb) {
+          AppLockService().onAppPaused();
+        }
         unawaited(_cleanupResources());
       default:
         break;
@@ -488,6 +506,17 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
 
     // Priorität 4: Normale App (eingeloggt oder Dev-Mode)
+    // ── F-001: Lock-Screen Overlay wenn App gesperrt ──────────────────────
+    if (_isAppLocked) {
+      return Stack(
+        children: [
+          _buildHomeWithBackground(),
+          AppLockScreen(
+            onUnlocked: () => setState(() => _isAppLocked = false),
+          ),
+        ],
+      );
+    }
     return _buildHomeWithBackground();
   }
 
