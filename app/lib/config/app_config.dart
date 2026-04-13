@@ -164,6 +164,10 @@ class AppConfig {
   /// Horizontaler Abstand zwischen nebeneinander liegenden Detail-Feldern.
   static const double detailFieldSpacing = 12.0;
 
+  // ── Detail-Screen: Sections-Abstand (O-008) ────────────────────
+  /// Vertikaler Abstand zwischen Formular-Sektionen im Detail-Screen.
+  static const double spacingSectionGap = 20.0;
+
   // ============================================================================
   // Border-Radius-Konstanten
   // ============================================================================

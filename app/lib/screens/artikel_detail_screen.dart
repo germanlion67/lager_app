@@ -939,7 +939,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4),
+                  const SizedBox(height: AppConfig.spacingSectionGap),
 
                   Row(
                     children: [
@@ -965,7 +965,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4),
+                  const SizedBox(height: AppConfig.spacingSectionGap),
 
                   TextField(
                     controller: _beschreibungController,
@@ -979,7 +979,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                     ),
                     maxLines: 3,
                   ),
-                  const SizedBox(height: AppConfig.spacingXLarge - 4),
+                  const SizedBox(height: AppConfig.spacingSectionGap),
 
                   // v0.7.8 Punkt 5: Bild-Buttons aus Body entfernt (jetzt in AppBar)
                   // v0.7.8 Punkt 5: AnhaengeSektion aus Body entfernt (jetzt in AppBar)

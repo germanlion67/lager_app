@@ -2,6 +2,57 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.1+11] — 2026-04-13
+
+### Tests (T-004): Widget-Tests Merge-Dialog — 18 Tests
+
+**Ziel:** Vollständige Widget-Test-Abdeckung für den `_MergeDialog` im
+`ConflictResolutionScreen` — Felder, Auswahl, Zusammenführen, Schließen.
+
+**Strategie:**
+- `_MergeDialog` ist private → Zugang über "Manuell zusammenführen"-Button
+  im `ConflictResolutionScreen` (echter Nutzerfluss)
+- `MockSyncService` wiederverwendet aus T-001.5
+- `setSurfaceSize(1024×900)` für Side-by-Side-Karten
+- Felder mit Unterschied isoliert testen (genau 1 "Remote"-Button)
+
+**Abgedeckte Gruppen (18 Tests):**
+
+| Gruppe | Tests | Szenarien |
+|---|---|---|
+| Grundstruktur | 6 | Titel, Icons, Buttons, Labels, Bild-Label |
+| Konflikt-Anzeige | 4 | Lokal/Remote-Karten, Warning-Icons, identische Werte, Initialwerte |
+| Feld-Auswahl | 3 | Lokal-Button, Remote-Button, manuelle Eingabe |
+| Bild-Auswahl | 3 | Radio-Optionen, "Kein Bild", initiale Selektion |
+| Zusammenführen | 4 | Dialog schließt, korrekte Werte, leerer Name, manuelle Edits |
+| Dialog schließen | 2 | Abbrechen, Close-Icon |
+| Menge-Feld | 2 | Ungültige Menge Fallback, Remote-Menge per Button |
+
+**Neue Datei:**
+- `test/widgets/merge_dialog_test.dart`
+
+### Refactoring (O-008): Magic-Number-Arithmetik eliminiert
+
+- Neuer Token `AppConfig.spacingSectionGap` (20.0)
+- 3× `AppConfig.spacingXLarge - 4` → `AppConfig.spacingSectionGap` in
+  `artikel_detail_screen.dart`
+
+**Gesamtstand:**
+
+| Vorher | Nachher | Differenz |
+|---|---|---|
+| 533 Tests, 24 Dateien | **551 Tests**, 25 Dateien | **+18 Tests**, +1 Datei |
+
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **551 bestanden**, 3 übersprungen
+
+### Dokumentation
+- `docs/TESTING.md` — T-004 Tests dokumentiert, Gesamtzahl auf 551 aktualisiert
+- `docs/OPTIMIZATIONS.md` — T-004 + O-008 als abgeschlossen markiert,
+  Fortschritts-Übersicht aktualisiert (35/45 erledigt)
+- `CHANGELOG.md` — Aktualisiert für T-004 + O-008
+
+
 ## [0.8.1+10] — 2026-04-13
 
 ### Tests (T-005): Unit-Tests AttachmentService — 34 Tests

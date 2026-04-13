@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.1+10 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.1+11 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **533 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
+✅ **551 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
 Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 
 > `--exclude-tags performance` ist weiterhin optional verfügbar, aber nicht mehr erforderlich.
@@ -50,7 +50,8 @@ Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 | `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
 | `test/helpers/fake_sync_status_provider.dart` | Test-Helper | – | K-006 |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1  | T-007 |
-| **Gesamt** | | **519** (+3 skipped) | |
+| `test/widgets/merge_dialog_test.dart` | Widget | 18 | T-004 |
+| **Gesamt** | | **537** (+3 skipped) | |
 
 ---
 
@@ -219,6 +220,35 @@ flutter test test/services/artikel_db_service_test.dart
 ```
 
 > ⚠️ **Hinweis:** Dieser Test setzt `sqflite_common_ffi` voraus. Unter Linux/Windows läuft er nativ. Unter macOS kann eine zusätzliche FFI-Konfiguration nötig sein.
+
+---
+
+### `widgets/merge_dialog_test.dart` — T-004 (18 Tests) ✅ NEU
+
+**Ziel:** Widget-Tests für den `_MergeDialog` im `ConflictResolutionScreen` —
+alle Felder, Feld-Auswahl, Bild-Auswahl, Zusammenführen-Aktion, Dialog-Schließen.
+
+**Strategie:**
+- `_MergeDialog` ist private → wird über den "Manuell zusammenführen"-Button
+  im `ConflictResolutionScreen` geöffnet (echter Nutzerfluss)
+- `MockSyncService` aus `test/mocks/sync_service_mocks.mocks.dart` (wiederverwendet)
+- `setSurfaceSize(1024×900)` für Side-by-Side-Karten (wie T-001.5)
+- Felder mit Unterschied isoliert testen (genau 1 "Remote"-Button)
+  um Index-Probleme bei `find.widgetWithText()` zu vermeiden
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| Grundstruktur | 6 | Titel, Icons, Buttons, Feld-Labels, Bild-Label |
+| Konflikt-Anzeige | 4 | Lokal/Remote-Karten, Warning-Icons, identische Werte, Initialwerte |
+| Feld-Auswahl | 3 | Lokal-Button, Remote-Button, manuelle Eingabe |
+| Bild-Auswahl | 3 | Radio-Optionen, "Kein Bild", initiale Selektion |
+| Zusammenführen-Aktion | 4 | Dialog schließt, korrekte Werte, leerer Name, manuelle Edits |
+| Dialog schließen | 2 | Abbrechen, Close-Icon |
+| Menge-Feld | 2 | Ungültige Menge Fallback, Remote-Menge per Button |
+
+```bash
+flutter test test/widgets/merge_dialog_test.dart
+```
 
 ---
 
@@ -586,11 +616,15 @@ flutter test test/services/artikel_db_service_test.dart \
 # Nur T-002 Tests (PocketBase Sync)
 flutter test test/services/pocketbase_sync_service_test.dart
 
+# Nur T-004 Tests (MergeDialog)
+flutter test test/widgets/merge_dialog_test.dart
+
 # Nur T-005 Tests (AttachmentService)
 flutter test test/services/attachment_service_test.dart
 
-# Nur neue Tests (v0.8.1+10)
-flutter test test/services/attachment_service_test.dart \
+# Nur neue Tests (v0.8.1+11)
+flutter test test/widgets/merge_dialog_test.dart \
+             test/services/attachment_service_test.dart \
              test/services/pocketbase_sync_service_test.dart \
              test/models/attachment_model_test.dart \
              test/utils/attachment_utils_test.dart \
@@ -696,13 +730,13 @@ fake.dispose();
 
 ## Änderungen gegenüber v0.8.0+7
 
-| **Aspekt** | **v0.8.0+7** | **v0.8.1+10** |
+| **Aspekt** | **v0.8.0+7** | **v0.8.1+11** |
 |---|---|---|
-| **Version** | 0.8.0+7 | 0.8.1+10 |
-| **Testübersicht** | 484 Tests, 23 Einträge | 519 Tests, 24 Einträge |
-| **Gesamtzahl (Schnellstart)** | 499 bestanden | 533 bestanden |
+| **Version** | 0.8.0+7 | 0.8.1+11 |
+| **Testübersicht** | 484 Tests, 23 Einträge | 537 Tests, 25 Einträge |
+| **Gesamtzahl (Schnellstart)** | 499 bestanden | 551 bestanden |
+| **T-004-Sektion** | Nicht vorhanden | Neu: 18 Tests MergeDialog |
 | **T-005-Sektion** | Nicht vorhanden | Neu: 34 Tests AttachmentService |
-| **Testübersicht-Tabelle** | Kein `attachment_service_test.dart` | Neue Zeile mit 34 Tests, Aufgabe T-005 |
+| **Testübersicht-Tabelle** | Kein `merge_dialog_test.dart` / `attachment_service_test.dart` | 2 neue Zeilen |
 | **Test-Infrastruktur** | Nur Sync-Fakes | + AttachmentService-Fakes + `fakeClientException()` Helper |
-| **Einzelne Testgruppen** | Kein T-005-Kommando | `flutter test test/services/attachment_service_test.dart` |
-| **Gesamtzahl-Tabelle** | 484 | 519 |
+| **Gesamtzahl-Tabelle** | 484 | 537 |

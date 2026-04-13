@@ -289,6 +289,26 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Kein `build_runner`, kein Netzwerk, kein Dateisystem ✅
 - Gesamt: 499 → 533 Tests
 
+### T-004: Widget-Tests Merge-Dialog — Erledigt in v0.8.1+10 ✅
+- 18 Tests, alle grün ✅
+- `_MergeDialog` über "Manuell zusammenführen"-Button getestet (private Klasse) ✅
+- `MockSyncService` wiederverwendet aus T-001.5 ✅
+- Grundstruktur: Titel, Icons, Buttons, Labels (6 Tests) ✅
+- Konflikt-Anzeige: Lokal/Remote-Karten, Warning-Icons, Initialwerte (4 Tests) ✅
+- Feld-Auswahl: Lokal/Remote-Buttons, manuelle Eingabe (3 Tests) ✅
+- Bild-Auswahl: Radio-Optionen, "Kein Bild", initiale Selektion (3 Tests) ✅
+- Zusammenführen: Dialog schließt, korrekte Werte, Fallbacks (4 Tests) ✅
+- Dialog schließen: Abbrechen, Close-Icon (2 Tests) ✅
+- Menge-Feld: Ungültige Eingabe Fallback, Remote-Übernahme (2 Tests) ✅
+- Gesamt: 533 → 551 Tests
+
+### O-008: Magic-Number-Arithmetik in Spacing-Tokens — Erledigt in v0.8.1+10 ✅
+- Neuer Token `spacingSectionGap` (20.0) in `AppConfig` ✅
+- 3 Stellen `spacingXLarge - 4` → `spacingSectionGap` ersetzt ✅
+- Datei: `artikel_detail_screen.dart` ✅
+- 0 Risiko — reines Rename-Refactoring ✅
+- Bestehende Widget-Tests decken die Stellen ab ✅
+
 ### P-005: Dependency-Update — Erledigt (bereits in v0.8.0+5 enthalten)
 - `cupertino_icons: ^1.0.9` ✅ (war ^1.0.8)
 - `shared_preferences: ^2.5.5` ✅ (war ^2.5.4)
@@ -379,11 +399,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] `_parseHttpDate()` — RFC-7231-Datumsformate, Edge Cases
 - [ ] `uploadItem()` mit `If-Match` — Mock `http.Client`
 
-### T-004: Widget-Tests Merge-Dialog
-- [ ] Felder einzeln auswählen (lokal/remote pro Feld)
-- [ ] Merge-Ergebnis korrekt an `applyConflictResolution()` übergeben
-- [ ] Validierung: kein leerer Name möglich
-
 
 ### P-003: Bild-Caching
 Remote-Bilder werden bei jedem Scroll neu geladen.
@@ -414,22 +429,7 @@ Eigener Splash-Screen mit App-Logo.
 ### N-006: Nextcloud-Workflow
 WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
-### O-008: Magic-Number-Arithmetik in Spacing-Tokens auflösen
-In artikel_detail_screen.dart wird an 3 Stellen AppConfig.spacingXLarge - 4
-(= 20.0 dp) verwendet. Der Ausdruck ist zwar compile-time-const und technisch
-korrekt, verstößt aber gegen die Projekt-Konvention „keine Magic Numbers im
-Widget-Code" (O-004).
-
-Neuen AppConfig-Token spacingLarge20 (o.ä. spacingSectionGap) mit Wert 20.0 einführen
-3 Vorkommen in artikel_detail_screen.dart ersetzen:
-Nach der Ort/Fach-Row
-Nach der Menge-Row
-Nach dem Beschreibung-TextField
-Prüfen ob spacingXLarge - 4 auch in anderen Screens vorkommt
-flutter analyze — 0 Issues
-Aufwand: ~5 Minuten, 0 Risiko — reines Rename-Refactoring.
-
----
+--- 
 
 ## ⏭️ Future (nicht in Planung)
 
@@ -442,12 +442,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 33 | 33 | 0 |
+| ✅ Abgeschlossen | 35 | 35 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 7 | 0 | 7 |
-| 🟢 Nice-to-Have | 4 | 0 | 4 |
+| 🟡 Mittel | 6 | 0 | 6 |
+| 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **45** | **33** | **12** |
+| **Gesamt** | **45** | **35** | **10** |
 
 ---
 
@@ -484,6 +484,7 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-13 | v0.8.1+11 | T-004 abgeschlossen: 18 Widget-Tests MergeDialog — Grundstruktur, Konflikt-Anzeige, Feld-Auswahl, Bild-Auswahl, Zusammenführen, Dialog-Schließen, Menge-Fallback. O-008 abgeschlossen: spacingSectionGap Token, 3 Stellen ersetzt. Gesamt 533→551 |
 | 2026-04-13 | v0.8.1+10 | T-005 abgeschlossen: 34 Tests AttachmentService — getForArtikel, countForArtikel, upload, updateMetadata, delete, deleteAllForArtikel, Integration — PocketBaseService.overrideForTesting, FakeAttachmentRecordService, fakeClientException — Gesamt 499→533 |
 | 2026-04-13 | v0.8.0+8 | F-003: Artikeldetailansicht — Ort & Fach nebeneinander |
 | 2026-04-13 | v0.8.0+7 | O-007 abgeschlossen: 15 Tests ImagePickerService — FakeImagePicker, isCameraAvailable (5 Plattformen), openCropDialog Guards, pickImageCamera alle Pfade — Gesamt 469→484 |
