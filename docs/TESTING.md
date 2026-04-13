@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.0+6 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.0+7 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **469 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
+✅ **499 Tests bestanden, 3 skipped, 0 Fehler** — kein `--exclude-tags performance` mehr nötig.
 Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 
 > `--exclude-tags performance` ist weiterhin optional verfügbar, aber nicht mehr erforderlich.
@@ -30,7 +30,8 @@ Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 | `test/models/artikel_model_test.dart` | Unit | 64 | O-002 |
 | `test/models/attachment_model_test.dart` | Unit | 30 | O-002 |
 | `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 |
-| `test/services/backup_status_test.dart` | Unit | 22 | – |
+| `test/services/backup_status_test.dart`        | Unit          | 22  | T-006  |
+| `test/services/image_picker_service_test.dart` | Unit + Widget | 15  | O-007  |
 | `test/services/pocketbase_sync_service_test.dart` | Unit | 17 | T-002 |
 | `test/utils/attachment_utils_test.dart` | Unit | 28 | – |
 | `test/utils/image_processing_utils_test.dart` | Unit | 30 | O-002 |
@@ -48,7 +49,7 @@ Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
 | `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
 | `test/helpers/fake_sync_status_provider.dart` | Test-Helper | – | K-006 |
 | `test/performance/import_500_smoke_test.dart` | Performance | 1  | T-007 |
-| **Gesamt** | | **469** (+3 skipped) | |
+| **Gesamt** | | **484** (+3 skipped) | |
 
 ---
 
@@ -184,7 +185,7 @@ flutter test test/services/artikel_db_service_test.dart
 
 ---
 
-### `services/backup_status_test.dart` (22 Tests) ✅
+### `services/backup_status_test.dart` — T-006 (22 Tests) ✅
 
 **Ziel:** Vollständige Abdeckung der `BackupStatus`-Modell-Logik und des `BackupAge`-Enums.
 
@@ -202,6 +203,39 @@ flutter test test/services/artikel_db_service_test.dart
 ```bash
 flutter test test/services/backup_status_test.dart
 ```
+--- 
+
+### `services/image_picker_service_test.dart` — O-007 (15 Tests) ✅ NEU
+
+**Ziel:** Tests für `ImagePickerService` nach P-001 —
+`pickImageCamera()`, `isCameraAvailable`, `openCropDialog()`.
+
+**Strategie:**
+- `FakeImagePicker extends ImagePicker` überschreibt `pickImage()` vollständig
+  (kein Plattformkanal, kein Platform-Channel-Mock nötig)
+- `overrideImagePicker` + `maxFileSizeBytesOverride` (`@visibleForTesting`) für
+  saubere Injektion ohne Produktionscode-Komplexität
+- `debugDefaultTargetPlatformOverride` steuert `isCameraAvailable` pro Test
+
+| Gruppe | Tests | Was wird geprüft |
+|---|---|---|
+| `PickedImage`-Datenklasse | 4 | `empty`, `hasImage` true/false/leer |
+| `isCameraAvailable` | 5 | Linux, Windows, macOS → false; Android, iOS → true |
+| `openCropDialog()` | 2 | null-bytes → null, leere bytes → null |
+| `pickImageCamera()` | 4 | Kamera nicht verfügbar, Picker null, Datei zu groß, Happy-Path |
+
+```bash
+flutter test test/services/image_picker_service_test.dart
+```
+
+**Strategische Erkenntnisse (dart:io + FakeAsync):**
+
+| Pattern | Falsch ❌ | Richtig ✅ |
+|---|---|---|
+| `debugDefaultTargetPlatformOverride` zurücksetzen | `addTearDown` (zu spät, nach `_verifyInvariants`) | `try/finally` im Testbody |
+| XFile mit In-Memory-Bytes | `XFile(path, bytes: data)` (dart:io ignoriert `bytes:`) | `XFile.fromData(data, name: '...')` |
+| Async mit `compute()` / `readAsBytes()` | Direkt in `testWidgets` `await`en | `tester.runAsync(() => ...)` |
+| Testbarer Größencheck | 10-MB-`Uint8List` in FakeAsync | `maxFileSizeBytesOverride` + kleine Bytes |
 
 ---
 
@@ -612,10 +646,7 @@ fake.dispose();
 
 ## Änderungen gegenüber v0.8.0+5
 
-| Stelle | Vorher (v0.8.0+5) | Nachher (v0.8.0+6) |
-|---|---|---|
-| **Version** | 0.8.0+5 | 0.8.0+6 |
-| **Schnellstart** | Warnung: `--exclude-tags performance` nötig | ✅ `flutter test` ohne Flag |
-| **Testübersicht** | 468 Tests, `*`-Fußnote für Performance | 469 Tests, kein Sonderhinweis |
-| **Performance-Sektion** | Anleitung zur manuellen Datengenerierung | Self-contained, `setUpAll`/`tearDownAll` |
-| **Fußnote** | `\* erfordert externe Testdaten` | Entfernt |
++| **Version** | 0.8.0+6 | 0.8.0+7 |
++| **Testübersicht** | 469 Tests, backup_status ohne Aufgabe | 499 Tests, T-006 + O-007 ergänzt |
++| **T-006-Sektion** | Aufgabe-Spalte `–` | `T-006` |
++| **O-007-Sektion** | Nicht vorhanden | Neu: 15 Tests + Strategische Erkenntnisse |

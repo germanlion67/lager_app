@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.0+6 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.0+7 | **Zuletzt aktualisiert:** 13.04.2026
 
 ---
 
@@ -292,6 +292,29 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - `tool/generate_import_dataset.dart` bleibt als optionales CLI-Tool (1000+, 5000+) ✅
 - Gesamt: 468 → 469 Tests
 
+### T-006: Unit-Tests BackupStatusService — Erledigt in v0.8.0+7
+- 22 Tests, alle grün ✅ *(Tests seit v0.8.0 vorhanden, formal abgenommen in v0.8.0+7)*
+- `MockClient` (`package:http/testing.dart`) — kein echter HTTP-Request ✅
+- `last_backup.json`-Parsing: Timestamp, Status, Dateiname vollständig abgedeckt ✅
+- Farblogik: Grün (≤24 h), Gelb (≤72 h), Rot (>72 h) — alle Schwellwerte getestet ✅
+- Fehlerfall: Server nicht erreichbar → `BackupStatus.unknown` ✅
+- Fehlerfall: Malformed JSON → graceful degradation ✅
+
+### O-007: Tests für ImagePickerService nach P-001 — Erledigt in v0.8.0+7
+- 15 Tests, alle grün ✅
+- `FakeImagePicker extends ImagePicker` überschreibt `pickImage()` vollständig
+  (kein Plattformkanal) ✅
+- `@visibleForTesting overrideImagePicker` + `maxFileSizeBytesOverride`
+  für saubere Injektion ohne zusätzliche Produktionscode-Komplexität ✅
+- `debugDefaultTargetPlatformOverride` via `try/finally` innerhalb `testWidgets`
+  zurückgesetzt — `addTearDown` greift nach `_verifyInvariants`, also zu spät ✅
+- `XFile.fromData()` statt `XFile(path, bytes:)` — dart:io ignoriert den
+  `bytes:`-Parameter und liest vom Dateipfad ✅
+- `tester.runAsync()` für Pfade mit `readAsBytes()` / `compute()` ✅
+- Abgedeckt: `PickedImage`-Datenklasse (4), `isCameraAvailable` 5 Plattformen (5),
+  `openCropDialog()` Guards (2), `pickImageCamera()` alle Pfade (4) ✅
+- Gesamt: 469 → 484 Tests
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -335,17 +358,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] Upload, Download, Delete gegen PocketBase-Mock
 - [ ] MIME-Type-Validierung
 - [ ] Max-Anhänge / Max-Dateigröße Grenzen
-
-### T-006: Unit-Tests BackupStatusService
-- [ ] HTTP-Mock für `last_backup.json`
-- [ ] Farblogik: Grün/Gelb/Rot Schwellwerte
-- [ ] Fehlerfall: Server nicht erreichbar
-
-### O-006: Tests für pickImageCamera() nach P-001
-P-001 hat die Logik in `ImagePickerService` geändert — Tests fehlen.
-- [ ] `pickImageCamera()` mit Mock-Picker
-- [ ] `openCropDialog()` public API testen
-- [ ] `ensureTargetFormat(crop: false)` Pfad abdecken
 
 ### P-003: Bild-Caching
 Remote-Bilder werden bei jedem Scroll neu geladen.
@@ -392,12 +404,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 30 | 30 | 0 |
+| ✅ Abgeschlossen | 32 | 32 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 10 | 0 | 10 |
+| 🟡 Mittel | 8 | 0 | 8 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **44** | **30** | **14** |
+| **Gesamt** | **44** | **32** | **12** |
 
 ---
 
@@ -435,6 +447,8 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-13 | v0.8.0+7 | O-007 abgeschlossen: 15 Tests ImagePickerService — FakeImagePicker, isCameraAvailable (5 Plattformen), openCropDialog Guards, pickImageCamera alle Pfade — Gesamt 469→484 |
+| 2026-04-13 | v0.8.0+7 | T-006 abgeschlossen: BackupStatusService (22 Tests seit v0.8.0) formal abgenommen — MockClient, Farblogik, Fehlerfälle |
 | 2026-04-13 | v0.8.0+6 | T-007 abgeschlossen: Performance-Test self-contained — setUpAll/tearDownAll, minimale PNG-Fixtures, Gesamt 468→469 |
 | 2026-04-13 | v0.8.0+6 | P-005 als erledigt markiert: alle Ziel-Versionen bereits in pubspec.yaml, connectivity_plus v7 API-Migration bereits umgesetzt |
 | 2026-04-12 | v0.8.0+5 | T-002 abgeschlossen: 17 Unit-Tests PocketBase SyncService — Push/Pull/Fehler/UUID/Image, manuelle Fakes, Gesamt 451→468 |

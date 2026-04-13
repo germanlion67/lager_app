@@ -2,6 +2,32 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.0+7] — 2026-04-13
+
+### Tests
+
+- **O-007:** 15 neue Tests für `ImagePickerService` nach P-001 — `PickedImage`-
+  Datenklasse, `isCameraAvailable` (5 Plattformen), `openCropDialog()` Guards,
+  `pickImageCamera()` alle Pfade (Gesamt: 469 → 484)
+- **T-006:** `BackupStatusService` (22 Tests) formal abgenommen —
+  HTTP-Mock, Farblogik Grün/Gelb/Rot, Fehlerfall Server nicht erreichbar
+  *(Tests existierten seit v0.8.0, Tracking-Eintrag nachgezogen)*
+
+### Geändert
+
+- `ImagePickerService`: `@visibleForTesting maxFileSizeBytesOverride` und
+  `_effectiveMaxFileSize`-Getter hinzugefügt — Größencheck in Tests
+  ohne 10-MB-Allocation testbar
+- `pickImageCamera()`: `_maxFileSizeBytes` → `_effectiveMaxFileSize`
+
+### Dokumentation
+
+- `OPTIMIZATIONS.md`: T-006 und O-007 als abgeschlossen markiert
+  (30 → 32 erledigt, 10 → 8 offen)
+- `TESTING.md`: O-007-Sektion mit Strategietabelle ergänzt,
+  T-006 in Testübersicht verknüpft
+  
+
 ## [0.8.0+5] - 2026-04-12
 
 ### 🧪 Tests (T-002): Unit-Tests PocketBase SyncService — 17 Tests
