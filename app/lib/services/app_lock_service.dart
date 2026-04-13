@@ -15,17 +15,20 @@ class AppLockService {
   // ── Konfiguration ─────────────────────────────────────────────────────────
   static const String _prefKeyEnabled = 'app_lock_enabled';
   static const String _prefKeyTimeout = 'app_lock_timeout_seconds';
+  static const String _prefKeyBiometrics = 'app_lock_biometrics_enabled';
   static const int defaultTimeoutSeconds = 300; // 5 Minuten
 
   // ── State ─────────────────────────────────────────────────────────────────
   DateTime? _pausedAt;
   bool _enabled = false;
   int _timeoutSeconds = defaultTimeoutSeconds;
+  bool _biometricsEnabled = true;
   bool _initialized = false;
 
   // ── Getter ────────────────────────────────────────────────────────────────
   bool get isEnabled => _enabled;
   int get timeoutSeconds => _timeoutSeconds;
+  bool get isBiometricsEnabled => _biometricsEnabled;
 
   // ── Initialisierung (aus main.dart aufrufen) ──────────────────────────────
   Future<void> init() async {
@@ -33,6 +36,7 @@ class AppLockService {
     final prefs = await SharedPreferences.getInstance();
     _enabled = prefs.getBool(_prefKeyEnabled) ?? false;
     _timeoutSeconds = prefs.getInt(_prefKeyTimeout) ?? defaultTimeoutSeconds;
+    _biometricsEnabled = prefs.getBool(_prefKeyBiometrics) ?? true;
     _initialized = true;
   }
 
@@ -47,6 +51,12 @@ class AppLockService {
     _timeoutSeconds = seconds;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_prefKeyTimeout, seconds);
+  }
+
+  Future<void> setBiometricsEnabled(bool value) async {
+    _biometricsEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_prefKeyBiometrics, value);
   }
 
   // ── Lifecycle-Hooks ───────────────────────────────────────────────────────

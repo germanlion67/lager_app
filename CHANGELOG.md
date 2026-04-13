@@ -2,7 +2,33 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
-## [0.8.2+13] — 2026-04-13
+## [0.8.4+15] — 2026-04-13
+
+### Feature: App-Lock & Biometrie Einstellungen (Settings UI)
+
+**Ziel:** Nutzer können App-Lock, Biometrie und Sperrzeit direkt in den
+Einstellungen konfigurieren.
+
+#### SettingsScreen (`lib/screens/settings_screen.dart`)
+- Neue Sektion „Sicherheit" (nur auf Nicht-Web-Plattformen sichtbar)
+- Schalter „App-Lock aktivieren" – liest/schreibt `AppLockService().isEnabled`
+- Schalter „Biometrie verwenden" – liest/schreibt `AppLockService().isBiometricsEnabled`
+- Slider „Sperrzeit" (1–30 Minuten) – nur sichtbar wenn App-Lock aktiv,
+  persistiert via `AppLockService().setTimeoutSeconds()`
+
+#### AppLockService (`lib/services/app_lock_service.dart`)
+- Neuer SharedPreferences-Key `app_lock_biometrics_enabled`
+- Getter `isBiometricsEnabled` und Setter `setBiometricsEnabled(bool)`
+- `init()` lädt den neuen Key (Standard: `true`)
+
+#### AppLockScreen (`lib/screens/app_lock_screen.dart`)
+- Automatische biometrische Auth wird nur gestartet, wenn
+  `AppLockService().isBiometricsEnabled == true`
+- Button-Text/-Icon passt sich dem Biometrie-Status an
+
+- `flutter analyze`: **0 neue Issues**
+
+
 
 ### Feature (F-001): Biometrische Authentifizierung (Mobile)
 
