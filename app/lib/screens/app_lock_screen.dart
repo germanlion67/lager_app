@@ -3,8 +3,10 @@
 // Vollbild-Sperrbildschirm mit biometrischer/PIN Authentifizierung.
 
 import 'package:flutter/material.dart';
-import 'package:local_auth/local_auth.dart';
 import 'package:flutter/services.dart';
+import 'package:local_auth/local_auth.dart';
+
+import '../services/app_lock_service.dart';
 
 class AppLockScreen extends StatefulWidget {
   final VoidCallback onUnlocked;
@@ -24,8 +26,12 @@ class _AppLockScreenState extends State<AppLockScreen> {
   void initState() {
     super.initState();
     _checkBiometrics();
-    // Automatisch biometrische Authentifizierung starten
-    WidgetsBinding.instance.addPostFrameCallback((_) => _authenticateWithBiometrics());
+    // Biometrische Authentifizierung automatisch starten (nur wenn aktiviert).
+    if (AppLockService().isBiometricsEnabled) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _authenticateWithBiometrics(),
+      );
+    }
   }
 
   Future<void> _checkBiometrics() async {
@@ -107,12 +113,14 @@ class _AppLockScreenState extends State<AppLockScreen> {
                   FilledButton.icon(
                     onPressed: _authenticateWithBiometrics,
                     icon: Icon(
-                      _isBiometricAvailable
+                      _isBiometricAvailable &&
+                              AppLockService().isBiometricsEnabled
                           ? Icons.fingerprint
                           : Icons.lock_open_rounded,
                     ),
                     label: Text(
-                      _isBiometricAvailable
+                      _isBiometricAvailable &&
+                              AppLockService().isBiometricsEnabled
                           ? 'Mit Biometrie entsperren'
                           : 'Entsperren',
                     ),

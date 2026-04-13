@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
+import '../services/app_lock_service.dart';
 import '../services/artikel_db_service.dart';
 import '../services/pocketbase_service.dart';
 import '../services/app_log_service.dart';
@@ -39,6 +40,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _isDatabaseEmpty = true;
   bool _isCheckingConnection = false;
   bool? _pbConnectionOk;
+
+  // ── Sicherheits-Einstellungen ─────────────────────────────────────────────
+  bool _appLockEnabled = false;
+  bool _appLockBiometricsEnabled = true;
+  int _appLockTimeoutMinutes = 5;
 
   @override
   void initState() {
@@ -72,6 +78,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _artikelNummerController.text =
             (prefs.getInt('artikel_start_nummer') ?? 1000).toString();
         _pocketBaseUrlController.text = _pbService.url;
+        if (!kIsWeb) {
+          _appLockEnabled = AppLockService().isEnabled;
+          _appLockBiometricsEnabled = AppLockService().isBiometricsEnabled;
+          _appLockTimeoutMinutes =
+              (AppLockService().timeoutSeconds / 60).round().clamp(1, 30);
+        }
       });
     } catch (e, st) {
       AppLogService.logger.e('Laden fehlgeschlagen', error: e, stackTrace: st);
@@ -637,11 +649,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
               const SizedBox(height: AppConfig.spacingLarge),
               const BackupStatusWidget(),                          // ← NEU
               const SizedBox(height: AppConfig.spacingLarge),      // ← NEU
+              if (!kIsWeb) _buildSecurityCard(),
+              if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
               if (!kIsWeb) _buildArtikelNummerCard(),
               if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
               _buildInfoCard(),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  // ==================== SICHERHEIT CARD ====================
+
+  Widget _buildSecurityCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.security, color: colorScheme.primary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
+                  'Sicherheit',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppConfig.spacingMedium),
+
+            // App-Lock Toggle
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('App-Lock aktivieren'),
+              subtitle: const Text(
+                'App nach Inaktivität automatisch sperren',
+              ),
+              secondary: Icon(
+                Icons.lock_outline,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              value: _appLockEnabled,
+              onChanged: (value) async {
+                setState(() => _appLockEnabled = value);
+                await AppLockService().setEnabled(value);
+              },
+            ),
+
+            // Biometrie Toggle
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Biometrie verwenden'),
+              subtitle: const Text(
+                'Fingerabdruck / Gesichtserkennung zum Entsperren',
+              ),
+              secondary: Icon(
+                Icons.fingerprint,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              value: _appLockBiometricsEnabled,
+              onChanged: (value) async {
+                setState(() => _appLockBiometricsEnabled = value);
+                await AppLockService().setBiometricsEnabled(value);
+              },
+            ),
+
+            // Timeout Slider — nur sichtbar wenn App-Lock aktiv
+            if (_appLockEnabled) ...[
+              const SizedBox(height: AppConfig.spacingSmall),
+              Text(
+                'Sperrzeit: $_appLockTimeoutMinutes Minuten',
+                style: textTheme.bodyMedium,
+              ),
+              Slider(
+                value: _appLockTimeoutMinutes.toDouble(),
+                min: 1,
+                max: 30,
+                divisions: 29,
+                label: '$_appLockTimeoutMinutes min',
+                onChanged: (value) {
+                  setState(() => _appLockTimeoutMinutes = value.round());
+                },
+                onChangeEnd: (value) async {
+                  final minutes = value.round();
+                  setState(() => _appLockTimeoutMinutes = minutes);
+                  await AppLockService().setTimeoutSeconds(minutes * 60);
+                },
+              ),
+            ],
+          ],
         ),
       ),
     );
