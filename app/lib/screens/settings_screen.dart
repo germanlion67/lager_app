@@ -3,6 +3,9 @@
 // O-004: Alle hardcodierten Farben durch colorScheme ersetzt,
 // alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
 // Semantische Status-Container nutzen jetzt colorScheme.*Container-Farben.
+//
+// B-001: Auto-Save mit Snackbar-Feedback + Undo für Security-Einstellungen.
+//        Unsaved-Changes-Warnung bei Zurück-Navigation für URL/Artikelnummer.
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -16,6 +19,8 @@ import '../services/app_log_service.dart';
 
 import 'package:package_info_plus/package_info_plus.dart';
 import '../widgets/backup_status_widget.dart';
+
+import 'package:local_auth/local_auth.dart';
 
 class SettingsScreen extends StatefulWidget {
   /// ── M-009: Callback für Logout — wird von AuthGate in main.dart
@@ -46,6 +51,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _appLockBiometricsEnabled = true;
   int _appLockTimeoutMinutes = 5;
 
+  // ── B-001: Tracking für ungespeicherte Änderungen ─────────────────────────
+  bool _hasUnsavedChanges = false;
+  String _initialUrl = '';
+  String _initialArtikelNummer = '';
+
   @override
   void initState() {
     super.initState();
@@ -56,13 +66,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!kIsWeb) {
       _checkDatabaseStatus();
     }
+
+    // ── B-001: Dirty-Tracking für Textfelder ──────────────────────────────
+    _pocketBaseUrlController.addListener(_checkForUnsavedChanges);
+    _artikelNummerController.addListener(_checkForUnsavedChanges);
   }
 
   @override
   void dispose() {
+    _pocketBaseUrlController.removeListener(_checkForUnsavedChanges);
+    _artikelNummerController.removeListener(_checkForUnsavedChanges);
     _artikelNummerController.dispose();
     _pocketBaseUrlController.dispose();
     super.dispose();
+  }
+
+  // ── B-001: Dirty-Tracking ───────────────────────────────────────────────
+
+  /// Prüft ob URL oder Artikelnummer verändert wurden.
+  void _checkForUnsavedChanges() {
+    final urlChanged =
+        _pocketBaseUrlController.text.trim() != _initialUrl;
+    final artikelChanged =
+        _artikelNummerController.text.trim() != _initialArtikelNummer;
+    final dirty = urlChanged || artikelChanged;
+    if (dirty != _hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = dirty);
+    }
+  }
+
+  /// Dialog bei Zurück-Navigation mit ungespeicherten Änderungen.
+  Future<bool> _showUnsavedChangesDialog() async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ungespeicherte Änderungen'),
+        content: const Text(
+          'Du hast Änderungen an der PocketBase-URL oder '
+          'Artikelnummer vorgenommen, die noch nicht gespeichert '
+          'wurden.\n\nMöchtest du die Änderungen verwerfen?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Zurück zum Bearbeiten'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Verwerfen'),
+          ),
+        ],
+      ),
+    );
+    return result ?? false;
   }
 
   // ==================== LADEN ====================
@@ -84,6 +140,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _appLockTimeoutMinutes =
               (AppLockService().timeoutSeconds / 60).round().clamp(1, 30);
         }
+
+        // ── B-001: Initiale Werte für Dirty-Tracking merken ──────────────
+        _initialUrl = _pocketBaseUrlController.text.trim();
+        _initialArtikelNummer = _artikelNummerController.text.trim();
+        _hasUnsavedChanges = false;
       });
     } catch (e, st) {
       AppLogService.logger.e('Laden fehlgeschlagen', error: e, stackTrace: st);
@@ -317,6 +378,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       }
 
       if (!mounted) return;
+
+      // ── B-001: Dirty-State zurücksetzen ─────────────────────────────────
+      _initialUrl = _pocketBaseUrlController.text.trim();
+      _initialArtikelNummer = _artikelNummerController.text.trim();
+      setState(() => _hasUnsavedChanges = false);
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ Einstellungen gespeichert')),
       );
@@ -367,8 +434,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       widget.onLogout?.call();
     }
   }
-
-
 
   // ==================== M-009: ACCOUNT CARD ====================
 
@@ -625,36 +690,64 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Einstellungen'),
-        actions: [
-          IconButton(
-            onPressed: _saveSettings,
-            icon: const Icon(Icons.save),
-            tooltip: 'Einstellungen speichern',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(AppConfig.spacingLarge),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _buildAccountCard(),
-              const SizedBox(height: AppConfig.spacingLarge),
-              _buildPocketBaseCard(),
-              const SizedBox(height: AppConfig.spacingLarge),
-              const BackupStatusWidget(),                          // ← NEU
-              const SizedBox(height: AppConfig.spacingLarge),      // ← NEU
-              if (!kIsWeb) _buildSecurityCard(),
-              if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-              if (!kIsWeb) _buildArtikelNummerCard(),
-              if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-              _buildInfoCard(),
-            ],
+    return PopScope(
+      canPop: !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        final navigator = Navigator.of(context);
+        final shouldLeave = await _showUnsavedChangesDialog();
+        if (shouldLeave && mounted) {
+          navigator.pop();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Einstellungen'),
+          actions: [
+            IconButton(
+              onPressed: _saveSettings,
+              icon: Icon(
+                _hasUnsavedChanges ? Icons.save : Icons.save_outlined,
+              ),
+              tooltip: _hasUnsavedChanges
+                  ? 'Änderungen speichern'
+                  : 'Einstellungen speichern',
+            ),
+          ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(AppConfig.spacingLarge),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── B-001: Hinweis bei ungespeicherten Änderungen ──────────
+                if (_hasUnsavedChanges)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      bottom: AppConfig.spacingMedium,
+                    ),
+                    child: _buildStatusContainer(
+                      icon: Icons.edit_note,
+                      message: 'Du hast ungespeicherte Änderungen. '
+                          'Tippe auf 💾 zum Speichern.',
+                      type: _StatusType.warning,
+                    ),
+                  ),
+                _buildAccountCard(),
+                const SizedBox(height: AppConfig.spacingLarge),
+                _buildPocketBaseCard(),
+                const SizedBox(height: AppConfig.spacingLarge),
+                const BackupStatusWidget(),
+                const SizedBox(height: AppConfig.spacingLarge),
+                if (!kIsWeb) _buildSecurityCard(),
+                if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
+                if (!kIsWeb) _buildArtikelNummerCard(),
+                if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
+                _buildInfoCard(),
+              ],
+            ),
           ),
         ),
       ),
@@ -687,7 +780,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: AppConfig.spacingMedium),
 
-            // App-Lock Toggle
+            // App-Lock Toggle — B-001: mit Snackbar + Undo
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('App-Lock aktivieren'),
@@ -700,12 +793,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               value: _appLockEnabled,
               onChanged: (value) async {
+                final previousValue = _appLockEnabled;
                 setState(() => _appLockEnabled = value);
                 await AppLockService().setEnabled(value);
+
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).clearSnackBars();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      value
+                          ? '🔒 App-Lock aktiviert'
+                          : '🔓 App-Lock deaktiviert',
+                    ),
+                    action: SnackBarAction(
+                      label: 'Rückgängig',
+                      onPressed: () async {
+                        setState(() => _appLockEnabled = previousValue);
+                        await AppLockService().setEnabled(previousValue);
+                      },
+                    ),
+                  ),
+                );
               },
             ),
 
-            // Biometrie Toggle
+            // Biometrie Toggle — mit Verfügbarkeitsprüfung (B-002.2)
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               title: const Text('Biometrie verwenden'),
@@ -718,12 +831,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               value: _appLockBiometricsEnabled,
               onChanged: (value) async {
+                if (value) {
+                  // ── B-002.2: Verfügbarkeitsprüfung beim Einschalten ────
+                  final auth = LocalAuthentication();
+                  try {
+                    final canCheck = await auth.canCheckBiometrics;
+                    final isSupported = await auth.isDeviceSupported();
+
+                    if (!canCheck && !isSupported) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            '❌ Biometrie auf diesem Gerät nicht '
+                            'verfügbar oder nicht eingerichtet.',
+                          ),
+                        ),
+                      );
+                      return; // Toggle NICHT umschalten
+                    }
+
+                    // Probe-Authentifizierung
+                    final authenticated = await auth.authenticate(
+                      localizedReason:
+                          'Biometrie-Test: Bitte bestätigen Sie '
+                          'Ihre Identität',
+                      biometricOnly: true,
+                      sensitiveTransaction: false,
+                      persistAcrossBackgrounding: false,
+                    );
+
+                    if (!authenticated) {
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            '⚠️ Biometrie-Test nicht bestanden. '
+                            'Einstellung wurde nicht aktiviert.',
+                          ),
+                        ),
+                      );
+                      return; // Toggle NICHT umschalten
+                    }
+                  } on LocalAuthException catch (e) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '❌ Biometrie nicht verfügbar: '
+                          '${e.description ?? e.code.name}',
+                        ),
+                      ),
+                    );
+                    return; // Toggle NICHT umschalten
+                  }
+                }
+
+                // Nur hier wenn Prüfung bestanden oder deaktiviert
+                if (!mounted) return;
                 setState(() => _appLockBiometricsEnabled = value);
                 await AppLockService().setBiometricsEnabled(value);
+
+                if (!mounted) return;
+                if (value) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        '✅ Biometrie erfolgreich aktiviert',
+                      ),
+                    ),
+                  );
+                }
               },
             ),
 
             // Timeout Slider — nur sichtbar wenn App-Lock aktiv
+            // B-001: mit Snackbar + Undo bei onChangeEnd
             if (_appLockEnabled) ...[
               const SizedBox(height: AppConfig.spacingSmall),
               Text(
@@ -741,8 +924,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
                 onChangeEnd: (value) async {
                   final minutes = value.round();
+                  final previousMinutes = _appLockTimeoutMinutes;
                   setState(() => _appLockTimeoutMinutes = minutes);
                   await AppLockService().setTimeoutSeconds(minutes * 60);
+
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '⏱️ Sperrzeit auf $minutes Minuten gesetzt',
+                      ),
+                      action: SnackBarAction(
+                        label: 'Rückgängig',
+                        onPressed: () async {
+                          setState(
+                            () => _appLockTimeoutMinutes = previousMinutes,
+                          );
+                          await AppLockService().setTimeoutSeconds(
+                            previousMinutes * 60,
+                          );
+                        },
+                      ),
+                    ),
+                  );
                 },
               ),
             ],

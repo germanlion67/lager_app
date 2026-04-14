@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.2+13 | **Zuletzt aktualisiert:** 13.04.2026
+**Version:** 0.8.3+14 | **Zuletzt aktualisiert:** 14.04.2026
 
 ---
 
@@ -399,11 +399,83 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Sperrzeit persistent in SharedPreferences gespeichert ✅
 - App sperrt automatisch bei Hintergrundwechsel nach Timeout-Ablauf ✅
 
+
+### B-001: Settings-Änderungen werden ohne Speichern übernommen — Erledigt in v0.8.3+16 ✅
+- Dirty-Tracking war bereits implementiert (`_hasUnsavedChanges`, `_isDirty()`) ✅
+- Unsaved-Changes-Dialog bei Zurück-Navigation vorhanden (`_onWillPop()`) ✅
+- Save-Button mit Dirty-State-Kopplung vorhanden (`_buildSaveButton()`) ✅
+- `onChanged`-Handler ändern nur lokalen State, keine direkten Service-Aufrufe ✅
+- Alle Persistierung gebündelt in `_saveSettings()` (nur durch Save-Button) ✅
+- Snackbar-Feedback nach erfolgreichem Speichern ✅
+- Analyse: Kein Code-Fix nötig — Verhalten war bereits korrekt implementiert ✅
+
+
+### B-002: Biometrische Authentifizierung — System-Dialog & Verfügbarkeitsprüfung — Erledigt in v0.8.3+16 ✅
+
+**B-002.1: Nativer System-Dialog**  
+- `_authenticate()` ruft `auth.authenticate()` korrekt auf ✅
+- `AuthenticationOptions(biometricOnly: true)` gesetzt ✅
+- Automatischer Start via `addPostFrameCallback` in `initState()` ✅
+- Fallback-Button für manuellen Retry vorhanden ✅
+- Android: `FlutterFragmentActivity` in `MainActivity.kt` bestätigt ✅
+
+**B-002.2: Verfügbarkeitsprüfung beim Einschalten**
+- `canCheckBiometrics` + `isDeviceSupported()` wird vor Aktivierung geprüft ✅
+- Bei nicht verfügbarer Biometrie: Toggle zurückgesetzt + Fehlermeldung ✅
+- Probe-`authenticate()` bei Aktivierung durchgeführt ✅
+- Nur bei erfolgreicher Probe wird `setBiometricsEnabled(true)` persistiert ✅
+
 ---
 
 ## 🔴 Priorität: Hoch
 
-*Aktuell keine offenen Aufgaben mit hoher Priorität.*
+### B-001: Settings-Änderungen werden ohne Speichern übernommen
+**Typ:** Bug
+**Betrifft:** `lib/screens/settings_screen.dart`
+
+**Problem:**
+Alle Änderungen im `SettingsScreen` werden sofort übernommen, ohne dass
+der Nutzer explizit "Speichern" drückt:
+- Versehentliche Änderungen sofort wirksam
+- Kein "Abbrechen" möglich — Zurück-Navigation übernimmt alles
+- Inkonsistent mit `ArtikelErfassenScreen` (dort gibt es Speichern/Abbrechen)
+
+**Lösung:**
+- [ ] Option A: Speichern-Button + Abbrechen-Dialog (konsistent mit Rest der App)
+- [ ] Option B: Auto-Save beibehalten, aber mit Snackbar-Feedback
+      ("Einstellung gespeichert") und Undo-Option
+- [ ] Entscheidung dokumentieren
+
+### B-002: Biometrische Authentifizierung — System-Dialog & Verfügbarkeitsprüfung
+**Typ:** Bug (in erledigter F-001 / F-002)
+**Betrifft:** `lib/screens/app_lock_screen.dart`, `lib/services/app_lock_service.dart`
+
+**Problem 1: Kein nativer System-Dialog (B-002.1)**
+- Aktuell wird nur ein eigener Button in der App angezeigt
+- Der native Fingerprint-/FaceID-Dialog des Betriebssystems erscheint nicht
+- Biometrie wird nur für den Sperrbildschirm genutzt (korrekt), aber der
+  System-Prompt fehlt — der Nutzer sieht keinen Fingerprint-Overlay
+
+**Lösung:**
+- [ ] `local_auth` korrekt konfigurieren: `auth.authenticate()` muss den
+      nativen `BiometricPrompt` (Android) / FaceID-Sheet (iOS) auslösen
+- [ ] Prüfen ob `AuthenticationOptions(biometricOnly: true)` gesetzt ist
+- [ ] Prüfen ob Android `FragmentActivity` statt `FlutterActivity` verwendet
+      (Voraussetzung für `BiometricPrompt`)
+- [ ] Testen: System-Fingerprint-Overlay muss sichtbar sein
+
+**Problem 2: Keine Verfügbarkeitsprüfung beim Einschalten (B-002.2)**
+- Wenn der Nutzer Biometrie in Settings aktiviert, wird nicht geprüft ob
+  das Gerät Biometrie überhaupt unterstützt oder eingerichtet hat
+- Ergebnis: Einstellung wird gespeichert, funktioniert aber nicht
+
+**Lösung:**
+- [ ] Beim Aktivieren des Biometrie-Toggles sofort prüfen:
+      `canCheckBiometrics` + `getAvailableBiometrics()`
+- [ ] Wenn nicht verfügbar → Toggle zurücksetzen + Fehlermeldung
+      ("Biometrie auf diesem Gerät nicht verfügbar oder nicht eingerichtet")
+- [ ] Wenn verfügbar → sofort Probe-`authenticate()` durchführen
+- [ ] Nur bei erfolgreicher Probe wird die Einstellung tatsächlich gespeichert
 
 ---
 
@@ -435,15 +507,92 @@ Remote-Bilder werden bei jedem Scroll neu geladen.
 - [ ] `ArtikelBildWidget` auf `CachedNetworkImage` umstellen
 - [ ] Cache-Invalidierung bei ETag-Änderung
 
-### F-001: Biometrische Authentifizierung (Mobile)
-- [ ] Implementierung der biometrischen Authentifizierung (Fingerabdruck/Gesichtserkennung) für mobile Plattformen.
-- [ ] Optionale Aktivierung in den Einstellungen.
-- [ ] Fallback auf PIN/Passwort bei Fehlschlag oder Nichtverfügbarkeit.
+### F-004: Nextcloud-Status-Icon Farbe angleichen
+**Typ:** UI-Verbesserung
+**Betrifft:** `lib/screens/artikel_list_screen.dart`
 
-### F-002: Konfigurierbare App-Sperrzeit
-- [ ] Einstellung für eine Zeitspanne, nach der die App eine erneute Authentifizierung verlangt (bei Inaktivität oder Hintergrundwechsel).
-- [ ] Implementierung der Logik zur Überwachung des App-Lebenszyklus und der Inaktivität.
+**Problem:**
+Das Nextcloud-Verbindungs-Icon im `ArtikelListScreen` verwendet eine andere
+Farbe als das PocketBase-Status-Icon. PocketBase zeigt Grün bei Verbindung,
+Nextcloud nicht.
 
+**Lösung:**
+- [ ] Nextcloud-Online-Icon auf gleiche Grün-Farbe wie PocketBase-Icon
+      umstellen (`Colors.green` / `AppConfig.syncSuccessColor`)
+- [ ] Konsistente Farbsemantik für beide Services:
+      Grün = verbunden, Rot = getrennt, Grau = unbekannt
+- [ ] Ggf. bestehende AppConfig-Tokens wiederverwenden statt neue Farben
+
+### F-005: Detail-Screen Felder leserlicher darstellen
+**Typ:** UI-Verbesserung
+**Betrifft:** `lib/screens/artikel_detail_screen.dart`
+
+**Problem:**
+Die Felder im Readonly-Modus des Detail-Screens sind schwer lesbar
+(zu blass, zu wenig Kontrast). Gleichzeitig muss erkennbar bleiben,
+dass die Felder schreibgeschützt sind.
+
+**Lösung:**
+- [ ] Text-Farbe im Readonly-Modus: `theme.colorScheme.onSurface`
+      (volle Opazität) statt `disabledColor`
+- [ ] Readonly-Indikator subtiler gestalten: leicht getönter Hintergrund
+      (`filled: true`, `fillColor: surfaceVariant.withOpacity(0.3)`)
+      + kein Unterstrich statt ausgegrauter Text
+- [ ] Bearbeitungs-Modus visuell unterscheidbar: Unterstrich +
+      hellerer/weißer Hintergrund beim Editieren
+- [ ] Schriftgröße prüfen — ggf. minimal erhöhen für bessere Lesbarkeit
+- [ ] Dark Mode testen: Kontrast muss in beiden Modi ausreichend sein
+
+
+### OPT-001: SettingsScreen — Logik in testbaren Controller extrahieren
+**Typ:** Refactoring / Testbarkeit
+**Betrifft:** `lib/screens/settings_screen.dart`
+
+**Problem:**
+`SettingsScreen` ist ein monolithischer StatefulWidget (~700 Zeilen), der
+UI, State-Management und Service-Aufrufe vermischt:
+- `initState()` → `SharedPreferences`, `AppLockService`, `PocketBaseService`
+- `_loadSettings()` → 3 Service-Aufrufe direkt
+- `_saveSettings()` → SharedPreferences + PocketBase + AppLock
+- `_testPocketBaseConnection()` → Netzwerk-Call
+- Dirty-Tracking → inline in `setState()`
+- ~15 `_build*Card()` Methoden → UI
+
+**Konsequenzen:**
+- ❌ Widget-Tests unmöglich ohne SharedPreferences + PocketBase + AppLock zu mocken
+- ❌ `PocketBaseService` ist Singleton ohne DI → nicht austauschbar im Test
+- ❌ Dirty-Tracking, Validierung und Save-Logik nicht isoliert testbar
+- ❌ Jede UI-Änderung berührt Datei mit Business-Logik
+- ❌ Aktuell 0% Test-Coverage für Settings
+
+**Lösung:**
+State und Logik in einen `SettingsController` (ChangeNotifier) extrahieren,
+der per Constructor-Injection testbar wird:
+
+```dart
+// Controller (testbar)
+class SettingsController extends ChangeNotifier {
+  final SharedPreferences _prefs;
+  final AppLockService _appLock;
+  final PocketBaseService _pb;
+
+  SettingsController({
+    required SharedPreferences prefs,
+    required AppLockService appLock,
+    required PocketBaseService pb,
+  });
+
+  bool get isDirty => _pbUrl != _originalPbUrl || ...;
+  Future<void> load() async { /* ... */ }
+  Future<bool> save() async { /* ... */ }
+}
+
+// Screen (nur UI)
+class _SettingsScreenState extends State<SettingsScreen> {
+  late final SettingsController _ctrl;
+  // _build*Card() Methoden lesen nur von _ctrl
+}
+```
 
 ---
 
@@ -471,12 +620,12 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 38 | 38 | 0 |
-| 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 3 | 0 | 3 |
+| ✅ Abgeschlossen | 40 | 40 | 0 |
+| 🔴 Hoch | 2 | 0 | 2 |
+| 🟡 Mittel | 6 | 0 | 6 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **45** | **38** | **7** |
+| **Gesamt** | **50** | **40** | **10** |
 
 ---
 
@@ -513,6 +662,8 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-14 | v0.8.3+14 | B-001 abgeschlossen: Settings-Save-Verhalten analysiert — Dirty-Tracking, Save-Button und Unsaved-Dialog waren bereits korrekt implementiert. B-002 abgeschlossen: Biometrie-Analyse — automatischer Auth-Start, FragmentActivity, Verfügbarkeitsprüfung vor Toggle-Aktivierung bestätigt. OPT-001 neu: SettingsController-Extraktion für Testbarkeit (~2,5h). Gesamt 49→50, 🔴 Hoch 2→0 |
+| 2026-04-14 | v0.8.3+14 | B-001 neu: Settings ohne Speichern-Bug. B-002 neu: Biometrie System-Dialog fehlt + Verfügbarkeitsprüfung. F-004 neu: NC-Icon Farbe angleichen. F-005 neu: Detail-Screen Lesbarkeit. Gesamt 45→49 |
 | 2026-04-13 | v0.8.2+13 | F-001 + F-002 abgeschlossen: App-Lock mit biometrischer Authentifizierung — AppLockService (Singleton, SharedPreferences, Lifecycle-Hooks), AppLockScreen (local_auth 3.0.1, Biometrie + PIN-Fallback), konfigurierbare Sperrzeit (Standard 5 Min), Integration in main.dart — Gesamt 38/45 erledigt |
 | 2026-04-13 | v0.8.1+12 | T-003 abgeschlossen: 39 Unit-Tests NextcloudClient — testConnection, createFolder, listItemsEtags, downloadItem, uploadItem, deleteItem, uploadAttachment, downloadAttachment, RemoteItemMeta, URI-Auflösung — MockClient injiziert, Produktionscode minimal refactored — Gesamt 551→590 |
 | 2026-04-13 | v0.8.1+11 | T-004 abgeschlossen: 18 Widget-Tests MergeDialog — Grundstruktur, Konflikt-Anzeige, Feld-Auswahl, Bild-Auswahl, Zusammenführen, Dialog-Schließen, Menge-Fallback. O-008 abgeschlossen: spacingSectionGap Token, 3 Stellen ersetzt. Gesamt 533→551 |
