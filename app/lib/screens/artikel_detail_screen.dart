@@ -941,37 +941,80 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   ),
                   const SizedBox(height: AppConfig.spacingSectionGap),
 
+                  // F-005: Menge und Artikelnummer als strukturierte Info-Zeile
+                  // InputDecorator sorgt für visuelle Konsistenz mit den TextFields
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Menge: $_menge'),
-                      IconButton(
-                        icon: const Icon(Icons.add),
-                        onPressed: (_isEditing && !isBlocked)
-                            ? _mengeErhoehen
-                            : null,
+                      // Menge mit +/- Steuerung
+                      Expanded(
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Menge',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: _isEditing
+                                ? colorScheme.surface
+                                : colorScheme.surfaceContainerLow,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppConfig.spacingMedium,
+                              vertical: AppConfig.spacingXSmall,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '$_menge',
+                                style: textTheme.titleMedium,
+                              ),
+                              if (_isEditing && !isBlocked)
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.remove),
+                                      onPressed: _mengeVerringern,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.add),
+                                      onPressed: _mengeErhoehen,
+                                      visualDensity: VisualDensity.compact,
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.remove),
-                        onPressed: (_isEditing && !isBlocked)
-                            ? _mengeVerringern
-                            : null,
-                      ),
-                      Text(
-                        'Art.-Nr.: ${artikel.artikelnummer ?? "-"}',
-                        style: textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.w500,
-                          color: colorScheme.onSurfaceVariant,
+                      const SizedBox(width: AppConfig.detailFieldSpacing),
+                      // Artikelnummer als eigenes Feld
+                      Expanded(
+                        child: InputDecorator(
+                          decoration: InputDecoration(
+                            labelText: 'Artikelnummer',
+                            border: const OutlineInputBorder(),
+                            filled: true,
+                            fillColor: colorScheme.surfaceContainerLow,
+                          ),
+                          child: Text(
+                            artikel.artikelnummer?.toString() ?? '-',
+                            style: textTheme.titleMedium,
+                          ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: AppConfig.spacingSectionGap),
 
+                  // F-005: OutlineInputBorder für visuelle Konsistenz
                   TextField(
                     controller: _beschreibungController,
                     enabled: _isEditing && !isBlocked,
                     decoration: InputDecoration(
                       labelText: 'Beschreibung',
+                      border: const OutlineInputBorder(),
                       filled: true,
                       fillColor: _isEditing
                           ? colorScheme.surface

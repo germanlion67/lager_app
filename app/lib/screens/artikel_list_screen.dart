@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 
 import '../config/app_config.dart';
+import '../config/app_theme.dart';
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
@@ -395,40 +396,40 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   Widget _buildNextcloudIcon() {
-    final colorScheme = Theme.of(context).colorScheme;
+      // F-004: Farbliche Unterscheidung nach Sync-Status
+      // Nutzt semantische Farben aus AppTheme/AppConfig
+      return ValueListenableBuilder<NextcloudConnectionStatus>(
+        valueListenable: _nextcloudService!.connectionStatus,
+        builder: (context, status, _) {
+          final IconData iconData;
+          final Color color;
+          final String tooltip;
 
-    return ValueListenableBuilder<NextcloudConnectionStatus>(
-      valueListenable: _nextcloudService!.connectionStatus,
-      builder: (context, status, _) {
-        final IconData iconData;
-        final Color color;
-        final String tooltip;
+          switch (status) {
+            case NextcloudConnectionStatus.online:
+              iconData = Icons.cloud_done;
+              color = AppConfig.statusColorConnected;
+              tooltip = 'Nextcloud: Verbunden';
+            case NextcloudConnectionStatus.offline:
+              iconData = Icons.cloud_off;
+              color = AppTheme.errorColor;
+              tooltip = 'Nextcloud: Offline';
+            case NextcloudConnectionStatus.unknown:
+              iconData = Icons.cloud_queue;
+              color = AppTheme.greyNeutral400;
+              tooltip = 'Nextcloud: Nicht konfiguriert';
+          }
 
-        switch (status) {
-          case NextcloudConnectionStatus.online:
-            iconData = Icons.cloud_done;
-            color = colorScheme.tertiary;
-            tooltip = 'Nextcloud: Online';
-          case NextcloudConnectionStatus.offline:
-            iconData = Icons.cloud_off;
-            color = colorScheme.error;
-            tooltip = 'Nextcloud: Offline';
-          case NextcloudConnectionStatus.unknown:
-            iconData = Icons.cloud_queue;
-            color = colorScheme.onSurfaceVariant;
-            tooltip = 'Nextcloud: Unbekannt';
-        }
-
-        return GestureDetector(
-          onTap: () => _nextcloudService!.checkConnectionNow(),
-          child: Tooltip(
-            message: tooltip,
-            child: Icon(iconData, color: color, size: AppConfig.iconSizeMedium),
-          ),
-        );
-      },
-    );
-  }
+          return GestureDetector(
+            onTap: () => _nextcloudService!.checkConnectionNow(),
+            child: Tooltip(
+              message: tooltip,
+              child: Icon(iconData, color: color, size: AppConfig.iconSizeMedium),
+            ),
+          );
+        },
+      );
+    }
 
   // ==================== UI ====================
 

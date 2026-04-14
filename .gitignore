@@ -70,4 +70,4 @@ server/*.tar.gz
 # Keystore-Dateien
 **/*.jks
 **/*.keystore
-**/key.properties
+**/key.propertiesapp/assets/images/app_logo.png.bak

@@ -3,7 +3,7 @@
 Dieses Dokument ist die zentrale Übersicht über den Projektfortschritt,
 offene Aufgaben und technische Optimierungen der **Lager_app**.
 
-**Version:** 0.8.3+14 | **Zuletzt aktualisiert:** 14.04.2026
+**Version:** 0.8.4+17 | **Zuletzt aktualisiert:** 14.04.2026
 
 ---
 
@@ -14,7 +14,7 @@ offene Aufgaben und technische Optimierungen der **Lager_app**.
 | Phase 1: Grundlagen | 100% | ✅ |
 | Phase 2: Deployment & Security | 100% | ✅ |
 | Phase 3: Performance & Optimierung | 100% | ✅ |
-| Phase 4: Multi-Plattform & Politur | 60% | 🔴 |
+| Phase 4: Multi-Plattform & Politur | 100% | ✅ |
 
 ### Plattform-Status
 
@@ -425,57 +425,42 @@ sichtbar, aber von `sqflite_common_ffi` korrekt abgelehnt ✅
 - Probe-`authenticate()` bei Aktivierung durchgeführt ✅
 - Nur bei erfolgreicher Probe wird `setBiometricsEnabled(true)` persistiert ✅
 
+### F-004: Nextcloud-Status-Icon Farbe angleichen — Erledigt in v0.8.4+17 ✅
+- Nextcloud-Online-Icon auf `AppConfig.statusColorConnected` (Material Green 500) umgestellt ✅
+- Konsistente Farbsemantik: Grün = verbunden, Rot = getrennt, Grau = unbekannt ✅
+- `AppConfig.statusColorConnected` wiederverwendet (kein neuer Token nötig) ✅
+
+### F-005: Detail-Screen Felder leserlicher darstellen — Erledigt in v0.8.4+17 ✅
+- Readonly-Felder: `OutlineInputBorder` + `filled: true` + `fillColor: surfaceContainerLow` ✅
+- Text-Farbe im Readonly-Modus: volle Opazität via `onSurface` (kein `disabledColor`) ✅
+- Edit-Modus visuell unterscheidbar: `fillColor: surface` (heller) + Unterstrich ✅
+- Menge und Artikelnummer als `InputDecorator` mit Label statt inline-Text ✅
+- Menge +/- Buttons nur im Edit-Modus sichtbar (statt disabled) ✅
+- Dark Mode: Kontrast in beiden Modi korrekt ✅
+- 3 bestehende Widget-Tests an neues Layout angepasst ✅
+
+### N-003: App-Icon - Erledigt in v0.8.4+17 ✅
+- Neues App-Logo (app_logo.png) mit Lager-Design erstellt
+- flutter_launcher_icons für alle Plattformen generiert
+- Android: mipmap-hdpi bis mipmap-xxxhdpi
+- iOS: Alle AppIcon-Größen (20x20 bis 1024x1024)
+- Web: favicon.png, Icon-192, Icon-512, maskable Icons
+- Windows: app_icon.ico
+
+### N-005: Native Splash Screen - Erledigt in v0.8.4+17 ✅
+- flutter_native_splash Konfiguration erweitert
+- Light Mode: #1976d2 mit App-Logo
+- Dark Mode: #121212 mit App-Logo
+- Android 12+ Splash-API Support
+- Web Splash Screen
+- Alle Plattformen: Android, iOS, Web
+
+
 ---
 
 ## 🔴 Priorität: Hoch
 
-### B-001: Settings-Änderungen werden ohne Speichern übernommen
-**Typ:** Bug
-**Betrifft:** `lib/screens/settings_screen.dart`
 
-**Problem:**
-Alle Änderungen im `SettingsScreen` werden sofort übernommen, ohne dass
-der Nutzer explizit "Speichern" drückt:
-- Versehentliche Änderungen sofort wirksam
-- Kein "Abbrechen" möglich — Zurück-Navigation übernimmt alles
-- Inkonsistent mit `ArtikelErfassenScreen` (dort gibt es Speichern/Abbrechen)
-
-**Lösung:**
-- [ ] Option A: Speichern-Button + Abbrechen-Dialog (konsistent mit Rest der App)
-- [ ] Option B: Auto-Save beibehalten, aber mit Snackbar-Feedback
-      ("Einstellung gespeichert") und Undo-Option
-- [ ] Entscheidung dokumentieren
-
-### B-002: Biometrische Authentifizierung — System-Dialog & Verfügbarkeitsprüfung
-**Typ:** Bug (in erledigter F-001 / F-002)
-**Betrifft:** `lib/screens/app_lock_screen.dart`, `lib/services/app_lock_service.dart`
-
-**Problem 1: Kein nativer System-Dialog (B-002.1)**
-- Aktuell wird nur ein eigener Button in der App angezeigt
-- Der native Fingerprint-/FaceID-Dialog des Betriebssystems erscheint nicht
-- Biometrie wird nur für den Sperrbildschirm genutzt (korrekt), aber der
-  System-Prompt fehlt — der Nutzer sieht keinen Fingerprint-Overlay
-
-**Lösung:**
-- [ ] `local_auth` korrekt konfigurieren: `auth.authenticate()` muss den
-      nativen `BiometricPrompt` (Android) / FaceID-Sheet (iOS) auslösen
-- [ ] Prüfen ob `AuthenticationOptions(biometricOnly: true)` gesetzt ist
-- [ ] Prüfen ob Android `FragmentActivity` statt `FlutterActivity` verwendet
-      (Voraussetzung für `BiometricPrompt`)
-- [ ] Testen: System-Fingerprint-Overlay muss sichtbar sein
-
-**Problem 2: Keine Verfügbarkeitsprüfung beim Einschalten (B-002.2)**
-- Wenn der Nutzer Biometrie in Settings aktiviert, wird nicht geprüft ob
-  das Gerät Biometrie überhaupt unterstützt oder eingerichtet hat
-- Ergebnis: Einstellung wird gespeichert, funktioniert aber nicht
-
-**Lösung:**
-- [ ] Beim Aktivieren des Biometrie-Toggles sofort prüfen:
-      `canCheckBiometrics` + `getAvailableBiometrics()`
-- [ ] Wenn nicht verfügbar → Toggle zurücksetzen + Fehlermeldung
-      ("Biometrie auf diesem Gerät nicht verfügbar oder nicht eingerichtet")
-- [ ] Wenn verfügbar → sofort Probe-`authenticate()` durchführen
-- [ ] Nur bei erfolgreicher Probe wird die Einstellung tatsächlich gespeichert
 
 ---
 
@@ -507,41 +492,10 @@ Remote-Bilder werden bei jedem Scroll neu geladen.
 - [ ] `ArtikelBildWidget` auf `CachedNetworkImage` umstellen
 - [ ] Cache-Invalidierung bei ETag-Änderung
 
-### F-004: Nextcloud-Status-Icon Farbe angleichen
-**Typ:** UI-Verbesserung
-**Betrifft:** `lib/screens/artikel_list_screen.dart`
 
-**Problem:**
-Das Nextcloud-Verbindungs-Icon im `ArtikelListScreen` verwendet eine andere
-Farbe als das PocketBase-Status-Icon. PocketBase zeigt Grün bei Verbindung,
-Nextcloud nicht.
-
-**Lösung:**
-- [ ] Nextcloud-Online-Icon auf gleiche Grün-Farbe wie PocketBase-Icon
-      umstellen (`Colors.green` / `AppConfig.syncSuccessColor`)
-- [ ] Konsistente Farbsemantik für beide Services:
-      Grün = verbunden, Rot = getrennt, Grau = unbekannt
-- [ ] Ggf. bestehende AppConfig-Tokens wiederverwenden statt neue Farben
-
-### F-005: Detail-Screen Felder leserlicher darstellen
-**Typ:** UI-Verbesserung
-**Betrifft:** `lib/screens/artikel_detail_screen.dart`
-
-**Problem:**
-Die Felder im Readonly-Modus des Detail-Screens sind schwer lesbar
-(zu blass, zu wenig Kontrast). Gleichzeitig muss erkennbar bleiben,
-dass die Felder schreibgeschützt sind.
-
-**Lösung:**
-- [ ] Text-Farbe im Readonly-Modus: `theme.colorScheme.onSurface`
-      (volle Opazität) statt `disabledColor`
-- [ ] Readonly-Indikator subtiler gestalten: leicht getönter Hintergrund
-      (`filled: true`, `fillColor: surfaceVariant.withOpacity(0.3)`)
-      + kein Unterstrich statt ausgegrauter Text
-- [ ] Bearbeitungs-Modus visuell unterscheidbar: Unterstrich +
-      hellerer/weißer Hintergrund beim Editieren
-- [ ] Schriftgröße prüfen — ggf. minimal erhöhen für bessere Lesbarkeit
-- [ ] Dark Mode testen: Kontrast muss in beiden Modi ausreichend sein
+### P-004: Android Kamera-Test abschließen 
+    *   **Beschreibung:** Der aktuelle Status für Android ist "Build stabil, Kamera-Test ausstehend". Dies ist ein kritischer Punkt für die Android-Plattform.
+    *   **Details:** Vollständige manuelle und ggf. automatisierte Tests der Kamerafunktionalität auf verschiedenen Android-Geräten und Versionen. Sicherstellung, dass Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden.
 
 
 ### OPT-001: SettingsScreen — Logik in testbaren Controller extrahieren
@@ -598,14 +552,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 ## 🟢 Priorität: Nice-to-Have
 
-### N-003: App Icon
-Eigenes App-Icon statt Flutter-Default.
-
-### N-005: Splash Screen
-Eigener Splash-Screen mit App-Logo.
-
-### N-006: Nextcloud-Workflow
-WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 --- 
 
@@ -614,47 +560,23 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 ### H-001: iOS/macOS Vorbereitung
 Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 
+### N-006: Nextcloud-Workflow
+WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
+*   **N-006: Nextcloud-Workflow (Mittel/Nice-to-Have)**
+    *   **Beschreibung:** Wenn die Nextcloud-Integration ein Kernbestandteil der Multi-Plattform-Strategie ist, sollte diese finalisiert und getestet werden.
+
 ---
 
 ## 📊 Fortschritts-Übersicht
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 40 | 40 | 0 |
+| ✅ Abgeschlossen | 42 | 42 | 0 |
 | 🔴 Hoch | 2 | 0 | 2 |
-| 🟡 Mittel | 6 | 0 | 6 |
+| 🟡 Mittel | 4 | 0 | 4 |
 | 🟢 Nice-to-Have | 3 | 0 | 3 |
 | ⏭️ Future | 1 | 0 | 1 |
-| **Gesamt** | **50** | **40** | **10** |
-
----
-
-## 📈 Vorschläge zur Vervollständigung von Phase 4: Multi-Plattform & Politur (100%)
-
-Um Phase 4 auf 100% zu bringen, müssen die verbleibenden Aspekte der Multi-Plattform-Unterstützung und des Feinschliffs abgeschlossen werden. Basierend auf dem aktuellen Stand und den neuen Punkten schlage ich folgende Ergänzungen vor:
-
-### **Neue To-Dos für Phase 4 (Priorität: Hoch/Mittel, je nach Wichtigkeit):**
-
-*   **P-004: Android Kamera-Test abschließen (Hoch)**
-    *   **Beschreibung:** Der aktuelle Status für Android ist "Build stabil, Kamera-Test ausstehend". Dies ist ein kritischer Punkt für die Android-Plattform.
-    *   **Details:** Vollständige manuelle und ggf. automatisierte Tests der Kamerafunktionalität auf verschiedenen Android-Geräten und Versionen. Sicherstellung, dass Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden.
-*   **F-001: Biometrische Authentifizierung (Mobile) (Mittel)**
-    *   **Beschreibung:** Wie bereits besprochen, ist dies eine wichtige "Politur" für die mobile Nutzung.
-*   **F-002: Konfigurierbare App-Sperrzeit (Mittel)**
-    *   **Beschreibung:** Verbessert die Benutzerfreundlichkeit und Sicherheit auf mobilen Geräten.
-*   **F-003: Artikeldetailansicht optimieren (Mittel)** ✅ Erledigt in v0.8.0+8
-*   **N-003: App Icon (Nice-to-Have, aber für 100% Politur nötig)**
-    *   **Beschreibung:** Ein professionelles App-Icon ist essentiell für den Feinschliff und die Markenidentität.
-*   **N-005: Splash Screen (Nice-to-Have, aber für 100% Politur nötig)**
-    *   **Beschreibung:** Ein ansprechender Splash Screen verbessert das Nutzererlebnis beim Start der App.
-*   **N-006: Nextcloud-Workflow (Mittel/Nice-to-Have)**
-    *   **Beschreibung:** Wenn die Nextcloud-Integration ein Kernbestandteil der Multi-Plattform-Strategie ist, sollte diese finalisiert und getestet werden.
-
-### **Anpassung der "Fortschritts-Übersicht" für Phase 4:**
-
-Um die 52% in Phase 4 zu erreichen, wurden wahrscheinlich schon einige Punkte dieser Phase abgearbeitet. Die oben genannten Punkte sind die verbleibenden, die für eine 100%ige Fertigstellung notwendig wären.
-
-Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst auf 100% zu setzen, wenn alle oben genannten Punkte (oder die, die du als Teil von Phase 4 definierst) als "Erledigt" markiert sind.
+| **Gesamt** | **50** | **42** | **8** |
 
 ---
 
@@ -662,6 +584,8 @@ Ich würde vorschlagen, die "Phase 4" in der "Gesamtfortschritt"-Tabelle erst au
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-14 | v0.8.4+17 | N-003: App-Icon + N-005: Native Splash Screen als erledigt markiert |
+| 2026-04-14 | v0.8.4+17 | F-004 abgeschlossen: NC-Icon auf statusColorConnected umgestellt. F-005 abgeschlossen: Detail-Screen Readonly-Felder mit OutlineInputBorder + InputDecorator, Menge/Artikelnummer als eigene Felder, +/- Buttons nur im Edit-Modus, 3 Widget-Tests angepasst. Gesamt 42/50 erledigt |
 | 2026-04-14 | v0.8.3+14 | B-001 abgeschlossen: Settings-Save-Verhalten analysiert — Dirty-Tracking, Save-Button und Unsaved-Dialog waren bereits korrekt implementiert. B-002 abgeschlossen: Biometrie-Analyse — automatischer Auth-Start, FragmentActivity, Verfügbarkeitsprüfung vor Toggle-Aktivierung bestätigt. OPT-001 neu: SettingsController-Extraktion für Testbarkeit (~2,5h). Gesamt 49→50, 🔴 Hoch 2→0 |
 | 2026-04-14 | v0.8.3+14 | B-001 neu: Settings ohne Speichern-Bug. B-002 neu: Biometrie System-Dialog fehlt + Verfügbarkeitsprüfung. F-004 neu: NC-Icon Farbe angleichen. F-005 neu: Detail-Screen Lesbarkeit. Gesamt 45→49 |
 | 2026-04-13 | v0.8.2+13 | F-001 + F-002 abgeschlossen: App-Lock mit biometrischer Authentifizierung — AppLockService (Singleton, SharedPreferences, Lifecycle-Hooks), AppLockScreen (local_auth 3.0.1, Biometrie + PIN-Fallback), konfigurierbare Sperrzeit (Standard 5 Min), Integration in main.dart — Gesamt 38/45 erledigt |

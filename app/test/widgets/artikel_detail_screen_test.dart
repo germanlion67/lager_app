@@ -93,13 +93,17 @@ void main() {
     testWidgets('Menge wird angezeigt', (tester) async {
       await _pumpScreen(tester);
 
-      expect(find.textContaining('Menge: 5'), findsOneWidget);
+      // F-005: Menge ist jetzt in einem InputDecorator mit Label
+      expect(find.text('Menge'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
     });
 
     testWidgets('Artikelnummer wird angezeigt', (tester) async {
       await _pumpScreen(tester);
 
-      expect(find.textContaining('Art.-Nr.: 1001'), findsOneWidget);
+      // F-005: Artikelnummer ist jetzt in einem InputDecorator mit Label
+      expect(find.text('Artikelnummer'), findsOneWidget);
+      expect(find.text('1001'), findsOneWidget);
     });
 
     testWidgets('Beschreibung-Feld ist sichtbar', (tester) async {
@@ -282,7 +286,7 @@ void main() {
         (tester) async {
       await _pumpScreen(tester);
 
-      // View-Modus: Buttons inaktiv
+      // F-005: Im View-Modus existieren die +/- Buttons gar nicht
       final addBtn = find.byWidgetPredicate(
         (w) => w is IconButton && (w.icon as Icon).icon == Icons.add,
       );
@@ -290,13 +294,12 @@ void main() {
         (w) => w is IconButton && (w.icon as Icon).icon == Icons.remove,
       );
 
-      // Im View-Modus existieren die Buttons, sind aber disabled
-      final addWidget = tester.widget<IconButton>(addBtn.first);
-      expect(addWidget.onPressed, isNull);
+      expect(addBtn, findsNothing);
+      expect(removeBtn, findsNothing);
 
       await _aktiviereEditModus(tester);
 
-      // Im Edit-Modus sind sie aktiv
+      // Im Edit-Modus erscheinen sie und sind aktiv
       final addWidgetEdit = tester.widget<IconButton>(addBtn.first);
       expect(addWidgetEdit.onPressed, isNotNull);
 

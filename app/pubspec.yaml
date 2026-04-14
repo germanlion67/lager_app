@@ -9,7 +9,7 @@ publish_to: none
 # Flutter erwartet version: major.minor.patch+build.
 # Ohne +build-Nummer schlägt flutter build für Android/iOS fehl,
 # da versionCode (Android) bzw. CFBundleVersion (iOS) fehlt.
-version: 0.8.4+16
+version: 0.8.4+17
 
 # Fix: SDK-Constraint präzisiert —
 # ">=3.0.0 <4.0.0" erlaubt theoretisch Dart 4.x sobald es erscheint.
@@ -155,23 +155,10 @@ dev_dependencies:
 
   build_runner: ^2.4.6
   flutter_native_splash: ^2.3.10
-  flutter_launcher_icons: ^0.13.1
-
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
-
-# Fix: flutter_native_splash Web-Konfiguration —
-# web: false ist korrekt wenn kein Web-Splash gewünscht.
-# Hinweis: Flutter Web hat keinen nativen Splash-Screen,
-# der Splash wird über web/index.html gesteuert.
-flutter_native_splash:
-  color: "#1976d2"
-  image: assets/images/app_logo.png
-  android: true
-  ios: true
-  web: false
 
 flutter_launcher_icons:
   image_path: assets/images/app_logo.png
@@ -217,3 +204,30 @@ dependency_overrides:
   # Letzte Prüfung: 2026-03-22
   # 
   #connectivity_plus_platform_interface: 2.0.0
+
+
+# ============================================================
+# N-005: Native Splash Screen
+# ============================================================
+flutter_native_splash:
+  # Light Mode
+  color: "#1976d2"
+  image: assets/images/app_logo.png
+
+  # Dark Mode
+  color_dark: "#121212"
+  image_dark: assets/images/app_logo.png
+
+  # Plattformen
+  android: true
+  ios: true
+  web: true
+
+  # Android 12+
+  android_12:
+    color: "#1976d2"
+    image: assets/images/app_logo.png
+    icon_background_color: "#1976d2"
+    color_dark: "#121212"
+    image_dark: assets/images/app_logo.png
+    icon_background_color_dark: "#121212"
