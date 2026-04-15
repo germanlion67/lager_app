@@ -78,7 +78,7 @@ docker compose \
 Beim ersten Start führt PocketBase automatisch folgende Schritte aus:
 
 1. ✅ **Admin-Account** wird mit den ENV-Daten erstellt.
-2. ✅ **Collections** (`artikel`, `users`) werden angelegt.
+2. ✅ **Collections** (`artikel`, `artikel_dokumente`, `attachments`, `users`) werden angelegt.
 3. ✅ **API Rules** werden auf „Authentifizierung erforderlich“ gesetzt.
 4. ✅ **Indizes** für Performance-Optimierung werden erstellt.
 
@@ -117,33 +117,25 @@ Beim ersten Start führt PocketBase automatisch folgende Schritte aus:
 
 ### Web-Version
 
-Die Web-Version erhält die PocketBase-URL über drei mögliche Wege, in dieser Priorität:
+Die Web-Version erhält die PocketBase-URL über folgende Wege, in dieser Priorität:
 
-1. **Runtime-Config (empfohlen)**  
-   Die URL wird beim Container-Start aus der Umgebungsvariable `POCKETBASE_URL` in `window.ENV_CONFIG` injiziert (`docker-entrypoint.sh`).  
-   **Vorteil:** Kein Neubau nötig bei URL-Änderung.
-
-2. **Build-Default**  
-   Wenn `POCKETBASE_URL` beim Docker-Build als Build-Argument gesetzt wird, wird die URL in den Dart-Code eingebaut.  
-   **Nachteil:** Erfordert einen Neubau bei Änderung.
-
-3. **Setup-Screen**  
-   Wenn weder Runtime-Config noch Build-Default vorhanden sind, zeigt die Web-App beim ersten Aufruf einen Einrichtungsbildschirm an.  
-   Die URL wird im `localStorage` des Browsers gespeichert.
+| Priorität | Quelle                             | Beschreibung                                                              |
+| :-------- | :--------------------------------- | :------------------------------------------------------------------------ |
+| 1         | `SharedPreferences` (`localStorage`) | Persistiert vom Setup-Screen oder Einstellungen                           |
+| 2         | Runtime-Config (empfohlen)         | URL aus `window.ENV_CONFIG` via `docker-entrypoint.sh` — kein Neubau nötig |
+| 3         | Build-Default                      | `--dart-define=POCKETBASE_URL=...` beim Docker-Build — Neubau bei Änderung nötig |
+| 4         | Setup-Screen                       | Erststart-Eingabe, wird in `localStorage` gespeichert                     |
 
 ### Mobile-/Desktop-Version
 
 Mobile- und Desktop-Builds erhalten die URL über:
 
-1. **Gespeicherte URL**  
-   Beim ersten Start über den Setup-Screen eingegebene URL (`SharedPreferences`)
-
-2. **Build-Default (optional)**  
-   Per `--dart-define=POCKETBASE_URL=...` beim Build gesetzt  
-   Nützlich für vorkonfigurierte Demo- oder Kunden-Builds
-
-3. **Setup-Screen**  
-   Wenn keine URL vorhanden ist, wird beim ersten Start ein Einrichtungsbildschirm angezeigt
+| Priorität | Quelle                             | Beschreibung                                  |
+| :-------- | :--------------------------------- | :-------------------------------------------- |
+| 1         | `SharedPreferences`                | Persistiert vom Setup-Screen oder Einstellungen |
+| 2         | `RuntimeEnvConfig`                 | Gibt auf Native immer null zurück (Stub)      |
+| 3         | Build-Default                      | Per `--dart-define=POCKETBASE_URL=...` beim Build |
+| 4         | `Setup-Screen`                     | Erststart-Eingabe                             |
 
 ### URL ändern
 
@@ -166,7 +158,7 @@ Das System nutzt mehrere Sicherheitsschichten:
 - **Security Header:** Caddy (Frontend) erzwingt CSP (Content Security Policy) und HSTS
 - **CORS:** PocketBase erlaubt in Produktion nur Zugriffe von deiner konfigurierten Domain
 - **Reproducible Builds:** Alle Docker-Images basieren auf fixierten Versionen (`Alpine 3.19.1`, Debian Bookworm), um Build-Drift zu verhindern
-
+- **App-Lock (ab v0.8.2)**: Auf nativen Plattformen (Android, Desktop) kann die App mit biometrischer Authentifizierung (local_auth: ^3.0.1) gesperrt werden. Bei nicht verfügbarer Biometrie greift der Geräte-PIN als Fallback. Die Sperrzeit ist konfigurierbar (Standard: 5 Minuten Inaktivität). Nur Native — kein kIsWeb-Pfad.
 
 ## 🌐 CORS-Konfiguration (H-002)
 
@@ -367,8 +359,10 @@ git pull origin main
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
-> ℹ️ **Ab v0.7.0:** Ein Neubau ist bei URL-Änderungen nicht mehr zwingend nötig  
-> (**Web:** Runtime-Config, **Mobile/Desktop:** Einstellungen).
+> ℹ️ Hinweis: Ein Neubau ist bei URL-Änderungen nicht zwingend nötig.
+
+> **Web**: Runtime-Config (`POCKETBASE_URL` in `.env.production` ändern, Container neu starten)
+> **Mobile/Desktop**: Einstellungen → PocketBase Server → URL ändern
 
 ---
 
@@ -387,9 +381,6 @@ Die Collection `attachments` speichert Dateianhänge pro Artikel.
 | updateRule | `""` (offen) | Analog zu `artikel`-Collection |
 | deleteRule | `""` (offen) | Analog zu `artikel`-Collection |
 
-> ⚠️ **Sicherheitshinweis:** Für Produktionsumgebungen mit öffentlichem Zugang
-> sollten die Regeln auf `@request.auth.id != ''` gesetzt werden,
-> sobald ein Login-Flow implementiert ist (siehe M-009 in OPTIMIZATIONS.md).
 
 ### Schema-Felder
 

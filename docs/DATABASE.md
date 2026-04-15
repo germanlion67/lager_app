@@ -34,7 +34,7 @@ Die App nutzt zwei persistente Datenspeicher:
 | `remoteBildPfad`| TEXT | Dateiname des Bildes auf dem Server |
 | `erstelltAm` | TEXT | ISO 8601 Erstellungsdatum |
 
-### 1.2 Tabelle: `artikel_dokumente` (Neu ✨)
+### 1.2 Tabelle: `artikel_dokumente`
 Speichert Dokumente (PDF, DOCX, etc.), die einem Artikel zugeordnet sind.
 
 | Spalte | Typ | Beschreibung |
@@ -87,7 +87,7 @@ Dateianhänge pro Artikel. Wird ausschließlich in PocketBase gespeichert (kein 
 
 **Limits:** Max 20 Anhänge pro Artikel, max 10 MB pro Datei.
 
-**API-Regeln:** Offen (kein Auth). Wird mit Login-Flow (M-009) gesichert.
+**API-Regeln:** Auth-pflichtig seit v0.7.3 (M-009) — @request.auth.id != '' für alle Operationen.
 
 ---
 
@@ -143,21 +143,27 @@ Die Bild-Sync-Logik arbeitet getrennt von den Textdaten, um Bandbreite zu sparen
 
 ---
 
-## 📄 4. Dokument-Synchronisation (Neu ✨)
+## 📄 4. Dokument-Synchronisation
 
 Dokumente werden **unabhängig von Textdaten und Bildern** synchronisiert.
 Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
 
 ### 4.1 PocketBase Collection: `artikel_dokumente`
-| Feld | Typ | Beschreibung |
-|---|---|---|
-| `artikel_uuid` | Text | UUID des zugehörigen Artikels |
-| `uuid` | Text | Globaler Identifier des Dokuments |
-| `dateiname` | Text | Originaler Dateiname |
-| `dateityp` | Text | MIME-Type |
-| `beschreibung` | Text | Optionale Beschreibung |
-| `dokument` | File | Die eigentliche Datei (PocketBase File-Field) |
-| `updated_at` | Text | ISO 8601 Änderungszeitpunkt |
+| Feld                 | Typ       | Required | Beschreibung                                       |
+| :------------------- | :-------- | :------- | :------------------------------------------------- |
+| `artikel_uuid`       | `TEXT`    | ✅       | UUID des zugehörigen Artikels                     |
+| `uuid`               | `TEXT`    | ✅       | Globaler Identifier des Dokuments (v4)             |
+| `remote_path`        | `TEXT`    | ❌       | PocketBase Record-ID                               |
+| `dateiname`          | `TEXT`    | ✅       | Originaler Dateiname (z.B. datenblatt.pdf)         |
+| `dateityp`           | `TEXT`    | ❌       | MIME-Type (z.B. application/pdf)                   |
+| `dateipfad`          | `TEXT`    | ❌       | Lokaler Pfad zur gespeicherten Datei (nur Native)  |
+| `remoteDokumentPfad` | `TEXT`    | ❌       | Dateiname des Dokuments auf PocketBase             |
+| `dokument`           | `FILE`    | ✅       | Die eigentliche Datei (PocketBase File-Field)      |
+| `beschreibung`       | `TEXT`    | ❌       | Optionale Beschreibung                             |
+| `erstelltAm`         | `TEXT`    | ❌       | ISO 8601 Erstellungsdatum                          |
+| `updated_at`         | `NUMBER`  | ❌       | Unix-Timestamp ms (Delta-Sync)                     |
+| `deleted`            | `BOOL`    | ❌       | Soft-Delete Flag                                   |
+| `etag`               | `TEXT`    | ❌       | ETag — NULL = lokale Änderung ausstehend           |
 
 ### 4.2 Ablauf-Diagramm (Dokumente)
 ```text
@@ -179,12 +185,15 @@ Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
 ```
 
 ### 4.3 Flutter-Implementierung
-| Komponente | Beschreibung |
-|---|---|
-| `DokumentModel` | Dart-Klasse, bildet einen Dokument-Datensatz ab |
-| `DokumentRepository` | CRUD gegen lokale SQLite (`artikel_dokumente`) |
-| `DokumentSyncService` | Push/Pull-Logik mit ETag/UUID-Strategie |
-| **Dokumente-Tab (UI)** | Liste, Upload, Download, Öffnen & Löschen im Artikel-Detail |
+| Komponente        | Tatsächliche Datei            | Beschreibung                                       |
+| :---------------- | :---------------------------- | :------------------------------------------------- |
+| Datenklasse       | `attachment_model.dart`       | Dart-Klasse für Dateianhänge (MIME-Whitelist, Limits) |
+| CRUD gegen PocketBase | `attachment_service.dart`     | Upload, Download, Delete gegen PocketBase REST-API |
+| Sync-Logik        | `pocketbase_sync_service.dart`| Push/Pull mit ETag/UUID-Strategie                  |
+| SQLite CRUD       | `artikel_db_service.dart`     | Lokale Operationen auf `artikel_dokumente`         |
+| UI                | `artikel_detail_screen.dart`  | Dokumente-Tab: Liste, Upload, Download, Öffnen, Löschen |
+| Upload-Widget     | `attachment_upload_widget.dart` | Upload-Dialog mit Validierung                      |
+| Listen-Widget     | `attachment_list_widget.dart` | Anhang-Liste mit Download, Edit, Delete            |
 
 ### 4.4 UI-Funktionen im Dokumente-Tab
 *   📎 **Upload**: Dateiauswahl via `file_picker`, Upload zu PocketBase
@@ -197,14 +206,18 @@ Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
 
 Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes aktiv:
 
-| Index | Tabelle | Ziel |
-|---|---|---|
-| `idx_unique_artikelnummer` | `artikel` | Schneller Zugriff via Fach-ID |
-| `idx_sync_delta` | `artikel` | Optimiert Abfragen auf `updated_at` & `deleted` |
-| `idx_search_name` | `artikel` | Schnelle Suche im Artikelnamen |
-| `idx_uuid_lookup` | `artikel` | Schneller Abgleich bei Push/Pull |
-| `idx_dok_artikel_uuid` | `artikel_dokumente` | Schneller Zugriff auf Dokumente eines Artikels |
-| `idx_dok_sync_delta` | `artikel_dokumente` | Optimiert Sync-Abfragen für Dokumente |
+| Index                       | Tabelle             | Ziel                                       |
+| :-------------------------- | :------------------ | :----------------------------------------- |
+| `idx_unique_artikelnummer`  | `artikel`           | Schneller Zugriff via Fach-ID              |
+| `idx_sync_delta`            | `artikel`           | Optimiert Abfragen auf `updated_at` & `deleted` |
+| `idx_search_name`           | `artikel`           | Schnelle Suche im Artikelnamen             |
+| `idx_uuid_lookup`           | `artikel`           | Schneller Abgleich bei Push/Pull           |
+| `idx_dok_artikel_uuid`      | `artikel_dokumente` | Schneller Zugriff auf Dokumente eines Artikels |
+| `idx_dok_sync_delta`        | `artikel_dokumente` | Optimiert Sync-Abfragen für Dokumente      |
+| `idx_attachments_artikel_uuid`| `attachments` (PB)  | Schneller Zugriff auf Anhänge eines Artikels |
+| `idx_attachments_uuid`      | `attachments` (PB)  | Schneller Abgleich bei Push/Pull           |
+| `idx_attachments_sort`      | `attachments` (PB)  | Sortierreihenfolge                         |
+| `idx_attachments_deleted`   | `attachments` (PB)  | Soft-Delete Filterung                      |
 
 ---
 
@@ -218,8 +231,9 @@ Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes 
        │  SQLite DB    │◄─────────►│  SQLite DB    │
        │ (artikel.db)  │   REST    │  (data.db)    │
        │               │    API    │               │
-       │ artikel       │           │ artikel       │
+       │ artikel       │◄─────────►│ artikel       │
        │ artikel_dok.  │◄─────────►│ artikel_dok.  │
+       │ sync_meta     │           │ attachments   │◄── nur PB (kein SQLite)
        └───────┬───────┘           └───────┬───────┘
                │                           │
        ┌───────▼───────┐           ┌───────▼───────┐
@@ -275,4 +289,4 @@ downloadMissingImages()
 
 --- 
 
-[Zurück zur README](../README.md) | [Zum Projekt-Status](CHECKLIST.md)
+[Zurück zur README](../README.md) | [Zur Architektur](ARCHITECTURE.md) | [Zum Projekt-Status](OPTIMIZATIONS.md)

@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v0.8.0 (April 2026)
+> Stand: v0.8.4+17 (April 2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -39,6 +39,7 @@ app/lib/
 │   ├── artikel_model.dart            #   Artikel (CRUD, Sync, toMap/fromMap)
 │   └── attachment_model.dart         #   Dateianhänge (Limits, MIME-Whitelist)
 ├── screens/                          # UI-Pages
+│   ├── app_lock_screen.dart          #   F-001: Biometrie-Sperrbildschirm
 │   ├── artikel_detail_screen.dart    #   Artikel-Detail mit Tabs
 │   ├── artikel_erfassen_screen.dart  #   Conditional Import Hub
 │   ├── artikel_erfassen_io.dart      #     ↳ Native: Kamera + Dateisystem
@@ -65,6 +66,7 @@ app/lib/
 │   ├── app_log_service.dart          #   Zentrales Logging (Conditional Import)
 │   ├── app_log_io.dart               #     ↳ Native Log-Implementierung
 │   ├── app_log_stub.dart             #     ↳ Web Log-Implementierung
+│   ├── app_lock_service.dart         #   F-001: Biometrie, Timeout, Lifecycle-Hooks
 │   ├── artikel_db_service.dart       #   SQLite CRUD + Sync-Queries
 │   ├── artikel_db_platform_io.dart   #     ↳ DB-Plattform: Native (FFI)
 │   ├── artikel_db_platform_stub.dart #     ↳ DB-Plattform: Web (NoOp)
@@ -129,59 +131,64 @@ app/lib/
 
 ### Conditional Imports — Übersicht
 
-| Hub-Datei | Native (`_io.dart`) | Web (`_stub.dart`) | Zweck |
-|---|---|---|---|
-| `artikel_erfassen_screen.dart` | `artikel_erfassen_io.dart` | `artikel_erfassen_stub.dart` | Kamera vs. File-Upload |
-| `artikel_list_screen.dart` | `list_screen_io.dart` | `list_screen_stub.dart` | Native vs. Web Aktionen |
-| `artikel_list_screen.dart` | `list_screen_cache_io.dart` | `list_screen_cache_stub.dart` | Image-Cache-Evict |
-| `artikel_list_screen.dart` | `list_screen_mobile_actions.dart` | `list_screen_mobile_actions_stub.dart` | Mobile-spezifisch |
-| `artikel_detail_screen.dart` | `detail_screen_io.dart` | `detail_screen_stub.dart` | Detail-Aktionen |
-| `app_log_service.dart` | `app_log_io.dart` | `app_log_stub.dart` | Logging |
-| `artikel_db_service.dart` | `artikel_db_platform_io.dart` | `artikel_db_platform_stub.dart` | DB-Plattform |
-| `artikel_export_service.dart` | `export_io.dart` | `export_stub.dart` | Export |
-| `artikel_export_service.dart` | `export_nextcloud.dart` | `export_nextcloud_stub.dart` | Nextcloud-Export |
-| `artikel_import_service.dart` | `import_io.dart` | `import_stub.dart` | Import |
-| `pdf_service.dart` | `pdf_service_io.dart` | `pdf_service_stub.dart` / `pdf_service_web.dart` | PDF-Erzeugung |
-| `scan_service.dart` | `scan_service_io.dart` | `scan_service_stub.dart` | QR/Barcode-Scanner |
-| `main.dart` | `main_io.dart` | `main_stub.dart` | App-Einstiegspunkt |
+| Hub-Datei                  | Native (_io.dart)                         | Web (_stub.dart)                          | Zweck                     |
+| :------------------------- | :---------------------------------------- | :---------------------------------------- | :------------------------ |
+| `artikel_erfassen_screen.dart` | `artikel_erfassen_io.dart`                | `artikel_erfassen_stub.dart`              | Kamera vs. File-Upload    |
+| `artikel_list_screen.dart` | `list_screen_io.dart`                     | `list_screen_stub.dart`                   | Native vs. Web Aktionen   |
+| `artikel_list_screen.dart` | `list_screen_cache_io.dart`               | `list_screen_cache_stub.dart`             | Image-Cache-Evict         |
+| `artikel_list_screen.dart` | `list_screen_mobile_actions.dart`         | `list_screen_mobile_actions_stub.dart`    | Mobile-spezifisch         |
+| `artikel_detail_screen.dart` | `detail_screen_io.dart`                   | `detail_screen_stub.dart`                 | Detail-Aktionen           |
+| `app_log_service.dart`     | `app_log_io.dart`                         | `app_log_stub.dart`                       | Logging                   |
+| `artikel_db_service.dart`  | `artikel_db_platform_io.dart`             | `artikel_db_platform_stub.dart`           | DB-Plattform              |
+| `artikel_export_service.dart`| `export_io.dart`                          | `export_stub.dart`                        | Export Dateisystem        |
+| `export_nextcloud.dart`    | `export_nextcloud.dart`                   | `export_nextcloud_stub.dart`              | Nextcloud-Export          |
+| `artikel_import_service.dart`| `import_io.dart`                          | `import_stub.dart`                        | Import Dateisystem        |
+| `import_nextcloud.dart`    | `import_nextcloud.dart`                   | `import_stub.dart`                        | Nextcloud-Import          |
+| `pdf_service.dart`         | `pdf_service_io.dart`                     | `pdf_service_stub.dart` / `pdf_service_web.dart` | PDF-Erzeugung             |
+| `scan_service.dart`        | `scan_service_io.dart`                    | `scan_service_stub.dart`                  | QR/Barcode-Scanner        |
+| `main.dart`                | `main_io.dart`                            | `main_stub.dart`                          | App-Einstiegspunkt        |
 
 ---
 
-### app/test/ — Tests (451 Tests, 18 Dateien)
+### app/test/ — Tests (590 Tests, 3 skipped, 26 Testdateien)
 
 ```text
 app/test/
 ├── helpers/                          # Test-Doubles & Utilities
-│   ├── fake_sync_status_provider.dart    # FakeSyncStatusProvider
-│   └── no_op_nextcloud_service.dart      # NoOp NextcloudService
+│   └── fake_sync_status_provider.dart    # FakeSyncStatusProvider
 ├── mocks/                            # Mockito-generierte Mocks
 │   ├── sync_service_mocks.dart           # Mock-Definitionen (@GenerateMocks)
 │   └── sync_service_mocks.mocks.dart     # Generierter Code
 ├── models/                           # Modell-Tests
-│   ├── artikel_model_test.dart           # Konstruktor, fromMap, toMap, copyWith, Sync
-│   ├── attachment_model_test.dart        # Limits, MIME-Whitelist, Validierung
-│   └── nextcloud_credentials_test.dart   # Parsing, Gleichheit, Edge-Cases
+│   ├── artikel_model_test.dart           # 64 Tests - Konstruktor, fromMap, toMap, copyWith, Sync
+│   ├── attachment_model_test.dart        # 30 Tests - Limits, MIME-Whitelist, Validierung
+│   └── nextcloud_credentials_test.dart   # 4 Tests - Parsing, Gleichheit, Edge-Cases
 ├── services/                         # Service-Tests
-│   ├── app_log_service_test.dart         # Logging-Tests
-│   ├── artikel_db_service_test.dart      # In-Memory SQLite CRUD (alle Methoden)
+│   ├── app_log_service_test.dart         # 14 Tests - Logging-Tests
+│   ├── artikel_db_service_test.dart      # 75 Tests - In-Memory SQLite CRUD (alle Methoden)
 │   ├── artikel_db_service_test_helper.dart  # Schema-Setup Helper
-│   ├── artikel_export_service_test.dart  # CSV-Erzeugung
-│   ├── artikel_import_service_test.dart  # CSV-Parsing
-│   ├── backup_status_test.dart           # fromJson, Status-Auswertung
-│   ├── nextcloud_listfiles_test.dart     # Nextcloud Dateiliste
-│   └── sync_status_provider_test.dart    # Stream-Events, State-Änderungen
+│   ├── artikel_export_service_test.dart  # 2 Tests - CSV-Erzeugung
+│   ├── artikel_import_service_test.dart  # 4 Tests - CSV-Parsing
+│   ├── attachment_service_test.dart      # 34 Tests
+│   ├── backup_status_test.dart           # 22 Tests - fromJson, Status-Auswertung
+│   ├── image_picker_service_test.dart    # 15 Tests
+│   ├── nextcloud_client_test.dart        # 39 Tests
+│   ├── nextcloud_listfiles_test.dart     # 1 Test - Nextcloud Dateiliste
+│   ├── pocketbase_sync_service_test.dart # 17 Tests
+│   └── sync_status_provider_test.dart    # 5 Tests - Stream-Events, State-Änderungen
 ├── utils/                            # Utility-Tests
-│   ├── attachment_utils_test.dart        # Validierung: Größe→Anzahl→MIME
-│   ├── image_processing_utils_test.dart  # Thumbnail, Kompression
-│   └── uuid_generator_test.dart          # UUID-Format, Eindeutigkeit
+│   ├── attachment_utils_test.dart        # 28 tests - Validierung: Größe→Anzahl→MIME
+│   ├── image_processing_utils_test.dart  # 30 Tests - Thumbnail, Kompression
+│   └── uuid_generator_test.dart          # 23 Tests - UUID-Format, Eindeutigkeit
 ├── widgets/                          # Widget-Tests
-│   ├── artikel_detail_screen_test.dart   # Detail-Screen (DI-basiert)
-│   ├── artikel_erfassen_test.dart        # Erfassen-Screen
-│   └── artikel_list_screen_test.dart     # Listen-Screen (pump statt pumpAndSettle)
-├── performance/                      # Performance-Tests
-│   ├── import_500_smoke_test.dart        # 500-Artikel Import-Smoke
-│   └── import_500/                       # Externe Testdaten (nicht committed)
-└── conflict_resolution_test.dart     # Konflikt-Auflösung Widget-Test
+│   ├── artikel_detail_screen_test.dart   # 24 Tests - Detail-Screen (DI-basiert)
+│   ├── artikel_erfassen_test.dart        # 11 Tests - Erfassen-Screen
+│   ├── artikel_list_screen_test.dart     # 15 Tests - Listen-Screen (pump statt pumpAndSettle)
+│   └── merge_dialog_test.dart            # 18 Tests
+├── conflict_resolution_test.dart         # 77 Tests - Konflikt-Auflösung Widget-Test
+└── performance/                      # Performance-Tests
+    └── import_500_smoke_test.dart        # 1 Test (self-contained, @Tags performance)
+
 ```
 
 ### app/ — Weitere Dateien
@@ -189,7 +196,6 @@ app/test/
 ```text
 app/
 ├── tool/                             # Build-Hilfsskripte
-│   ├── Erklärung.txt                     # Dokumentation der Tools
 │   ├── generate_import_dataset.dart      # Import-Testdaten Generator
 │   └── generate_test_dataset.dart        # Test-Datensatz Generator
 ├── assets/
@@ -292,9 +298,10 @@ docs/
 .github/
 ├── how_do_Release_Workflow.md        # Release-Workflow Anleitung
 └── workflows/
-    ├── docker-build-push.yml         # Docker Build & Push (GHCR)
-    ├── flutter-maintenance.yml       # Flutter Wartungs-Checks
-    └── release.yml                   # Release-Automatisierung
+    ├── ci.yml                        # Push/PR auf main: analyze + flutter test
+    ├── docker-build-push.yml         # Manual: Flutter Web + PocketBase → ghcr.io
+    ├── flutter-maintenance.yml       # Wöchentlich Mo 04:00 UTC: outdated + builds
+    └── release.yml                   # Manual: Tag + APK + AAB + Win + Linux + GH-Release
 ```
 
 ---
@@ -329,16 +336,17 @@ lager_app/
 
 ## Statistiken
 
-| Bereich | Anzahl |
-|---|---|
-| **Quellcode-Dateien** (`app/lib/`) | 70 |
-| **Davon Conditional Imports** | 26 (13 Paare) |
-| **Test-Dateien** | 18 + 2 Helpers + 2 Mocks |
-| **Tests gesamt** | 451 (3 skipped) |
+| Bereich                   | Anzahl             |
+| :------------------------ | :----------------- |
+| **Quellcode-Dateien** (`app/lib/`) | 72 |
+| **Davon Conditional Imports** | 28 (14 Paare) |
+| **Test-Dateien** | 26 Testdateien + 1 Helper + 2 Mocks  |
+| **Tests gesamt** | 590 (3 skipped) |
 | **PocketBase Migrationen** | 7 |
 | **Dokumentations-Dateien** | 19 |
-| **CI/CD Workflows** | 3 |
+| **CI/CD Workflows** | 4 |
 | **Docker-Compose Varianten** | 4 |
+
 
 ---
 

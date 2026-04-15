@@ -13,10 +13,10 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
 ┌───────────────────────▼────────────────────────────────────────┐
 │                 Nginx Proxy Manager                            │
 │  ┌──────────────────────────────────────────────────────┐      │
-│  │ • SSL Termination (Let's Encrypt)                    │      │
+│  │ • SSL Termination (Let's Encrypt / automatisch)      │      │
 │  │ • Reverse Proxy                                      │      │
 │  │ • Security Headers                                   │      │
-│  │ • Rate Limiting (kommt mit H-003)                    │      │
+│  │ • SPA Routing (Flutter Web)                          │      │
 │  └──────────────────────────────────────────────────────┘      │
 └────────┬────────────────────────────┬──────────────────────────┘
          │                            │
@@ -28,8 +28,9 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
 │  │ Caddy Server    │  │   │  │ • REST API                    │  │
 │  │ • Static Files  │  │   │  │ • Admin UI                    │  │
 │  │ • SPA Routing   │  │   │  │ • File Storage                │  │
-│  └─────────────────┘  │   │  │ • Real-time Subscriptions     │  │
-│                       │   |  | • CORS (--origins Flag, H-002)│  │
+│  │ • env-config.js │  │   │  │ • Real-time Subscriptions     │  │
+│  └─────────────────┘  │   │  │ • CORS (--origins Flag)       │  │
+│                       │   |  |                               │  │
 └───────────────────────┘   │  └───────────────────────────────┘  │
                             │  ┌───────────────────────────────┐  │
                             │  │ Auto-Initialization           │  │
@@ -55,14 +56,71 @@ Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so ko
 
 ### Plattform-Strategie
 
-| Komponente | Mobile (Android/iOS) | Desktop (Linux/Win) | Web (Docker/Caddy) |
-|---|---|---|---|
-| **Frontend** | Flutter Native | Flutter Native | Flutter Web (SPA) |
-| **Lokale DB** | SQLite (sqflite) | SQLite (FFI) | Keine (Direktzugriff) |
-| **Dateisystem** | Pfad-basiert (Images, Docs) | Pfad-basiert (Images, Docs) | Browser Blob/Memory |
-| **Sync-Logik** | Hintergrund-Worker | Manueller/Timer Sync | Nicht erforderlich |
+| Komponente      | Mobile (Android/iOS)                  | Desktop (Linux/Win)             | Web (Docker/Caddy)                     |
+| :-------------- | :------------------------------------ | :------------------------------ | :------------------------------------- |
+| **Frontend**    | Flutter Native                        | Flutter Native                  | Flutter Web (SPA)                      |
+| **Lokale DB**   | SQLite (`sqflite`)                    | SQLite (FFI)                    | Keine (Direktzugriff)                  |
+| **Dateisystem** | Pfad-basiert (Images, Docs)           | Pfad-basiert (Images, Docs)     | Browser Blob/Memory                    |
+| **Sync-Logik**  | Hintergrund-Worker (15 min)           | Timer-basiert (15 min)          | Nicht erforderlich                     |
+| **Kamera/Scanner**| `image_picker`, `mobile_scanner`      | Nicht verfügbar                 | Nicht verfügbar                        |
+| **App-Lock**    | `local_auth` (Biometrie + PIN)        | Nicht verfügbar                 | Nicht verfügbar                        |
+| **Logging**     | Datei + Konsole                       | Datei + Konsole                 | Nur Konsole                            |
+| **Runtime-Config**| `--dart-define` / `SharedPreferences` | `--dart-define` / `SharedPreferences` | `window.ENV_CONFIG` (Caddy)            |
 
 ---
+## 🚀 App-Einstieg & Navigation (main.dart)
+### Initialisierungsreihenfolge
+1. `AppConfig.init()` — Runtime-Konfiguration laden (Web: window.ENV_CONFIG)
+2. `AppConfig.validateForRelease() + validateConfig()`
+3. `FlutterError.onError` + `PlatformDispatcher.instance.onError` — globale Fehler
+4. `platform.initDesktopDatabase()` — SQLite-FFI-Init (nur Native)
+5. `PocketBaseService().initialize()` — PB-Client aufbauen
+6. `AppLockService().init()` — Biometrie-Service (nur Native)
+7. `runApp(MyApp())`
+
+### Screen-Prioritätskette (_buildHome())
+| Priorität | Screen              | Bedingung                                     |
+| :-------- | :------------------ | :-------------------------------------------- |
+| 1         | `ServerSetupScreen` | Keine PB-URL konfiguriert                     |
+| 2         | Lade-Spinner        | Auth-Token wird geprüft (Auto-Login)          |
+| 3         | `LoginScreen`       | Nicht eingeloggt (außer `PB_DEV_MODE=1`)      |
+| 4         | `AppLockScreen`     | App gesperrt (Biometrie-Overlay über Haupt-App) |
+| 5         | `ArtikelListScreen` | Normalzustand                                 |
+
+### PocketBase URL — Prioritätskette
+| Priorität | Quelle                             | Beschreibung                                  |
+| :-------- | :--------------------------------- | :-------------------------------------------- |
+| 1         | `SharedPreferences` (`pocketbase_url`) | Persistiert vom Setup-Screen                  |
+| 2         | `RuntimeEnvConfig.pocketBaseUrl()` | Web: `window.ENV_CONFIG.POCKETBASE_URL`       |
+| 3         | `--dart-define=POCKETBASE_URL=...` | Build-Argument                                |
+| 4         | `ServerSetupScreen`                | Erststart-Eingabe durch den Nutzer            |
+
+### Dev-Mode
+```bash
+flutter run --dart-define=PB_DEV_MODE=1  # überspringt Login-Screen
+```
+--- 
+
+## 🔐 Authentifizierung & App-Lock
+### Login-Flow (M-009, ab v0.7.3)
+  - `LoginScreen`: E-Mail/Passwort, Validierung, Loading-State
+  - Auto-Login beim Start: Token-Refresh via `PocketBaseService.refreshAuthToken()`
+  - Logout: `PocketBaseService.logout()` + Sync-Timer stoppen
+  - Auth-Gate in `main.dart` mit Screen-Prioritätskette (siehe oben)
+
+### App-Lock (F-001/F-002, ab v0.8.2)
+  - Paket: `local_auth: ^3.0.1`
+  - Service: `AppLockService` (Singleton, SharedPreferences-Persistenz)
+  - Screen: `AppLockScreen` — automatischer Biometrie-Start via `addPostFrameCallback`
+  - Fallback: Geräte-PIN/Pattern wenn Biometrie nicht verfügbar
+  - Timeout: Konfigurierbar in Minuten (Slider im Settings-Screen, Standard: 5 Min)
+  - Lifecycle: `WidgetsBindingObserver` → `onAppPaused()` / `onAppResumed()`
+  - Verfügbarkeitsprüfung: `canCheckBiometrics` + `isDeviceSupported()` vor Aktivierung
+  - Probe-Auth: Bei Toggle-Aktivierung wird einmalig `authenticate()` aufgerufen
+  -Nur Native: `kIsWeb`-Guard in `main.dart`
+
+
+--- 
 
 ## 📂 Projektstruktur (Übersicht)
 
@@ -73,15 +131,15 @@ lager_app/
 │   │   ├── config/         # Zentrale Steuerung (AppConfig, AppTheme, AppImages)
 │   │   ├── core/           # Plattform-Abstraktion (Logger, Exceptions)
 │   │   ├── models/         # Datenklassen (Artikel, Attachment)
-│   │   ├── screens/        # UI-Pages (15 Dateien + Conditional Imports)
-│   │   ├── services/       # Business-Logik (30 Dateien + Conditional Imports)
+│   │   ├── screens/        # UI-Pages (23 Dateien + Conditional Imports)
+│   │   ├── services/       # Business-Logik (40 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
 │   │   └── widgets/        # Wiederverwendbare UI-Komponenten (12 Widgets)
-│   └── test/               # 451 Tests, 18 Dateien
+│   └── test/               # 590 Tests (3 skipped), 26 Testdateien
 ├── packages/               # Lokale Dart-Pakete (runtime_env_config)
 ├── server/                 # PocketBase Backend + Backup-Container
 ├── docs/                   # Dokumentation (16 Dateien)
-└── .github/                # CI/CD Workflows (3 Pipelines)
+└── .github/                # CI/CD Workflows (4 Pipelines)
 ```
 
 → **Vollständige Dateistruktur mit allen Dateien:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
@@ -94,32 +152,45 @@ Das Herzstück der Anwendung ist die Collection `artikel`. Ergänzt wird sie dur
 
 ### Collection: `artikel`
 
-| Feld | Typ | Beschreibung | Index |
-|---|---|---|---|
-| `uuid` | Text | Client-seitige Eindeutigkeit (Primary Key) | ✅ `idx_uuid` |
-| `artikelnummer` | Number | Fortlaufende ID für Menschen (1000+) | ✅ `idx_unique_an` |
-| `name` | Text | Bezeichnung des Artikels | ✅ `idx_search_name` |
-| `menge` | Number | Aktueller Bestand (nur Ganzzahlen) | — |
-| `ort` / `fach` | Text | Lager-Hierarchie | — |
-| `bild` | File | Binärdatei in PocketBase (Max 5MB) | — |
-| `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_sync` |
-| `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_sync` |
+| Feld           | Typ       | Beschreibung                                       | Index              |
+| :------------- | :-------- | :------------------------------------------------- | :----------------- |
+| `id`           | `INTEGER` | Lokaler Auto-Increment PK (nur SQLite)             | —                  |
+| `uuid`         | `TEXT`    | Globaler Identifier (RFC-4122 V4), geräteübergreifend eindeutig | ✅ `idx_uuid`      |
+| `artikelnummer`| `INTEGER` | Fachliche ID (≥ 1000), automatisch vergeben        | ✅ `idx_unique_an` |
+| `name`         | `TEXT`    | Bezeichnung des Artikels (Pflicht, 2–100 Zeichen)  | ✅ `idx_search_name` |
+| `menge`        | `INTEGER` | Lagerbestand (≥ 0, max 999.999)                    | —                  |
+| `ort`          | `TEXT`    | Lagerort (Pflichtfeld)                             | —                  |
+| `fach`         | `TEXT`    | Lagerfach (Pflichtfeld)                            | —                  |
+| `beschreibung` | `TEXT`    | Freitext                                           | —                  |
+| `kategorie`    | `TEXT`    | Kategorie                                          | —                  |
+| `remote_path`  | `TEXT`    | PocketBase Record-ID (Verbindung zum Server)       | —                  |
+| `updated_at`   | `INTEGER` | Unix-Timestamp ms (Delta-Sync)                     | ✅ `idx_sync`      |
+| `deleted`      | `INTEGER` | Soft-Delete (0 = aktiv, 1 = gelöscht)              | ✅ `idx_sync`      |
+| `etag`         | `TEXT`    | `NULL` = lokale Änderung ausstehend (Pending)      | —                  |
+| `bildPfad`     | `TEXT`    | Lokaler Pfad Originalbild                          | —                  |
+| `thumbnailPfad`| `TEXT`    | Lokaler Pfad Vorschaubild                          | —                  |
+| `remoteBildPfad`| `TEXT`    | Dateiname auf PocketBase                           | —                  |
+| `erstelltAm`   | `TEXT`    | ISO 8601 Erstellungsdatum                          | —                  |
 
 ### Collection: `artikel_dokumente`
 
 Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
 Unterstützte Dateitypen: PDF, DOCX, XLSX, TXT und weitere.
 
-| Feld | Typ | Beschreibung | Index |
-|---|---|---|---|
-| `artikel_uuid` | Text | Fremdschlüssel zur `artikel.uuid` | ✅ `idx_dok_artikel_uuid` |
-| `uuid` | Text | Client-seitige Eindeutigkeit des Dokuments | ✅ `idx_dok_uuid` |
-| `dateiname` | Text | Originaler Dateiname (z. B. `datenblatt.pdf`) | — |
-| `dateityp` | Text | MIME-Type (z. B. `application/pdf`) | — |
-| `beschreibung` | Text | Optionale Beschreibung des Dokuments | — |
-| `dokument` | File | Die eigentliche Datei (PocketBase File-Field) | — |
-| `deleted` | Boolean | Soft-Delete Flag für den Sync-Prozess | ✅ `idx_dok_sync` |
-| `updated_at` | Number | Unix-Timestamp für Delta-Sync | ✅ `idx_dok_sync` |
+| Feld                 | Typ       | Beschreibung                                       | Index                |
+| :------------------- | :-------- | :------------------------------------------------- | :------------------- |
+| `artikel_uuid`       | `TEXT`    | FK → `artikel.uuid`                                | ✅ `idx_dok_artikel_uuid` |
+| `uuid`               | `TEXT`    | Globaler Identifier des Dokuments                  | ✅ `idx_dok_uuid`    |
+| `remote_path`        | `TEXT`    | PocketBase Record-ID                               | —                    |
+| `dateiname`          | `TEXT`    | Originaler Dateiname (z.B. datenblatt.pdf)         | —                    |
+| `dateityp`           | `TEXT`    | MIME-Type (z.B. application/pdf)                   | —                    |
+| `dateipfad`          | `TEXT`    | Lokaler Pfad (nur Native)                          | —                    |
+| `remoteDokumentPfad` | `TEXT`    | Dateiname auf PocketBase                           | —                    |
+| `beschreibung`       | `TEXT`    | Optionale Beschreibung                             | —                    |
+| `erstelltAm`         | `TEXT`    | ISO 8601                                           | —                    |
+| `updated_at`         | `INTEGER` | Unix-Timestamp ms (Delta-Sync)                     | ✅ `idx_dok_sync`    |
+| `deleted`            | `INTEGER` | Soft-Delete (0 = aktiv, 1 = gelöscht)              | ✅ `idx_dok_sync`    |
+| `etag`               | `TEXT`    | `NULL` = lokale Änderung ausstehend (Pending)      | —                    |
 
 ### Collection: `attachments` (ab v0.7.2)
 
@@ -147,6 +218,16 @@ Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem *
 2.  **Pull**: Datensätze, deren `updated_at` neuer als der letzte Sync-Zeitpunkt ist, werden heruntergeladen.
 3.  **Conflict**: Bei gleichzeitiger Änderung wird der Nutzer über den `ConflictResolutionScreen` zur Entscheidung aufgefordert.
 4.  **Dokumente**: Werden in einem **separaten Sync-Zyklus** behandelt — unabhängig von Textdaten und Bildern.
+
+### Sync-Invarianten (niemals brechen)
+| Invariante                 | Bedeutung                                            |
+| :------------------------- | :--------------------------------------------------- |
+| `uuid` ist stabil          | Nie ändern — geräteübergreifender Identifier         |
+| `remote_path` = PB Record-ID | Verbindung zum Server — nie überschreiben ohne Sync  |
+| `etag` = `NULL`            | Lokale Änderung ausstehend — muss gepusht werden     |
+| `deleted` = `1`            | Soft-Delete lokal → Hard-Delete beim nächsten Push   |
+| `setBildPfadByUuidSilent()`| Setzt nur `bildPfad`, löst keinen Sync-Trigger aus   |
+
 
 ---
 
@@ -233,6 +314,7 @@ Dies gilt analog für die **Dokumenten-Funktionalität**: Auf nativen Plattforme
     *   `X-Frame-Options`: Verhindert Clickjacking.
 3.  **Network Isolation**: In Docker-Produktions-Setups kommunizieren Frontend und Backend über ein isoliertes internes Netzwerk ohne direkte Port-Exposition.
 4.  **Datei-Validierung**: Beim Dokument-Upload wird der MIME-Type serverseitig geprüft, um unerwünschte Dateitypen abzuweisen.
+5. **App-Lock (F-001/F-002)**: Auf nativen Plattformen (Android, Desktop) kann die App mit biometrischer Authentifizierung (`local_auth`) gesperrt werden. Bei nicht verfügbarer Biometrie greift der Geräte-PIN als Fallback. Die Sperrzeit ist konfigurierbar (Standard: 5 Minuten Inaktivität).
 
 ---
 
@@ -266,4 +348,4 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folg
 
 ---
 
-[Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md)
+[Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md) | [CI/CD & Deployment](../DEPLOYMENT.md)
