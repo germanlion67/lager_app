@@ -18,6 +18,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 import '../config/app_config.dart';
 
+class LoginTimeoutException implements Exception {
+  final Duration timeout;
+
+  const LoginTimeoutException(this.timeout);
+
+  @override
+  String toString() =>
+      'LoginTimeoutException: Login nach ${timeout.inSeconds}s abgebrochen.';
+}
+
 class PocketBaseService {
 
   static const String _prefsKey = 'pocketbase_url';
@@ -346,9 +356,19 @@ class PocketBaseService {
       return false;
     }
     try {
-      await c.collection('users').authWithPassword(email, password);
+      await c
+          .collection('users')
+          .authWithPassword(email, password)
+          .timeout(AppConfig.loginTimeout);
       _logger.i('✅ Login erfolgreich: $email');
       return true;
+    } on TimeoutException catch (e, stack) {
+      _logger.w(
+        '⚠️ Login Timeout nach ${AppConfig.loginTimeout.inSeconds}s für $email',
+        error: e,
+        stackTrace: stack,
+      );
+      throw const LoginTimeoutException(AppConfig.loginTimeout);
     } catch (e, stack) {
       _logger.e(
         '❌ Login fehlgeschlagen für $email',

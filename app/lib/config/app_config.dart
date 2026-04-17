@@ -122,6 +122,12 @@ class AppConfig {
   // UI-Konfiguration
   // ============================================================================
 
+  /// Standard-Timeout für Netzwerkaufrufe gegen den Server.
+  static const Duration networkTimeout = Duration(seconds: 12);
+
+  /// Spezifischer Timeout für den Login-Flow.
+  static const Duration loginTimeout = networkTimeout;
+
   /// Größe des Artikel-Thumbnails in der Listenansicht (quadratisch).
   static const double artikelListBildSize = 50.0;
 

@@ -1,14 +1,22 @@
 // lib/screens/login_screen.dart
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
 import '../services/pocketbase_service.dart';
+import 'server_setup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final VoidCallback onLoginSuccess;
+  final PocketBaseService? pocketBaseService;
 
-  const LoginScreen({super.key, required this.onLoginSuccess});
+  const LoginScreen({
+    super.key,
+    required this.onLoginSuccess,
+    this.pocketBaseService,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -18,11 +26,17 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _pbService = PocketBaseService();
+  late final PocketBaseService _pbService;
 
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _pbService = widget.pocketBaseService ?? PocketBaseService();
+  }
 
   @override
   void dispose() {
@@ -39,10 +53,12 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final success = await _pbService.login(
-        _emailController.text.trim(),
-        _passwordController.text,
-      );
+      final success = await _pbService
+          .login(
+            _emailController.text.trim(),
+            _passwordController.text,
+          )
+          .timeout(AppConfig.loginTimeout);
 
       if (!mounted) return;
 
@@ -54,6 +70,10 @@ class _LoginScreenState extends State<LoginScreen> {
               'Anmeldung fehlgeschlagen. Bitte prüfe deine Zugangsdaten.';
         });
       }
+    } on LoginTimeoutException {
+      _setLoginTimeoutError();
+    } on TimeoutException {
+      _setLoginTimeoutError();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -64,6 +84,33 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _setLoginTimeoutError() {
+    if (!mounted) return;
+    setState(() {
+      _errorMessage =
+          'Zeitüberschreitung beim Login. '
+          'Der Server antwortet nicht.';
+    });
+  }
+
+  Future<void> _openServerSetup() async {
+    final serverConfigured = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (setupContext) => ServerSetupScreen(
+          onConfigured: () {
+            Navigator.of(setupContext).pop(true);
+          },
+        ),
+      ),
+    );
+
+    if (!mounted || serverConfigured != true) return;
+
+    setState(() {
+      _errorMessage = 'Server-URL gespeichert. Bitte erneut anmelden.';
+    });
   }
 
   @override
@@ -232,6 +279,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextButton(
                     onPressed: () => _showPasswordResetDialog(context),
                     child: const Text('Passwort vergessen?'),
+                  ),
+                  TextButton.icon(
+                    onPressed: _isLoading ? null : _openServerSetup,
+                    icon: const Icon(
+                      Icons.settings_ethernet_outlined,
+                      size: AppConfig.iconSizeSmall,
+                    ),
+                    label: const Text('Server ändern'),
                   ),
                 ],
               ),
