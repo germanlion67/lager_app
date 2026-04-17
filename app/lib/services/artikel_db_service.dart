@@ -848,6 +848,68 @@ class ArtikelDbService {
     }
   }
 
+/// Öffnet die Datenbank falls sie geschlossen ist (idempotent).
+  ///
+  /// Wird von main.dart in didChangeAppLifecycleState(resumed) aufgerufen,
+  /// bevor _syncIfConnected() startet — da closeDatabase() bei paused
+  /// _db = null setzt.
+  ///
+  /// Ist die DB bereits offen, ist dieser Aufruf ein No-op.
+  Future<void> openDatabase() async {
+    if (kIsWeb) return;
+    if (_db != null) {
+      _logger.d('✅ Datenbank bereits offen — openDatabase() No-op.');
+      return;
+    }
+    _db = await _initDb();
+    _logger.i('✅ Datenbank nach Resume wieder geöffnet.');
+  }
+
+  /// Markiert einen Artikel als lokal geändert (dirty), indem etag auf
+  /// null gesetzt wird.
+  ///
+  /// Effekt: Der Artikel erscheint beim nächsten getPendingChanges()-Aufruf
+  /// und wird vom PocketBaseSyncService zum Server gepusht — auch wenn der
+  /// Server eine neuere Version hat (force push nach Konflikt-Auflösung
+  /// mit ConflictResolution.useLocal).
+  ///
+  /// updated_at wird auf jetzt gesetzt, damit der Artikel als "neuer"
+  /// gilt als die Remote-Version.
+  Future<void> markAsModified(String uuid) async {
+    try {
+      final db = await database;
+      final rowsAffected = await db.update(
+        'artikel',
+        {
+          'etag': null,
+          'updated_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        where: 'uuid = ?',
+        whereArgs: [uuid],
+      );
+      if (rowsAffected > 0) {
+        _logger.d(
+          '✅ Artikel UUID $uuid als dirty markiert '
+          '(etag = null, updated_at = jetzt).',
+        );
+      } else {
+        _logger.w(
+          '⚠️ markAsModified: Artikel UUID $uuid nicht gefunden.',
+        );
+      }
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Markieren von Artikel UUID $uuid als dirty: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+
+
+
+
   // ==================== SEARCH ====================
 
   Future<List<Artikel>> searchArtikel(

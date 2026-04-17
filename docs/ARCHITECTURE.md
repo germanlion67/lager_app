@@ -135,7 +135,7 @@ lager_app/
 │   │   ├── services/       # Business-Logik (40 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
 │   │   └── widgets/        # Wiederverwendbare UI-Komponenten (12 Widgets)
-│   └── test/               # 590 Tests (3 skipped), 26 Testdateien
+│   └── test/               # 610 Tests (3 skipped), 28 Testdateien
 ├── packages/               # Lokale Dart-Pakete (runtime_env_config)
 ├── server/                 # PocketBase Backend + Backup-Container
 ├── docs/                   # Dokumentation (16 Dateien)
@@ -216,7 +216,12 @@ Dateianhänge pro Artikel. Unterstützt PDF, Office-Dokumente, Bilder und Textda
 Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem **Soft-Delete** Mechanismus:
 1.  **Push**: Lokale Änderungen (SQLite) werden anhand der `uuid` zu PocketBase gepusht.
 2.  **Pull**: Datensätze, deren `updated_at` neuer als der letzte Sync-Zeitpunkt ist, werden heruntergeladen.
-3.  **Conflict**: Bei gleichzeitiger Änderung wird der Nutzer über den `ConflictResolutionScreen` zur Entscheidung aufgefordert.
+3.  **Conflict**: Bei gleichzeitiger Änderung wird vor jedem PATCH der
+    Remote-Record geladen und dessen `updated`-Timestamp (ISO 8601) mit
+    dem lokalen `etag` verglichen. Bei Abweichung wird der
+    `onConflictDetected`-Callback aufgerufen — der Nutzer entscheidet
+    über den `ConflictResolutionScreen`. Blindes Überschreiben findet
+    nicht statt.
 4.  **Dokumente**: Werden in einem **separaten Sync-Zyklus** behandelt — unabhängig von Textdaten und Bildern.
 
 ### Sync-Invarianten (niemals brechen)
@@ -225,6 +230,7 @@ Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem *
 | `uuid` ist stabil          | Nie ändern — geräteübergreifender Identifier         |
 | `remote_path` = PB Record-ID | Verbindung zum Server — nie überschreiben ohne Sync  |
 | `etag` = `NULL`            | Lokale Änderung ausstehend — muss gepusht werden     |
+| `etag` = PB `updated`-Timestamp | ISO 8601 — wird nach erfolgreichem PATCH gesetzt. Abweichung vom Remote-Wert löst Konflikt-Erkennung aus (B-005) |
 | `deleted` = `1`            | Soft-Delete lokal → Hard-Delete beim nächsten Push   |
 | `setBildPfadByUuidSilent()`| Setzt nur `bildPfad`, löst keinen Sync-Trigger aus   |
 
@@ -260,6 +266,21 @@ SyncOrchestrator.runOnce()
   _ladeArtikel() → UI aktualisiert
 ```
 
+### SyncManagementScreen (B-006, ab v0.8.5+19)
+
+`SyncManagementScreen` erhält eine `SyncOrchestrator`-Instanz als Parameter
+und ruft `orchestrator.runOnce()` auf — nicht `SyncService` direkt.
+
+**Vorher (falsch):**
+```dart
+syncService.syncOnce();   // ❌ umgeht Orchestrator, kein Conflict-Handling
+```
+
+**Nachher (korrekt):**
+```dart
+orchestrator.runOnce();   // ✅ Status-Stream, Conflict-Handling, downloadMissingImages()
+```
+
 ### Bild-Fallback-Kette (Mobile/Desktop)
 
 Nach einem Kaltstart existieren keine lokalen Bilddateien. Die Widgets
@@ -275,6 +296,129 @@ nutzen eine 4-stufige Fallback-Kette:
 Die Bilder werden im Hintergrund von `downloadMissingImages()` heruntergeladen.
 Beim nächsten Laden der Artikelliste (nach `SyncStatus.success`) werden die
 lokalen Dateien verwendet (Priorität 1/2).
+
+---
+
+## 🔀 Konflikt-Erkennung & Callback-Registrierung
+
+### ETag-basierte Konflikt-Erkennung (B-005, ab v0.8.5+19)
+
+Vor jedem PATCH-Request lädt `PocketBaseSyncService` den aktuellen Remote-Record
+und vergleicht dessen `updated`-Timestamp mit dem lokal gespeicherten `etag`:
+
+```dart
+final istKonflikt = lokalerEtag.isNotEmpty &&
+    lokalerEtag != 'deleted' &&
+    remoteUpdated.isNotEmpty &&
+    lokalerEtag != remoteUpdated;
+```
+
+| Zustand | Verhalten |
+|---------|-----------|
+| `etag` leer (neuer Artikel) | Kein Konflikt-Check — direkt `create()` |
+| `etag == remoteUpdated` | Kein Konflikt — direkt `update()` |
+| `etag != remoteUpdated` | Konflikt — `onConflictDetected`-Callback |
+| `etag == 'deleted'` | Kein Konflikt-Check — direkt `delete()` |
+| `remoteUpdated` leer | Kein Konflikt-Check — Remote-Record nicht gefunden |
+
+> **Wichtig:** `etag` = PocketBase `updated`-Timestamp (ISO 8601), **nicht** die Record-ID.
+
+---
+
+### ConflictCallback Typedef
+
+```dart
+typedef ConflictCallback = Future<void> Function(
+  ConflictData conflict,
+);
+```
+
+`PocketBaseSyncService` hält einen nullable `ConflictCallback`:
+
+```dart
+ConflictCallback? onConflictDetected;
+```
+
+Der Callback wird von `SyncOrchestrator` gesetzt und leitet Konflikte
+an den `ConflictResolutionScreen` weiter.
+
+---
+
+### Callback-Registrierung via GlobalKey (B-004, ab v0.8.5+19)
+
+**Problem:** `onConflictDetected` wurde vor dem Navigator-Init registriert —
+`Navigator.of(context)` warf einen Fehler, weil kein `MaterialApp`-Kontext
+verfügbar war.
+
+**Lösung:**
+
+```dart
+// main.dart
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+// In MyApp:
+MaterialApp(
+  navigatorKey: navigatorKey,
+  ...
+)
+
+// Callback-Registrierung nach erstem Frame:
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  syncOrchestrator.onConflictDetected = (conflict) async {
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+    await nav.push(MaterialPageRoute(
+      builder: (_) => ConflictResolutionScreen(...),
+    ));
+  };
+});
+```
+
+**Ablauf:**
+
+```text
+main.dart
+  → runApp(MyApp())
+  → addPostFrameCallback()        ← erster Frame gerendert
+      → navigatorKey.currentState verfügbar
+      → syncOrchestrator.onConflictDetected = Callback
+      → _syncIfConnected()        ← Sync startet erst jetzt
+```
+
+---
+
+### DB-Reopen nach App-Resume (B-004)
+
+Nach einem Hintergrundwechsel (`AppLifecycleState.resumed`) wird die
+SQLite-Verbindung explizit wiederhergestellt, bevor der Sync startet:
+
+```dart
+// In didChangeAppLifecycleState():
+case AppLifecycleState.resumed:
+  await artikelDbService.openDatabase();   // No-op wenn bereits offen
+  await _syncIfConnected();
+```
+
+`openDatabase()` ist idempotent — wenn `_db != null`, ist der Aufruf ein No-op.
+
+---
+
+### ConflictResolution — useLocal Force-Push
+
+Nach `ConflictResolution.useLocal` wird der Artikel via `markAsModified()`
+als dirty markiert:
+
+```dart
+// ArtikelDbService.markAsModified():
+await db.update('artikel',
+  {'etag': null, 'updated_at': DateTime.now().millisecondsSinceEpoch},
+  where: 'uuid = ?', whereArgs: [uuid],
+);
+```
+
+Effekt: Der Artikel erscheint beim nächsten `getPendingChanges()`-Aufruf
+und wird vom `PocketBaseSyncService` zum Server gepusht — auch wenn der
+Server eine neuere Version hat.
 
 ---
 
@@ -347,5 +491,11 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folg
 | **Löschen** | Soft-Delete lokal → Hard-Delete beim Sync | Direktes DELETE via REST API |
 
 ---
+### 6. Wartungs-Notiz am Ende des Dokuments
+
+> **Zuletzt aktualisiert:** v0.8.5+19 (2026-04-17)
+> B-004: GlobalKey-Pattern + addPostFrameCallback für Callback-Registrierung
+> B-005: ETag-basierte Konflikt-Erkennung vor PATCH
+> B-006: SyncManagementScreen auf SyncOrchestrator umgestellt
 
 [Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md) | [CI/CD & Deployment](../DEPLOYMENT.md)

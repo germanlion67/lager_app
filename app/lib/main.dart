@@ -1,4 +1,16 @@
 // lib/main.dart
+//
+// CHANGES v0.8.5+2:
+//   F2  — _onConflictDetected(): ConflictData bauen + ConflictResolutionScreen
+//          mit korrekter Signatur (conflicts + syncService) aufrufen.
+//   F2  — PocketBaseConflictAdapter: minimaler SyncService-Wrapper der
+//          applyConflictResolution() auf _db weiterleitet.
+//          Alle anderen SyncService-Methoden werfen UnimplementedError —
+//          sie werden vom ConflictResolutionScreen nicht aufgerufen.
+//   FIX — openDatabase() / markAsModified() korrekt aufgerufen.
+//   FIX — Trailing-Comma-Lints (Zeilen 79, 455, 499).
+//   FIX — Doc-Comment HTML-Lint: <NavigatorState> → `NavigatorState`.
+//   FIX — Explizite Typen im onResolved-Callback.
 
 import 'dart:async';
 import 'dart:ui';
@@ -12,34 +24,32 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'config/app_config.dart';
 import 'config/app_theme.dart';
 import 'config/app_images.dart';
+import 'models/artikel_model.dart';
 import 'screens/artikel_list_screen.dart';
-import 'screens/login_screen.dart'; // ── M-009: Login-Screen
+import 'screens/conflict_resolution_screen.dart';
+import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
-import 'screens/app_lock_screen.dart';  // ── F-001: Sperrbildschirm
+import 'screens/app_lock_screen.dart';
 import 'screens/server_setup_screen.dart';
 import 'services/app_log_service.dart';
 import 'services/artikel_db_service.dart';
 import 'services/pocketbase_service.dart';
-import 'services/app_lock_service.dart';  // ── F-001: App-Lock Service
+import 'services/app_lock_service.dart';
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
+import 'services/sync_service.dart';
 
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
-// Punkt 1 — Kurzreferenz auf den globalen Logger
 final _log = AppLogService.logger;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Runtime-Konfiguration laden (Web) ─────────────────────────────────────
   await AppConfig.init();
-
-  // ── App-Konfiguration validieren (wirft nicht mehr bei fehlender URL) ──────
   AppConfig.validateForRelease();
   AppConfig.validateConfig();
 
-  // ── Unbehandelte Flutter-Framework-Fehler fangen ──────────────────────────
   FlutterError.onError = (details) {
     _log.e(
       'Flutter Framework Fehler',
@@ -48,7 +58,6 @@ void main() async {
     );
   };
 
-  // ── Unbehandelte Dart-Fehler fangen (async, isolates) ─────────────────────
   PlatformDispatcher.instance.onError = (error, stack) {
     _log.f(
       'Unbehandelter Dart-Fehler',
@@ -62,10 +71,8 @@ void main() async {
     platform.initDesktopDatabase();
   }
 
-  // ── PocketBase initialisieren (crasht nie) ────────────────────────────────
   await PocketBaseService().initialize();
 
-  // ── Health-Check nur wenn Client vorhanden ────────────────────────────────
   if (!kIsWeb && PocketBaseService().hasClient) {
     unawaited(
       PocketBaseService().checkHealth().then((ok) {
@@ -75,18 +82,95 @@ void main() async {
           _log.w('[Main] PocketBase nicht erreichbar beim Start');
         }
       }).catchError((Object e, StackTrace st) {
-        _log.e('[Main] PocketBase Health-Check Fehler',
-            error: e, stackTrace: st,);
+        _log.e(
+          '[Main] PocketBase Health-Check Fehler',
+          error: e,
+          stackTrace: st,
+        );
       }),
     );
   }
 
-  // ── F-001: App-Lock Service initialisieren ──────────────────────────────
   if (!kIsWeb) {
     await AppLockService().init();
   }
 
   runApp(const MyApp());
+}
+
+// ── PocketBaseConflictAdapter ─────────────────────────────────────────────────
+//
+// Minimaler Adapter der SyncService für den ConflictResolutionScreen
+// implementiert — ohne Nextcloud-Abhängigkeit.
+//
+// ConflictResolutionScreen ruft ausschließlich applyConflictResolution() auf.
+// Alle anderen Methoden werden nie aufgerufen und werfen UnimplementedError
+// als Sicherheitsnetz.
+//
+// Begründung für eigene Klasse statt SyncService-Subclass:
+// SyncService hat required-Parameter (NextcloudClient, ArtikelDbService)
+// die wir nicht haben wollen. Der Adapter ist leichtgewichtiger.
+class _PocketBaseConflictAdapter implements SyncService {
+  final ArtikelDbService _db;
+
+  _PocketBaseConflictAdapter(this._db);
+
+  @override
+  Future<void> applyConflictResolution(
+    ConflictData conflict,
+    ConflictResolution resolution, {
+    Artikel? mergedVersion,
+  }) async {
+    switch (resolution) {
+      case ConflictResolution.useLocal:
+        // Lokale Version behalten → als dirty markieren → nächster Push
+        // überschreibt Server-Version (force push).
+        await _db.markAsModified(conflict.localVersion.uuid);
+        _log.i(
+          '[Conflict] Lokale Version behalten: ${conflict.localVersion.uuid}',
+        );
+
+      case ConflictResolution.useRemote:
+        // Remote-Version übernehmen → lokal speichern mit Server-ETag.
+        await _db.upsertArtikel(
+          conflict.remoteVersion,
+          etag: conflict.remoteVersion.etag ??
+              conflict.remoteVersion.remotePath ??
+              '',
+        );
+        _log.i(
+          '[Conflict] Remote-Version übernommen: ${conflict.remoteVersion.uuid}',
+        );
+
+      case ConflictResolution.merge:
+        if (mergedVersion != null) {
+          await _db.updateArtikel(mergedVersion);
+          await _db.markAsModified(mergedVersion.uuid);
+          _log.i(
+            '[Conflict] Zusammengeführte Version gespeichert: '
+            '${mergedVersion.uuid}',
+          );
+        }
+
+      case ConflictResolution.skip:
+        _log.i(
+          '[Conflict] Übersprungen: ${conflict.localVersion.uuid}',
+        );
+    }
+  }
+
+  // ── Nicht implementierte SyncService-Methoden ─────────────────────────────
+  // Diese werden vom ConflictResolutionScreen nie aufgerufen.
+  // UnimplementedError als Sicherheitsnetz falls doch.
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) {
+    throw UnimplementedError(
+      '_PocketBaseConflictAdapter: '
+      '${invocation.memberName} ist nicht implementiert. '
+      'Nur applyConflictResolution() wird unterstützt.',
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -102,6 +186,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   static const int _syncIntervalMinutes = 15;
 
+  // F2: GlobalKey für Navigator-Zugriff aus Callbacks ohne BuildContext.
+  // Typ-Annotation explizit — kein HTML-Lint-Problem da kein Doc-Comment.
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
+
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
   late PocketBaseSyncService _pocketSync;
@@ -110,17 +198,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _cleanupDone = false;
   bool _syncRunning = false;
 
-  /// Steuert ob die normale App oder der Setup-Screen angezeigt wird.
   bool _needsSetup = false;
-
-  /// ── M-009: Steuert ob der Login-Screen angezeigt wird.
   bool _isCheckingAuth = true;
   bool _isLoggedIn = false;
-  bool _isAppLocked = false;  // ── F-001: App-Sperr-Status
+  bool _isAppLocked = false;
 
-  /// ── Dev-Mode: Login überspringen wenn PB_DEV_MODE=1
-  /// Wird über --dart-define=PB_DEV_MODE=1 gesetzt.
-  /// In Produktion ist der Default 0 (Login erforderlich).
   final bool _devMode = const String.fromEnvironment(
     'PB_DEV_MODE',
     defaultValue: '0',
@@ -133,20 +215,24 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
     _pbService = PocketBaseService();
     _needsSetup = _pbService.needsSetup;
-
     _db = ArtikelDbService();
 
-    // Dev-Mode Hinweis im Log
     if (_devMode) {
-      _log.w('[Main] ⚠️ DEV-MODE aktiv (PB_DEV_MODE=1) — Login wird übersprungen!');
+      _log.w(
+        '[Main] ⚠️ DEV-MODE aktiv (PB_DEV_MODE=1) — Login wird übersprungen!',
+      );
     }
 
-    // Sync-Services nur initialisieren wenn ein Client vorhanden ist
     if (_pbService.hasClient) {
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
-      // ── M-009: Auth-Status prüfen bevor Sync gestartet wird
+      // F2: Konflikt-Callback nach erstem Frame registrieren.
+      // Navigator ist erst nach dem ersten Build verfügbar.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _registerConflictCallback();
+      });
+
       _checkAuthStatus().then((_) {
         if ((_isLoggedIn || _devMode) && !kIsWeb) {
           _loadSyncSettings().then((_) {
@@ -156,30 +242,88 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         }
       });
     } else {
-      // Dummy-Initialisierung damit late-Felder nicht crashen
-      // wenn sie nie genutzt werden (Setup-Screen-Modus)
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
-
-      // ── M-009: Kein Client → Auth-Check überspringen
       _isCheckingAuth = false;
     }
   }
 
-  // ── M-009: Auth-Status beim App-Start prüfen ─────────────────────────────
+  // ── F2: Konflikt-Callback ─────────────────────────────────────────────────
 
-  /// Prüft beim App-Start ob ein gültiger Token vorhanden ist
-  /// und versucht ihn zu erneuern (Auto-Login).
+  void _registerConflictCallback() {
+    _orchestrator.setConflictCallback(_onConflictDetected);
+    _log.d('[Main] Konflikt-Callback am Orchestrator registriert');
+  }
+
+  /// Wird aufgerufen wenn PocketBaseSyncService einen Konflikt erkennt.
   ///
-  /// Im Dev-Mode (PB_DEV_MODE=1) wird der Auth-Check übersprungen
-  /// und der Login-Screen nicht angezeigt.
+  /// Baut ein `ConflictData`-Objekt und öffnet `ConflictResolutionScreen`
+  /// via `GlobalKey<NavigatorState>` — kein BuildContext nötig.
+  Future<void> _onConflictDetected(
+    Artikel lokalerArtikel,
+    Artikel remoteArtikel,
+  ) async {
+    final navigator = _navigatorKey.currentState;
+    if (navigator == null) {
+      _log.w(
+        '[Main] Konflikt erkannt aber Navigator nicht verfügbar — '
+        'überspringe UI für ${lokalerArtikel.uuid}',
+      );
+      return;
+    }
+
+    _log.i(
+      '[Main] Konflikt-UI für ${lokalerArtikel.name} '
+      '(uuid: ${lokalerArtikel.uuid})',
+    );
+
+    // ConflictData bauen — ConflictResolutionScreen erwartet diese Struktur
+    final conflictData = ConflictData(
+      localVersion: lokalerArtikel,
+      remoteVersion: remoteArtikel,
+      conflictReason: _buildConflictReason(lokalerArtikel, remoteArtikel),
+      detectedAt: DateTime.now(),
+    );
+
+    try {
+      await navigator.push<void>(
+        MaterialPageRoute(
+          builder: (_) => ConflictResolutionScreen(
+            conflicts: [conflictData],
+            syncService: _PocketBaseConflictAdapter(_db),
+          ),
+          fullscreenDialog: true,
+        ),
+      );
+    } catch (e, st) {
+      _log.e(
+        '[Main] Konflikt-UI fehlgeschlagen für ${lokalerArtikel.uuid}',
+        error: e,
+        stackTrace: st,
+      );
+    }
+  }
+
+  /// Bestimmt den Konflikt-Grund für die UI-Anzeige.
+  String _buildConflictReason(Artikel lokal, Artikel remote) {
+    final diffMs = (lokal.updatedAt - remote.updatedAt).abs();
+    if (diffMs < 60000) {
+      return 'Gleichzeitige Bearbeitung auf zwei Geräten';
+    }
+    if (lokal.updatedAt > remote.updatedAt) {
+      return 'Lokale Version neuer als Remote-Version';
+    }
+    return 'Remote-Version neuer als lokale Version';
+  }
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
   Future<void> _checkAuthStatus() async {
-    // Dev-Mode: Auth-Check komplett überspringen
     if (_devMode) {
       _log.w('[Auth] ⚠️ DEV-MODE: Login übersprungen (PB_DEV_MODE=1)');
       if (mounted) {
         setState(() {
-          _isLoggedIn = false; // bleibt false, aber _devMode überspringt Login-Screen
+          _isLoggedIn = false;
           _isCheckingAuth = false;
         });
       }
@@ -199,12 +343,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     bool loggedIn = false;
 
     if (_pbService.isAuthenticated) {
-      // Token vorhanden → versuche Refresh
       _log.i('[Auth] Gespeicherter Token gefunden, versuche Refresh...');
       loggedIn = await _pbService.refreshAuthToken();
-
       if (loggedIn) {
-        _log.i('[Auth] Auto-Login erfolgreich: ${_pbService.currentUserEmail}');
+        _log.i(
+          '[Auth] Auto-Login erfolgreich: ${_pbService.currentUserEmail}',
+        );
       } else {
         _log.w('[Auth] Token abgelaufen, Login erforderlich.');
       }
@@ -220,13 +364,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  /// ── M-009: Wird vom LoginScreen aufgerufen nach erfolgreichem Login.
   void _onLoginSuccess() {
     _log.i('[Auth] Login erfolgreich, starte App...');
-
     setState(() => _isLoggedIn = true);
 
-    // Sync starten nach Login (falls noch nicht gestartet)
+    // Konflikt-Callback nach Login (erneut) registrieren
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _registerConflictCallback();
+    });
+
     if (_pbService.hasClient && !kIsWeb) {
       _loadSyncSettings().then((_) {
         _runInitialSync();
@@ -235,18 +381,14 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  /// ── M-009: Wird vom SettingsScreen aufgerufen bei Logout.
   void _onLogout() {
     _log.i('[Auth] Logout durchgeführt.');
     _pbService.logout();
-
-    // Sync stoppen
     _syncTimer?.cancel();
-
     setState(() => _isLoggedIn = false);
   }
 
-  // ── Bestehende Sync-Logik (unverändert) ───────────────────────────────────
+  // ── Sync ──────────────────────────────────────────────────────────────────
 
   Future<void> _loadSyncSettings() async {
     final prefs = await SharedPreferences.getInstance();
@@ -308,15 +450,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  // ── Setup-Callback (unverändert) ──────────────────────────────────────────
+  // ── Setup ─────────────────────────────────────────────────────────────────
 
-  /// Wird aufgerufen wenn der Setup-Screen erfolgreich eine URL
-  /// konfiguriert hat. Initialisiert die Sync-Services und wechselt
-  /// zur normalen App-Ansicht NACHDEM der initiale Sync abgeschlossen ist.
   void _onServerConfigured() {
     _log.i('[Main] Server konfiguriert, starte initialen Sync...');
 
-    // Sync-Services neu initialisieren mit dem jetzt verfügbaren Client
     if (_pbService.hasClient) {
       try {
         _orchestrator.dispose();
@@ -326,16 +464,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
 
-      // ── GEÄNDERT: Auth-Check + Sync ABWARTEN, dann erst UI wechseln ──
+      // Konflikt-Callback nach Neuinitialisierung wieder registrieren
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _registerConflictCallback();
+      });
+
       _checkAuthStatus().then((_) {
         if ((_isLoggedIn || _devMode) && !kIsWeb) {
           _loadSyncSettings().then((_) async {
-            // Initialen Sync durchführen und ABWARTEN
             _log.i('[Main] Starte initialen Sync nach Setup...');
             await _runInitialSync();
             _log.i('[Main] Initialer Sync abgeschlossen');
 
-            // ERST JETZT zur normalen App wechseln
             if (mounted) {
               setState(() => _needsSetup = false);
             }
@@ -343,7 +483,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             _startPeriodicSync();
           });
         } else {
-          // Kein Sync nötig (Web oder nicht eingeloggt) → sofort wechseln
           _log.i('[Main] Kein Sync nötig → direkt zur App');
           if (mounted) {
             setState(() => _needsSetup = false);
@@ -351,7 +490,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         }
       });
 
-      // Health-Check im Hintergrund (unverändert)
       if (!kIsWeb) {
         unawaited(
           _pbService.checkHealth().then((ok) {
@@ -361,13 +499,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               _log.w('[Main] PocketBase nicht erreichbar nach Setup');
             }
           }).catchError((Object e, StackTrace st) {
-            _log.e('[Main] Health-Check Fehler nach Setup',
-                error: e, stackTrace: st,);
+            _log.e(
+              '[Main] Health-Check Fehler nach Setup',
+              error: e,
+              stackTrace: st,
+            );
           }),
         );
       }
     } else {
-      // Kein Client → trotzdem Setup beenden (Fehlerfall)
       _log.w('[Main] Kein PocketBase-Client nach Setup → Fehlerfall');
       if (mounted) {
         setState(() => _needsSetup = false);
@@ -375,7 +515,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  // ── Lifecycle (unverändert) ───────────────────────────────────────────────
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
 
   @override
   void dispose() {
@@ -385,28 +525,42 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     AppLogService.logger.close();
     super.dispose();
   }
-  @override
 
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.resumed:
         _cleanupDone = false;
 
-        // ── F-001: Prüfe ob App gesperrt werden muss ──────────────────────
         if (!kIsWeb && AppLockService().onAppResumed()) {
           setState(() => _isAppLocked = true);
         }
 
         if (!kIsWeb && _pbService.hasClient) {
-          unawaited(_syncIfConnected());
+          // F2: DB vor Sync wiederherstellen.
+          // closeDatabase() setzt _db = null bei paused.
+          // openDatabase() ist idempotent — No-op wenn DB bereits offen.
+          unawaited(
+            _db.openDatabase().then((_) {
+              _log.d('[Main] DB nach Resume geöffnet');
+              return _syncIfConnected();
+            }).catchError((Object e, StackTrace st) {
+              _log.e(
+                '[Main] DB-Reopen nach Resume fehlgeschlagen',
+                error: e,
+                stackTrace: st,
+              );
+            }),
+          );
         }
+
       case AppLifecycleState.paused:
       case AppLifecycleState.detached:
-        // ── F-001: Pause-Zeitpunkt merken ─────────────────────────────────
         if (!kIsWeb) {
           AppLockService().onAppPaused();
         }
         unawaited(_cleanupResources());
+
       default:
         break;
     }
@@ -424,7 +578,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     }
   }
 
-  // ── Build (M-009: Auth-Gate integriert + Dev-Mode) ────────────────────────
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -434,8 +588,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       darkTheme: AppTheme.dunkel,
       themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
-      // Eindeutiger Key erzwingt kompletten Navigator-Neuaufbau
-      // beim Wechsel zwischen Setup, Login und Haupt-App
+      // F2: NavigatorKey für Konflikt-UI ohne BuildContext
+      navigatorKey: _navigatorKey,
       key: ValueKey(
         _needsSetup
             ? 'setup'
@@ -448,7 +602,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         switch (settings.name) {
           case '/settings':
             return MaterialPageRoute(
-              builder: (_) => SettingsScreen(onLogout: _onLogout), // ── M-009
+              builder: (_) => SettingsScreen(onLogout: _onLogout),
             );
           default:
             return MaterialPageRoute(
@@ -459,21 +613,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
   }
 
-  /// ── M-009: Entscheidet welcher Screen angezeigt wird.
-  ///
-  /// Priorität:
-  /// 1. Setup-Screen (keine Server-URL konfiguriert)
-  /// 2. Auth-Check Ladebildschirm (Token wird geprüft, nicht im Dev-Mode)
-  /// 3. Login-Screen (nicht eingeloggt UND nicht im Dev-Mode)
-  /// 4. Haupt-App (eingeloggt ODER Dev-Mode)
   Widget _buildHome() {
-    // Priorität 1: Server-Setup benötigt
     if (_needsSetup) {
       return ServerSetupScreen(onConfigured: _onServerConfigured);
     }
 
-    // Priorität 2: Auth-Status wird noch geprüft (Auto-Login)
-    // Im Dev-Mode wird dieser Schritt übersprungen (_isCheckingAuth = false)
     if (_isCheckingAuth) {
       return Scaffold(
         body: Center(
@@ -491,7 +635,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               Text(
                 'Authentifizierung wird geprüft…',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
               ),
             ],
@@ -500,13 +644,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       );
     }
 
-    // Priorität 3: Login erforderlich (im Dev-Mode übersprungen)
     if (!_isLoggedIn && !_devMode) {
       return LoginScreen(onLoginSuccess: _onLoginSuccess);
     }
 
-    // Priorität 4: Normale App (eingeloggt oder Dev-Mode)
-    // ── F-001: Lock-Screen Overlay wenn App gesperrt ──────────────────────
     if (_isAppLocked) {
       return Stack(
         children: [
@@ -535,10 +676,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               },
             ),
           ),
-          ArtikelListScreen(syncStatusProvider: _orchestrator), // ← GEÄNDERT
+          ArtikelListScreen(syncStatusProvider: _orchestrator),
         ],
       );
     }
-    return ArtikelListScreen(syncStatusProvider: _orchestrator); // ← GEÄNDERT
+    return ArtikelListScreen(syncStatusProvider: _orchestrator);
   }
 }

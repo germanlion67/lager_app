@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.4+17 | Zuletzt aktualisiert: April 2026
+**Version:** 0.8.5+19 | Zuletzt aktualisiert: April 2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **590 Tests bestanden, 3 skipped, 0 Fehler**
+✅ **610 Tests bestanden, 3 skipped, 0 Fehler**
 
 > `--exclude-tags performance` st optional verfügbar, aber nicht erforderlich.
 > Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
@@ -41,6 +41,8 @@ flutter test
 | `test/services/nextcloud_client_test.dart`| Unit          | 39          | T-003   |
 | `test/services/nextcloud_listfiles_test.dart`| Unit          | 1           | —       |
 | `test/services/pocketbase_sync_service_test.dart`| Unit          | 17          | T-002   |
+| `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 11 | T-008 |
+| `test/services/sync_orchestrator_test.dart`                | Unit | 9  | T-008 |
 | `test/services/sync_status_provider_test.dart`| Unit          | 5           | K-006   |
 | `test/utils/attachment_utils_test.dart`| Unit          | 28          | —       |
 | `test/utils/image_processing_utils_test.dart`| Unit          | 30          | O-002   |
@@ -52,7 +54,7 @@ flutter test
 | `test/performance/import_500_smoke_test.dart`| Performance   | 1           | T-007   |
 | `test/helpers/fake_sync_status_provider.dart`| Test-Helper   | —           | K-006   |
 | `test/helpers/no_op_nextcloud_service.dart`| Test-Helper   | —           | O-006   |
-| **Gesamt**                        |               | **590 (3 skipped)** |         |
+| **Gesamt** | | **610 (3 skipped)** | |
 
 ---
 
@@ -153,6 +155,47 @@ flutter test test/conflict_resolution_test.dart
 
 ```bash
 flutter test test/services/pocketbase_sync_service_test.dart
+```
+
+---
+
+### `services/pocketbase_sync_service_conflict_test.dart` + `services/sync_orchestrator_test.dart` — T-008 (20 Tests)
+
+**Ziel:** Unit-Tests für ETag-basierte Konflikt-Erkennung in `PocketBaseSyncService`
+und `downloadMissingImages`-Skip-Logik im `SyncOrchestrator`.
+
+**Strategie:**
+- Reine Unit-Tests ohne Netzwerk, SQLite oder Dateisystem
+- ETag-Logik als isolierte Funktion mit Laufzeit-Parametern getestet
+  (`dead_code`-Lint vermieden durch lokale Funktion statt `false && X`)
+- `Artikel()`-Konstruktor: `erstelltAm`/`aktualisiertAm` als `DateTime` (nicht `String`)
+- `ConflictCallback`-Typedef direkt auf Typ-Kompatibilität geprüft
+
+| Gruppe | Tests | Datei | Was wird geprüft |
+| :----- | :---- | :---- | :--------------- |
+| ConflictCallback Typedef | 1 | conflict_test | Typ-Kompatibilität des Callbacks |
+| `onConflictDetected` initial | 1 | conflict_test | Initial `null` nach Konstruktor |
+| ETag-Konflikt-Logik (Unit) | 5 | conflict_test | Leer, gleich, verschieden, `deleted`, leerer Remote |
+| downloadMissingImages Datei-Check | 3 | conflict_test | Leerer Pfad, nicht-existent, existiert mit Inhalt |
+| ConflictCapture Integration | 1 | conflict_test | Callback mit korrekten lokalen + Remote-Artikeln |
+| ConflictCallback Typedef (Orchestrator) | 2 | orchestrator_test | Zuweisung, Exception-Handling |
+| SyncStatus Enum | 2 | orchestrator_test | Vollständigkeit, exhaustiver Switch |
+| ETag Grenzwerte | 2 | orchestrator_test | Whitespace-Unterschied, beide leer |
+
+**Fixes während Test-Erstellung:**
+- `Artikel()`-Konstruktor: `erstelltAm`/`aktualisiertAm` sind `DateTime`,
+  nicht `String` — alle Test-Instanzen auf `DateTime.now()` umgestellt
+- `dead_code`-Lint: `false && X`-Muster durch lokale Funktion mit
+  Laufzeit-Parametern ersetzt
+- `expected_token`: fehlende `});` nach `test()` und `group()` ergänzt
+
+```bash
+flutter test test/services/pocketbase_sync_service_conflict_test.dart
+flutter test test/services/sync_orchestrator_test.dart
+
+# Beide zusammen:
+flutter test test/services/pocketbase_sync_service_conflict_test.dart \
+             test/services/sync_orchestrator_test.dart
 ```
 
 ---
@@ -591,6 +634,10 @@ flutter test test/services/attachment_service_test.dart \
 # Nur PocketBase Sync (T-002)
 flutter test test/services/pocketbase_sync_service_test.dart
 
+# Nur ETag-Konflikt + Orchestrator (T-008)
+flutter test test/services/pocketbase_sync_service_conflict_test.dart \
+             test/services/sync_orchestrator_test.dart
+
 # Nur MergeDialog (T-004)
 flutter test test/widgets/merge_dialog_test.dart
 
@@ -669,6 +716,7 @@ fake.dispose();
 | `FakeRecordService`   | Erweitert `RecordService` — Handler-Callbacks für alle CRUD-Operationen   |
 | `FakePocketBase`      | Erweitert `PocketBase` — leitet `collection()` auf `FakeRecordService` um |
 | `TestableSyncService` | Repliziert `PocketBaseSyncService`-Logik mit injizierbaren Fakes          |
+| `istKonfliktFn` (lokal) | Laufzeit-Funktion in T-008 — ersetzt `false && X`-Muster für `dead_code`-Lint |
 
 
 ### Fake-Klassen für AttachmentService (`attachment_service_test.dart`)

@@ -28,7 +28,7 @@ Die App nutzt zwei persistente Datenspeicher:
 | `remote_path` | TEXT | **PocketBase Record-ID** (Verbindung zum Server) |
 | `updated_at` | INTEGER | Letzter Änderungszeitpunkt (Unix ms) |
 | `deleted` | INTEGER | Soft-Delete Flag (0 = aktiv, 1 = gelöscht) |
-| `etag` | TEXT | ETag für die HTTP-Cache-Validierung |
+| `etag` | TEXT | PocketBase `updated`-Timestamp (ISO 8601) des letzten erfolgreichen Sync. `NULL` = lokale Änderung ausstehend (Pending). Abweichung vom Remote-Wert löst Konflikt-Erkennung aus (B-005). |
 | `bildPfad` | TEXT | Lokaler Pfad zum Originalbild |
 | `thumbnailPfad`| TEXT | Lokaler Pfad zum Vorschaubild |
 | `remoteBildPfad`| TEXT | Dateiname des Bildes auf dem Server |
@@ -117,9 +117,63 @@ Die Synchronisation folgt einem strikten Ablauf, um Datenkonsistenz über mehrer
 ```
 
 ### 2.2 Konfliktauflösung (Sync-Identifier Strategie)
+
 *   **`uuid`**: Bleibt immer gleich. Verhindert Duplikate bei Offline-Erstellung.
 *   **`remote_path`**: Verknüpft den lokalen Datensatz fest mit dem Server-Record.
-*   **`etag`**: Ein Wert von `NULL` signalisiert eine lokale Änderung, die noch nicht hochgeladen wurde ("Pending").
+*   **`etag`**: Ein Wert von `NULL` signalisiert eine lokale Änderung, die noch
+    nicht hochgeladen wurde ("Pending"). Nach erfolgreichem PATCH wird `etag`
+    auf den PocketBase `updated`-Timestamp (ISO 8601) gesetzt — **nicht** auf
+    die Record-ID.
+
+### 2.3 ETag-basierte Konflikt-Erkennung (B-005, ab v0.8.5+19)
+
+Vor jedem PATCH-Request lädt `PocketBaseSyncService` den aktuellen Remote-Record
+und vergleicht dessen `updated`-Timestamp mit dem lokal gespeicherten `etag`:
+
+```dart
+final istKonflikt = lokalerEtag.isNotEmpty &&
+    lokalerEtag != 'deleted' &&
+    remoteUpdated.isNotEmpty &&
+    lokalerEtag != remoteUpdated;
+```
+
+| Zustand | Verhalten |
+|---------|-----------|
+| `etag` leer (neuer Artikel) | Kein Konflikt-Check — direkt `create()` |
+| `etag == remoteUpdated` | Kein Konflikt — direkt `update()` |
+| `etag != remoteUpdated` | Konflikt — `onConflictDetected`-Callback |
+| `etag == 'deleted'` | Kein Konflikt-Check — direkt `delete()` |
+| `remoteUpdated` leer | Kein Konflikt-Check — Remote-Record nicht gefunden |
+
+> **Wichtig:** `etag` speichert den PocketBase `updated`-Timestamp (ISO 8601),
+> **nicht** die Record-ID (`remote_path`). Beide Felder haben unterschiedliche
+> Bedeutungen und dürfen nicht verwechselt werden.
+
+### 2.4 Ablauf-Diagramm mit Konflikt-Erkennung
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                      SYNC PROZESS                       │
+│                                                         │
+│  1. Lese 'last_sync' aus 'sync_meta'                    │
+│                                                         │
+│  2. LOCAL → REMOTE (Push)                               │
+│     ├── WHERE etag IS NULL AND deleted = 0              │
+│     │     ├── etag leer (neu) → CREATE auf PocketBase   │
+│     │     └── etag gesetzt → Remote-Record laden        │
+│     │           ├── etag == remote.updated → UPDATE     │
+│     │           └── etag != remote.updated → KONFLIKT   │
+│     │                 └── onConflictDetected() aufrufen  │
+│     └── WHERE etag IS NULL AND deleted = 1              │
+│           └── DELETE auf PocketBase (Hard-Delete)       │
+│                                                         │
+│  3. REMOTE → LOCAL (Pull)                               │
+│     ├── Neue/geänderte Records von PocketBase holen     │
+│     └── Lokal einfügen oder aktualisieren (upsert)      │
+│                                                         │
+│  4. Schreibe neuen 'last_sync' Timestamp                │
+└─────────────────────────────────────────────────────────┘
+```
 
 ---
 
@@ -266,22 +320,24 @@ Future<void> setBildPfadByUuidSilent(String uuid, String bildPfad)
 Aktualisiert **nur** den lokalen `bildPfad`, ohne `updated_at` oder `etag`
 zu ändern. Dadurch wird kein erneuter Push zum Server ausgelöst.
 
-**Unterschied zu `setBildPfadByUuid()`:**
+**Unterschied zu `setBildPfadByUuid()` und verwandten Methoden:**
 
-| Methode | Ändert `bildPfad` | Ändert `updated_at` | Sync-Trigger |
-|---|---|---|---|
-| `setBildPfadByUuid()` | ✅ | ✅ | ✅ Ja (wird als pending erkannt) |
-| `setBildPfadByUuidSilent()` | ✅ | ❌ | ❌ Nein |
+| Methode | Ändert `bildPfad` | Ändert `updated_at` | Ändert `etag` | Sync-Trigger |
+|---------|-------------------|---------------------|---------------|--------------|
+| `setBildPfadByUuid()` | ✅ | ✅ | ❌ | ✅ Ja (wird als pending erkannt) |
+| `setBildPfadByUuidSilent()` | ✅ | ❌ | ❌ | ❌ Nein |
+| `markSynced(uuid, etag)` | ❌ | ❌ | ✅ Setzt ETag | ❌ Nein |
+| `markAsModified(uuid)` | ❌ | ✅ jetzt | ✅ → NULL | ✅ Ja (Pending) |
 
 ### Download-Logik
 
-```
+```text
 downloadMissingImages()
   → getAlleArtikel(limit: 999999)
   → Für jeden Artikel:
-      → remoteBildPfad leer? → skip
+      → bildPfad leer? → skip
       → remotePath (Record-ID) leer? → skip
-      → Lokale Datei existiert und > 0 Bytes? → skip
+      → Lokale Datei existiert UND > 0 Bytes? → skip   ← B-003: Negation war invertiert
       → HTTP GET /api/files/artikel/{recordId}/{filename}
       → Speichern in: {cacheDir}/images/{uuid}/{filename}
       → setBildPfadByUuidSilent(uuid, localPath)

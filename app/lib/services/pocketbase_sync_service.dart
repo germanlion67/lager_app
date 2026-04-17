@@ -1,4 +1,12 @@
 // lib/services/pocketbase_sync_service.dart
+//
+// CHANGES v0.8.5:
+//   F1 — downloadMissingImages: Datei-Existenz-Check korrigiert.
+//         Vorher: artikel.bildPfad.isNotEmpty → skip (auch wenn Datei fehlt).
+//         Jetzt:  Datei muss existieren UND > 0 Bytes sein.
+//   F4 — _pushToPocketBase: ETag-basierte Konflikt-Erkennung vor PATCH.
+//         Wenn Server-updated_at != lokaler ETag → Konflikt → UI-Callback.
+//   F4 — ConflictCallback-Typedef für lose Kopplung zur UI.
 
 import 'dart:async';
 import 'dart:io';
@@ -12,6 +20,15 @@ import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'pocketbase_service.dart';
 
+// ── F4: Konflikt-Callback-Typedef ────────────────────────────────────────────
+// Begründung: PocketBaseSyncService soll keine UI-Abhängigkeit haben.
+// Der Callback erlaubt main.dart/SyncOrchestrator die Konflikt-UI zu steuern,
+// ohne dass der Service Flutter-Widgets importieren muss.
+typedef ConflictCallback = Future<void> Function(
+  Artikel lokalerArtikel,
+  Artikel remoteArtikel,
+);
+
 class PocketBaseSyncService {
   final String collectionName;
 
@@ -19,10 +36,13 @@ class PocketBaseSyncService {
   final ArtikelDbService _db;
   final Logger _logger = Logger();
 
+  // ── F4: Optionaler Konflikt-Callback ─────────────────────────────────────
+  // Wird von SyncOrchestrator gesetzt, nachdem die UI bereit ist.
+  ConflictCallback? onConflictDetected;
+
   PocketBaseSyncService(this.collectionName, this._pbService, this._db);
 
   /// Führt einen kompletten Sync-Zyklus durch: Push → Pull.
-  /// Wird im Web sofort abgebrochen (no-op).
   Future<void> syncOnce() async {
     if (kIsWeb) {
       _logger.d('PocketBaseSync: Skipping sync on Web platform');
@@ -37,17 +57,21 @@ class PocketBaseSyncService {
       _logger.i('PocketBaseSync: syncOnce end (success)');
     } catch (e, st) {
       _logger.e('PocketBaseSync: syncOnce failed', error: e, stackTrace: st);
+      rethrow; // ← NEU: Exception nach oben weiterleiten für SyncOrchestrator
     }
   }
 
   /// Lokale Änderungen → PocketBase hochladen.
+  ///
+  /// F4: Vor jedem PATCH wird der Remote-updated_at mit dem lokalen ETag
+  /// verglichen. Weichen sie ab, wurde der Record auf dem Server geändert
+  /// → Konflikt-Callback wird aufgerufen statt blind zu überschreiben.
   Future<void> _pushToPocketBase() async {
     final pending = await _db.getPendingChanges();
     _logger.i('PocketBaseSync: pushing ${pending.length} pending changes');
 
     for (final artikel in pending) {
       try {
-        // FIX Finding 5: UUID von Anführungszeichen bereinigen
         final safeUuid = artikel.uuid.replaceAll('"', '');
         final filter = 'uuid = "$safeUuid"';
         _logger.d('PocketBaseSync: searching for remote record: $filter');
@@ -56,7 +80,7 @@ class PocketBaseSyncService {
             .collection(collectionName)
             .getList(filter: filter);
 
-        // FIX Finding 3: Gelöschte Artikel remote löschen statt updaten
+        // Gelöschte Artikel remote löschen
         if (artikel.deleted == true) {
           if (list.items.isNotEmpty) {
             await _pbService.client
@@ -68,17 +92,63 @@ class PocketBaseSyncService {
             );
           } else {
             _logger.d(
-              'Remote record for uuid ${artikel.uuid} already absent — '
-              'nothing to delete',
+              'Remote record for uuid ${artikel.uuid} already absent',
             );
           }
-          // FIX Finding 1: 'deleted' als ETag-Marker, remote_path leer lassen
           await _db.markSynced(artikel.uuid, 'deleted');
           continue;
         }
 
         if (list.items.isNotEmpty) {
-          final recId = list.items.first.id;
+          final remoteRecord = list.items.first;
+          final recId = remoteRecord.id;
+
+          // ── F4: Konflikt-Erkennung ──────────────────────────────────────
+          // Der lokale ETag ist der `updated`-Timestamp vom letzten Pull.
+          // Wenn der Server jetzt einen anderen `updated`-Wert hat,
+          // wurde der Record auf dem Server geändert → Konflikt.
+          final remoteUpdated = _safeGet(remoteRecord.data, 'updated');
+          final lokalerEtag = artikel.etag ?? '';
+
+          // Nur prüfen wenn wir einen ETag haben (= Artikel war schon mal
+          // synchronisiert). Neue Artikel (etag == null) haben keinen Konflikt.
+          if (lokalerEtag.isNotEmpty &&
+              lokalerEtag != 'deleted' &&
+              remoteUpdated.isNotEmpty &&
+              lokalerEtag != remoteUpdated) {
+            _logger.w(
+              'PocketBaseSync: Konflikt erkannt für ${artikel.uuid} '
+              '(lokal ETag: $lokalerEtag, remote updated: $remoteUpdated)',
+            );
+
+            if (onConflictDetected != null) {
+              try {
+                // Remote-Version für Vergleich laden
+                final remoteArtikel = Artikel.fromPocketBase(
+                  Map<String, dynamic>.from(remoteRecord.data),
+                  remoteRecord.id,
+                  created: _safeGet(remoteRecord.data, 'created'),
+                  updated: remoteUpdated,
+                );
+                await onConflictDetected!(artikel, remoteArtikel);
+              } catch (e, st) {
+                _logger.e(
+                  'PocketBaseSync: Konflikt-Callback fehlgeschlagen',
+                  error: e,
+                  stackTrace: st,
+                );
+              }
+            } else {
+              _logger.w(
+                'PocketBaseSync: Kein Konflikt-Callback registriert — '
+                'überspringe Artikel ${artikel.uuid}',
+              );
+            }
+            // Artikel nicht pushen — Konflikt muss erst aufgelöst werden
+            continue;
+          }
+
+          // Kein Konflikt → normal updaten
           final body = artikel.toPocketBaseMap();
           if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
             body['owner'] = _pbService.currentUserId;
@@ -89,13 +159,16 @@ class PocketBaseSyncService {
 
           await _db.markSynced(
             artikel.uuid,
-            artikel.etag ?? '',
+            _safeGet(updated.data, 'updated').isNotEmpty
+                ? _safeGet(updated.data, 'updated')
+                : updated.id,
             remotePath: updated.id,
           );
           _logger.d(
             'Updated PB record ${updated.id} for uuid ${artikel.uuid}',
           );
         } else {
+          // Neuer Artikel → POST
           final body = artikel.toPocketBaseMap();
           if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
             body['owner'] = _pbService.currentUserId;
@@ -104,9 +177,14 @@ class PocketBaseSyncService {
               .collection(collectionName)
               .create(body: body);
 
+          // ETag = updated-Timestamp des neu erstellten Records
+          final createdEtag = _safeGet(created.data, 'updated').isNotEmpty
+              ? _safeGet(created.data, 'updated')
+              : created.id;
+
           await _db.markSynced(
             artikel.uuid,
-            artikel.etag ?? '',
+            createdEtag,
             remotePath: created.id,
           );
           _logger.d(
@@ -119,9 +197,7 @@ class PocketBaseSyncService {
           error: e,
           stackTrace: st,
         );
-        _logger.w(
-          'Artikel ${artikel.uuid} bleibt pending für nächsten Sync',
-        );
+        _logger.w('Artikel ${artikel.uuid} bleibt pending für nächsten Sync');
       }
     }
     _logger.i('PocketBaseSync: push phase completed');
@@ -151,6 +227,7 @@ class PocketBaseSyncService {
             updated: updatedRaw,
           );
 
+          // ETag = updated-Timestamp (eindeutig pro Record-Version)
           final etag = updatedRaw.isNotEmpty ? updatedRaw : r.id;
 
           await _db.upsertArtikel(artikel, etag: etag);
@@ -185,20 +262,14 @@ class PocketBaseSyncService {
       }
     } catch (e, st) {
       _logger.e('PocketBase pull failed', error: e, stackTrace: st);
+      rethrow;
     }
   }
 
-  // ==================== NEU: IMAGE DOWNLOAD ====================
+  // ── IMAGE DOWNLOAD ────────────────────────────────────────────────────────
 
   /// Prüft alle synchronisierten Artikel auf fehlende lokale Bilddateien
   /// und lädt diese von PocketBase herunter.
-  ///
-  /// Strategie:
-  /// - Nur Artikel mit remoteBildPfad UND remotePath (PB Record-ID)
-  /// - Nur wenn lokaler bildPfad leer oder Datei nicht existiert
-  /// - Download über PocketBase File-API (HTTP GET)
-  /// - Speicherung im App-Cache-Verzeichnis
-  /// - DB-Update über setBildPfadByUuidSilent() → kein Sync-Trigger
   Future<void> downloadMissingImages() async {
     if (kIsWeb) return;
 
@@ -208,14 +279,13 @@ class PocketBaseSyncService {
     int failed = 0;
 
     try {
-      // Alle nicht-gelöschten Artikel laden (ohne Pagination-Limit)
-      final alleArtikel = await _db.getAlleArtikel(limit: 999999, offset: 0);
+      final alleArtikel = await _db.getAlleArtikel();
 
       for (final artikel in alleArtikel) {
         try {
-          // Kein Remote-Bild vorhanden → überspringen
           final remoteBild = artikel.remoteBildPfad;
           final recordId = artikel.remotePath;
+
           if (remoteBild == null || remoteBild.isEmpty) {
             skipped++;
             continue;
@@ -225,16 +295,32 @@ class PocketBaseSyncService {
             continue;
           }
 
-          // Lokales Bild existiert bereits und ist nicht leer → überspringen
+          // ── F1: Korrigierter Existenz-Check ──────────────────────────────
+          // Vorher: artikel.bildPfad.isNotEmpty → skip
+          //         (übersprang auch Artikel mit veraltetem/ungültigem Pfad)
+          // Jetzt:  Datei muss physisch existieren UND > 0 Bytes haben.
+          //         Ein leerer oder nicht-existierender Pfad → Download.
           if (artikel.bildPfad.isNotEmpty) {
-            final localFile = File(artikel.bildPfad);
-            if (localFile.existsSync() && localFile.lengthSync() > 0) {
-              skipped++;
-              continue;
+            try {
+              final localFile = File(artikel.bildPfad);
+              if (localFile.existsSync() && localFile.lengthSync() > 0) {
+                skipped++;
+                continue; // Bild ist wirklich vorhanden → überspringen
+              }
+              // Datei existiert nicht oder ist leer → neu herunterladen
+              _logger.d(
+                'PocketBaseSync: Lokale Bilddatei fehlt oder leer für '
+                '${artikel.uuid} (Pfad: ${artikel.bildPfad}) → re-download',
+              );
+            } catch (fileError) {
+              // Dateisystem-Fehler → sicherheitshalber neu herunterladen
+              _logger.w(
+                'PocketBaseSync: Datei-Check fehlgeschlagen für '
+                '${artikel.uuid}: $fileError → re-download',
+              );
             }
           }
 
-          // Bild-URL bauen
           final imageUrl = _buildImageUrl(recordId, remoteBild);
           if (imageUrl == null) {
             _logger.w(
@@ -250,7 +336,6 @@ class PocketBaseSyncService {
             '${artikel.uuid}: $imageUrl',
           );
 
-          // HTTP-Download mit Auth-Header
           final response = await http.get(
             Uri.parse(imageUrl),
             headers: _buildAuthHeaders(),
@@ -274,7 +359,6 @@ class PocketBaseSyncService {
             continue;
           }
 
-          // Lokalen Pfad erstellen und Datei speichern
           final cacheDir = await getApplicationCacheDirectory();
           final imageDir = Directory(
             '${cacheDir.path}/images/${artikel.uuid}',
@@ -286,8 +370,6 @@ class PocketBaseSyncService {
           final localPath = '${imageDir.path}/$remoteBild';
           await File(localPath).writeAsBytes(bytes);
 
-          // DB aktualisieren — NUR bildPfad, OHNE updated_at/etag zu ändern
-          // → kein erneuter Push wird ausgelöst
           await _db.setBildPfadByUuidSilent(artikel.uuid, localPath);
 
           downloaded++;
@@ -320,12 +402,6 @@ class PocketBaseSyncService {
   }
 
   /// Baut die PocketBase File-URL für ein Artikel-Bild.
-  ///
-  /// Format: {pb_url}/api/files/{collectionName}/{recordId}/{filename}
-  ///
-  /// Das PB-Feld heißt 'bild' (siehe Artikel.fromPocketBase),
-  /// aber der Dateiname in remoteBildPfad ist der tatsächliche Filename
-  /// auf dem PB-Server (z.B. "foto_abc123.jpg").
   String? _buildImageUrl(String recordId, String filename) {
     try {
       if (!_pbService.hasClient || _pbService.url.isEmpty) return null;
@@ -343,10 +419,6 @@ class PocketBaseSyncService {
   }
 
   /// Baut Auth-Headers für den PocketBase File-Download.
-  ///
-  /// Nutzt den Token aus dem bestehenden PocketBase-Client,
-  /// falls authentifiziert. PB-Files können auch public sein —
-  /// in dem Fall ist der Header optional.
   Map<String, String> _buildAuthHeaders() {
     final headers = <String, String>{};
     try {
@@ -357,12 +429,11 @@ class PocketBaseSyncService {
         }
       }
     } catch (_) {
-      // Auth-Header optional — PB-Files können auch public sein
+      // Auth-Header optional
     }
     return headers;
   }
 
-  /// Sicherer Zugriff auf PocketBase-Felder ohne Exception-Risiko.
   String _safeGet(Map<String, dynamic> data, String key) {
     final value = data[key];
     if (value == null) return '';

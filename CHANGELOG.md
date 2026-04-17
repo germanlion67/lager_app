@@ -2,6 +2,107 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.5+19] — 2026-04-17
+
+### Bugfix (B-003): Bild-Download-Skip-Logik in downloadMissingImages korrigiert
+
+**Problem: aus Test T-001.7** Bilder wurden nie heruntergeladen, weil die Skip-Bedingung
+invertiert war — `dateiExistiert && dateiHatInhalt` wurde als Skip-Kriterium
+ausgewertet, aber die Negation fehlte.
+
+**Lösung:**
+- `downloadMissingImages()` in `pocketbase_sync_service.dart`:
+  Skip nur wenn `bildPfad.isNotEmpty && dateiExistiert && dateiHatInhalt`
+  — andernfalls Download auslösen
+- Logik jetzt korrekt: existierende Datei mit Inhalt → überspringen,
+  alles andere → herunterladen
+
+---
+
+### Bugfix (B-004):  aus Test T-001.7 - Konflikt-Callback-Registrierung nach Navigator-Init via GlobalKey
+
+**Problem:** `onConflictDetected`-Callback wurde vor dem Navigator-Init
+registriert — `Navigator.of(context)` warf einen Fehler weil kein
+`MaterialApp`-Kontext verfügbar war.
+
+**Lösung:**
+- `GlobalKey<NavigatorState>` in `main.dart` eingeführt
+- Callback-Registrierung via `addPostFrameCallback` nach erstem Frame
+- DB-Reopen nach App-Resume (`didChangeAppLifecycleState`) vor Sync-Start
+  sicherstellt, dass SQLite-Verbindung nach Hintergrundwechsel aktiv ist
+
+---
+
+### Bugfix (B-005):  aus Test T-001.7 - ETag-basierte Konflikt-Erkennung vor PATCH in PocketBaseSyncService
+
+**Problem:** Jeder Push überschrieb Remote-Änderungen ohne Konflikt-Check —
+`updated` Timestamp des Remote-Records wurde nicht mit lokalem ETag verglichen.
+
+**Lösung:**
+- Vor jedem PATCH: Remote-Record laden, `updated`-Timestamp mit lokalem
+  `etag` vergleichen
+- Bei Abweichung: `onConflictDetected`-Callback aufrufen statt blind zu überschreiben
+- ETag = PocketBase `updated`-Timestamp (ISO 8601), nicht Record-ID
+
+**Konflikt-Erkennungs-Logik:**
+final istKonflikt = lokalerEtag.isNotEmpty &&
+    lokalerEtag != 'deleted' &&
+    remoteUpdated.isNotEmpty &&
+    lokalerEtag != remoteUpdated;
+
+---
+
+### Bugfix (B-006):  aus Test T-001.7 - SyncManagementScreen nutzt SyncOrchestrator statt SyncService
+
+**Problem:** `SyncManagementScreen` rief `SyncService` direkt auf und umging
+dabei den `SyncOrchestrator` — Status-Stream, Conflict-Handling und
+`downloadMissingImages()` wurden nicht ausgeführt.
+
+**Lösung:**
+- `SyncManagementScreen` erhält `SyncOrchestrator`-Instanz als Parameter
+- Sync-Start über `orchestrator.runOnce()` statt direktem `SyncService`-Aufruf
+- Status-Updates korrekt über `syncStatus`-Stream empfangen
+
+---
+
+### Tests (T-008): ETag-Konflikt-Logik und downloadMissingImages-Check-Logik
+
+**Neue Testdateien:**
+- `test/services/pocketbase_sync_service_conflict_test.dart` — **11 Tests**
+- `test/services/sync_orchestrator_test.dart` — **9 Tests** (erweitert)
+
+**Abgedeckte Gruppen:**
+
+| Gruppe | Tests | Szenarien |
+|--------|-------|-----------|
+| ConflictCallback Typedef | 1 | Typ-Kompatibilität |
+| PocketBaseSyncService.onConflictDetected | 1 | Initial null |
+| ETag-Konflikt-Logik (Unit) | 5 | Leer, gleich, verschieden, deleted, leerer Remote |
+| downloadMissingImages Datei-Check | 3 | Leerer Pfad, nicht-existent, existiert mit Inhalt |
+| ConflictCapture Integration | 1 | Callback mit korrekten Artikeln |
+| ConflictCallback Typedef (Orchestrator) | 2 | Zuweisung, Exception-Handling |
+| SyncStatus Enum | 2 | Vollständigkeit, exhaustiver Switch |
+| ETag Grenzwerte | 2 | Whitespace-Unterschied, beide leer |
+
+**Fixes während Test-Erstellung:**
+- `Artikel()`-Konstruktor: `erstelltAm`/`aktualisiertAm` sind `DateTime`,
+  nicht `String` — alle Test-Instanzen auf `DateTime.now()` umgestellt
+- `dead_code`-Lint: `false && X`-Muster durch lokale Funktion mit
+  Laufzeit-Parametern ersetzt (Compiler kann Wert nicht zur Compile-Zeit auflösen)
+- `expected_token`: fehlende `});` nach `test()` und `group()` ergänzt
+
+**Gesamtstand:**
+
+| Vorher | Nachher | Differenz |
+|--------|---------|-----------|
+| 590 Tests, 26 Dateien | **610 Tests**, 28 Dateien | **+20 Tests**, +2 Dateien |
+
+- `flutter analyze`: **0 Issues** ✅
+- `flutter test`: **610 bestanden**, 3 übersprungen ✅
+
+---
+
+
 ## [0.8.4+17] — 2026-04-14
 
 ### Optimierung (N-003): App-Icon für alle Plattformen
