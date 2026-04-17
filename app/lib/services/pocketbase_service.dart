@@ -368,7 +368,7 @@ class PocketBaseService {
         error: e,
         stackTrace: stack,
       );
-      throw LoginTimeoutException(AppConfig.loginTimeout);
+      throw const LoginTimeoutException(AppConfig.loginTimeout);
     } catch (e, stack) {
       _logger.e(
         '❌ Login fehlgeschlagen für $email',
