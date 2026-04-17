@@ -71,19 +71,9 @@ class _LoginScreenState extends State<LoginScreen> {
         });
       }
     } on LoginTimeoutException {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage =
-            'Zeitüberschreitung beim Login. '
-            'Der Server antwortet nicht.';
-      });
+      _setLoginTimeoutError();
     } on TimeoutException {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage =
-            'Zeitüberschreitung beim Login. '
-            'Der Server antwortet nicht.';
-      });
+      _setLoginTimeoutError();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -94,6 +84,15 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  void _setLoginTimeoutError() {
+    if (!mounted) return;
+    setState(() {
+      _errorMessage =
+          'Zeitüberschreitung beim Login. '
+          'Der Server antwortet nicht.';
+    });
   }
 
   Future<void> _openServerSetup() async {
