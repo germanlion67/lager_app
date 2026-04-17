@@ -4,6 +4,15 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
 ## [0.8.5+19] — 2026-04-17
 
+### Bugfix (B-007): Login-Timeout + Server-Änderung aus dem Login-Screen
+
+- Zentraler Login-Timeout über `AppConfig.loginTimeout` eingeführt (keine Magic Number)
+- Timeout-Schutz in `PocketBaseService.login()` ergänzt
+- `LoginScreen` zeigt bei Timeout eine klare Meldung statt Endlos-Spinner
+- Neuer, dezenter Link **„Server ändern“** im Login-Screen öffnet den bestehenden Server-Setup-Screen
+
+---
+
 ### Bugfix (B-003): Bild-Download-Skip-Logik in downloadMissingImages korrigiert
 
 **Problem: aus Test T-001.7** Bilder wurden nie heruntergeladen, weil die Skip-Bedingung
