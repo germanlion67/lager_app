@@ -368,7 +368,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
               ),
             ),
           ),
-        )
+        ),
       );
   }
 
