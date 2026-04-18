@@ -8,7 +8,7 @@
 // v0.7.10: Lade-Overlay nach erfolgreicher Konfiguration, während der
 //          initiale Sync in main.dart läuft.
 
-import 'dart:async';
+import 'dart:async' show unawaited;
 
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
