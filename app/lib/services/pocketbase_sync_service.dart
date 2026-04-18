@@ -349,7 +349,7 @@ class PocketBaseSyncService {
           if (response.statusCode != 200) {
             _logger.w(
               'PocketBaseSync: Image download HTTP ${response.statusCode} '
-              '${artikel.uuid} (url: ${imageUrl body: ${response.body}',
+              '${artikel.uuid} (url: $imageUrl)',
             );
             failed++;
             continue;
