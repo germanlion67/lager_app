@@ -20,6 +20,8 @@ import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'pocketbase_service.dart';
 
+import '../config/app_config.dart'; // adjust path to where AppConfig lives
+
 // ── F4: Konflikt-Callback-Typedef ────────────────────────────────────────────
 // Begründung: PocketBaseSyncService soll keine UI-Abhängigkeit haben.
 // Der Callback erlaubt main.dart/SyncOrchestrator die Konflikt-UI zu steuern,
