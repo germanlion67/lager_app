@@ -234,142 +234,142 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-          body: SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppConfig.spacingXLarge),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(
-                    maxWidth: AppConfig.setupFormMaxWidth,
-                  ),
-                  child: Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // --- Header ---
-                        Icon(
-                          Icons.dns_outlined,
-                          size: AppConfig.iconSizeXXLarge,
-                          color: colorScheme.primary,
-                        ),
-                        const SizedBox(height: AppConfig.spacingLarge),
-                        Text(
-                          'Server-Einrichtung',
-                          style: textTheme.headlineSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: AppConfig.spacingSmall),
-                        Text(
-                          'Gib die URL deines PocketBase-Servers ein, '
-                          'damit die App sich verbinden kann.',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: AppConfig.spacingXXLarge),
 
-                        // --- URL-Eingabefeld ---
-                        TextFormField(
-                          controller: _urlController,
-                          decoration: InputDecoration(
-                            labelText: 'Server-URL',
-                            hintText: 'https://api.deine-domain.de',
-                            prefixIcon: const Icon(Icons.link),
-                            border: const OutlineInputBorder(),
-                            suffixIcon: _urlController.text.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      _urlController.clear();
-                                      setState(() {
-                                        _connectionOk = null;
-                                        _connectionError = null;
-                                      });
-                                    },
-                                  )
-                                : null,
-                          ),
-                          keyboardType: TextInputType.url,
-                          autocorrect: false,
-                          textInputAction: TextInputAction.done,
-                          validator: _validateUrl,
-                          onChanged: (_) {
-                            if (_connectionOk != null) {
-                              setState(() {
-                                _connectionOk = null;
-                                _connectionError = null;
-                              });
-                            }
-                          },
-                          onFieldSubmitted: (_) => _testConnection(),
-                        ),
-                        const SizedBox(height: AppConfig.spacingLarge),
-
-                        // --- Beispiel-URLs ---
-                        _buildExamplesCard(colorScheme, textTheme),
-                        const SizedBox(height: AppConfig.spacingXLarge),
-
-                        // --- Verbindungsstatus ---
-                        if (_isTesting)
-                          _buildLoadingIndicator(colorScheme, textTheme),
-                        if (_connectionOk != null && !_isTesting)
-                          _buildConnectionResult(colorScheme, textTheme),
-                        if (_connectionOk != null || _isTesting)
-                          const SizedBox(height: AppConfig.spacingXLarge),
-
-                        // --- Buttons ---
-                        OutlinedButton.icon(
-                          onPressed: _isTesting || _isSaving
-                              ? null
-                              : _testConnection,                // ← GEÄNDERT
-                          icon: _isTesting
-                              ? const SizedBox(
-                                  width: AppConfig.iconSizeSmall,
-                                  height: AppConfig.iconSizeSmall,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: AppConfig.strokeWidthMedium,
-                                  ),
-                                )
-                              : const Icon(Icons.wifi_find),
-                          label: Text(
-                            _isTesting
-                                ? 'Prüfe Verbindung...'
-                                : 'Verbindung testen',
-                          ),
-                        ),
-                        const SizedBox(height: AppConfig.spacingMedium),
-                        FilledButton.icon(
-                          onPressed: _isTesting || _isSaving
-                              ? null
-                              : _saveAndContinue,               // ← GEÄNDERT
-                          icon: _isSaving
-                              ? SizedBox(
-                                  width: AppConfig.iconSizeSmall,
-                                  height: AppConfig.iconSizeSmall,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: AppConfig.strokeWidthMedium,
-                                    color: colorScheme.onPrimary,
-                                  ),
-                                )
-                              : const Icon(Icons.arrow_forward),
-                          label: Text(
-                            _isSaving ? 'Wird gespeichert...' : 'Weiter',
-                          ),
-                        ),
-                      ],
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(AppConfig.spacingXLarge),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxWidth: AppConfig.setupFormMaxWidth,
+              ),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // --- Header ---
+                    Icon(
+                      Icons.dns_outlined,
+                      size: AppConfig.iconSizeXXLarge,
+                      color: colorScheme.primary,
                     ),
-                  ),
+                    const SizedBox(height: AppConfig.spacingLarge),
+                    Text(
+                      'Server-Einrichtung',
+                      style: textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppConfig.spacingSmall),
+                    Text(
+                      'Gib die URL deines PocketBase-Servers ein, '
+                      'damit die App sich verbinden kann.',
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppConfig.spacingXXLarge),
+
+                    // --- URL-Eingabefeld ---
+                    TextFormField(
+                      controller: _urlController,
+                      decoration: InputDecoration(
+                        labelText: 'Server-URL',
+                        hintText: 'https://api.deine-domain.de',
+                        prefixIcon: const Icon(Icons.link),
+                        border: const OutlineInputBorder(),
+                        suffixIcon: _urlController.text.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  _urlController.clear();
+                                  setState(() {
+                                    _connectionOk = null;
+                                    _connectionError = null;
+                                  });
+                                },
+                              )
+                            : null,
+                      ),
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      textInputAction: TextInputAction.done,
+                      validator: _validateUrl,
+                      onChanged: (_) {
+                        if (_connectionOk != null) {
+                          setState(() {
+                            _connectionOk = null;
+                            _connectionError = null;
+                          });
+                        }
+                      },
+                      onFieldSubmitted: (_) => _testConnection(),
+                    ),
+                    const SizedBox(height: AppConfig.spacingLarge),
+
+                    // --- Beispiel-URLs ---
+                    _buildExamplesCard(colorScheme, textTheme),
+                    const SizedBox(height: AppConfig.spacingXLarge),
+
+                    // --- Verbindungsstatus ---
+                    if (_isTesting)
+                      _buildLoadingIndicator(colorScheme, textTheme),
+                    if (_connectionOk != null && !_isTesting)
+                      _buildConnectionResult(colorScheme, textTheme),
+                    if (_connectionOk != null || _isTesting)
+                      const SizedBox(height: AppConfig.spacingXLarge),
+
+                    // --- Buttons ---
+                    OutlinedButton.icon(
+                      onPressed: _isTesting || _isSaving
+                          ? null
+                          : _testConnection,                // ← GEÄNDERT
+                      icon: _isTesting
+                          ? const SizedBox(
+                              width: AppConfig.iconSizeSmall,
+                              height: AppConfig.iconSizeSmall,
+                              child: CircularProgressIndicator(
+                                strokeWidth: AppConfig.strokeWidthMedium,
+                              ),
+                            )
+                          : const Icon(Icons.wifi_find),
+                      label: Text(
+                        _isTesting
+                            ? 'Prüfe Verbindung...'
+                            : 'Verbindung testen',
+                      ),
+                    ),
+                    const SizedBox(height: AppConfig.spacingMedium),
+                    FilledButton.icon(
+                      onPressed: _isTesting || _isSaving
+                          ? null
+                          : _saveAndContinue,               // ← GEÄNDERT
+                      icon: _isSaving
+                          ? SizedBox(
+                              width: AppConfig.iconSizeSmall,
+                              height: AppConfig.iconSizeSmall,
+                              child: CircularProgressIndicator(
+                                strokeWidth: AppConfig.strokeWidthMedium,
+                                color: colorScheme.onPrimary,
+                              ),
+                            )
+                          : const Icon(Icons.arrow_forward),
+                      label: Text(
+                        _isSaving ? 'Wird gespeichert...' : 'Weiter',
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
   }
 
   // ── Bestehende Helper-Widgets (UNVERÄNDERT) ───────────────────────
