@@ -336,15 +336,17 @@ class PocketBaseSyncService {
             '${artikel.uuid}: $imageUrl',
           );
 
-          final response = await http.get(
-            Uri.parse(imageUrl),
-            headers: _buildAuthHeaders(),
-          );
+          final response = await http
+              .get(
+                Uri.parse(imageUrl),
+                headers: _buildAuthHeaders(),
+              )
+              .timeout(AppConfig.networkTimeout);
 
           if (response.statusCode != 200) {
             _logger.w(
               'PocketBaseSync: Image download HTTP ${response.statusCode} '
-              'für ${artikel.uuid}',
+              'für ${artikel.uuid} (url: $imageUrl)',
             );
             failed++;
             continue;
@@ -353,7 +355,8 @@ class PocketBaseSyncService {
           final bytes = response.bodyBytes;
           if (bytes.isEmpty) {
             _logger.w(
-              'PocketBaseSync: Leere Antwort für Bild ${artikel.uuid}',
+              'PocketBaseSync: Leere Antwort für Bild '
+              '${artikel.uuid} (url: $imageUrl)',
             );
             failed++;
             continue;
@@ -377,11 +380,20 @@ class PocketBaseSyncService {
             'PocketBaseSync: Bild gespeichert für '
             '${artikel.uuid}: $localPath',
           );
+        } on TimeoutException catch (e, st) {
+          failed++;
+          _logger.w(
+            'PocketBaseSync: Image download timeout '
+            '(${AppConfig.networkTimeout.inSeconds}s) '
+            'für Artikel ${artikel.uuid} (url: $imageUrl)',
+            error: e,
+            stackTrace: st,
+          );
         } catch (e, st) {
           failed++;
           _logger.w(
             'PocketBaseSync: Image download failed for '
-            '${artikel.uuid}: $e',
+            '${artikel.uuid} (url: $imageUrl): $e',
             error: e,
             stackTrace: st,
           );
