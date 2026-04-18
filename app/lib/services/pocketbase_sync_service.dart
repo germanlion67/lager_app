@@ -349,12 +349,13 @@ class PocketBaseSyncService {
           if (response.statusCode != 200) {
             _logger.w(
               'PocketBaseSync: Image download HTTP ${response.statusCode} '
-              '${artikel.uuid} (url: ${imageUrl ?? "n/a"}): $e',
+              '${artikel.uuid} (url: ${imageUrl body: ${response.body}',
             );
             failed++;
             continue;
           }
 
+          
           final bytes = response.bodyBytes;
           if (bytes.isEmpty) {
             _logger.w(
@@ -365,6 +366,8 @@ class PocketBaseSyncService {
             continue;
           }
 
+
+          
           final cacheDir = await getApplicationCacheDirectory();
           final imageDir = Directory(
             '${cacheDir.path}/images/${artikel.uuid}',
