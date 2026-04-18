@@ -284,6 +284,7 @@ class PocketBaseSyncService {
       final alleArtikel = await _db.getAlleArtikel();
 
       for (final artikel in alleArtikel) {
+        String? imageUrl; // <-- declare outside so catch blocks can use it
         try {
           final remoteBild = artikel.remoteBildPfad;
           final recordId = artikel.remotePath;
@@ -348,7 +349,7 @@ class PocketBaseSyncService {
           if (response.statusCode != 200) {
             _logger.w(
               'PocketBaseSync: Image download HTTP ${response.statusCode} '
-              'für ${artikel.uuid} (url: $imageUrl)',
+              '${artikel.uuid} (url: ${imageUrl ?? "n/a"}): $e',
             );
             failed++;
             continue;
@@ -387,7 +388,7 @@ class PocketBaseSyncService {
           _logger.w(
             'PocketBaseSync: Image download timeout '
             '(${AppConfig.networkTimeout.inSeconds}s) '
-            'für Artikel ${artikel.uuid} (url: $imageUrl)',
+            'für Artikel ${artikel.uuid} (url: ${imageUrl ?? "n/a"})',
             error: e,
             stackTrace: st,
           );
@@ -395,7 +396,7 @@ class PocketBaseSyncService {
           failed++;
           _logger.w(
             'PocketBaseSync: Image download failed for '
-            '${artikel.uuid} (url: $imageUrl): $e',
+            '${artikel.uuid} (url: ${imageUrl ?? "n/a"}): $e',
             error: e,
             stackTrace: st,
           );
