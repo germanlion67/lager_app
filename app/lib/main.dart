@@ -373,9 +373,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _registerConflictCallback();
     });
 
+    // FIX: Sync asynchron im Hintergrund starten, nicht blockierend
     if (_pbService.hasClient && !kIsWeb) {
       _loadSyncSettings().then((_) {
-        _runInitialSync();
+        // Sync im Hintergrund ausführen (nicht await)
+        unawaited(_runInitialSync());
         _startPeriodicSync();
       });
     }
@@ -470,23 +472,22 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       });
 
       _checkAuthStatus().then((_) {
+        // FIX: Setup-Screen sofort schließen, Sync im Hintergrund
+        if (mounted) {
+          setState(() => _needsSetup = false);
+        }
+
         if ((_isLoggedIn || _devMode) && !kIsWeb) {
-          _loadSyncSettings().then((_) async {
+          _loadSyncSettings().then((_) {
             _log.i('[Main] Starte initialen Sync nach Setup...');
-            await _runInitialSync();
-            _log.i('[Main] Initialer Sync abgeschlossen');
-
-            if (mounted) {
-              setState(() => _needsSetup = false);
-            }
-
+            // Sync asynchron im Hintergrund (nicht await)
+            unawaited(_runInitialSync().then((_) {
+              _log.i('[Main] Initialer Sync abgeschlossen');
+            }));
             _startPeriodicSync();
           });
         } else {
           _log.i('[Main] Kein Sync nötig → direkt zur App');
-          if (mounted) {
-            setState(() => _needsSetup = false);
-          }
         }
       });
 

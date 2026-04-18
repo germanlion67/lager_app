@@ -40,7 +40,6 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
   bool _isSaving = false;
   bool? _connectionOk;
   String? _connectionError;
-  bool _isSyncingAfterSetup = false; // ← NEU
 
   @override
   void initState() {
@@ -177,8 +176,6 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
         if (mounted) {
           setState(() => _isSaving = false);
           if (PocketBaseService().hasClient) {
-            // ← NEU: Lade-Overlay anzeigen bevor Callback aufgerufen wird
-            setState(() => _isSyncingAfterSetup = true);
             widget.onConfigured();
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -200,10 +197,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     setState(() => _isSaving = true);
 
     if (mounted) {
-      setState(() {
-        _isSaving = false;
-        _isSyncingAfterSetup = true; // ← NEU
-      });
+      setState(() => _isSaving = false);
       widget.onConfigured();
     }
   }
@@ -239,10 +233,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Stack(                                          // ← GEÄNDERT: Stack
-      children: [
-        // ── Bestehender Scaffold (unverändert) ──────────────────────
-        Scaffold(
+    return Scaffold(
           body: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -333,7 +324,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
 
                         // --- Buttons ---
                         OutlinedButton.icon(
-                          onPressed: _isTesting || _isSaving || _isSyncingAfterSetup
+                          onPressed: _isTesting || _isSaving
                               ? null
                               : _testConnection,                // ← GEÄNDERT
                           icon: _isTesting
@@ -353,7 +344,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
                         ),
                         const SizedBox(height: AppConfig.spacingMedium),
                         FilledButton.icon(
-                          onPressed: _isTesting || _isSaving || _isSyncingAfterSetup
+                          onPressed: _isTesting || _isSaving
                               ? null
                               : _saveAndContinue,               // ← GEÄNDERT
                           icon: _isSaving
@@ -378,42 +369,7 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
             ),
           ),
         ),
-
-        // ── NEU: Lade-Overlay während initialem Sync ────────────────
-        if (_isSyncingAfterSetup)
-          Positioned.fill(
-            child: Container(
-              color: colorScheme.scrim.withValues(alpha: 0.5),
-              child: Center(
-                child: Card(
-                  elevation: 8,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppConfig.spacingXLarge),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: AppConfig.spacingMedium),
-                        Text(
-                          'Erstmalige Synchronisation…',
-                          style: textTheme.titleMedium,
-                        ),
-                        const SizedBox(height: AppConfig.spacingSmall),
-                        Text(
-                          'Artikel und Bilder werden geladen',
-                          style: textTheme.bodyMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
+      );
   }
 
   // ── Bestehende Helper-Widgets (UNVERÄNDERT) ───────────────────────
