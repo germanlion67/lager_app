@@ -483,7 +483,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             // Sync asynchron im Hintergrund (nicht await)
             unawaited(_runInitialSync().then((_) {
               _log.i('[Main] Initialer Sync abgeschlossen');
-            }));
+            }),);
             _startPeriodicSync();
           });
         } else {
