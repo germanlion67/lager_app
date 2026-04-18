@@ -20,6 +20,8 @@ import '../models/artikel_model.dart';
 import 'artikel_db_service.dart';
 import 'pocketbase_service.dart';
 
+import '../config/app_config.dart'; // adjust path to where AppConfig lives
+
 // ── F4: Konflikt-Callback-Typedef ────────────────────────────────────────────
 // Begründung: PocketBaseSyncService soll keine UI-Abhängigkeit haben.
 // Der Callback erlaubt main.dart/SyncOrchestrator die Konflikt-UI zu steuern,
@@ -282,6 +284,7 @@ class PocketBaseSyncService {
       final alleArtikel = await _db.getAlleArtikel();
 
       for (final artikel in alleArtikel) {
+        String? imageUrl; // <-- declare outside so catch blocks can use it
         try {
           final remoteBild = artikel.remoteBildPfad;
           final recordId = artikel.remotePath;
@@ -336,29 +339,35 @@ class PocketBaseSyncService {
             '${artikel.uuid}: $imageUrl',
           );
 
-          final response = await http.get(
-            Uri.parse(imageUrl),
-            headers: _buildAuthHeaders(),
-          );
+          final response = await http
+              .get(
+                Uri.parse(imageUrl),
+                headers: _buildAuthHeaders(),
+              )
+              .timeout(AppConfig.networkTimeout);
 
           if (response.statusCode != 200) {
             _logger.w(
               'PocketBaseSync: Image download HTTP ${response.statusCode} '
-              'für ${artikel.uuid}',
+              '${artikel.uuid} (url: $imageUrl)',
             );
             failed++;
             continue;
           }
 
+          
           final bytes = response.bodyBytes;
           if (bytes.isEmpty) {
             _logger.w(
-              'PocketBaseSync: Leere Antwort für Bild ${artikel.uuid}',
+              'PocketBaseSync: Leere Antwort für Bild '
+              '${artikel.uuid} (url: $imageUrl)',
             );
             failed++;
             continue;
           }
 
+
+          
           final cacheDir = await getApplicationCacheDirectory();
           final imageDir = Directory(
             '${cacheDir.path}/images/${artikel.uuid}',
@@ -377,11 +386,20 @@ class PocketBaseSyncService {
             'PocketBaseSync: Bild gespeichert für '
             '${artikel.uuid}: $localPath',
           );
+        } on TimeoutException catch (e, st) {
+          failed++;
+          _logger.w(
+            'PocketBaseSync: Image download timeout '
+            '(${AppConfig.networkTimeout.inSeconds}s) '
+            'für Artikel ${artikel.uuid} (url: ${imageUrl ?? "n/a"})',
+            error: e,
+            stackTrace: st,
+          );
         } catch (e, st) {
           failed++;
           _logger.w(
             'PocketBaseSync: Image download failed for '
-            '${artikel.uuid}: $e',
+            '${artikel.uuid} (url: ${imageUrl ?? "n/a"}): $e',
             error: e,
             stackTrace: st,
           );

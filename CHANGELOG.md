@@ -2,6 +2,21 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.5+20] — 2026-04-18
+
+### Bugfix (B-007): Gespeicherte Server-URL anzeigen + Initial-Sync gegen Hänger absichern
+
+- `ServerSetupScreen` befüllt das URL-Feld jetzt mit der tatsächlich gespeicherten URL (`pocketbase_url`) aus SharedPreferences.
+- Fallback bleibt `PocketBaseService.defaultUrl`, falls noch keine gespeicherte URL vorhanden ist.
+- Bilddownloads in `PocketBaseSyncService.downloadMissingImages()` verwenden jetzt einen harten Timeout von **12s** (`AppConfig.networkTimeout`), damit ein einzelner hängender Request den Initial-Sync nicht unendlich blockiert.
+- Timeout- und Fehler-Logs enthalten jetzt Artikel-UUID und Bild-URL für schnellere Diagnose.
+
+**Kurz-Verifikation:**
+- In „Server ändern“ wird nach erneutem Öffnen die zuletzt gespeicherte URL angezeigt.
+- Bei nicht erreichbarem Bild-Endpoint läuft der Initial-Sync weiter (Fehler wird geloggt, App bleibt nicht dauerhaft im Overlay hängen).
+
+---
+
 ## [0.8.5+19] — 2026-04-17
 
 ### Bugfix (B-007): Login-Timeout + Server-Änderung aus dem Login-Screen

@@ -8,9 +8,12 @@
 // v0.7.10: Lade-Overlay nach erfolgreicher Konfiguration, während der
 //          initiale Sync in main.dart läuft.
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/foundation.dart'
     show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 import '../services/pocketbase_service.dart';
@@ -28,6 +31,8 @@ class ServerSetupScreen extends StatefulWidget {
 }
 
 class _ServerSetupScreenState extends State<ServerSetupScreen> {
+  static const String _prefsPocketBaseUrlKey = 'pocketbase_url';
+
   final _urlController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
@@ -42,11 +47,11 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
     super.initState();
 
     final defaultUrl = PocketBaseService.defaultUrl;
-    if (defaultUrl.isNotEmpty &&
-        !defaultUrl.contains('your-production-server.com') &&
-        !defaultUrl.contains('192.168.178.XX')) {
+    if (_isPreFillableDefaultUrl(defaultUrl)) {
       _urlController.text = defaultUrl;
     }
+
+    unawaited(_prefillSavedUrl());
   }
 
   @override
@@ -56,6 +61,32 @@ class _ServerSetupScreenState extends State<ServerSetupScreen> {
   }
 
   // ==================== VALIDIERUNG ====================
+
+  bool _isPreFillableDefaultUrl(String url) {
+    return url.isNotEmpty &&
+        !url.contains('your-production-server.com') &&
+        !url.contains('192.168.178.XX');
+  }
+
+  Future<void> _prefillSavedUrl() async {
+    final initialText = _urlController.text;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedUrl = prefs.getString(_prefsPocketBaseUrlKey)?.trim() ?? '';
+
+      if (savedUrl.isEmpty || !mounted) return;
+
+      // Nicht überschreiben falls der Nutzer bereits angefangen hat zu tippen.
+      if (_urlController.text != initialText) return;
+
+      setState(() {
+        _urlController.text = savedUrl;
+      });
+    } catch (_) {
+      // Fallback bleibt die Default-URL (falls vorhanden).
+    }
+  }
 
   String? _validateUrl(String? value) {
     if (value == null || value.trim().isEmpty) {
