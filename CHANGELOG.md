@@ -2,6 +2,7 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+<<<<<<< HEAD
 ## [0.8.5+20] — 2026-04-18
 
 ### Bugfix (B-007): Gespeicherte Server-URL anzeigen + Initial-Sync gegen Hänger absichern
@@ -27,6 +28,9 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 - Neuer, dezenter Link **„Server ändern“** im Login-Screen öffnet den bestehenden Server-Setup-Screen
 
 ---
+=======
+## [0.8.5+19] — 2026-04-20
+>>>>>>> b46d97e (fix(sync): downloadMissingImages Skip-Logik korrigiert (B-003))
 
 ### Bugfix (B-003): Bild-Download-Skip-Logik in downloadMissingImages korrigiert
 
@@ -41,6 +45,7 @@ ausgewertet, aber die Negation fehlte.
 - Logik jetzt korrekt: existierende Datei mit Inhalt → überspringen,
   alles andere → herunterladen
 
+<<<<<<< HEAD
 ---
 
 ### Bugfix (B-004):  aus Test T-001.7 - Konflikt-Callback-Registrierung nach Navigator-Init via GlobalKey
@@ -126,6 +131,8 @@ dabei den `SyncOrchestrator` — Status-Stream, Conflict-Handling und
 
 ---
 
+=======
+>>>>>>> b46d97e (fix(sync): downloadMissingImages Skip-Logik korrigiert (B-003))
 
 ## [0.8.4+17] — 2026-04-14
 
