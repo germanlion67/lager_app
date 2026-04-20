@@ -298,6 +298,7 @@ class PocketBaseSyncService {
             continue;
           }
 
+<<<<<<< HEAD
           // ── F1: Korrigierter Existenz-Check ──────────────────────────────
           // Vorher: artikel.bildPfad.isNotEmpty → skip
           //         (übersprang auch Artikel mit veraltetem/ungültigem Pfad)
@@ -321,8 +322,23 @@ class PocketBaseSyncService {
                 'PocketBaseSync: Datei-Check fehlgeschlagen für '
                 '${artikel.uuid}: $fileError → re-download',
               );
+=======
+          // --- FIX B-003: Korrekte Skip-Logik ---
+          // Wir überspringen den Download NUR, wenn:
+          // 1. Ein lokaler Pfad in der DB steht UND
+          // 2. Die Datei auf der Festplatte existiert UND
+          // 3. Die Datei nicht leer ist (0 Bytes)
+          if (artikel.bildPfad.isNotEmpty) {
+            final localFile = File(artikel.bildPfad);
+            if (localFile.existsSync() && localFile.lengthSync() > 0) {
+              skipped++;
+              _logger.d('PocketBaseSync: Bild für ${artikel.uuid} bereits lokal vorhanden. Überspringe.');
+              continue; 
+>>>>>>> 9fa43ca (fix(sync): downloadMissingImages Skip-Logik korrigiert (B-003))
             }
           }
+          // --------------------------------------
+          
 
           final imageUrl = _buildImageUrl(recordId, remoteBild);
           if (imageUrl == null) {
