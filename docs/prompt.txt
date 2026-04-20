@@ -17,8 +17,8 @@ Pflicht: Jede neue Abstraktion kurz begründen (1–3 Sätze) und minimal halten
 *   **Plattformen (Hybrid-Cloud / Offline-First):**
     *   Mobile/Desktop: lokale SQLite + Hintergrund-Sync zu PocketBase
     *   Web (Docker/Caddy): Flutter Web SPA, direkter PocketBase-Zugriff, kein SQLite
-*   **Aktuelle Version:** `0.8.4+17` (Stand: 14.04.2026)
-*   **Testsuite:** `590 Tests` (3 skipped), 26 Testdateien + Test-Helper in `test/helpers/`
+*   **Aktuelle Version:** `0.8.5+20` (Stand: 20.04.2026)
+*   **Testsuite:** `610 Tests` (3 skipped), 28 Testdateien + Test-Helper in `test/helpers/`
 *   **Lizenz:** MIT
 
 
@@ -174,7 +174,13 @@ lager_app/
 
 
 ## 2) App-Einstieg & Navigation (`main.dart`)
+
 `main.dart` (~17 KB) ist der zentrale Orchestrator. Er enthält:
+
+### Wichtige Architektur-Details
+
+- **GlobalKey:** Nutzt `GlobalKey<NavigatorState> navigatorKey` in `main.dart`, um den `ConflictCallback` im `SyncOrchestrator` zu registrieren. Dies ermöglicht UI-Dialoge (Merge/Konflikt) auch während Navigations-Übergängen.
+- **Sync-Init:** Der Sync startet erst nach erfolgreichem Login/Setup oder App-Resume. Bei Resume wird die DB explizit neu geöffnet, um `database closed` Fehler zu vermeiden (B-004).
 
 ### Initialisierungsreihenfolge (`main()`)
 
@@ -206,6 +212,10 @@ flutter run --dart-define=PB_DEV_MODE=1  # überspringt Login-Screen
 ```
 
 ## 3) Architektur & Design-Entscheidungen
+
+- Plattform-Strategie: Strikte Trennung via Conditional Imports (IO vs. Stub).
+- State Management: setState() + ChangeNotifier. SyncStatusProvider als Interface zur Entkopplung von Sync-Logik und UI.
+
 ### Plattform-Strategie
 | Komponente      | Mobile/Desktop                          | Web                                 |
 | :-------------- | :-------------------------------------- | :---------------------------------- |
@@ -262,7 +272,9 @@ Regel: Kein dart:io-Import in Web-Pfaden. Kein kIsWeb-Check als Ersatz für Cond
 --- 
 
 ## 5) Datenbank & Synchronisation
+
 ### Lokales SQLite-Schema (Mobile/Desktop)
+
 #### Tabelle `artikel`
 | Spalte         | Typ     | Beschreibung                                       |
 | :------------- | :------ | :------------------------------------------------- |
@@ -301,6 +313,7 @@ Regel: Kein dart:io-Import in Web-Pfaden. Kein kIsWeb-Check als Ersatz für Cond
 
 #### Tabelle `sync_meta`
   - `last_sync`: Unix-Timestamp ms des letzten erfolgreichen Syncs
+
 ### PocketBase Collections
 | Collection          | Beschreibung                       | Lokales Pendant         |
 | :------------------ | :--------------------------------- | :---------------------- |
@@ -317,9 +330,11 @@ Regel: Kein dart:io-Import in Web-Pfaden. Kein kIsWeb-Check als Ersatz für Cond
  - Auth-pflichtig seit v0.7.3 (M-009)
 
 ### Sync-Invarianten (niemals brechen)
-uuid        → stabil, geräteübergreifend eindeutig, nie ändern
-remote_path → Bindung an PocketBase Record-ID
-etag = NULL → "Pending": lokale Änderung noch nicht gepusht
+- **uuid**        → stabil, geräteübergreifend eindeutig, nie ändern
+- **remote_path** → Bindung an PocketBase Record-ID
+- **etag:** Entspricht dem `updated`-Zeitstempel (ISO 8601) von PocketBase. `NULL` = lokale Änderung ausstehend ("Pending").
+- **Konflikt-Erkennung:** Vor jedem `PATCH` wird der Remote-Status geprüft. Weicht `remote['updated']` vom lokalen `etag` ab, MUSS der `onConflictDetected`-Callback gefeuert werden (B-005).
+
 deleted = 1 → Soft-Delete lokal → Hard-Delete beim nächsten Push
 
 ### Sync-Ablauf
@@ -335,8 +350,8 @@ Pull (REMOTE → LOCAL):
   lokal vorhanden, remote nicht → deleteArtikel()
 
 Nach Record-Sync:
-  downloadMissingImages() → fehlende Bilder von PB File-API laden
-  setBildPfadByUuidSilent() → nur bildPfad setzen, KEIN Sync-Trigger
+  - **downloadMissingImages():** Lädt Bilder nur, wenn lokal nicht vorhanden ODER Datei-Größe == 0 Byte (B-003 Fix).
+  - **setBildPfadByUuidSilent():** Setzt Pfad ohne den `updated_at` Zeitstempel zu ändern (verhindert Sync-Loops).
 
 ### Konfliktlösung
  - Erkennung via ETag-Vergleich (`SyncService.detectConflicts()`)
@@ -440,7 +455,7 @@ color.withOpacity(0.1)       // deprecated API
 ### Ausführen 
 
 ```bash
-cd app && flutter test                          # Alle Tests (590, 3 skipped)
+cd app && flutter test                          # Alle Tests (610, 3 skipped)
 flutter test --exclude-tags performance         # Ohne Performance-Test
 flutter test --reporter expanded                # Verbose 
 ```
@@ -471,7 +486,7 @@ flutter test --reporter expanded                # Verbose
 | `widgets/artikel_list_screen_test.dart`| Widget        | 15    |
 | `widgets/merge_dialog_test.dart`     | Widget        | 18    |
 | `performance/import_500_smoke_test.dart`| Performance   | 1     |
-| **Gesamt**                           |               | **576 (+3 skipped = 590 run)** |
+| **Gesamt**                           |               | **610 (+3 skipped = 590 run)** |
 
 ### Test-Patterns (zwingend einhalten)
 #### DB-Integration:
@@ -597,16 +612,16 @@ Flutter-Version: `3.41.4` (stable) — in allen Workflows fixiert
 
 --- 
 
-## 13) Offene Aufgaben (Stand: v0.8.4+17)
+## 13) Offene Aufgaben (Stand: v0.8.5+20)
 🔴 Hoch — Keine aktuell
 🟡 Mittel
 
 | ID      | Aufgabe                             | Details                                            |
 | :------ | :---------------------------------- | :------------------------------------------------- |
-| `T-001` | Manuelle Integrationstests Konfliktlösung | T-001.6–T-001.12: Zwei Geräte/Tabs, Sync-Szenarien |
-| `P-003` | Bild-Caching                        | `cached_network_image` für Remote-Bilder, Cache-Invalidierung via ETag |
-| `P-004` | Android Kamera-Test                 | Vollständiger Kamera-Test auf echten Geräten     |
-| `OPT-001`| `SettingsController` extrahieren    | `ChangeNotifier` + `Constructor-Injection` für Testbarkeit (~2,5h) |
+| `P-003` | Bild-Caching                        | `cached_network_image` für Remote-Bilder, Cache-Invalidierung via ETag-Query-Param |
+| `P-004` | Android Kamera-Test                 | Vollständiger Kamera-Test auf echten Geräten (S20) |
+| `OPT-001`| `SettingsController` extrahieren    | Logik-Entkopplung für Testbarkeit (~2,5h)          |
+| `T-001` | Manuelle Integrationstests          | T-001.6–T-001.12: Konflikt-Szenarien End-to-End    |
 
 🟢 Nice-to-Have (3 offen, Details in `docs/OPTIMIZATIONS.md`)
 *(Keine offenen Punkte)*
