@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.8.5+20 | **Zuletzt aktualisiert:** 20.04.2026
+**Version:** 0.8.6+21 | **Zuletzt aktualisiert:** 20.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -14,319 +14,25 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 ## 🏷️ Kürzel-Register
 
 ### Legende
+- `B` = Bug / Befund / Verifikation / Analyse
+- `F` = Feature / sichtbare Funktion / UX
+- `H` = Hosting / Hardening / Infrastruktur / Deployment
 - `K` = Kern / Grundlagen / Architektur-Meilenstein
 - `M` = Maßnahme / größeres Feature / funktionale Erweiterung
-- `O` = Optimierung / Refactoring / Codequalität
-- `T` = Tests / Testinfrastruktur / Testausbau
-- `F` = Feature / sichtbare Funktion / UX
-- `B` = Bug / Befund / Verifikation / Analyse
 - `N` = Nichtfunktionales / Branding / visuelle Ergänzung
-- `H` = Hosting / Hardening / Infrastruktur / Deployment
+- `O` = Optimierung / Refactoring / Codequalität
 - `P` = Performance / Plattform / Laufzeitverbesserung
+- `T` = Tests / Testinfrastruktur / Testausbau
 - `OPT` = bereichsübergreifendes internes Optimierungsvorhaben
 
 ### Nächste freie Kürzel
-- `K-007`
-- `M-013`
-- `O-009`
-- `T-009`
-- `F-006`
-- `B-007`
-- `N-007`
-- `H-004`
-- `P-006`
-- `OPT-002`
+- `B-007`, `F-006`, `H-004`, `K-007`, `M-013`, `N-007`, `O-009`, `P-006`, `T-009`, `OPT-002`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
 auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` verschoben wird.
 
 ---
-
-## 📊 Gesamtfortschritt
-
-| Phase | Fortschritt | Status |
-|---|---|---|
-| Phase 1: Grundlagen | 100% | ✅ |
-| Phase 2: Deployment & Security | 100% | ✅ |
-| Phase 3: Performance & Optimierung | 100% | ✅ |
-| Phase 4: Multi-Plattform & Politur | 100% | ✅ |
-
-### Plattform-Status
-
-| Plattform | Status |
-|---|---|
-| Web (Chrome) | ✅ Voll funktionsfähig |
-| Linux Desktop | ✅ Build & PDF-Export stabil |
-| Windows Desktop | ✅ Build & Export stabil |
-| Android | ✅ Build stabil, Kamera-Test ausstehend |
-| iOS/macOS | ⏸️ Zurückgestellt (Apple Developer Account) |
-
----
-
-## ✅ Abgeschlossen
-
-> **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
-> Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
-
-### K-001: Bundle Identifiers
-- Android: `com.germanlion67.lagerverwaltung`
-- iOS: `com.germanlion67.lagerverwaltung`
-
-### K-002: PocketBase Schema & API Rules — erledigt in `v0.2.0`
-- Automatische Initialisierung (Admin-User, Collections, Migrations)
-- API Rules konfiguriert
-
-### K-003: Artikelnummer & Indizes — erledigt in `v0.3.0`
-- Eindeutige Artikelnummer (1000+)
-- 5 Performance-Indizes
-- Artikelnummer in Listen- und Detailansicht
-
-### K-004: Runtime-Konfiguration PocketBase-URL — erledigt in `v0.7.0`
-- Setup-Screen beim Erststart
-- URL-Prioritätskette:
-  `SharedPreferences / localStorage` → Runtime-Config bzw. `dart-define` → Setup-Screen
-- Kein Crash bei fehlender URL
-
-### K-005: WSL2-Bildanzeige — erledigt in `v0.7.1`
-- Web-Server-Modus für WSL2-Entwicklung dokumentiert
-
-### K-006: Kaltstart-Bug Fix — erledigt in `v0.8.0`
-- Sync-UI-Kopplung über `SyncStatusProvider`-Interface
-- Automatischer Bild-Download nach Record-Sync (`downloadMissingImages()`)
-- PocketBase-Bild-Fallback in `_LocalThumbnail` und `ArtikelDetailBild`
-- Setup-Flow wartet auf initialen Sync vor UI-Wechsel
-- Lade-Overlay im Setup-Screen während Sync
-- Gezieltes Image-Cache-Evict statt globalem `imageCache.clear()`
-- Neue DB-Methode `setBildPfadByUuidSilent()` (kein Sync-Trigger)
-- Conditional Import für plattformübergreifendes Cache-Evict
-- `FakeSyncStatusProvider` Test-Double + Unit-Tests
-
-### O-001: Bereinigung von `debugPrint` — erledigt in `v0.3.0`
-- Alle `debugPrint`-Aufrufe durch `AppLogService` ersetzt
-- Verbleibende 8 Aufrufe in `app_log_io.dart` sind absichtlich
-  *(zirkuläre Abhängigkeit)*
-
-### O-002: Unit-Tests für `ArtikelDbService` — erledigt in `v0.7.6+4`
-- Alle CRUD-Methoden abgedeckt inkl. `setBildPfadByUuidSilent()` ✅
-
-### O-004: UI-Hardcoded Werte migrieren — erledigt in `v0.7.4+3` bis `v0.7.4+7`
-- ~600 Hardcodes über 5 Batches migriert ✅
-- ~41 bewusst beibehalten (dokumentiert in `THEMING.md`) ✅
-- 28 neue `AppConfig`-Tokens ✅
-- Dark Mode korrekt in allen Widgets ✅
-- Alle `withOpacity` → `withValues` migriert ✅
-
-### O-005: Deprecated Code entfernt — erledigt in `v0.7.7+4`
-- `_dokumente_button.dart` gelöscht
-- `_dokumente_button_stub.dart` gelöscht
-- `dokumente_utils.dart` gelöscht
-- Zugehörige Testdateien gelöscht
-- `flutter analyze`: 0 Issues
-
-### O-006: Widget-Tests `ArtikelErfassenScreen` — erledigt in `v0.7.7+5`
-- 11 Tests, alle grün
-- Render, Validierung, Abbrechen-Pfade abgedeckt
-- `tester.view.physicalSize` + `scrollUntilVisible()` für `ListView`
-
-### O-007: Tests für `ImagePickerService` nach P-001 — erledigt in `v0.8.0+7`
-- 15 Tests, alle grün
-- `FakeImagePicker`, Plattform-Checks, Guard-Pfade und Kamera-Flows abgedeckt
-
-### O-008: Magic-Number-Arithmetik in Spacing-Tokens — erledigt in `v0.8.1+11`
-- Neuer Token `spacingSectionGap`
-- 3 Stellen `spacingXLarge - 4` ersetzt
-- Reines Rename-/Token-Refactoring
-
-### M-002: AppLogService Integration — erledigt in `v0.3.0`
-- Konsistentes Logging im gesamten Projekt
-
-### M-003: Error Handling — erledigt in `v0.7.6+3`
-- Neue `AppException`-Hierarchie
-- Neuer `AppErrorHandler`
-- Rohe `$e`-Strings durch klassifiziertes Error Handling ersetzt
-
-### M-004: Loading States — erledigt in `v0.7.6+2`
-- `AppLoadingOverlay`, `AppLoadingIndicator`, `AppLoadingButton`
-- Skeleton-Widgets für Listen
-- Loading-Overlays in Detail- und Sync-Screens
-- 10 neue `AppConfig`-Tokens
-
-### M-005: Pagination — erledigt in `v0.7.7+4`
-- `ScrollController` mit `_onScroll()`-Listener
-- `_ladeNaechsteSeite()` mit Offset-Pagination
-- Guard gegen Doppel-Requests
-- 2 neue `AppConfig`-Tokens:
-  `paginationPageSize`, `paginationScrollThreshold`
-
-### M-006: Input Validation — erledigt in `v0.7.6+1`
-- Pflichtfelder: Name, Ort, Fach mit Inline-Fehlermeldungen
-- Name: Mindestlänge 2 Zeichen, max. 100 Zeichen
-- Menge: Nur positive Ganzzahlen (≥ 0), max. 999.999
-- Artikelnummer: Automatisch vorgegeben (≥ 1000), manuell änderbar
-- Duplikat-Checks lokal + PocketBase
-- Neue DB-Methoden: `existsKombination()`, `existsArtikelnummer()`
-
-### M-007: UI für Konfliktlösung — erledigt in `v0.7.5+0`
-- `ConflictResolutionScreen` mit Side-by-Side-Vergleich
-- `ConflictData` + `ConflictResolution` Enum
-- Merge-Dialog
-- Integration mit `SyncConflictHandler` und `SyncService`
-- Entscheidungs-Callbacks (`useLocal`, `useRemote`, `merge`, `skip`)
-
-### M-008: Backup-Status in der App anzeigen — erledigt in `v0.7.5+1`
-- `BackupStatusService` liest `last_backup.json` via HTTP
-- `BackupStatusWidget` mit Farbcodierung
-- Integration im Settings-Screen
-- `backup.sh` kopiert Status-JSON nach `pb_public`
-
-### M-009: Login-Flow & Authentifizierung — erledigt in `v0.7.3`
-- Login-Screen mit E-Mail/Passwort-Validierung und Loading-State
-- Auth-Gate in `main.dart` mit Auto-Login
-- Logout im Settings-Screen mit Bestätigungs-Dialog
-- PocketBase API-Regeln auf Auth umgestellt
-
-### M-012: Dateianhänge (Attachments) — erledigt in `v0.7.2`
-- PocketBase Collection `attachments` mit File-Upload
-- `AttachmentService` — CRUD gegen PocketBase
-- Upload-Widget mit Validierung
-- Anhang-Liste mit Download, Bearbeiten, Löschen
-- Badge-Counter im Detail-Screen
-
-### H-002: CORS-Konfiguration — erledigt in `v0.7.4+0`
-- `CORS_ALLOWED_ORIGINS` wird beim PocketBase-Start als `--origins`-Flag übergeben
-- Neues `entrypoint.sh` Script ersetzt inline CMD im Dockerfile
-- Wildcard (`*`) als Default für Entwicklung, strikt für Produktion
-- Portainer Stack an Produktion angeglichen
-- Dokumentation in `DEPLOYMENT.md`
-
-### H-003: Backup-Automatisierung — erledigt in `v0.7.1`
-- Dedizierter Backup-Container mit Cron
-- SQLite WAL-Checkpoint vor jedem Backup
-- Komprimiertes `tar.gz`-Archiv mit Integritätsprüfung
-- Rotation alter Backups
-- E-Mail- und Webhook-Benachrichtigung
-- Status-JSON (`last_backup.json`) für App-Anzeige
-- Restore-Script mit Sicherheitskopie und Healthcheck
-
-### N-003: App-Icon — erledigt in `v0.8.4+17`
-- Neues App-Logo erstellt
-- Launcher-Icons für Android, iOS, Web und Windows generiert
-
-### N-004: Roboto Font — erledigt in `v0.3.0`
-- Roboto als Standard-Schriftart via `google_fonts`
-
-### N-005: Native Splash Screen — erledigt in `v0.8.4+17`
-- `flutter_native_splash` konfiguriert
-- Light/Dark Mode
-- Android 12+ Splash-API
-- Web Splash Screen
-
-### P-001: Kamera-Vorschau-Delay auf Android — erledigt in `v0.7.7+2`
-- Crop-Dialog aus `pickImageCamera()` entfernt
-- `maxWidth`/`maxHeight`/`imageQuality` aus `AppConfig`
-- Hardcodierte 1600px-Dimensionen entfernt
-- `openCropDialog()` als public static Methode
-
-### P-002: Suche Debounce — erledigt in `v0.7.7+5`
-- Timer-basierter Debounce (300ms)
-- Mobile: `_db.searchArtikel()` (`SQL LIKE`)
-- Web: clientseitiger Filter
-- Skeleton während DB-Suche
-- Pagination-Footer bei aktiver Suche ausgeblendet
-
-### P-005: Dependency-Update — erledigt in `v0.8.0+5`
-- `cupertino_icons`, `shared_preferences`, `mockito`, `connectivity_plus` aktualisiert
-- `connectivity_plus`-API-Migration bereits umgesetzt
-- `dependency_overrides` bereinigt
-
-### T-002: Unit-Tests `PocketBaseSyncService` — erledigt in `v0.8.0+5`
-- Push/Pull/Fehler/UUID-Sanitization/Image-Skip-Logik abgedeckt ✅
-
-### T-003: Unit-Tests `NextcloudClient` — erledigt in `v0.8.1+12`
-- 39 Tests, alle grün ✅
-- HTTP-Zugriffe über injizierbaren `MockClient` testbar gemacht ✅
-
-### T-004: Widget-Tests Merge-Dialog — erledigt in `v0.8.1+11`
-- Grundstruktur, Konflikt-Anzeige, Feld-/Bild-Auswahl, Zusammenführen, Schließen ✅
-
-### T-005: Unit-Tests `AttachmentService` — erledigt in `v0.8.1+10`
-- Alle CRUD-Operationen + Integration (Upload→Get-Roundtrip, Grenzwert 19 vs 20) ✅
-
-### T-006: Unit-Tests `BackupStatusService` — erledigt in `v0.8.0+7`
-- Parsing, Farblogik und Fehlerfälle abgedeckt ✅
-
-### T-007: Performance-Test self-contained — erledigt in `v0.8.0+6`
-- Testdaten- und PNG-Fixtures werden automatisch in `setUpAll()` erzeugt ✅
-- `flutter test` läuft ohne manuelle Vorbereitung ✅
-
-### F-001: Biometrische Authentifizierung (Mobile) — erledigt in `v0.8.2+13`
-- `AppLockService`
-- `AppLockScreen`
-- `local_auth 3.0.1`
-- PIN-/Pattern-Fallback
-- Integration in `main.dart`
-
-### F-002: Konfigurierbare App-Sperrzeit — erledigt in `v0.8.2+13`
-- Inaktivitäts-Timer mit konfigurierbarer Dauer
-- Sperrzeit persistent gespeichert
-- Automatische Sperre nach Hintergrundwechsel
-
-### F-003: Artikeldetailansicht — Ort & Fach nebeneinander — erledigt in `v0.8.0+8`
-- `Row` mit zwei `Expanded`-Kindern
-- Neuer Token `detailFieldSpacing`
-- Responsive und Dark-Mode-kompatibel
-
-### F-004: Nextcloud-Status-Icon Farbe angleichen — erledigt in `v0.8.4+17`
-- Nextcloud-Online-Icon auf `AppConfig.statusColorConnected` umgestellt
-
-### F-005: Detail-Screen Felder leserlicher darstellen — erledigt in `v0.8.4+17`
-- Readonly-Felder mit `OutlineInputBorder`
-- Volle Lesbarkeit im Readonly-Modus
-- Menge und Artikelnummer als eigene Felder
-- `+/-`-Buttons nur im Edit-Modus
-
-### B-001: Settings-Änderungen werden ohne Speichern übernommen — verifiziert in `v0.8.3+16`
-- Dirty-Tracking, Save-Button und Unsaved-Dialog analysiert
-- Ergebnis: Verhalten war bereits korrekt implementiert, kein Fix nötig
-
-### B-002: Biometrische Authentifizierung — System-Dialog & Verfügbarkeitsprüfung — abgeschlossen in `v0.8.3+16`
-- Nativer System-Dialog bestätigt
-- Verfügbarkeitsprüfung vor Aktivierung bestätigt
-- Toggle wird nur bei erfolgreicher Probe-Authentifizierung persistiert
-
-### B-003: Bild-Download-Skip-Logik in downloadMissingImages — abgeschlossen in `v0.8.5+19`
-- Skip-Bedingung war invertiert — Negation fehlte
-- Korrigiert: Skip nur wenn `bildPfad.isNotEmpty && dateiExistiert && dateiHatInhalt`
-- Bilder werden jetzt korrekt heruntergeladen wenn lokal nicht vorhanden
-
-### T-008: ETag-Konflikt-Logik und downloadMissingImages-Check-Logik — abgeschlossen in `v0.8.5+19`
-- `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
-- `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
-- ETag-Grenzwerte, ConflictCallback-Typedef, SyncStatus-Enum abgedeckt ✅
-- Gesamtstand: **610 Tests**, 28 Dateien ✅
-
-### B-004: Konflikt-Callback-Registrierung nach Navigator-Init via GlobalKey — abgeschlossen in `v0.8.5+19`
-- `GlobalKey<NavigatorState>` in `main.dart` eingeführt
-- Callback-Registrierung via `addPostFrameCallback` nach erstem Frame
-- DB-Reopen nach App-Resume vor Sync-Start sichergestellt
-
-### B-005: ETag-basierte Konflikt-Erkennung vor PATCH — abgeschlossen in `v0.8.5+19`
-- Vor jedem PATCH: Remote-Record laden, `updated`-Timestamp mit lokalem `etag` vergleichen
-- Bei Abweichung: `onConflictDetected`-Callback statt blindem Überschreiben
-- ETag = PocketBase `updated`-Timestamp (ISO 8601), nicht Record-ID
-
-### B-006: SyncManagementScreen nutzt SyncOrchestrator statt SyncService — abgeschlossen in `v0.8.5+19`
-- `SyncManagementScreen` erhält `SyncOrchestrator`-Instanz als Parameter
-- Sync-Start über `orchestrator.runOnce()`
-- Status-Updates korrekt über `syncStatus`-Stream
-
-### P-003: Bild-Caching — erledigt in `v0.8.6+21`
-- Integration von `cached_network_image`
-- `ArtikelBildWidget` nutzt persistenten Cache für Remote-Bilder
-- Kein Flackern/Neu-Laden beim Scrollen in der Liste
-- Cache-Invalidierung bei ETag-Änderung sichergestellt
-
 
 ---
 
@@ -442,7 +148,169 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 | ⏭️ Future | 2 | 0 | 2 |
 | **Gesamt** | **53** | **48** | **5** |
 
+
 ---
+
+## ✅ Abgeschlossen
+
+> **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
+> Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+### B-003 bis B-006: Sync-Stabilität — erledigt in `v0.8.5+19`
+- ETag-basierte Konflikt-Erkennung vor PATCH.
+- Korrektur der Bild-Download-Skip-Logik.
+- Navigator-Init via GlobalKey gefixt.
+
+### B-001: Settings-Änderungen werden ohne Speichern übernommen — verifiziert in `v0.8.3+16`
+- Dirty-Tracking, Save-Button und Unsaved-Dialog analysiert
+- Ergebnis: Verhalten war bereits korrekt implementiert, kein Fix nötig
+
+### B-002: Biometrische Authentifizierung — System-Dialog & Verfügbarkeitsprüfung — abgeschlossen in `v0.8.3+16`
+- Nativer System-Dialog bestätigt
+- Verfügbarkeitsprüfung vor Aktivierung bestätigt
+- Toggle wird nur bei erfolgreicher Probe-Authentifizierung persistiert
+
+--- 
+
+### F-004 & F-005: UI-Politur — erledigt in `v0.8.4+17`
+- Nextcloud-Status-Icon Farbe angepasst.
+- Detail-Screen Felder leserlicher (OutlineInputBorder).
+
+### F-001 & F-002: Security — erledigt in `v0.8.2+13`
+- Biometrische Authentifizierung und konfigurierbare Sperrzeit.
+
+### F-003: Artikeldetailansicht — Ort & Fach nebeneinander — erledigt in `v0.8.0+8`
+- `Row` mit zwei `Expanded`-Kindern
+- Neuer Token `detailFieldSpacing`
+- Responsive und Dark-Mode-kompatibel
+
+--- 
+
+### H-002 & H-003: Infrastruktur — erledigt in `v0.7.1` bis `v0.7.4`
+- CORS-Konfiguration und Backup-Automatisierung (Docker).
+
+--- 
+
+### K-006: Kaltstart-Bug Fix — erledigt in `v0.8.0`
+- Sync-UI-Kopplung und automatischer Bild-Download nach Erst-Setup.
+
+### K-001 bis K-005: Fundament — erledigt in `v0.2.0` bis `v0.7.1`
+- Bundle IDs, PocketBase Schema, Runtime-URL-Config, WSL2-Support.
+
+--- 
+
+### M-002 bis M-006: Core-Features — erledigt in `v0.7.6+x`
+- Zentrales Error Handling, Loading States, Pagination und Input Validation.
+
+### M-008: Backup-Status in der App anzeigen — erledigt in `v0.7.5+1`
+- `BackupStatusService` liest `last_backup.json` via HTTP
+- `BackupStatusWidget` mit Farbcodierung
+- Integration im Settings-Screen
+- `backup.sh` kopiert Status-JSON nach `pb_public`
+
+### M-007: UI für Konfliktlösung — erledigt in `v0.7.5+0`
+- `ConflictResolutionScreen` mit Side-by-Side-Vergleich
+- `ConflictData` + `ConflictResolution` Enum
+- Merge-Dialog
+- Integration mit `SyncConflictHandler` und `SyncService`
+- Entscheidungs-Callbacks (`useLocal`, `useRemote`, `merge`, `skip`)
+
+### M-009: Login-Flow & Authentifizierung — erledigt in `v0.7.3`
+- Login-Screen mit E-Mail/Passwort-Validierung und Loading-State
+- Auth-Gate in `main.dart` mit Auto-Login
+- Logout im Settings-Screen mit Bestätigungs-Dialog
+- PocketBase API-Regeln auf Auth umgestellt
+
+### M-012: Dateianhänge (Attachments) — erledigt in `v0.7.2`
+- PocketBase Collection `attachments` mit File-Upload
+- `AttachmentService` — CRUD gegen PocketBase
+- Upload-Widget mit Validierung
+- Anhang-Liste mit Download, Bearbeiten, Löschen
+- Badge-Counter im Detail-Screen
+
+--- 
+
+### N-003 & N-005: Branding — erledigt in `v0.8.4+17`
+- Neues App-Icon und Native Splash Screen für alle Plattformen.
+
+--- 
+
+### O-008: Magic-Number-Arithmetik in Spacing-Tokens — erledigt in `v0.8.1+11`
+- Neuer Token `spacingSectionGap`
+- 3 Stellen `spacingXLarge - 4` ersetzt
+- Reines Rename-/Token-Refactoring
+
+### O-007: Tests für `ImagePickerService` nach P-001 — erledigt in `v0.8.0+7`
+- 15 Tests, alle grün
+- `FakeImagePicker`, Plattform-Checks, Guard-Pfade und Kamera-Flows abgedeckt
+
+### O-006: Widget-Tests `ArtikelErfassenScreen` — erledigt in `v0.7.7+5`
+- 11 Tests, alle grün
+- Render, Validierung, Abbrechen-Pfade abgedeckt
+- `tester.view.physicalSize` + `scrollUntilVisible()` für `ListView`
+
+### O-005: Deprecated Code entfernt — erledigt in `v0.7.7+4`
+- `_dokumente_button.dart` gelöscht
+- `_dokumente_button_stub.dart` gelöscht
+- `dokumente_utils.dart` gelöscht
+- Zugehörige Testdateien gelöscht
+- `flutter analyze`: 0 Issues
+
+### O-002: Unit-Tests für `ArtikelDbService` — erledigt in `v0.7.6+4`
+- Alle CRUD-Methoden abgedeckt inkl. `setBildPfadByUuidSilent()` ✅
+
+### O-004: UI-Hardcoded Werte migrieren — erledigt in `v0.7.4+3` bis `v0.7.4+7`
+- ~600 Hardcodes über 5 Batches migriert ✅
+- ~41 bewusst beibehalten (dokumentiert in `THEMING.md`) ✅
+- 28 neue `AppConfig`-Tokens ✅
+- Dark Mode korrekt in allen Widgets ✅
+- Alle `withOpacity` → `withValues` migriert ✅
+
+### O-001: Bereinigung von `debugPrint` — erledigt in `v0.3.0`
+- Alle `debugPrint`-Aufrufe durch `AppLogService` ersetzt
+- Verbleibende 8 Aufrufe in `app_log_io.dart` sind absichtlich
+  *(zirkuläre Abhängigkeit)*
+
+--- 
+
+### P-003: Bild-Caching — erledigt in `v0.8.6+21`
+- Integration von `cached_network_image`
+- `ArtikelBildWidget` nutzt persistenten Cache für Remote-Bilder
+- Kein Flackern/Neu-Laden beim Scrollen in der Liste
+- Cache-Invalidierung bei ETag-Änderung sichergestellt
+
+### P-005: Dependency-Update — erledigt in `v0.8.0+5`
+- `cupertino_icons`, `shared_preferences`, `mockito`, `connectivity_plus` aktualisiert
+- `connectivity_plus`-API-Migration bereits umgesetzt
+- `dependency_overrides` bereinigt
+
+### P-001: Kamera-Vorschau-Delay auf Android — erledigt in `v0.7.7+2`
+- Crop-Dialog aus `pickImageCamera()` entfernt
+- `maxWidth`/`maxHeight`/`imageQuality` aus `AppConfig`
+- Hardcodierte 1600px-Dimensionen entfernt
+- `openCropDialog()` als public static Methode
+
+### P-002: Suche Debounce — erledigt in `v0.7.7+5`
+- Timer-basierter Debounce (300ms)
+- Mobile: `_db.searchArtikel()` (`SQL LIKE`)
+- Web: clientseitiger Filter
+- Skeleton während DB-Suche
+- Pagination-Footer bei aktiver Suche ausgeblendet
+
+--- 
+
+### T-008: ETag-Konflikt-Logik und downloadMissingImages-Check-Logik — abgeschlossen in `v0.8.5+19`
+- `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
+- `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
+- ETag-Grenzwerte, ConflictCallback-Typedef, SyncStatus-Enum abgedeckt ✅
+- Gesamtstand: **610 Tests**, 28 Dateien ✅
+
+### T-003 bis T-007: Test-Offensive — erledigt in `v0.8.1+10`
+- Unit-Tests für `NextcloudClient`, `MergeDialog` und `AttachmentService`, `BackupStatusService`.
+- Performance-Test self-contained. `flutter test` läuft ohne manuelle Vorbereitung
+
+--- 
+
 
 ## 🔍 Wartungs-Historie
 

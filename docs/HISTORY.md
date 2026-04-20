@@ -285,7 +285,7 @@ Einträge **ohne eindeutige Versionszuordnung** stehen gesammelt im Archivbereic
 
 ### v0.8.0 — 2026-04-10
 
-#### 🎉 Hauptfeature: Kaltstart-Bugfix
+#### 🎉 K-006: Hauptfeature: Kaltstart-Bugfix
 
 ##### Problem
 Nach einem Kaltstart (App-Daten gelöscht, neue PocketBase-URL konfiguriert)  
@@ -805,7 +805,32 @@ Dreistufige URL-Prioritätskette mit Setup-Screen als Fallback:
 
 ---
 
-## 3. Archiv: nicht eindeutig versionierte Einträge
+
+## 3. 📊 Historische Phasen-Planung (Archiv)
+
+Dieser Status entspricht dem Stand zum Abschluss der Performance-Phase (v0.8.6).
+
+| Phase | Fortschritt | Status |
+|---|---|---|
+| Phase 1: Grundlagen | 100% | ✅ Abgeschlossen |
+| Phase 2: Deployment & Security | 100% | ✅ Abgeschlossen |
+| Phase 3: Performance & Optimierung | 100% | ✅ Abgeschlossen |
+| Phase 4: Multi-Plattform & Politur | 100% | ✅ Abgeschlossen |
+
+### Historischer Plattform-Status
+
+| Plattform | Status (Stand v0.8.6) |
+|---|---|
+| Web (Chrome) | ✅ Voll funktionsfähig |
+| Linux Desktop | ✅ Build & PDF-Export stabil |
+| Windows Desktop | ✅ Build & Export stabil |
+| Android | ✅ Build & Kamera stabil (S20 verifiziert) |
+| iOS/macOS | ⏸️ Zurückgestellt (Account fehlt) |
+
+---
+
+
+## 4. Archiv: nicht eindeutig versionierte Einträge
 
 ### 2026-03-25 — 📋 Dokumente zum Artikel
 
@@ -878,7 +903,7 @@ In diesem Monat wurde die App von einem Prototyp zu einem produktionsreifen Syst
 
 ---
 
-## 4. Historische Architektur-Entscheidungen
+## 5. Historische Architektur-Entscheidungen
 
 1. **Caddy statt Nginx (Container)**  
    Caddy wurde gewählt, da es HTTPS/HSTS und SPA-Routing mit minimaler Konfiguration ermöglicht.
