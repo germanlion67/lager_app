@@ -22,6 +22,44 @@ Einträge **ohne eindeutige Versionszuordnung** stehen gesammelt im Archivbereic
 
 ## 1. Versionshistorie
 
+### v0.8.6+21 — 2026-04-20
+
+#### P-003: Bild-Caching — erledigt in `v0.8.6+21`
+- Integration von `cached_network_image`
+- `ArtikelBildWidget` nutzt persistenten Cache für Remote-Bilder
+- Kein Flackern/Neu-Laden beim Scrollen in der Liste
+- Cache-Invalidierung bei ETag-Änderung sichergestellt
+
+
+### v0.8.5+19 — 2026-04-20
+
+#### B-003: Bild-Download-Skip-Logik in downloadMissingImages — abgeschlossen in `v0.8.5+19`
+- Skip-Bedingung war invertiert — Negation fehlte
+- Korrigiert: Skip nur wenn `bildPfad.isNotEmpty && dateiExistiert && dateiHatInhalt`
+- Bilder werden jetzt korrekt heruntergeladen wenn lokal nicht vorhanden
+
+#### B-004: Konflikt-Callback-Registrierung nach Navigator-Init via GlobalKey — abgeschlossen in `v0.8.5+19`
+- `GlobalKey<NavigatorState>` in `main.dart` eingeführt
+- Callback-Registrierung via `addPostFrameCallback` nach erstem Frame
+- DB-Reopen nach App-Resume vor Sync-Start sichergestellt
+
+#### B-005: ETag-basierte Konflikt-Erkennung vor PATCH — abgeschlossen in `v0.8.5+19`
+- Vor jedem PATCH: Remote-Record laden, `updated`-Timestamp mit lokalem `etag` vergleichen
+- Bei Abweichung: `onConflictDetected`-Callback statt blindem Überschreiben
+- ETag = PocketBase `updated`-Timestamp (ISO 8601), nicht Record-ID
+
+#### B-006: SyncManagementScreen nutzt SyncOrchestrator statt SyncService — abgeschlossen in `v0.8.5+19`
+- `SyncManagementScreen` erhält `SyncOrchestrator`-Instanz als Parameter
+- Sync-Start über `orchestrator.runOnce()`
+- Status-Updates korrekt über `syncStatus`-Stream
+
+#### T-008: ETag-Konflikt-Logik und downloadMissingImages-Check-Logik — abgeschlossen in `v0.8.5+19`
+- `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
+- `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
+- ETag-Grenzwerte, ConflictCallback-Typedef, SyncStatus-Enum abgedeckt ✅
+- Gesamtstand: **610 Tests**, 28 Dateien ✅
+
+
 ### v0.8.4+17 — 2026-04-14
 
 #### F-004: Nextcloud-Status-Icon Farbe angleichen

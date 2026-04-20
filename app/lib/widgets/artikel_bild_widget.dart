@@ -1,21 +1,15 @@
 // lib/widgets/artikel_bild_widget.dart
 //
-// M-011: Zentrales Bild-Widget für Artikel.
+// M-011: Zentrales Bild-Widget für Artikel mit P-003 Bild-Caching.
 //
 // Strategie:
-//   Liste  → Thumbnail (lokal: thumbnailPfad, web: ?thumb=1 Query-Param)
-//   Detail → Vollbild  (lokal: bildPfad,      web: Original-URL)
+//   Liste  → Thumbnail (lokal: thumbnailPfad, web/fallback: ?thumb=1 Query-Param)
+//   Detail → Vollbild  (lokal: bildPfad,      web/fallback: Original-URL)
 //
-// Caching:
+// Caching (P-003):
 //   - Lokal: Image.file mit RepaintBoundary (Flutter-intern gecacht)
-//   - Web:   cached_network_image mit Disk- und Memory-Cache
-//
-// ⚠️ FIX: cacheKey enthält jetzt aktualisiertAm-Timestamp, damit nach
-// Bildänderung das neue Bild geladen wird statt des gecachten alten.
-//
-// Hinweis: Colors.grey in Platzhalter-Widgets wird bewusst beibehalten,
-// da die Platzhalter-Hintergrundfarben über AppImages gesteuert werden
-// und das Icon eine neutrale Farbe benötigt.
+//   - Remote: cached_network_image mit Disk- und Memory-Cache.
+//   - Invalidation: Der cacheKey enthält den 'aktualisiertAm'-Zeitstempel.
 
 import 'dart:io';
 import 'dart:typed_data';
@@ -27,17 +21,17 @@ import 'package:flutter/material.dart';
 import '../config/app_config.dart';
 import '../config/app_images.dart';
 import '../models/artikel_model.dart';
+import '../services/app_log_service.dart';
 import '../services/pocketbase_service.dart';
+
+final _log = AppLogService.logger;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ArtikelListBild
-// Für die Listenansicht: kleines Thumbnail (50×50), gecacht.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ArtikelListBild extends StatelessWidget {
   final Artikel artikel;
-
-  /// Größe des Thumbnails in der Liste (quadratisch).
   final double size;
 
   const ArtikelListBild({
@@ -65,22 +59,13 @@ class ArtikelListBild extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ArtikelDetailBild
-// Für die Detailansicht: Vollbild, tippbar für Vollbild-Overlay.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ArtikelDetailBild extends StatelessWidget {
   final Artikel artikel;
-
-  /// Bytes eines neu gewählten (noch nicht gespeicherten) Bildes.
   final Uint8List? pendingBytes;
-
-  /// Remote-URL (wird im Web nach dem Laden gesetzt).
   final String? remoteBildUrl;
-
-  /// Wird aufgerufen wenn der Nutzer auf das Bild tippt.
   final VoidCallback? onTap;
-
-  /// Höhe des Bild-Containers.
   final double height;
 
   const ArtikelDetailBild({
@@ -98,8 +83,7 @@ class ArtikelDetailBild extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: ClipRRect(
-          borderRadius:
-              BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
+          borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
           child: SizedBox(
             height: height,
             width: double.infinity,
@@ -111,99 +95,81 @@ class ArtikelDetailBild extends StatelessWidget {
   }
 
   Widget _buildContent() {
-      // 1. Neu gewähltes Bild (noch nicht gespeichert) hat höchste Priorität
-      if (pendingBytes != null) {
-        return Image.memory(
-          pendingBytes!,
-          height: height,
-          width: double.infinity,
-          fit: AppConfig.artikelDetailBildFit,
-        );
-      }
-
-      // 2. Web: Remote-URL via CachedNetworkImage
-      if (kIsWeb) {
-        if (remoteBildUrl != null) {
-          return CachedNetworkImage(
-            imageUrl: remoteBildUrl!,
-            cacheKey: '${artikel.uuid}_detail_'
-                '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
-            height: height,
-            width: double.infinity,
-            fit: AppConfig.artikelDetailBildFit,
-            placeholder: (_, __) => _LoadingPlaceholder(height: height),
-            errorWidget: (_, __, ___) => _Placeholder(height: height),
-          );
-        }
-        return _Placeholder(height: height);
-      }
-
-      // 3. Mobile/Desktop: Lokaler Bildpfad (Vollbild)
-      final pfad = artikel.bildPfad.isNotEmpty ? artikel.bildPfad : null;
-      if (pfad != null && File(pfad).existsSync()) {
-        return Image.file(
-          File(pfad),
-          height: height,
-          width: double.infinity,
-          fit: AppConfig.artikelDetailBildFit,
-          cacheWidth: 800,
-          errorBuilder: (_, __, ___) => _buildPbDetailFallback(),  // ← GEÄNDERT
-        );
-      }
-
-      // 4. NEU: PocketBase-URL-Fallback für Detail (Kaltstart)
-      return _buildPbDetailFallback();
+    if (pendingBytes != null) {
+      return Image.memory(
+        pendingBytes!,
+        height: height,
+        width: double.infinity,
+        fit: AppConfig.artikelDetailBildFit,
+      );
     }
 
-    /// PocketBase-URL-Fallback für die Detailansicht.
-    Widget _buildPbDetailFallback() {
-      final recordId = artikel.remotePath;
-      final bildField = artikel.remoteBildPfad;
-
-      if (recordId == null ||
-          recordId.isEmpty ||
-          bildField == null ||
-          bildField.isEmpty) {
-        return _Placeholder(height: height);
+    if (kIsWeb) {
+      if (remoteBildUrl != null) {
+        return _buildCachedImage(remoteBildUrl!, isDetail: true);
       }
-
-      try {
-        final pbService = PocketBaseService();
-        if (!pbService.hasClient || pbService.url.isEmpty) {
-          return _Placeholder(height: height);
-        }
-
-        final baseUri = Uri.parse(pbService.url);
-        final url = baseUri
-            .resolve(
-              '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}',
-            )
-            .toString();
-
-        return CachedNetworkImage(
-          imageUrl: url,
-          cacheKey: '${artikel.uuid}_detail_pb_'
-              '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
-          height: height,
-          width: double.infinity,
-          fit: AppConfig.artikelDetailBildFit,
-          placeholder: (_, __) => _LoadingPlaceholder(height: height),
-          errorWidget: (_, __, ___) => _Placeholder(height: height),
-        );
-      } catch (_) {
-        return _Placeholder(height: height);
-      }
+      return _Placeholder(height: height);
     }
+
+    final pfad = artikel.bildPfad.isNotEmpty ? artikel.bildPfad : null;
+    if (pfad != null && File(pfad).existsSync()) {
+      return Image.file(
+        File(pfad),
+        height: height,
+        width: double.infinity,
+        fit: AppConfig.artikelDetailBildFit,
+        cacheWidth: 800,
+        errorBuilder: (_, __, ___) {
+          _log.w('Lokales Bild fehlerhaft: $pfad. Nutze PB-Fallback.');
+          return _buildPbDetailFallback();
+        },
+      );
+    }
+
+    return _buildPbDetailFallback();
+  }
+
+  Widget _buildPbDetailFallback() {
+    final url = _getPbUrl(isThumb: false);
+    if (url == null) return _Placeholder(height: height);
+    return _buildCachedImage(url, isDetail: true);
+  }
+
+  Widget _buildCachedImage(String url, {required bool isDetail}) {
+    return CachedNetworkImage(
+      imageUrl: url,
+      cacheKey: '${artikel.uuid}_${isDetail ? "full" : "thumb"}_${artikel.aktualisiertAm.millisecondsSinceEpoch}',
+      height: height,
+      width: double.infinity,
+      fit: AppConfig.artikelDetailBildFit,
+      placeholder: (_, __) => _LoadingPlaceholder(height: height),
+      errorWidget: (context, url, error) {
+        _log.e('Fehler beim Laden des Remote-Bildes (Detail): $url', error: error);
+        return _Placeholder(height: height);
+      },
+    );
+  }
+
+  String? _getPbUrl({required bool isThumb}) {
+    final recordId = artikel.remotePath;
+    final bildField = artikel.remoteBildPfad;
+    if (recordId == null || recordId.isEmpty || bildField == null || bildField.isEmpty) return null;
+
+    final pbService = PocketBaseService();
+    if (!pbService.hasClient || pbService.url.isEmpty) return null;
+
+    final baseUri = Uri.parse(pbService.url);
+    var urlPath = '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}';
+    if (isThumb) urlPath += '?thumb=${AppConfig.pbThumbGroesse}';
+    
+    return baseUri.resolve(urlPath).toString();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Private Hilfs-Widgets
+// Private Hilfs-Widgets (Mobile/Desktop)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Lokales Thumbnail für die Listenansicht.
-/// Bevorzugt thumbnailPfad, fällt auf bildPfad zurück.
-/// NEU: Falls keine lokale Datei existiert, wird ein PocketBase-URL-Fallback
-/// über CachedNetworkImage verwendet (Kaltstart-Szenario).
 class _LocalThumbnail extends StatelessWidget {
   final Artikel artikel;
   final double size;
@@ -212,101 +178,68 @@ class _LocalThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Lokales Thumbnail bevorzugen (schnellste Option)
     final thumbPfad = artikel.thumbnailPfad;
-    if (thumbPfad != null &&
-        thumbPfad.isNotEmpty &&
-        File(thumbPfad).existsSync()) {
-      return Image.file(
-        File(thumbPfad),
-        width: size,
-        height: size,
-        fit: AppConfig.artikelListBildFit,
-        cacheWidth: (size * 2).toInt(),
-        errorBuilder: (_, __, ___) => _fallbackBild(context),
-      );
+    if (thumbPfad != null && thumbPfad.isNotEmpty && File(thumbPfad).existsSync()) {
+      return _buildFileImage(thumbPfad);
     }
 
-    // 2. Lokales Vollbild als Fallback
     final bildPfad = artikel.bildPfad.isNotEmpty ? artikel.bildPfad : null;
     if (bildPfad != null && File(bildPfad).existsSync()) {
-      return Image.file(
-        File(bildPfad),
-        width: size,
-        height: size,
-        fit: AppConfig.artikelListBildFit,
-        cacheWidth: (size * 2).toInt(),
-        errorBuilder: (_, __, ___) => _buildPbFallback(),
-      );
+      return _buildFileImage(bildPfad);
     }
 
-    // 3. NEU: PocketBase-URL als Fallback (Kaltstart — Bild noch nicht
-    //    heruntergeladen, aber remoteBildPfad + remotePath vorhanden)
     return _buildPbFallback();
   }
 
-  Widget _fallbackBild(BuildContext context) {
-    final bildPfad = artikel.bildPfad.isNotEmpty ? artikel.bildPfad : null;
-    if (bildPfad != null && File(bildPfad).existsSync()) {
-      return Image.file(
-        File(bildPfad),
-        width: size,
-        height: size,
-        fit: AppConfig.artikelListBildFit,
-        cacheWidth: (size * 2).toInt(),
-        errorBuilder: (_, __, ___) => _buildPbFallback(),
-      );
-    }
-    return _buildPbFallback();
+  Widget _buildFileImage(String path) {
+    return Image.file(
+      File(path),
+      width: size,
+      height: size,
+      fit: AppConfig.artikelListBildFit,
+      cacheWidth: (size * 2).toInt(),
+      errorBuilder: (_, __, ___) => _buildPbFallback(),
+    );
   }
 
-  /// PocketBase-URL-Fallback via CachedNetworkImage.
-  /// Wird verwendet wenn keine lokale Datei existiert (Kaltstart).
   Widget _buildPbFallback() {
-    final url = _buildPbThumbnailUrl();
+    final url = _getPbThumbUrl();
     if (url == null) return _BildPlaceholder(size: size);
 
     return CachedNetworkImage(
       imageUrl: url,
-      cacheKey: '${artikel.uuid}_local_thumb_'
-          '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
+      cacheKey: '${artikel.uuid}_thumb_${artikel.aktualisiertAm.millisecondsSinceEpoch}',
       width: size,
       height: size,
       fit: AppConfig.artikelListBildFit,
       memCacheWidth: (size * 2).toInt(),
       memCacheHeight: (size * 2).toInt(),
       placeholder: (_, __) => _BildPlaceholder(size: size, loading: true),
-      errorWidget: (_, __, ___) => _BildPlaceholder(size: size),
+      errorWidget: (context, url, error) {
+        _log.w('PB-Thumbnail Fallback fehlgeschlagen für ${artikel.uuid}');
+        return _BildPlaceholder(size: size);
+      },
     );
   }
 
-  /// Baut die PocketBase Thumbnail-URL (identisch zur Web-Logik).
-  String? _buildPbThumbnailUrl() {
+  String? _getPbThumbUrl() {
     final recordId = artikel.remotePath;
     final bildField = artikel.remoteBildPfad;
+    if (recordId == null || recordId.isEmpty || bildField == null || bildField.isEmpty) return null;
 
-    if (recordId == null || recordId.isEmpty) return null;
-    if (bildField == null || bildField.isEmpty) return null;
+    final pbService = PocketBaseService();
+    if (!pbService.hasClient || pbService.url.isEmpty) return null;
 
-    try {
-      final pbService = PocketBaseService();
-      if (!pbService.hasClient || pbService.url.isEmpty) return null;
-
-      final baseUri = Uri.parse(pbService.url);
-      return baseUri
-          .resolve(
-            '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}'
-            '?thumb=${AppConfig.pbThumbGroesse}',
-          )
-          .toString();
-    } catch (_) {
-      return null;
-    }
+    return Uri.parse(pbService.url)
+        .resolve('/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}?thumb=${AppConfig.pbThumbGroesse}')
+        .toString();
   }
 }
 
-/// Web-Thumbnail für die Listenansicht via CachedNetworkImage.
-/// Nutzt PocketBase-URL mit automatischem Disk- und Memory-Cache.
+// ─────────────────────────────────────────────────────────────────────────────
+// Private Hilfs-Widgets (Web)
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _WebThumbnail extends StatelessWidget {
   final Artikel artikel;
   final double size;
@@ -315,13 +248,20 @@ class _WebThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = _buildThumbnailUrl();
-    if (url == null) return _BildPlaceholder(size: size);
+    final recordId = artikel.remotePath;
+    final bildField = artikel.remoteBildPfad;
+    if (recordId == null || recordId.isEmpty || bildField == null || bildField.isEmpty) {
+      return _BildPlaceholder(size: size);
+    }
+
+    final pbService = PocketBaseService();
+    final url = Uri.parse(pbService.url)
+        .resolve('/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}?thumb=${AppConfig.pbThumbGroesse}')
+        .toString();
 
     return CachedNetworkImage(
       imageUrl: url,
-      cacheKey: '${artikel.uuid}_thumb_'
-          '${artikel.aktualisiertAm.millisecondsSinceEpoch}',
+      cacheKey: '${artikel.uuid}_thumb_${artikel.aktualisiertAm.millisecondsSinceEpoch}',
       width: size,
       height: size,
       fit: AppConfig.artikelListBildFit,
@@ -331,27 +271,12 @@ class _WebThumbnail extends StatelessWidget {
       errorWidget: (_, __, ___) => _BildPlaceholder(size: size),
     );
   }
-
-  String? _buildThumbnailUrl() {
-    final recordId = artikel.remotePath;
-    final bildField = artikel.remoteBildPfad;
-
-    if (recordId == null || recordId.isEmpty) return null;
-    if (bildField == null || bildField.isEmpty) return null;
-
-    final pbService = PocketBaseService();
-    final baseUri = Uri.parse(pbService.url);
-
-    return baseUri
-        .resolve(
-          '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}'
-          '?thumb=${AppConfig.pbThumbGroesse}',
-        )
-        .toString();
-  }
 }
 
-/// Lade-Platzhalter für Detail-Bilder (Web).
+// ─────────────────────────────────────────────────────────────────────────────
+// UI Platzhalter Widgets
+// ─────────────────────────────────────────────────────────────────────────────
+
 class _LoadingPlaceholder extends StatelessWidget {
   final double? height;
   const _LoadingPlaceholder({this.height});
@@ -370,9 +295,6 @@ class _LoadingPlaceholder extends StatelessWidget {
   }
 }
 
-/// Fehler-/Leer-Platzhalter für Detail-Bilder.
-/// Hinweis: Colors.grey wird hier bewusst beibehalten — das Icon benötigt
-/// eine neutrale Farbe, die auf dem AppImages-Hintergrund sichtbar ist.
 class _Placeholder extends StatelessWidget {
   final double? height;
   const _Placeholder({this.height});

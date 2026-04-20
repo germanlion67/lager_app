@@ -2,6 +2,19 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.6+21] — 2026-04-20
+
+### Performance (P-003): Bild-Caching für Remote-Bilder
+- **Integration von `cached_network_image`**: Remote-Bilder werden nun lokal zwischengespeichert, um unnötigen Netzwerk-Traffic und Flackern beim Scrollen zu vermeiden.
+- **Optimierte Listen-Performance**: Die Artikelliste reagiert deutlich flüssiger, da Bilder sofort aus dem Cache geladen werden.
+- **ETag-Awareness**: Der Cache erkennt Änderungen am Server über den ETag-Vergleich und aktualisiert Bilder nur bei Bedarf.
+
+### Stabilität & Android
+- **WSL2-USB Fix**: Dokumentation der USB-Initialisierung für Android-Geräte unter WSL2 (via `usbipd`).
+- **Verifikation auf Samsung S20**: Erfolgreicher Test des gesamten Deployment-Flows inkl. Kamera-Anbindung auf physikalischer Hardware.
+
+--- 
+
 ## [0.8.5+19] — 2026-04-17
 
 ### Bugfix (B-003): Bild-Download-Skip-Logik in downloadMissingImages korrigiert

@@ -321,6 +321,13 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 - Sync-Start über `orchestrator.runOnce()`
 - Status-Updates korrekt über `syncStatus`-Stream
 
+### P-003: Bild-Caching — erledigt in `v0.8.6+21`
+- Integration von `cached_network_image`
+- `ArtikelBildWidget` nutzt persistenten Cache für Remote-Bilder
+- Kein Flackern/Neu-Laden beim Scrollen in der Liste
+- Cache-Invalidierung bei ETag-Änderung sichergestellt
+
+
 ---
 
 ## 🔴 Priorität: Hoch
@@ -350,11 +357,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
 - [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
 
-### P-003: Bild-Caching
-Remote-Bilder werden bei jedem Scroll neu geladen.
-- [ ] `cached_network_image` Paket einbinden
-- [ ] `ArtikelBildWidget` auf `CachedNetworkImage` umstellen
-- [ ] Cache-Invalidierung bei ETag-Änderung
 
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
@@ -433,12 +435,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 47 | 47 | 0 |
+| ✅ Abgeschlossen | 48 | 48 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 4 | 0 | 4 |
+| 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 0 | 0 | 0 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **53** | **47** | **6** |
+| **Gesamt** | **53** | **48** | **5** |
 
 ---
 
@@ -446,6 +448,7 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-20 | v0.8.6+21 | P-003 abgeschlossen: Bild-Caching via `cached_network_image` integriert. Android-Stabilität auf S20 verifiziert. |
 | 2026-04-20 | v0.8.4+20 | Dokumente aktualisiert |
 | 2026-04-17 | v0.8.5+19 | B-003 abgeschlossen: downloadMissingImages Skip-Logik korrigiert. B-004 abgeschlossen: Konflikt-Callback via GlobalKey + addPostFrameCallback. B-005 abgeschlossen: ETag-Konflikt-Erkennung vor PATCH. B-006 abgeschlossen: SyncManagementScreen auf SyncOrchestrator umgestellt. T-008 abgeschlossen: 20 neue Tests (610 gesamt, 28 Dateien) |
 | 2026-04-14 | v0.8.4+17 | N-003: App-Icon + N-005: Native Splash Screen als erledigt markiert |
