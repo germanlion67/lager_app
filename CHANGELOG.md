@@ -2,27 +2,7 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
-## [0.8.5+2ß] — 2026-04-20
-
-### Bugfix (B-005):  aus Test T-001.7 - ETag-basierte Konflikt-Erkennung vor PATCH in PocketBaseSyncService
-
-**Problem:** Jeder Push überschrieb Remote-Änderungen ohne Konflikt-Check —
-`updated` Timestamp des Remote-Records wurde nicht mit lokalem ETag verglichen.
-
-**Lösung:**
-- Vor jedem PATCH: Remote-Record laden, `updated`-Timestamp mit lokalem
-  `etag` vergleichen
-- Bei Abweichung: `onConflictDetected`-Callback aufrufen statt blind zu überschreiben
-- ETag = PocketBase `updated`-Timestamp (ISO 8601), nicht Record-ID
-
-**Konflikt-Erkennungs-Logik:**
-final istKonflikt = lokalerEtag.isNotEmpty &&
-    lokalerEtag != 'deleted' &&
-    remoteUpdated.isNotEmpty &&
-    lokalerEtag != remoteUpdated;
-
-
-## [0.8.5+19] — 2026-04-20
+## [0.8.5+19] — 2026-04-17
 
 ### Bugfix (B-003): Bild-Download-Skip-Logik in downloadMissingImages korrigiert
 
@@ -37,8 +17,6 @@ ausgewertet, aber die Negation fehlte.
 - Logik jetzt korrekt: existierende Datei mit Inhalt → überspringen,
   alles andere → herunterladen
 
-<<<<<<< HEAD
----
 
 ### Bugfix (B-004):  aus Test T-001.7 - Konflikt-Callback-Registrierung nach Navigator-Init via GlobalKey
 
@@ -52,7 +30,6 @@ registriert — `Navigator.of(context)` warf einen Fehler weil kein
 - DB-Reopen nach App-Resume (`didChangeAppLifecycleState`) vor Sync-Start
   sicherstellt, dass SQLite-Verbindung nach Hintergrundwechsel aktiv ist
 
----
 
 ### Bugfix (B-005):  aus Test T-001.7 - ETag-basierte Konflikt-Erkennung vor PATCH in PocketBaseSyncService
 
@@ -71,7 +48,6 @@ final istKonflikt = lokalerEtag.isNotEmpty &&
     remoteUpdated.isNotEmpty &&
     lokalerEtag != remoteUpdated;
 
----
 
 ### Bugfix (B-006):  aus Test T-001.7 - SyncManagementScreen nutzt SyncOrchestrator statt SyncService
 
@@ -84,7 +60,6 @@ dabei den `SyncOrchestrator` — Status-Stream, Conflict-Handling und
 - Sync-Start über `orchestrator.runOnce()` statt direktem `SyncService`-Aufruf
 - Status-Updates korrekt über `syncStatus`-Stream empfangen
 
----
 
 ### Tests (T-008): ETag-Konflikt-Logik und downloadMissingImages-Check-Logik
 
@@ -122,9 +97,6 @@ dabei den `SyncOrchestrator` — Status-Stream, Conflict-Handling und
 - `flutter test`: **610 bestanden**, 3 übersprungen ✅
 
 ---
-
-=======
->>>>>>> b46d97e (fix(sync): downloadMissingImages Skip-Logik korrigiert (B-003))
 
 ## [0.8.4+17] — 2026-04-14
 
