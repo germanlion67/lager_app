@@ -31,7 +31,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `O-009`
 - `T-009`
 - `F-006`
-- `B-004`
+- `B-004 + B-006`
 - `N-007`
 - `H-004`
 - `P-006`
@@ -300,7 +300,10 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 - Korrigiert: Skip nur wenn `bildPfad.isNotEmpty && dateiExistiert && dateiHatInhalt`
 - Bilder werden jetzt korrekt heruntergeladen wenn lokal nicht vorhanden
 
-
+### B-005: ETag-basierte Konflikt-Erkennung vor PATCH — abgeschlossen in `v0.8.5+20`
+- Vor jedem PATCH: Remote-Record laden, `updated`-Timestamp mit lokalem `etag` vergleichen
+- Bei Abweichung: `onConflictDetected`-Callback statt blindem Überschreiben
+- ETag = PocketBase `updated`-Timestamp (ISO 8601), nicht Record-ID
 
 ---
 
@@ -427,11 +430,8 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Datum | Version | Änderung |
 |---|---|---|
-<<<<<<< HEAD
-| 2026-04-17 | v0.8.5+19 | B-003 abgeschlossen: downloadMissingImages Skip-Logik korrigiert. B-004 abgeschlossen: Konflikt-Callback via GlobalKey + addPostFrameCallback. B-005 abgeschlossen: ETag-Konflikt-Erkennung vor PATCH. B-006 abgeschlossen: SyncManagementScreen auf SyncOrchestrator umgestellt. T-008 abgeschlossen: 20 neue Tests (610 gesamt, 28 Dateien) |
-=======
+| 2026-04-20 | v0.8.4+20 | B-005: ETag-basierte Konflikt-Erkennung vor PATCH |
 | 2026-04-20 | v0.8.4+19 | B-003: Bild-Download-Skip-Logik in downloadMissingImages korrigiert |
->>>>>>> b46d97e (fix(sync): downloadMissingImages Skip-Logik korrigiert (B-003))
 | 2026-04-14 | v0.8.4+17 | N-003: App-Icon + N-005: Native Splash Screen als erledigt markiert |
 | 2026-04-14 | v0.8.4+17 | F-004 abgeschlossen: NC-Icon auf `statusColorConnected` umgestellt. F-005 abgeschlossen: Detail-Screen Readonly-Felder mit `OutlineInputBorder` + `InputDecorator`, Menge/Artikelnummer als eigene Felder, `+/-` Buttons nur im Edit-Modus, 3 Widget-Tests angepasst |
 | 2026-04-14 | v0.8.3+16 | B-001 abgeschlossen: Settings-Save-Verhalten analysiert — Dirty-Tracking, Save-Button und Unsaved-Dialog waren bereits korrekt implementiert. B-002 abgeschlossen: Biometrie-Analyse — automatischer Auth-Start, FragmentActivity, Verfügbarkeitsprüfung vor Toggle-Aktivierung bestätigt. OPT-001 neu: SettingsController-Extraktion für Testbarkeit |

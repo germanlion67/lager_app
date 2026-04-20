@@ -590,13 +590,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       // F2: NavigatorKey für Konflikt-UI ohne BuildContext
       navigatorKey: _navigatorKey,
-      key: ValueKey(
-        _needsSetup
-            ? 'setup'
-            : (_isLoggedIn || _devMode)
-                ? 'app'
-                : 'login',
-      ),
       home: _buildHome(),
       onGenerateRoute: (settings) {
         switch (settings.name) {
@@ -614,6 +607,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   Widget _buildHome() {
+    _log.d('[Main] Baue Home-Widget. Eingeloggt: $_isLoggedIn'); // Diese Zeile einfügen    
     if (_needsSetup) {
       return ServerSetupScreen(onConfigured: _onServerConfigured);
     }

@@ -2,35 +2,27 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
-<<<<<<< HEAD
-## [0.8.5+20] — 2026-04-18
+## [0.8.5+2ß] — 2026-04-20
 
-### Bugfix (B-007): Gespeicherte Server-URL anzeigen + Initial-Sync gegen Hänger absichern
+### Bugfix (B-005):  aus Test T-001.7 - ETag-basierte Konflikt-Erkennung vor PATCH in PocketBaseSyncService
 
-- `ServerSetupScreen` befüllt das URL-Feld jetzt mit der tatsächlich gespeicherten URL (`pocketbase_url`) aus SharedPreferences.
-- Fallback bleibt `PocketBaseService.defaultUrl`, falls noch keine gespeicherte URL vorhanden ist.
-- Bilddownloads in `PocketBaseSyncService.downloadMissingImages()` verwenden jetzt einen harten Timeout von **12s** (`AppConfig.networkTimeout`), damit ein einzelner hängender Request den Initial-Sync nicht unendlich blockiert.
-- Timeout- und Fehler-Logs enthalten jetzt Artikel-UUID und Bild-URL für schnellere Diagnose.
+**Problem:** Jeder Push überschrieb Remote-Änderungen ohne Konflikt-Check —
+`updated` Timestamp des Remote-Records wurde nicht mit lokalem ETag verglichen.
 
-**Kurz-Verifikation:**
-- In „Server ändern“ wird nach erneutem Öffnen die zuletzt gespeicherte URL angezeigt.
-- Bei nicht erreichbarem Bild-Endpoint läuft der Initial-Sync weiter (Fehler wird geloggt, App bleibt nicht dauerhaft im Overlay hängen).
+**Lösung:**
+- Vor jedem PATCH: Remote-Record laden, `updated`-Timestamp mit lokalem
+  `etag` vergleichen
+- Bei Abweichung: `onConflictDetected`-Callback aufrufen statt blind zu überschreiben
+- ETag = PocketBase `updated`-Timestamp (ISO 8601), nicht Record-ID
 
----
+**Konflikt-Erkennungs-Logik:**
+final istKonflikt = lokalerEtag.isNotEmpty &&
+    lokalerEtag != 'deleted' &&
+    remoteUpdated.isNotEmpty &&
+    lokalerEtag != remoteUpdated;
 
-## [0.8.5+19] — 2026-04-17
 
-### Bugfix (B-007): Login-Timeout + Server-Änderung aus dem Login-Screen
-
-- Zentraler Login-Timeout über `AppConfig.loginTimeout` eingeführt (keine Magic Number)
-- Timeout-Schutz in `PocketBaseService.login()` ergänzt
-- `LoginScreen` zeigt bei Timeout eine klare Meldung statt Endlos-Spinner
-- Neuer, dezenter Link **„Server ändern“** im Login-Screen öffnet den bestehenden Server-Setup-Screen
-
----
-=======
 ## [0.8.5+19] — 2026-04-20
->>>>>>> b46d97e (fix(sync): downloadMissingImages Skip-Logik korrigiert (B-003))
 
 ### Bugfix (B-003): Bild-Download-Skip-Logik in downloadMissingImages korrigiert
 
