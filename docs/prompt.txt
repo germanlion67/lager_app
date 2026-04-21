@@ -647,6 +647,7 @@ Wenn du eine Aufgabe bekommst:
   - Neue Test-Helper → in `test/helpers/` ablegen
 4. Aktualisiere Dokumentation (minimal, präzise):
   - `docs/ARCHITECTURE.md` — Struktur/Flows
+  - `docs/PROJECT_STRUCTURE.md` — Struktur/Flows Gesamt
   - `docs/DATABASE.md` — Schema, Sync, Indizes
   - `docs/THEMING.md` — neue Tokens, Konventionen
   - `docs/LOGGING.md` — neue Log-Events

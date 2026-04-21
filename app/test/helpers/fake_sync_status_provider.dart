@@ -7,12 +7,32 @@ import 'package:lager_app/services/sync_status_provider.dart';
 class FakeSyncStatusProvider implements SyncStatusProvider {
   final _controller = StreamController<SyncStatus>.broadcast();
   bool _isSyncing = false;
+  DateTime? _fakeLastSyncTime;
 
   @override
   Stream<SyncStatus> get syncStatus => _controller.stream;
 
   @override
   bool get isSyncing => _isSyncing;
+
+  // NEU: Implementierung des Getters
+  @override
+  DateTime? get lastSyncTime => _fakeLastSyncTime;
+
+  // NEU: Implementierung der Methode
+  @override
+  Future<void> runOnce() async {
+    // Simuliert den Start eines Syncs
+    emitRunning();
+    // Kurze Verzögerung simulieren
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    emitSuccess();
+  }
+
+  // Hilfsmethode für Tests, um die Zeit manuell zu setzen
+  void setLastSyncTime(DateTime time) {
+    _fakeLastSyncTime = time;
+  }
 
   void emitIdle() {
     _isSyncing = false;
@@ -26,6 +46,7 @@ class FakeSyncStatusProvider implements SyncStatusProvider {
 
   void emitSuccess() {
     _isSyncing = false;
+    _fakeLastSyncTime = DateTime.now(); // Zeit stempeln bei Erfolg
     _controller.add(SyncStatus.success);
   }
 

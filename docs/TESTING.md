@@ -97,7 +97,7 @@ flutter test test/services/nextcloud_client_test.dart
 
 ### `conflict_resolution_test.dart` — T-001 (77 Tests)
 
-**Ziel:**  Vollständige Konfliktlösungs-Pipeline.
+**Ziel:**  Vollständige Konfliktlösungs-Pipeline bis zum UI-Merge.
 
 Abgedeckte Klassen: `ConflictData`, `ConflictResolution` (Enum), `SyncService.detectConflicts()`, `ConflictResolutionScreen`
 
@@ -121,8 +121,8 @@ flutter test test/conflict_resolution_test.dart
 
 ---
 
-### `services/pocketbase_sync_service_test.dart` — T-002 (17 Tests)
-**Ziel:** Unit-Tests für die PocketBase-Sync-Logik — Push, Pull, Fehlerbehandlung und Bild-Download.
+### `services/pocketbase_sync_service_test.dart` — T-002 & B-007 (17 Tests)
+**Ziel:** Unit-Tests für die PocketBase-Sync-Logik — Push, Pull, Fehlerbehandlung, inkl. der neuen Smart-Sync-Logik für Bilder.
 
 **Strategie:**
 - Manuelle Fakes statt `@GenerateMocks` — `PocketBaseService` und `ArtikelDbService` sind

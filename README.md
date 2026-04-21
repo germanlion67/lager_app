@@ -25,7 +25,7 @@ Sie bietet die Geschwindigkeit einer lokalen App mit der Sicherheit einer zentra
 - 🌐 **Web (Docker):** Direkter Zugriff auf die Cloud-Daten ohne Installation
 
 > ℹ️ **Ab v0.8.2:** App-Lock mit biometrischer Authentifizierung für mobile Plattformen.
-> Die App sperrt sich automatisch nach konfigurierbarer Inaktivitätszeit.
+> ℹ️ **Ab v0.8.9:** Smart-Sync für hocheffizienten Daten & Bild-Abgleich
 
 ---
 
@@ -34,7 +34,7 @@ Sie bietet die Geschwindigkeit einer lokalen App mit der Sicherheit einer zentra
 - 📦 **Artikelverwaltung:** Erfassung mit Name, Beschreibung, Ort, Fach und automatischer Artikelnummer
 - 📷 **Scanner & Bilder:** QR-/Barcode-Scanner (Mobile) und Bildanhänge (Kamera/Galerie)
 - 📎 **Dokumentenverwaltung:** Dokumente (PDF, DOCX, XLSX u. a.) direkt zum Artikel hochladen, synchronisieren und öffnen
-- 🔄 **Smart-Sync:** Intelligente Synchronisation mit Konfliktlösung und Offline-Modus — für Artikel, Bilder und Dokumente
+- 🔄 **Smart-Sync (B-007):** Intelligente Synchronisation mit Konfliktlösung und ETag-basiertem Bild-Abgleich — spart Bandbreite und Zeit.
 - 🔐 **App-Lock:** Biometrische Authentifizierung (Fingerabdruck/Face) mit Fallback auf Geräte-PIN — konfigurierbare Sperrzeit bei Inaktivität
 - 🔧 **Flexible Server-Konfiguration:** PocketBase-URL zur Laufzeit konfigurierbar — per Setup-Screen, Einstellungen oder Build-Default
 - 📄 **Reporting:** PDF-Berichte, CSV-/JSON-Export und ZIP-Backups

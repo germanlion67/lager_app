@@ -2,6 +2,22 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.8.9+24] — 2026-04-21
+
+### Bugfix (B-007): Intelligenter Bild-Sync & UI-Optimierung
+
+**Problem:** Bilder wurden nicht aktualisiert, wenn bereits eine lokale Datei existierte, selbst wenn in PocketBase ein neues Bild hochgeladen wurde. Zudem war der "Letzter Sync"-Zeitstempel in der AppBar bei hellem/dunklem Hintergrund schwer lesbar.
+
+**Lösung:**
+- **`PocketBaseSyncService`**:
+  - Die Methode `downloadMissingImages` prüft nun den Zeitstempel: Wenn `artikel.aktualisiertAm` neuer ist als das Erstellungsdatum der lokalen Datei, wird ein Re-Download erzwungen.
+  - Erkennung von Dateinamensänderungen (PocketBase-Suffixe) integriert.
+  - Automatisches Bereinigen des lokalen Artikel-Bildverzeichnisses vor dem Speichern neuer Versionen, um Datenmüll zu vermeiden.
+- **`ArtikelListScreen`**:
+  - Visuelle Aufwertung des Zeitstempels: Nutzung von `colorScheme.onSurface` und `FontWeight.bold` für perfekte Lesbarkeit (analog zum Ort-Filter-Dropdown).
+
+---
+
 ## [0.8.6+21] — 2026-04-20
 
 ### Performance (P-003): Bild-Caching für Remote-Bilder

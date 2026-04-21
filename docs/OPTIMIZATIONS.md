@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.8.6+21 | **Zuletzt aktualisiert:** 20.04.2026
+**Version:** 0.8.9+24 | **Zuletzt aktualisiert:** 21.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -26,13 +26,11 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `OPT` = bereichsübergreifendes internes Optimierungsvorhaben
 
 ### Nächste freie Kürzel
-- `B-007`, `F-006`, `H-004`, `K-007`, `M-013`, `N-007`, `O-009`, `P-006`, `T-009`, `OPT-002`
+- `B-008`, `F-006`, `H-004`, `K-007`, `M-013`, `N-007`, `O-009`, `P-006`, `T-009`, `OPT-002`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
 auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` verschoben wird.
-
----
 
 ---
 
@@ -141,12 +139,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 48 | 48 | 0 |
+| ✅ Abgeschlossen | 49 | 49 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 0 | 0 | 0 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **53** | **48** | **5** |
+| **Gesamt** | **54** | **49** | **5** |
 
 
 ---
@@ -155,6 +153,11 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+### B-007: Intelligenter Bild-Sync & UI-Optimierung — erledigt in `v0.8.9+24`
+- **Smart Sync**: `PocketBaseSyncService` vergleicht nun Datei-Zeitstempel mit PocketBase-Updates.
+- **Cleanup**: Automatisches Löschen alter Bildversionen im Dateisystem bei Namensänderung.
+- **UI-Kontrast**: "Letzter Sync"-Zeitstempel auf `onSurface` (Bold) umgestellt für maximale Lesbarkeit.
 
 ### B-003 bis B-006: Sync-Stabilität — erledigt in `v0.8.5+19`
 - ETag-basierte Konflikt-Erkennung vor PATCH.
@@ -316,6 +319,7 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-21 | v0.8.9+24 | B-007 abgeschlossen: Intelligenter Bild-Sync (Timestamp-Check) und UI-Politur des Sync-Zeitstempels implementiert. |
 | 2026-04-20 | v0.8.6+21 | P-003 abgeschlossen: Bild-Caching via `cached_network_image` integriert. Android-Stabilität auf S20 verifiziert. |
 | 2026-04-20 | v0.8.4+20 | Dokumente aktualisiert |
 | 2026-04-17 | v0.8.5+19 | B-003 abgeschlossen: downloadMissingImages Skip-Logik korrigiert. B-004 abgeschlossen: Konflikt-Callback via GlobalKey + addPostFrameCallback. B-005 abgeschlossen: ETag-Konflikt-Erkennung vor PATCH. B-006 abgeschlossen: SyncManagementScreen auf SyncOrchestrator umgestellt. T-008 abgeschlossen: 20 neue Tests (610 gesamt, 28 Dateien) |
