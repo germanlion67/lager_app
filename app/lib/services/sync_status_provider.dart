@@ -6,6 +6,7 @@
 // SyncOrchestrator-API. Ermöglicht einfache Test-Doubles ohne den gesamten
 // Orchestrator zu mocken.
 
+
 import 'sync_orchestrator.dart' show SyncStatus;
 
 abstract class SyncStatusProvider {
@@ -14,4 +15,10 @@ abstract class SyncStatusProvider {
 
   /// Ob gerade ein Sync läuft.
   bool get isSyncing;
+
+  /// Wann der letzte erfolgreiche Sync war.
+  DateTime? get lastSyncTime;
+
+  /// Stößt einen einmaligen Sync-Vorgang an.
+  Future<void> runOnce();
 }

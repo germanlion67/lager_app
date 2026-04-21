@@ -41,6 +41,7 @@ class SyncOrchestrator implements SyncStatusProvider {
   bool get isSyncing => _isSyncing;
 
   DateTime? _lastSyncTime;
+@override
   DateTime? get lastSyncTime => _lastSyncTime;
 
   static final _log = AppLogService.logger;
@@ -63,6 +64,7 @@ class SyncOrchestrator implements SyncStatusProvider {
     }
   }
 
+@override
   Future<void> runOnce() async {
     if (kIsWeb) {
       _log.d('SyncOrchestrator: Skipping sync on Web platform');
@@ -85,8 +87,11 @@ class SyncOrchestrator implements SyncStatusProvider {
     _log.i('SyncOrchestrator: start');
 
     try {
-      await _pocketBaseSync.syncOnce();
-      await _pocketBaseSync.downloadMissingImages();
+      // 1. Erst die Artikel-Daten (UUIDs, Texte) synchronisieren
+      await _pocketBaseSync.syncOnce().timeout(const Duration(seconds: 60));
+
+      // 2. Erst wenn die Daten in der DB stehen, die fehlenden Bilder laden
+      await _pocketBaseSync.downloadMissingImages().timeout(const Duration(minutes: 2));
 
       _lastSyncTime = DateTime.now();
       _emit(SyncStatus.success);
@@ -99,6 +104,9 @@ class SyncOrchestrator implements SyncStatusProvider {
     } finally {
       // F3: _isSyncing wird IMMER zurückgesetzt, auch bei Exception
       _isSyncing = false;
+      // Falls wir im Error-Zustand landen, emittieren wir nach kurzer Zeit idle,
+      // damit der Button wieder klickbar wird.
+      Future.delayed(const Duration(seconds: 3), () => _emit(SyncStatus.idle));
     }
   }
 

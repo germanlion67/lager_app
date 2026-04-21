@@ -115,6 +115,8 @@ class ArtikelDetailBild extends StatelessWidget {
     if (pfad != null && File(pfad).existsSync()) {
       return Image.file(
         File(pfad),
+        // NEU: Key hinzufügen 
+        key: ValueKey('${artikel.uuid}_detail_${artikel.aktualisiertAm.millisecondsSinceEpoch}'),       
         height: height,
         width: double.infinity,
         fit: AppConfig.artikelDetailBildFit,
@@ -194,6 +196,9 @@ class _LocalThumbnail extends StatelessWidget {
   Widget _buildFileImage(String path) {
     return Image.file(
       File(path),
+      // NEU: Der Key sorgt dafür, dass Flutter das Bild neu lädt, 
+      // wenn der Artikel aktualisiert wurde.  
+      key: ValueKey('${artikel.uuid}_${artikel.aktualisiertAm.millisecondsSinceEpoch}'),    
       width: size,
       height: size,
       fit: AppConfig.artikelListBildFit,
@@ -230,9 +235,18 @@ class _LocalThumbnail extends StatelessWidget {
     final pbService = PocketBaseService();
     if (!pbService.hasClient || pbService.url.isEmpty) return null;
 
-    return Uri.parse(pbService.url)
-        .resolve('/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}?thumb=${AppConfig.pbThumbGroesse}')
-        .toString();
+    // Wir erstellen das Basis-Uri Objekt
+    final baseUri = Uri.parse(pbService.url);
+    
+    // Wir nutzen resolveUri, um den Pfad und die Query-Parameter (thumb & Cache-Buster) 
+    // sauber zu kombinieren.
+    return baseUri.resolveUri(Uri(
+      path: '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}',
+      queryParameters: {
+        'thumb': AppConfig.pbThumbGroesse,
+        'v': artikel.aktualisiertAm.millisecondsSinceEpoch.toString(), // Der Cache-Buster
+      },
+    ),).toString();
   }
 }
 

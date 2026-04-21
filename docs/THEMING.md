@@ -1,9 +1,8 @@
 # 🎨 Design-System & Theming
 
-Dieses Dokument ist die aktive Entwicklungsreferenz für das Design-Token-System, Material 3 und die zentrale UI-Konfiguration der **Lager_app**.
-
-Die O-004 Migration ist vollständig abgeschlossen (`v0.7.4+7`, ~600 Hardcodes migriert).
-Historische Migrations-Details sind in [HISTORY.md] (HISTORY.md) dokumentiert.
+> Stand: v0.8.9+24 (21.04.2026)
+> 
+> Dieses Dokument ist die aktive Entwicklungsreferenz für das Design-Token-System, Material 3 und die zentrale UI-Konfiguration der **Lager_app**.
 
 ---
 
@@ -19,6 +18,7 @@ Um hartcodierte Werte ("Magic Numbers") im Code zu vermeiden, nutzt die App eine
 | `app_images.dart` | Asset-Pfade, Feature-Flags für UI-Elemente                    |
 
 ## 📐 AppConfig — Token-Referenz
+
 ### Spacing
 | Token          | Wert | Verwendung                                   |
 | :------------- | :--- | :------------------------------------------- |
@@ -98,26 +98,57 @@ Um hartcodierte Werte ("Magic Numbers") im Code zu vermeiden, nutzt die App eine
 | Timeouts    | Standard-Dauer für Snackbars und API-Requests      |
 | Bildgrößen  | Standard-Dimensionen für Vorschaubilder (`pbThumbGroesse`) |
 | Font-Sizes  | `fontSizeXSmall` (10) bis `fontSizeXXLarge` (20)   |
+| Opacity     | Nutzung von `opacitySubtle` (0.1) bis `opacityMedium` (0.3) |
 
 --- 
 
 ## 🎨 AppTheme — Material 3
-- ThemeMode: Volle Unterstützung für `ThemeMode.system` (automatischer Hell-/Dunkel-Wechsel)
-- Farbpalette: `ColorScheme.fromSeed` für harmonische Primär- und Akzentfarben
-- Schriftart: Google Fonts (Roboto)
-- Komponenten-Themes: Globale Definition für `AppBar`, `Card`, `FloatingActionButton`, `ListTile` — alle nutzen AppConfig-Tokens
+
+Die App nutzt ein dynamisches Material 3 Theme, das über `app_theme.dart` gesteuert wird.
+
+- **ThemeMode**: Volle Unterstützung für `ThemeMode.system` (automatischer Hell-/Dunkel-Wechsel).
+- **Farbpalette**: Erzeugt über `ColorScheme.fromSeed` für harmonische Akzente.
+- **Schriftarten**: Integration von **Google Fonts (Roboto)** als Hausschrift.
+- **Komponenten-Themes**: Globale Definition für `AppBar`, `Card`, `FloatingActionButton` und `ListTile` — alle nutzen konsistent die `AppConfig`-Tokens.
+- ✅ **O-004 Update**: Component-Themes nutzen jetzt AppConfig-Tokens statt hardcodierter Werte.
 
 --- 
 
 ## 🖼️ AppImages — Asset-Management
-- Platzhalter: Pfade zu Standard-Bildern falls kein Artikelbild vorhanden
-- Hintergrund-Stack: Flag `hintergrundAktiv` zur Steuerung optionaler Overlay-Grafiken
-- ⚠️ Bewusste Ausnahme: Enthält hardcodierte Farben (`Color(0xFF...)`) für Platzhalter-Hintergründe — zentral gesteuert über `AppImages`, nicht in aufrufenden Widgets
+
+- **Platzhalter**: Zentrale Verwaltung von Pfaden für Artikel ohne Bild.
+- **Feature-Flags**: Steuerung von UI-Elementen wie `hintergrundAktiv` (Overlay-Grafiken).
+- **⚠️ Bewusste Ausnahme**: Enthält hardcodierte Farben (`Color(0xFF...)`) für Platzhalter-Hintergründe, um diese logisch von den Theme-Farben zu trennen.
 
 --- 
 
+## 🕒 AppBar Sync-Zeitstempel (B-007)
+
+Um eine perfekte Lesbarkeit des "Letzter Sync"-Zeitstempels auf unterschiedlichen AppBar-Hintergründen zu gewährleisten, gilt folgende Konvention:
+
+- **Farbe**: `Theme.of(context).colorScheme.onSurface`
+  - *Grund*: Garantiert maximalen Kontrast zum Oberflächen-Hintergrund, unabhängig vom AppBar-Zustand.
+- **Schriftgewicht**: `FontWeight.bold`
+- **Schriftgröße**: `12` (entspricht `fontSizeSmall`)
+- **Kontext**: Analog zur Gestaltung von Filtern, um eine konsistente visuelle Hierarchie zu schaffen.
+
+**Beispiel-Implementierung:**
+```dart
+Text(
+  'Sync: $timestamp',
+  style: TextStyle(
+    color: Theme.of(context).colorScheme.onSurface,
+    fontWeight: FontWeight.bold,
+    fontSize: 12,
+  ),
+)
+```
+
+
 ## 🛠️ Best Practices für Entwickler
+
 ### ✅ Richtig (Nutzt das Theme):
+
 ```dart 
 Card(
   shape: RoundedRectangleBorder(
@@ -133,7 +164,9 @@ Card(
   ),
 )
 ```
+
 ### ❌ Falsch — Hardcoded
+
 ```dart 
 Card(
   shape: RoundedRectangleBorder(
@@ -147,15 +180,20 @@ Card(
 )
 ```
 ### Regeln
+
 - ❌ Niemals `Colors.white` oder `Colors.black` direkt verwenden
 - ✅ Immer `colorScheme.surface` / `colorScheme.onSurface` nutzen
 - ✅ Status-Container: `*Container + on*Container` Paare verwenden
 - ✅ Opacity-Werte aus `AppConfig.opacity*` statt hardcodierter Werte
 - ✅ Neue Screens (z.B. `app_lock_screen.dart`) von Beginn an mit Tokens implementieren — kein nachträgliches Migrieren
+✅ AppBar-Status: Texte wie Sync-Zeitstempel immer in onSurface und bold (B-007).
 
 --- 
 
-## 🌓 Dark Mode
+## 🌓 Dark Mode & Farb-Mapping
+
+Die App erkennt die Systemeinstellungen des Geräts automatisch (`ThemeMode.system`).
+
 | Modus      | Verhalten                                            |
 | :--------- | :--------------------------------------------------- |
 | Hell       | Helle Hintergründe, primary-Farben als Akzent        |
@@ -194,139 +232,3 @@ Theme.of(context).colorScheme.onSurface // passt sich immer dem Hintergrund an
 
 --- 
 [Zurück zur README](../README.md) | [Zur Architektur](ARCHITECTURE.md) | [Zum Projekt-Status](OPTIMIZATIONS.md) | [Projekthistorie] (HISTORY.md)
-
-
-
-
-
-
-#### Sonstige
-*   **Timeouts**: Standard-Dauer für Snackbars und API-Requests.
-*   **Bildgrößen**: Standard-Dimensionen für Vorschaubilder (`pbThumbGroesse`).
-*   **Font-Sizes**: `fontSizeXSmall` (10) bis `fontSizeXXLarge` (20).
-
-### 2. `AppTheme` (Visuelle Identität)
-Implementiert das Material 3 Farbschema und die Typografie.
-*   **Support**: Volle Unterstützung für `ThemeMode.system` (automatischer Wechsel zwischen Hell- und Dunkelmodus).
-*   **Farbpaletten**: Nutzung von `ColorScheme.fromSeed` für harmonische Primär- und Akzentfarben.
-*   **Schriftarten**: Integration von **Google Fonts (Roboto)** als Hausschrift.
-*   **Komponenten-Themes**: Globale Definition für `AppBar`, `Card`, `FloatingActionButton` und `ListTile`.
-*   ✅ **O-004 Batch 2**: Component-Themes nutzen jetzt AppConfig-Tokens statt hardcodierter Werte (Spacing, Radien, Font-Sizes).
-
-### 3. `AppImages` (Asset-Management)
-Verwaltet Pfade zu statischen Dateien und Feature-Flags für die UI.
-*   **Platzhalter**: Pfade zu Standard-Bildern, falls kein Artikelbild vorhanden ist.
-*   **Hintergrund-Stack**: Flag `hintergrundAktiv` zur Steuerung von optionalen Overlay-Grafiken in der Liste.
-*   ⚠️ **Hinweis**: Enthält noch hardcodierte Farben (`Color(0xFF...)`) für Platzhalter-Hintergründe. Diese werden bewusst beibehalten, da sie über `AppImages` zentral gesteuert werden und nicht in den aufrufenden Widgets liegen.
-
----
-
-
-```dart
-Card(
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusLarge),
-  ),
-  color: Theme.of(context).colorScheme.surface,
-  child: Padding(
-    padding: EdgeInsets.all(AppConfig.spacingLarge),
-    child: Text(
-      "Beispiel",
-      style: Theme.of(context).textTheme.titleMedium,
-    ),
-  ),
-)
-```
-### ❌ Falsch (Hardcoded):
-```dart
-Card(
-  shape: RoundedRectangleBorder(
-    borderRadius: BorderRadius.circular(12.0), // ❌ Festwert
-  ),
-  color: Colors.white, // ❌ Festwert (bricht Dark Mode)
-  child: Padding(
-    padding: EdgeInsets.all(15.0), // ❌ Festwert
-    child: Text("Beispiel"),
-  ),
-)
-```
-
-### 🎨 Farb-Zuordnung (Referenz für O-004)
-
-| Hardcode | Semantik | colorScheme-Ersatz |
-|---|---|---|
-| `Colors.white` | Oberfläche | `colorScheme.surface` |
-| `Colors.black` | Text auf Oberfläche | `colorScheme.onSurface` |
-| `Colors.grey` / `Colors.grey[600]` | Sekundärtext | `colorScheme.onSurfaceVariant` |
-| `Colors.grey[300]` | Hintergrund/Divider | `colorScheme.surfaceContainerHighest` |
-| `Colors.grey.shade50` | Leichter Hintergrund | `colorScheme.surfaceContainerLow` |
-| `Colors.grey.shade200` | Border | `colorScheme.outlineVariant` |
-| `Colors.red` | Fehler | `colorScheme.error` |
-| `Colors.red.shade50` | Fehler-Container | `colorScheme.errorContainer` |
-| `Colors.red.shade800` | Text auf Fehler-Container | `colorScheme.onErrorContainer` |
-| `Colors.green` | Erfolg | `colorScheme.tertiary` |
-| `Colors.green.shade50` | Erfolg-Container | `colorScheme.tertiaryContainer` |
-| `Colors.green.shade700/800` | Text auf Erfolg-Container | `colorScheme.onTertiaryContainer` |
-| `Colors.orange` | Warnung | `colorScheme.secondary` |
-| `Colors.orange.shade50` | Warn-Container | `colorScheme.secondaryContainer` |
-| `Colors.orange.shade700/800` | Text auf Warn-Container | `colorScheme.onSecondaryContainer` |
-| `Colors.blue` | Primär/Info | `colorScheme.primary` |
-| `Colors.blue.shade50` | Info-Container | `colorScheme.primaryContainer` |
-| `Colors.blue.shade700/800` | Text auf Info-Container | `colorScheme.onPrimaryContainer` |
-| `Colors.purple` | Merge/Tertiär-Aktion | `colorScheme.tertiary` |
-
-### 🌓 Dark Mode Unterstützung
-Die App erkennt die Systemeinstellungen des Geräts.
-
-- Hell: Nutzt helle Hintergründe mit `primary`-Farben als Akzent.
-- Dunkel: Nutzt tiefgraue/schwarze Oberflächen (`surface`) mit entsättigten Farben, um die Augen zu schonen.
-Die Farbwahl erfolgt automatisch über:
-`Theme.of(context).colorScheme.onSurface` (Textfarbe passt sich dem Hintergrund an).
-
-### Wichtig für Entwickler
-Niemals `Colors.white` oder `Colors.black` direkt verwenden
-Immer `colorScheme.surface / colorScheme.onSurface` nutzen
-Status-Container: `*Container + on*Container` Paare verwenden
-Opacity-Werte aus `AppConfig.opacity*` statt hardcodierter Werte
-
-## 📊 Migrations-Fortschritt (O-004) — Abgeschlossen ✅
-| Datei | Batch | Hardcodes | Status |
-|---|---|---|---|
-| `sync_progress_widgets.dart` | 1 | `55 → 0` | ✅ |
-| `settings_screen.dart` | 1 | `54 → 0` | ✅ |
-| `app_theme.dart` | 2 | `10 → 0` | ✅ |
-| `conflict_resolution_screen.dart` | 2 | `82 → 0` | ✅ |
-| `sync_error_widgets.dart` | 2 | `59 → 0` | ✅ |
-| `sync_management_screen.dart` | 2 | `43 → 0` | ✅ |
-| `artikel_detail_screen.dart` | 3 | `36 → 0` | ✅ |
-| `artikel_list_screen.dart` | 3 | `31 → 0` | ✅ |
-| `sync_conflict_handler.dart` | 3 | `31 → 0` | ✅ |
-| `attachment_upload_widget.dart` | 4 | `28 → 0` | ✅ |
-| `attachment_list_widget.dart` | 4 | `23 → 0` | ✅ |
-| `server_setup_screen.dart` | 4 | `23 → 0` | ✅ |
-| `login_screen.dart` | 4 | `18 → 0` | ✅ |
-| `list_screen_mobile_actions.dart` | 5 | `17 → 0` | ✅ |
-| `nextcloud_settings_screen.dart` | 5 | `21 → 0` | ✅ |
-| `qr_scan_screen_mobile_scanner.dart` | 5 | `12 → 6` | ✅ (6 bewusst) |
-| `image_crop_dialog.dart` | 5 | `11 → 5` | ✅ (5 bewusst) |
-| `artikel_erfassen_screen.dart` | 5 | `12 → 0` | ✅ |
-| `list_screen_web_actions.dart` | 5 | `8 → 0` | ✅ |
-| `artikel_bild_widget.dart` | 5 | `5 → 2` | ✅ (2 bewusst) |
-| `nextcloud_resync_dialog.dart` | 5 | `7 → 0` | ✅ |
-| `detail_screen_io.dart` | 5 | `3 → 3` | ⏭️ (kein BuildContext) |
-| `list_screen_io.dart` | 5 | `3 → 3` | ⏭️ (kein BuildContext) |
-| `list_screen_mobile_actions_stub.dart` | 5 | `4 → 4` | ⏭️ (Stub) |
-| `_dokumente_button.dart` | 5 | `18` | ⏭️ (deprecated) |
-
-## Kumulierter Fortschritt
-| Batch | Hardcodes | Version | Status |
-|---|---|---|---|
-| Batch 1 | `109` | `v0.7.4+3` | ✅ Erledigt |
-| Batch 2 | `193` | `v0.7.4+4` | ✅ Erledigt |
-| Batch 3 | `~98` | `v0.7.4+5` | ✅ Erledigt |
-| Batch 4 | `~92` | `v0.7.4+6` | ✅ Erledigt |
-| Batch 5 | `~108` | `v0.7.4+7` | ✅ Erledigt |
-
----
-
-[Zurück zur README](../README.md) | [Zum Projekt-Status](CHECKLIST.md)

@@ -122,17 +122,23 @@ class PocketBaseSyncService {
               ? _safeGet(created.data, 'updated')
               : created.id;
 
-          await _db.markSynced(artikel.uuid, createdEtag, remotePath: created.id);
+          await _db.markSynced(artikel.uuid, createdEtag,
+              remotePath: created.id,);
         }
       } catch (e, st) {
-        _logger.e('PocketBase push failed for uuid=${artikel.uuid}', error: e, stackTrace: st);
+        _logger.e('PocketBase push failed for uuid=${artikel.uuid}',
+            error: e, stackTrace: st,);
       }
     }
   }
 
   Future<void> _pullFromPocketBase() async {
     try {
-      final records = await _pbService.client.collection(collectionName).getFullList();
+      final records = await _pbService.client
+          .collection(collectionName)
+          .getFullList()
+          .timeout(const Duration(seconds: 30));
+
       final remoteUuids = <String>{};
 
       for (final r in records) {
@@ -144,8 +150,10 @@ class PocketBaseSyncService {
             created: _safeGet(r.data, 'created'),
             updated: updatedRaw,
           );
+
           final etag = updatedRaw.isNotEmpty ? updatedRaw : r.id;
           await _db.upsertArtikel(artikel, etag: etag);
+
           if (artikel.uuid.isNotEmpty) remoteUuids.add(artikel.uuid);
         } catch (e) {
           _logger.e('Failed to upsert remote record ${r.id}: $e');
@@ -153,9 +161,13 @@ class PocketBaseSyncService {
       }
 
       if (remoteUuids.isNotEmpty) {
-        final localArtikel = await _db.getAlleArtikel();
+        final localArtikel = await _db.getAlleArtikel(limit: 10000);
         for (final lokal in localArtikel) {
-          if (!remoteUuids.contains(lokal.uuid)) {
+          if (lokal.remotePath != null &&
+              lokal.remotePath!.isNotEmpty &&
+              !remoteUuids.contains(lokal.uuid)) {
+            _logger.i(
+                'PocketBaseSync: Lösche lokal (remote nicht mehr vorhanden): ${lokal.name}',);
             await _db.deleteArtikel(lokal);
           }
         }
@@ -178,9 +190,8 @@ class PocketBaseSyncService {
       final alleArtikel = await _db.getAlleArtikel();
 
       for (final artikel in alleArtikel) {
-        String? imageUrl;
         try {
-          final remoteBild = artikel.remoteBildPfad;
+          final remoteBild = artikel.remoteBildPfad; // z.B. "bild_abc123.jpg"
           final recordId = artikel.remotePath;
 
           if (remoteBild == null || remoteBild.isEmpty || recordId == null || recordId.isEmpty) {
@@ -188,16 +199,41 @@ class PocketBaseSyncService {
             continue;
           }
 
-          // --- FIX B-003: Korrekte Skip-Logik ---
-          if (artikel.bildPfad.isNotEmpty) {
+          // --- VERBESSERTE LOGIK START ---
+          bool mussNeuLaden = false;
+
+          if (artikel.bildPfad.isEmpty) {
+            mussNeuLaden = true;
+          } else {
             final localFile = File(artikel.bildPfad);
-            if (localFile.existsSync() && localFile.lengthSync() > 0) {
-              skipped++;
-              continue; 
+            
+            if (!localFile.existsSync() || localFile.lengthSync() == 0) {
+              mussNeuLaden = true;
+            } else {
+              // 1. Check: Hat sich der Dateiname in PocketBase geändert?
+              // (PocketBase hängt oft Zufallschars an, wenn man ein Bild ersetzt)
+              if (!artikel.bildPfad.endsWith(remoteBild)) {
+                mussNeuLaden = true;
+                _logger.d('Bild-Dateiname hat sich geändert für ${artikel.uuid}. Lade neu.');
+              } 
+              
+              // 2. Check: Ist der Artikel in der DB neuer als das Dateidatum auf dem Handy?
+              // Wir geben 2 Sekunden Puffer für Dateisystem-Ungenauigkeiten.
+              final lastModified = localFile.lastModifiedSync();
+              if (artikel.aktualisiertAm.isAfter(lastModified.add(const Duration(seconds: 2)))) {
+                mussNeuLaden = true;
+                _logger.d('Bild in PocketBase ist neuer als lokale Datei für ${artikel.uuid}. Lade neu.');
+              }
             }
           }
 
-          imageUrl = _buildImageUrl(recordId, remoteBild);
+          if (!mussNeuLaden) {
+            skipped++;
+            continue;
+          }
+          // --- VERBESSERTE LOGIK ENDE ---
+
+          final imageUrl = _buildImageUrl(recordId, remoteBild);
           if (imageUrl == null) {
             skipped++;
             continue;
@@ -216,6 +252,14 @@ class PocketBaseSyncService {
           final imageDir = Directory('${cacheDir.path}/images/${artikel.uuid}');
           if (!imageDir.existsSync()) imageDir.createSync(recursive: true);
 
+          // Alte Dateien im Ordner löschen, bevor wir die neue schreiben
+          // (Verhindert Datenmüll bei Namensänderungen)
+          if (imageDir.existsSync()) {
+            imageDir.listSync().forEach((file) {
+              if (file is File) file.deleteSync();
+            });
+          }
+
           final localPath = '${imageDir.path}/$remoteBild';
           await File(localPath).writeAsBytes(response.bodyBytes);
           await _db.setBildPfadByUuidSilent(artikel.uuid, localPath);
@@ -226,19 +270,23 @@ class PocketBaseSyncService {
           _logger.w('Image download failed for ${artikel.uuid}: $e');
         }
       }
-      _logger.i('PocketBaseSync: downloadMissingImages end (downloaded: $downloaded, skipped: $skipped, failed: $failed)');
+      _logger.i(
+          'PocketBaseSync: downloadMissingImages end (downloaded: $downloaded, skipped: $skipped, failed: $failed)',);
     } catch (e) {
       _logger.e('PocketBaseSync: downloadMissingImages failed: $e');
     }
   }
 
+  // ✅ Single, correct implementation — builds URL directly from base URL string
   String? _buildImageUrl(String recordId, String filename) {
     try {
       if (!_pbService.hasClient || _pbService.url.isEmpty) return null;
       return Uri.parse(_pbService.url)
-          .resolve('/api/files/$collectionName/$recordId/${Uri.encodeComponent(filename)}')
+          .resolve(
+              '/api/files/$collectionName/$recordId/${Uri.encodeComponent(filename)}',)
           .toString();
     } catch (e) {
+      _logger.w('Fehler beim Erstellen der Bild-URL: $e');
       return null;
     }
   }

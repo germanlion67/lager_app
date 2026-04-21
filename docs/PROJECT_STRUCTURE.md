@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v0.8.4+17 (April 2026)
+> Stand: v0.8.9+24 (21.04.2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -150,7 +150,7 @@ app/lib/
 
 ---
 
-### app/test/ — Tests (590 Tests, 3 skipped, 26 Testdateien)
+### app/test/ — Tests (610 Tests, 3 skipped, 28 Testdateien)
 
 ```text
 app/test/
@@ -340,8 +340,8 @@ lager_app/
 | :------------------------ | :----------------- |
 | **Quellcode-Dateien** (`app/lib/`) | 72 |
 | **Davon Conditional Imports** | 28 (14 Paare) |
-| **Test-Dateien** | 26 Testdateien + 1 Helper + 2 Mocks  |
-| **Tests gesamt** | 590 (3 skipped) |
+| **Test-Dateien** | 28 Testdateien + 1 Helper + 2 Mocks  |
+| **Tests gesamt** | 610 (3 skipped) |
 | **PocketBase Migrationen** | 7 |
 | **Dokumentations-Dateien** | 19 |
 | **CI/CD Workflows** | 4 |

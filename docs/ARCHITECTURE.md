@@ -224,6 +224,26 @@ Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem *
     nicht statt.
 4.  **Dokumente**: Werden in einem **separaten Sync-Zyklus** behandelt — unabhängig von Textdaten und Bildern.
 
+
+#### Bild-Synchronisation (Smart Logic)
+Die Bild-Sync-Logik arbeitet getrennt von den Textdaten, um Bandbreite zu sparen und Dateiversionen zu verwalten:
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│                BILD SYNC (Smart Logic)                  │
+│                                                         │
+│  Lokal Bild vorhanden?                                  │
+│  ├── JA: remoteBildPfad leer oder ETag abweichend?      │
+│  │       ├── JA → Bild hochladen → remoteBildPfad setzen│
+│  │       └── NEIN: Remote-Bild neuer (Timestamp)?       │
+│  │                 ├── JA → Bild laden (Smart Sync)     │
+│  │                 └── NEIN → Kein Update nötig         │
+│  └── NEIN: remoteBildPfad vorhanden?                    │
+│            ├── JA → Bild vom Server laden → bildPfad    │
+│            └── NEIN → Kein Bild vorhanden               │
+└─────────────────────────────────────────────────────────┘
+```
+
 ### Sync-Invarianten (niemals brechen)
 | Invariante                 | Bedeutung                                            |
 | :------------------------- | :--------------------------------------------------- |
@@ -232,7 +252,7 @@ Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem *
 | `etag` = `NULL`            | Lokale Änderung ausstehend — muss gepusht werden     |
 | `etag` = PB `updated`-Timestamp | ISO 8601 — wird nach erfolgreichem PATCH gesetzt. Abweichung vom Remote-Wert löst Konflikt-Erkennung aus (B-005) |
 | `deleted` = `1`            | Soft-Delete lokal → Hard-Delete beim nächsten Push   |
-| `setBildPfadByUuidSilent()`| Setzt nur `bildPfad`, löst keinen Sync-Trigger aus   |
+| `setBildPfadByUuidSilent()`| Setzt nur `bildPfad`, löst keinen Sync-Trigger aus, Essenziell für Smart Sync, um Endlosschleifen bei Bild-Updates zu verhindern. |
 
 
 ---
@@ -493,9 +513,10 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folg
 ---
 ### 6. Wartungs-Notiz am Ende des Dokuments
 
-> **Zuletzt aktualisiert:** v0.8.5+19 (2026-04-17)
-> B-004: GlobalKey-Pattern + addPostFrameCallback für Callback-Registrierung
-> B-005: ETag-basierte Konflikt-Erkennung vor PATCH
+> **Zuletzt aktualisiert:** v0.8.9+24 (2026-04-21)
+> B-007: Intelligenter Bild-Sync (Timestamp-Check) & UI-Politur (Sync-Zeitstempel).
 > B-006: SyncManagementScreen auf SyncOrchestrator umgestellt
+> B-005: ETag-basierte Konflikt-Erkennung vor PATCH
+> B-004: GlobalKey-Pattern + addPostFrameCallback für Callback-Registrierung
 
 [Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md) | [CI/CD & Deployment](../DEPLOYMENT.md)

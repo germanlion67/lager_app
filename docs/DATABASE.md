@@ -301,10 +301,30 @@ Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes 
 
 ---
 
-## Bild-Download bei Kaltstart (v0.8.0)
+## Bild-Download & Intelligenter Sync (v0.8.9+24)
 
-Bei einem Kaltstart (App-Daten gelöscht, neue PocketBase-URL) werden
-Artikelbilder in zwei Phasen geladen:
+Seit Version 0.8.9+24 (B-007) beschränkt sich der Bild-Download nicht mehr nur auf den Kaltstart, sondern führt einen intelligenten Zeitstempel-Vergleich durch, um auch Bild-Updates auf dem Server zu erkennen.
+
+### Download-Logik (Smart Sync)
+
+```text
+downloadMissingImages()
+  → getAlleArtikel(limit: 999999)
+  → Für jeden Artikel:
+      → remoteBildPfad leer? → skip
+      → remotePath (Record-ID) leer? → skip
+      → Lokale Datei prüfen:
+          ├── Existiert nicht oder 0 Bytes? → DOWNLOAD
+          └── Existiert? 
+                └── Datei-Datum < artikel.aktualisiertAm? → DOWNLOAD (Smart Sync)
+      
+      → Falls DOWNLOAD:
+          1. Bereinigung: Lösche alle Dateien im Ordner {cacheDir}/images/{uuid}/
+             (verhindert Dateileichen bei Namensänderung durch PocketBase-Suffixe)
+          2. HTTP GET /api/files/artikel/{recordId}/{filename}
+          3. Speichern in: {cacheDir}/images/{uuid}/{filename}
+          4. setBildPfadByUuidSilent(uuid, localPath)
+```
 
 1. **Record-Sync:** `syncOnce()` synchronisiert Metadaten inkl.
    `remoteBildPfad` (Dateiname auf PocketBase)
@@ -318,7 +338,9 @@ Future<void> setBildPfadByUuidSilent(String uuid, String bildPfad)
 ```
 
 Aktualisiert **nur** den lokalen `bildPfad`, ohne `updated_at` oder `etag`
-zu ändern. Dadurch wird kein erneuter Push zum Server ausgelöst.
+zu ändern.
+
+Wichtig für B-007: Da der Smart Sync Bilder basierend auf `aktualisiertAm` neu lädt, darf dieser Zeitstempel nach dem Download nicht verändert werden, da die App sonst in eine Endlosschleife aus "Lokal ist neuer als Server" (Push-Trigger) und "Server ist neuer als Datei" (Download-Trigger) geraten würde.
 
 **Unterschied zu `setBildPfadByUuid()` und verwandten Methoden:**
 
