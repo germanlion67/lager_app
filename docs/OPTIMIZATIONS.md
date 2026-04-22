@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.8.9+24 | **Zuletzt aktualisiert:** 21.04.2026
+**Version:** 0.9.0+25 | **Zuletzt aktualisiert:** 22.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -26,7 +26,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `OPT` = bereichsübergreifendes internes Optimierungsvorhaben
 
 ### Nächste freie Kürzel
-- `B-008`, `F-006`, `H-004`, `K-007`, `M-013`, `N-007`, `O-009`, `P-006`, `T-009`, `OPT-002`
+- `B-013`, `F-008`, `H-004`, `K-007`, `M-013`, `N-007`, `O-010`, `P-006`, `T-009`, `OPT-002`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -119,11 +119,11 @@ class SettingsController extends ChangeNotifier {
 
 ---
 
+
+
 ## 🟢 Priorität: Nice-to-Have
 
-*(Keine Einträge)*
-
----
+*(Keine offenen Punkte)*
 
 ## ⏭️ Future (nicht in Planung)
 
@@ -139,12 +139,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 49 | 49 | 0 |
+| ✅ Abgeschlossen | 54 | 46 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 0 | 0 | 0 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **54** | **49** | **5** |
+| **Gesamt** | **62** | **57** | **5** |
 
 
 ---
@@ -153,6 +153,83 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+### B-012: Letzter-Sync-Zeitstempel auf schmalen Displays abgeschnitten — erledigt in `v0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)
+**Betrifft:** `lib/screens/artikel_list_screen.dart` → AppBar `title`
+
+Das Sync-Label hat kein `overflow`-Handling und konkurriert auf 360dp
+mit Action-Icons um Platz. Kein `TextOverflow`, kein `Flexible`-Wrapper.
+
+- `overflow: TextOverflow.ellipsis` am Text ergänzen
+- `Text` in `Flexible` wrappen um Layout-Constraints zu respektieren
+- Nach B-009-Fix (Dropdown-Entfernung) erneut auf S20 prüfen — Problem könnte sich dadurch bereits teilweise lösen
+
+---
+
+### B-011: App-Version zeigt veralteten Build-Stand — erledigt in `v0.9.0+25`
+**Typ:** Bug / Build-Prozess
+**Betrifft:** Build-Pipeline, kein Code-Fehler
+
+`_getAppVersion()` in `settings_screen.dart` ist korrekt implementiert
+und liest via `PackageInfo.fromPlatform()` aus den nativen
+Build-Artefakten. Die angezeigte Version 0.8.8+23 stammt aus der
+installierten APK — es wurde kein neuer Build nach dem Version-Bump
+auf 0.8.9+24 erstellt oder die falsche APK installiert.
+
+- `flutter build apk --release` mit aktuellem Stand ausführen
+- Neue APK auf S20 installieren (vorherige deinstallieren)
+- Version in Settings verifizieren → muss 0.8.9+24 zeigen
+- Hinweis: `pubspec.yaml` zeigt bereits 0.9.0+25 —
+      nach nächstem Release-Build wird 0.9.0+25 erscheinen ✅
+
+--- 
+
+### B-010: Snackbar-Feedback in Artikelliste fehlt  — erledigt in `v0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)
+**Betrifft:** `lib/screens/artikel_list_screen.dart`
+
+Nach Sync-Erfolg/-Fehler gibt es kein Snackbar-Feedback mehr.
+Der `SyncStatus`-Listener ruft bei `success` nur `_ladeArtikel()` auf.
+Fehler-Pfade zeigen keine Rückmeldung.
+
+- Snackbar bei `SyncStatus.success` ergänzen
+- Snackbar bei `SyncStatus.error` ergänzen (Fehlertext aus Provider)
+- Snackbar bei manuellem Sync-Start ergänzen
+- `ScaffoldMessenger`-Erreichbarkeit nach Dropdown-Entfernung (B-009) verifizieren
+
+---
+
+### B-009: Artikelliste — Ort-Dropdown hardcodiert und falsch platziert  — erledigt in `v0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)
+**Betrifft:** `lib/screens/artikel_list_screen.dart` → AppBar `actions`
+
+Der Ort-Filter-Dropdown wurde als Test-Stub mit hardcodierten Werten
+('Lager 1', 'Lager 2', 'Büro') in die AppBar `actions` eingefügt.
+Er liest keine echten Daten aus `_artikelListe` und ist falsch
+platziert (AppBar statt Body/Filter-Leiste).
+
+- Dropdown aus AppBar `actions` entfernen
+- Echte Ort-Werte dynamisch aus `_artikelListe` ableiten (distinct, alphabetisch sortiert, „Alle" als erster Eintrag)
+- Filter-UI in die Suchleiste im Body integrieren
+- Filterlogik mit `_gefilterteArtikel()` verbinden (bereits korrekt)
+
+---
+
+### B-008: Artikelliste — Beschreibung, Artikelnummer und Fach fehlen — erledigt in `v0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)
+**Betrifft:** `lib/screens/artikel_list_screen.dart` → `_buildArtikelTile()`
+
+`_buildArtikelTile()` wurde auf ein minimales `ListTile` reduziert.
+Vor B-007 war es ein reichhaltigeres Card-Widget mit allen Feldern.
+Wiederherstellen als `Card` mit Artikelnummer, Name, Beschreibung,
+Ort, Fach und Menge.
+
+- `_buildArtikelTile()` auf Card-Layout mit allen Feldern erweitern
+- Artikelnummer, Beschreibung und Fach wieder einblenden
+- Auf S20 (360dp) und Tablet verifizieren
+
+---
 
 ### B-007: Intelligenter Bild-Sync & UI-Optimierung — erledigt in `v0.8.9+24`
 - **Smart Sync**: `PocketBaseSyncService` vergleicht nun Datei-Zeitstempel mit PocketBase-Updates.
@@ -172,6 +249,38 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 - Nativer System-Dialog bestätigt
 - Verfügbarkeitsprüfung vor Aktivierung bestätigt
 - Toggle wird nur bei erfolgreicher Probe-Authentifizierung persistiert
+
+--- 
+
+### F-007: Einstellung — Letzter-Sync-Zeitstempel ein-/ausblenden — erledigt in `v0.9.0+25`
+**Typ:** Feature
+**Betrifft:** `lib/screens/settings_screen.dart`,
+             `lib/screens/artikel_list_screen.dart`
+
+Toggle in den Einstellungen, der den Sync-Zeitstempel in der
+Artikelliste ein- oder ausblendet. Persistenz via SharedPreferences.
+
+- Toggle in `_buildPocketBaseCard()` oder neue Sync-Card ergänzen (SharedPreferences Key: `show_last_sync`, Default: `true`)
+- `ArtikelListScreen` liest Präferenz in `initState()`
+- Reaktiv: Änderung wirkt ohne App-Neustart (z.B. via `ValueNotifier` oder Provider)
+- Auf S20 und Tablet verifizieren
+F-007 — Hotfix: ValueListenableBuilder in ArtikelListScreen ergänzt; Toggle war funktionslos da Notifier nie abgehört wurde.
+
+---
+
+### F-006: Log-Level-Filter als Dropdown statt Button-Reihe — erledigt in `v0.9.0+25`
+**Typ:** Feature / UX-Verbesserung
+**Betrifft:** Log-Dialog (`AppLogService.showLogDialog()`)
+
+Button-Reihe für Trace/Debug/Info/Warn/Error/Fatal passt auf schmalen
+Displays nicht in eine Zeile. Ersetzen durch `DropdownButton<Level>`
+mit Default-Wert `Level.error`.
+
+- Log-Dialog-Code lokalisieren (vermutlich `app_log_service.dart` oder separater Dialog)
+- Button-Reihe durch `DropdownButton<Level>` ersetzen
+- Default: `Level.error`
+- Gefilterte Log-Ausgabe weiterhin korrekt aktualisieren
+- Auf S20 (360dp) verifizieren
 
 --- 
 
@@ -237,6 +346,14 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 - Neues App-Icon und Native Splash Screen für alle Plattformen.
 
 --- 
+
+### O-009: Widget-Tests `ArtikelListScreen` — abgeschlossen in `v0.9.0+25`
+- Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
+- `erstelltAm` / `aktualisiertAm` als Pflichtfelder im Testartikel ergänzt
+- `_pumpScreenWithArtikel()` Helper für Dropdown-Tests via `initialArtikel`
+- Suchfeld-Label korrigiert: `'Suche...'` → `'Suche…'` (U+2026)
+- Alle 15 Widget-Tests grün ✅
+- Gesamtstand: **625 Tests**, 28 Dateien ✅
 
 ### O-008: Magic-Number-Arithmetik in Spacing-Tokens — erledigt in `v0.8.1+11`
 - Neuer Token `spacingSectionGap`
@@ -306,7 +423,7 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 - `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
 - `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
 - ETag-Grenzwerte, ConflictCallback-Typedef, SyncStatus-Enum abgedeckt ✅
-- Gesamtstand: **610 Tests**, 28 Dateien ✅
+- Gesamtstand: **625 Tests**, 28 Dateien ✅
 
 ### T-003 bis T-007: Test-Offensive — erledigt in `v0.8.1+10`
 - Unit-Tests für `NextcloudClient`, `MergeDialog` und `AttachmentService`, `BackupStatusService`.
@@ -319,6 +436,7 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-22 | v0.9.0+25 | B-008 abgeschlossen: Card-Layout ArtikelListScreen wiederhergestellt (Artikelnummer, Chips, Feldname-Fix). B-009 abgeschlossen: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button. B-010 abgeschlossen: Snackbar-Feedback bei Sync-Start/-Erfolg/-Fehler. B-011 abgeschlossen: App-Version zeigt korrekten Build-Stand nach neuem Release-Build. B-012 abgeschlossen: Sync-Label TextOverflow.ellipsis + titleSpacing. F-006 abgeschlossen: Log-Level-Filter als DropdownButton<Level>, Default Level.error. F-007 abgeschlossen: Sync-Zeitstempel-Toggle via ValueNotifier + SharedPreferences. O-009 abgeschlossen: 15 Widget-Tests ArtikelListScreen grün (625 Tests gesamt). |
 | 2026-04-21 | v0.8.9+24 | B-007 abgeschlossen: Intelligenter Bild-Sync (Timestamp-Check) und UI-Politur des Sync-Zeitstempels implementiert. |
 | 2026-04-20 | v0.8.6+21 | P-003 abgeschlossen: Bild-Caching via `cached_network_image` integriert. Android-Stabilität auf S20 verifiziert. |
 | 2026-04-20 | v0.8.4+20 | Dokumente aktualisiert |

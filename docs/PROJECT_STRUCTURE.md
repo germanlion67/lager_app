@@ -150,12 +150,13 @@ app/lib/
 
 ---
 
-### app/test/ — Tests (610 Tests, 3 skipped, 28 Testdateien)
+### app/test/ — Tests (625 Tests, 3 skipped, 28 Testdateien)
 
 ```text
 app/test/
 ├── helpers/                          # Test-Doubles & Utilities
-│   └── fake_sync_status_provider.dart    # FakeSyncStatusProvider
+│   ├── fake_sync_status_provider.dart    # FakeSyncStatusProvider
+│   └── no_op_nextcloud_service.dart      # Timer-freier NextcloudService Test-Double
 ├── mocks/                            # Mockito-generierte Mocks
 │   ├── sync_service_mocks.dart           # Mock-Definitionen (@GenerateMocks)
 │   └── sync_service_mocks.mocks.dart     # Generierter Code
@@ -175,6 +176,8 @@ app/test/
 │   ├── nextcloud_client_test.dart        # 39 Tests
 │   ├── nextcloud_listfiles_test.dart     # 1 Test - Nextcloud Dateiliste
 │   ├── pocketbase_sync_service_test.dart # 17 Tests
+│   ├── pocketbase_sync_service_conflict_test.dart  # 11 Tests - ETag-Konflikt-Logik
+│   ├── sync_orchestrator_test.dart       # 9 Tests - SyncStatus Enum, ETag Grenzwerte
 │   └── sync_status_provider_test.dart    # 5 Tests - Stream-Events, State-Änderungen
 ├── utils/                            # Utility-Tests
 │   ├── attachment_utils_test.dart        # 28 tests - Validierung: Größe→Anzahl→MIME
@@ -341,7 +344,7 @@ lager_app/
 | **Quellcode-Dateien** (`app/lib/`) | 72 |
 | **Davon Conditional Imports** | 28 (14 Paare) |
 | **Test-Dateien** | 28 Testdateien + 1 Helper + 2 Mocks  |
-| **Tests gesamt** | 610 (3 skipped) |
+| **Tests gesamt** | 625 (3 skipped) |
 | **PocketBase Migrationen** | 7 |
 | **Dokumentations-Dateien** | 19 |
 | **CI/CD Workflows** | 4 |

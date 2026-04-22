@@ -2,6 +2,133 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.9.0+25] — 2026-04-22
+
+### Bugfix (B-008): Artikelliste — Card-Layout mit allen Feldern wiederhergestellt
+
+**Problem:** `_buildArtikelTile()` wurde durch B-007-Commit auf ein minimales
+`ListTile` reduziert. Artikelnummer, Beschreibung und Fach fehlten vollständig.
+
+**Lösung:**
+- `_buildArtikelTile()` → `Card` + `InkWell` mit vollständigem Feldlayout
+- Artikelnummer als `#1234` in Primary-Farbe
+- Beschreibung 2-zeilig mit `TextOverflow.ellipsis`
+- Ort, Fach und Menge als Info-Chips mit Icons
+- Auf S20 (360dp) und Tablet verifiziert
+
+**Fixes während Umsetzung:**
+
+| Problem | Falsch (vorher) | Richtig (jetzt) |
+|:--------|:----------------|:----------------|
+| Feldname | `artikel.artikelNummer` | `artikel.artikelnummer` |
+| Null-Check | `.isNotEmpty` | `!= null` |
+| Border-Radius Token | `borderRadiusSmall` (existiert nicht) | `borderRadiusXSmall` |
+| Verbindungs-Icon Farbe | `Colors.green` hardcodiert | `AppConfig.statusColorConnected` |
+| Verbindungs-Icon Fehler | `Colors.red` hardcodiert | `colorScheme.error` |
+| Sync-Spinner Größe | `20` hardcodiert | `AppConfig.progressIndicatorSizeSmall` |
+
+---
+
+### Bugfix (B-009): Ort-Dropdown — dynamisch aus Artikelliste, in Body integriert
+
+**Problem:** Ort-Filter-Dropdown war als Test-Stub mit hardcodierten Werten
+(`'Lager 1'`, `'Lager 2'`, `'Büro'`) in die AppBar `actions` eingefügt.
+Keine echten Daten, falsche Platzierung.
+
+**Lösung:**
+- Dropdown aus AppBar `actions` entfernt
+- Echte Ort-Werte dynamisch aus `_artikelListe` abgeleitet (distinct, alphabetisch)
+- „Alle Orte" als erster Eintrag
+- ×-Reset-Button bei aktivem Filter
+- Dropdown nur sichtbar wenn Orte vorhanden
+- Filter-UI in Body-Suchleiste integriert
+- Filterlogik mit `_gefilterteArtikel()` verbunden
+
+---
+
+### Bugfix (B-010): Snackbar-Feedback bei Sync-Ereignissen ergänzt
+
+**Problem:** Nach Sync-Erfolg/-Fehler gab es kein Snackbar-Feedback.
+`SyncStatus`-Listener rief bei `success` nur `_ladeArtikel()` auf.
+Fehler-Pfade zeigten keine Rückmeldung.
+
+**Lösung:**
+- `_showSnackBar()` Hilfsmethode ergänzt
+- Snackbar bei Sync-Start, Sync-Erfolg und Sync-Fehler
+- `ScaffoldMessenger`-Erreichbarkeit nach B-009-Fix verifiziert
+
+---
+
+### Bugfix (B-012): Sync-Label-Overflow in AppBar behoben
+
+**Problem:** Sync-Zeitstempel-Label hatte kein `overflow`-Handling und
+konkurrierte auf 360dp mit Action-Icons um Platz.
+
+**Lösung:**
+- `overflow: TextOverflow.ellipsis` + `maxLines: 1` am Sync-Label
+- `titleSpacing: 0` + `Padding` verhindert AppBar-Overflow
+
+---
+
+### Feature (F-006): Log-Level-Filter als Dropdown
+
+**Problem:** Button-Reihe für Trace/Debug/Info/Warn/Error/Fatal passte auf
+schmalen Displays nicht in eine Zeile.
+
+**Lösung:**
+- `DropdownButton<Level>` ersetzt horizontale Button-Reihe
+- Default: `Level.error`
+- Dynamische Level-Farbe im Dropdown-Container
+- Leer-State mit `check_circle_outline`-Icon + Level-Name
+- AppConfig-Tokens durchgängig, `textTheme.*` statt hardcodierte `fontSize`
+- Aktiver-Filter-Badge zeigt gewähltes Level farbig
+- Auf S20 (360dp) verifiziert
+
+---
+
+### Feature (F-007): Sync-Zeitstempel-Toggle in Einstellungen
+
+**Problem:** Kein Weg, den Sync-Zeitstempel in der Artikelliste
+ein- oder auszublenden.
+
+**Lösung:**
+- Toggle in Settings-Screen (`_buildPocketBaseCard()`)
+- SharedPreferences-Key: `show_last_sync` (Default: `true`)
+- `ValueNotifier<bool> showLastSyncNotifier` — reaktiv ohne App-Neustart
+- `ArtikelListScreen` liest Präferenz in `initState()`
+- Auf S20 und Tablet verifiziert
+
+**Architektur-Entscheidung (ValueNotifier):**
+
+| Alternative | Problem |
+|:------------|:--------|
+| SharedPreferences direkt in `initState()` | Nicht reaktiv — braucht App-Neustart |
+| Provider / Riverpod | Overhead für eine einzelne bool-Präferenz |
+| InheritedWidget | Zu viel Boilerplate |
+| **ValueNotifier ✅** | Leichtgewichtig, kein extra Package, sofortige Wirkung |
+
+F-007 — Hotfix: ValueListenableBuilder in ArtikelListScreen ergänzt; Toggle war funktionslos da Notifier nie abgehört wurde.
+
+---
+
+### Tests (O-009): Widget-Tests ArtikelListScreen abgeschlossen
+
+- Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
+- `erstelltAm` / `aktualisiertAm` als Pflichtfelder im Testartikel ergänzt
+- `_pumpScreenWithArtikel()` Helper hinzugefügt (Dropdown-Test via `initialArtikel`)
+- Suchfeld-Label korrigiert: `'Suche...'` → `'Suche…'` (U+2026, 1:1 aus Widget)
+- Alle 15 Widget-Tests grün ✅
+
+---
+
+### Dokumentation
+- `docs/TESTING.md` — O-006 → O-009 umbenannt, Testzahl 610 → 625,
+  `artikel_list_screen_test.dart` vollständig dokumentiert, Änderungslog ergänzt
+- `docs/OPTIMIZATIONS.md` — Version auf 0.9.0+25, O-009 als abgeschlossen,
+  B-008/B-009/B-010/B-012 als erledigt, F-006/F-007 als erledigt,
+  Wartungs-Historie aktualisiert
+  
+
 ## [0.8.9+24] — 2026-04-21
 
 ### Bugfix (B-007): Intelligenter Bild-Sync & UI-Optimierung
