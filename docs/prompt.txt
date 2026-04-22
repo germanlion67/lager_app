@@ -619,7 +619,7 @@ Flutter-Version: `3.41.4` (stable) — in allen Workflows fixiert
 | ID      | Aufgabe                             | Details                                            |
 | :------ | :---------------------------------- | :------------------------------------------------- |
 | `P-004` | Android Kamera-Test                 | Vollständiger Kamera-Test auf echten Geräten (S20) |
-| `OPT-001`| `SettingsController` extrahieren    | Logik-Entkopplung für Testbarkeit (~2,5h)          |
+| `O-010`| `SettingsController` extrahieren    | Logik-Entkopplung für Testbarkeit (~2,5h)          |
 | `T-001` | Manuelle Integrationstests          | T-001.6–T-001.12: Konflikt-Szenarien End-to-End    |
 
 🟢 Nice-to-Have (3 offen, Details in `docs/OPTIMIZATIONS.md`)
