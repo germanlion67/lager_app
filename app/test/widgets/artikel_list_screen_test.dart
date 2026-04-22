@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'package:lager_app/models/artikel_model.dart';          // ✅ korrigierter Pfad
 import 'package:lager_app/screens/artikel_list_screen.dart';
 import 'package:lager_app/services/artikel_db_service.dart';
 
@@ -20,7 +21,6 @@ import '../helpers/no_op_nextcloud_service.dart';
 
 // ---------------------------------------------------------------------------
 // Vollständiges Schema — 1:1 aus ArtikelDbService
-// (Wird nur noch für DB-Tests gebraucht, nicht für die 3 Fix-Tests)
 // ---------------------------------------------------------------------------
 const _createArtikelTableSql = '''
   CREATE TABLE artikel (
@@ -73,7 +73,28 @@ Future<void> _injectInMemoryDb() async {
 }
 
 // ---------------------------------------------------------------------------
-// Screen pumpen — sauber, schnell, ohne Timer-Workarounds
+// Testartikel mit Ort → _verfuegbareOrte.isNotEmpty → Dropdown sichtbar
+// ---------------------------------------------------------------------------
+final _testArtikelMitOrt = [
+  Artikel(
+    id: 1,
+    name: 'Testartikel',
+    artikelnummer: 1,
+    menge: 1,
+    ort: 'Lager A',
+    fach: 'Fach 1',
+    beschreibung: '',
+    bildPfad: '',
+    erstelltAm: DateTime.utc(2025, 1, 15),      // ✅ Pflichtfeld ergänzt
+    aktualisiertAm: DateTime.utc(2025, 1, 15),   // ✅ Pflichtfeld ergänzt
+    uuid: 'test-uuid-widget-001',
+    updatedAt: 0,
+    deleted: false,
+  ),
+];
+
+// ---------------------------------------------------------------------------
+// Screen pumpen — leere Liste (Dropdown NICHT sichtbar)
 // ---------------------------------------------------------------------------
 Future<void> _pumpScreen(WidgetTester tester) async {
   tester.view.physicalSize = const Size(1080, 2400);
@@ -85,13 +106,30 @@ Future<void> _pumpScreen(WidgetTester tester) async {
     MaterialApp(
       home: ArtikelListScreen(
         nextcloudService: NoOpNextcloudService(),
-        initialArtikel: const [],  // Leere Liste → _isLoading sofort false
+        initialArtikel: const [], // Leere Liste → _isLoading sofort false
       ),
     ),
   );
+  await tester.pumpAndSettle();
+}
 
-  // Wichtig: pumpAndSettle, um sicherzustellen, dass alle Widgets initial gerendert sind
-  // und keine ausstehenden Animationen oder Microtasks den Test stören.
+// ---------------------------------------------------------------------------
+// Screen pumpen — mit Artikeln (Dropdown sichtbar)
+// ---------------------------------------------------------------------------
+Future<void> _pumpScreenWithArtikel(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(1080, 2400);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      home: ArtikelListScreen(
+        nextcloudService: NoOpNextcloudService(),
+        initialArtikel: _testArtikelMitOrt, // Ort vorhanden → Dropdown erscheint
+      ),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -102,8 +140,6 @@ void main() {
   });
 
   setUp(() async {
-    // DB wird weiterhin injiziert, falls der Screen intern doch
-    // auf die DB zugreift (z.B. bei _onSuchbegriffChanged → _ladeArtikel)
     await _injectInMemoryDb();
   });
 
@@ -122,17 +158,15 @@ void main() {
 
     testWidgets('Suchfeld ist vorhanden', (tester) async {
       await _pumpScreen(tester);
-      // Angepasst: Suche nach dem Key, den wir im TextField hinzugefügt haben
       expect(find.byKey(const Key('articleSearchField')), findsOneWidget);
-      // Optional: Überprüfen, ob der labelText korrekt ist
-      expect(find.text('Suche...'), findsOneWidget);
+      // ✅ Typografisches … (U+2026) — 1:1 aus labelText im Widget
+      expect(find.text('Suche…'), findsOneWidget);
     });
 
+    // ✅ Option B: Mit Artikeln pumpen → _verfuegbareOrte.isNotEmpty → Dropdown sichtbar
     testWidgets('Ort-Filter-Dropdown ist vorhanden', (tester) async {
-      await _pumpScreen(tester);
-      // Angepasst: Suche nach dem Key, den wir im DropdownButton hinzugefügt haben
+      await _pumpScreenWithArtikel(tester);
       expect(find.byKey(const Key('locationFilterDropdown')), findsOneWidget);
-      // Optional: Überprüfen, ob der Hint-Text korrekt ist
       expect(find.text('Alle Orte'), findsOneWidget);
     });
 
@@ -152,7 +186,6 @@ void main() {
     testWidgets('QR-Button ist direkt neben Suchfeld vorhanden',
         (tester) async {
       await _pumpScreen(tester);
-      // Angepasst: Suche nach dem Key, den wir im IconButton hinzugefügt haben
       expect(find.byKey(const Key('qrScannerButton')), findsOneWidget);
     });
 
@@ -169,21 +202,13 @@ void main() {
     testWidgets('„Neuer Artikel"-Button ist in AppBar vorhanden',
         (tester) async {
       await _pumpScreen(tester);
-      // Angepasst: Suche nach dem Tooltip, den wir im IconButton hinzugefügt haben
-      expect(
-        find.byTooltip('Neuen Artikel erfassen'),
-        findsOneWidget,
-      );
+      expect(find.byTooltip('Neuen Artikel erfassen'), findsOneWidget);
     });
 
     testWidgets('Aktualisieren-Button ist in AppBar vorhanden',
         (tester) async {
       await _pumpScreen(tester);
-      // Angepasst: Suche nach dem Tooltip, den wir im IconButton hinzugefügt haben
-      expect(
-        find.byTooltip('Aktualisieren'),
-        findsOneWidget,
-      );
+      expect(find.byTooltip('Aktualisieren'), findsOneWidget);
     });
 
     testWidgets('Kein FloatingActionButton vorhanden (v0.7.8)',
@@ -195,14 +220,8 @@ void main() {
     testWidgets('„Neuer Artikel"-Button öffnet ArtikelErfassenScreen',
         (tester) async {
       await _pumpScreen(tester);
-
-      // Angepasst: Suche nach dem Tooltip, den wir im IconButton hinzugefügt haben
-      await tester.tap(
-        find.byTooltip('Neuen Artikel erfassen'),
-      );
-      // Wichtig: pumpAndSettle nach einer Navigation
+      await tester.tap(find.byTooltip('Neuen Artikel erfassen'));
       await tester.pumpAndSettle();
-
       expect(find.text('Neuen Artikel erfassen'), findsOneWidget);
     });
   });
@@ -214,26 +233,17 @@ void main() {
     testWidgets('Menü-Button (more_vert) ist vorhanden', (tester) async {
       await _pumpScreen(tester);
       expect(
-        find.byWidgetPredicate(
-          (w) => w is Icon && w.icon == Icons.more_vert,
-        ),
+        find.byWidgetPredicate((w) => w is Icon && w.icon == Icons.more_vert),
         findsOneWidget,
       );
     });
 
     testWidgets('Menü öffnet sich beim Tippen', (tester) async {
       await _pumpScreen(tester);
-
-      // Tippe auf den Menü-Button
       await tester.tap(
-        find.byWidgetPredicate(
-          (w) => w is Icon && w.icon == Icons.more_vert,
-        ),
+        find.byWidgetPredicate((w) => w is Icon && w.icon == Icons.more_vert),
       );
-      // Wichtig: pumpAndSettle, damit das PopupMenu gerendert wird
       await tester.pumpAndSettle();
-
-      // Angepasst: Der Text im PopupMenuItem ist 'Import/Export', nicht 'Artikel import/export'
       expect(find.text('Import/Export'), findsOneWidget);
       expect(find.text('Einstellungen'), findsOneWidget);
     });
@@ -245,31 +255,20 @@ void main() {
   group('ArtikelListScreen – Suche', () {
     testWidgets('Suchfeld nimmt Eingabe an', (tester) async {
       await _pumpScreen(tester);
-
-      // Angepasst: Suche nach dem Key, den wir im TextField hinzugefügt haben
       await tester.enterText(
         find.byKey(const Key('articleSearchField')),
         'Hammer',
       );
-
-      // Debounce-Timer abwarten (500ms im _onSuchbegriffChanged) + etwas Puffer
+      // Debounce-Timer abwarten (500ms) + Puffer
       await tester.pump(const Duration(milliseconds: 550));
-      // Optional: pumpAndSettle, falls weitere asynchrone Operationen ausgelöst werden
-      // await tester.pumpAndSettle();
-
-      // Überprüfe, ob der eingegebene Text im TextField sichtbar ist
       expect(find.text('Hammer'), findsOneWidget);
     });
 
     testWidgets('Leere Liste zeigt Hinweistext bei leerem Suchbegriff',
         (tester) async {
       await _pumpScreen(tester);
-
       // initialArtikel: [] → _isLoading = false → Leer-Hinweis sofort da
-      expect(
-        find.textContaining('Keine Artikel gefunden.'), // Angepasst an den exakten Text
-        findsOneWidget,
-      );
+      expect(find.textContaining('Keine Artikel gefunden.'), findsOneWidget);
     });
   });
 
@@ -279,12 +278,10 @@ void main() {
   group('ArtikelListScreen – DB-Icon Farbe (Punkt 9)', () {
     testWidgets('DB-Icon ist vorhanden und hat eine Farbe', (tester) async {
       await _pumpScreen(tester);
-
       final dbIcons = find.byWidgetPredicate(
         (w) => w is Icon && w.icon == Icons.dns,
       );
       expect(dbIcons, findsOneWidget);
-
       final dbIcon = tester.widget<Icon>(dbIcons.first);
       expect(dbIcon.color, isNotNull);
     });

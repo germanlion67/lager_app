@@ -618,7 +618,6 @@ Flutter-Version: `3.41.4` (stable) — in allen Workflows fixiert
 
 | ID      | Aufgabe                             | Details                                            |
 | :------ | :---------------------------------- | :------------------------------------------------- |
-| `P-003` | Bild-Caching                        | `cached_network_image` für Remote-Bilder, Cache-Invalidierung via ETag-Query-Param |
 | `P-004` | Android Kamera-Test                 | Vollständiger Kamera-Test auf echten Geräten (S20) |
 | `OPT-001`| `SettingsController` extrahieren    | Logik-Entkopplung für Testbarkeit (~2,5h)          |
 | `T-001` | Manuelle Integrationstests          | T-001.6–T-001.12: Konflikt-Szenarien End-to-End    |
@@ -650,7 +649,7 @@ Wenn du eine Aufgabe bekommst:
   - `docs/PROJECT_STRUCTURE.md` — Struktur/Flows Gesamt
   - `docs/DATABASE.md` — Schema, Sync, Indizes
   - `docs/THEMING.md` — neue Tokens, Konventionen
-  - `docs/LOGGING.md` — neue Log-Events
+  - `docs/LOGGER.md` — neue Log-Events
   - `docs/TESTING.md` — Testzahl, neue Beschreibung, Änderungslog
   - `docs/OPTIMIZATIONS.md` — Wartungs-Historie-Zeile
   - `CHANGELOG.md` — unter aktuellem Release-Block

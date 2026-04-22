@@ -143,7 +143,42 @@ Text(
   ),
 )
 ```
+Seit `v0.9.0+25` ist der Sync-Zeitstempel gegen Overflow auf schmalen
+Displays (360dp) abgesichert:
 
+| Eigenschaft | Wert |
+|:------------|:-----|
+| `overflow` | `TextOverflow.ellipsis` |
+| `maxLines` | `1` |
+| `titleSpacing` | `0` (+ manuelles `Padding`) |
+
+**Begründung:** Auf 360dp-Displays konkurriert der Zeitstempel-Text mit
+den Action-Icons um Platz. Ohne Ellipsis warf Flutter einen
+`RenderFlex`-Overflow-Fehler.
+
+**Konvention:** Alle AppBar-Texte die mit Action-Icons koexistieren
+müssen `overflow: TextOverflow.ellipsis` + `maxLines: 1` setzen.
+
+---
+
+## 🎛️ Ort-Dropdown (B-009)
+
+Der Ort-Filter-Dropdown in der `ArtikelListScreen`-Body-Suchleiste folgt
+denselben Token-Konventionen wie alle anderen UI-Elemente:
+
+| Eigenschaft | Token / Wert |
+|:------------|:-------------|
+| Hintergrund | `colorScheme.surface` |
+| Text | `colorScheme.onSurface` |
+| Border-Radius | `AppConfig.borderRadiusMedium` |
+| Reset-Button | `colorScheme.onSurfaceVariant` |
+| Padding | `AppConfig.spacingSmall` / `AppConfig.spacingMedium` |
+
+**Verhalten:**
+- Nur sichtbar wenn Orte vorhanden (`_orte.isNotEmpty`)
+- „Alle Orte" als erster Eintrag
+- ×-Reset-Button bei aktivem Filter (`_selectedOrt != null`)
+- Werte dynamisch aus `_artikelListe` (distinct, alphabetisch)
 
 ## 🛠️ Best Practices für Entwickler
 
@@ -186,7 +221,8 @@ Card(
 - ✅ Status-Container: `*Container + on*Container` Paare verwenden
 - ✅ Opacity-Werte aus `AppConfig.opacity*` statt hardcodierter Werte
 - ✅ Neue Screens (z.B. `app_lock_screen.dart`) von Beginn an mit Tokens implementieren — kein nachträgliches Migrieren
-✅ AppBar-Status: Texte wie Sync-Zeitstempel immer in onSurface und bold (B-007).
+- ✅ AppBar-Status: Texte wie Sync-Zeitstempel immer in onSurface und bold (B-007).
+- ✅ Dropdown-Werte dynamisch aus Daten ableiten — niemals hardcodierte Listen (B-009)
 
 --- 
 

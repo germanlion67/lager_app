@@ -2,6 +2,11 @@
 //
 // Stellt den globalen Logger + In-App Log-Viewer bereit.
 //
+// CHANGES:
+//   F-006 — Log-Level-Filter: FilterChip-Reihe durch DropdownButton<Level>
+//            ersetzt. Default: Level.error (vorher: Level.trace).
+//            Passt auf S20 (360dp) ohne horizontales Scrollen.
+//
 // VERWENDUNG:
 //   import '../services/app_log_service.dart';
 //   final Logger _logger = AppLogService.logger;
@@ -19,17 +24,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
 
+import '../config/app_config.dart';
 import '../config/app_theme.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Interner Puffer — max. 500 Events im RAM
-//
-// Bewusste Entscheidung:
-//   500 Events ≈ ~200 KB RAM bei ausführlichen Logs — vertretbar.
-//   Bei langen Sessions (z.B. Dauerbetrieb im Lager) können älteste
-//   Logs verloren gehen. Für Crash-Diagnose ist das akzeptabel,
-//   da kritische Fehler (Level.error / Level.fatal) selten sind.
-//   Anpassen auf z.B. 1000 falls nötig.
 // ─────────────────────────────────────────────────────────────────────────────
 final MemoryOutput _memoryOutput = MemoryOutput(bufferSize: 500);
 
@@ -51,7 +50,7 @@ abstract final class AppLogService {
     ),
   );
 
-  // Öffentlicher Getter — ermöglicht externen Zugriff auf den Puffer falls nötig.
+  // Öffentlicher Getter — ermöglicht externen Zugriff auf den Puffer.
   static MemoryOutput get memoryOutput => _memoryOutput;
 
   /// Öffnet den In-App Log-Viewer als Dialog.
@@ -68,11 +67,11 @@ abstract final class AppLogService {
 // ─────────────────────────────────────────────────────────────────────────────
 const _levelMeta = <Level, (String label, Color color, String emoji)>{
   Level.trace:   ('TRACE',   AppTheme.greyNeutral600, '🔍'),
-  Level.debug:   ('DEBUG',   AppTheme.infoColor, '🐛'),
-  Level.info:    ('INFO',    AppTheme.successColor, 'ℹ️'),
-  Level.warning: ('WARNING', AppTheme.warningColor, '⚠️'),
-  Level.error:   ('ERROR',   AppTheme.errorColor, '❌'),
-  Level.fatal:   ('FATAL',   Color(0xFF9C27B0), '💀'),
+  Level.debug:   ('DEBUG',   AppTheme.infoColor,      '🐛'),
+  Level.info:    ('INFO',    AppTheme.successColor,   'ℹ️'),
+  Level.warning: ('WARNING', AppTheme.warningColor,   '⚠️'),
+  Level.error:   ('ERROR',   AppTheme.errorColor,     '❌'),
+  Level.fatal:   ('FATAL',   Color(0xFF9C27B0),       '💀'),
 };
 
 String _label(Level l) => _levelMeta[l]?.$1 ?? l.name.toUpperCase();
@@ -80,7 +79,7 @@ Color  _color(Level l) => _levelMeta[l]?.$2 ?? AppTheme.greyNeutral600;
 String _emoji(Level l) => _levelMeta[l]?.$3 ?? '';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Log-Viewer Dialog (privat — nur via AppLogService.showLogDialog erreichbar)
+// Log-Viewer Dialog
 // ─────────────────────────────────────────────────────────────────────────────
 class _LogViewerDialog extends StatefulWidget {
   const _LogViewerDialog();
@@ -90,7 +89,9 @@ class _LogViewerDialog extends StatefulWidget {
 }
 
 class _LogViewerDialogState extends State<_LogViewerDialog> {
-  Level _selectedLevel = Level.trace; // standardmäßig alles anzeigen
+  // F-006: Default Level.error statt Level.trace —
+  // zeigt sofort das Relevante, reduziert initialen Log-Rausch.
+  Level _selectedLevel = Level.error;
 
   List<OutputEvent> get _filtered => _memoryOutput.buffer
       .where((e) => e.level.index >= _selectedLevel.index)
@@ -115,25 +116,31 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
   Widget build(BuildContext context) {
     final events = _filtered;
     final screenSize = MediaQuery.sizeOf(context);
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
 
     return Dialog(
-      insetPadding: const EdgeInsets.all(12),
+      insetPadding: const EdgeInsets.all(AppConfig.spacingMedium),
       child: SizedBox(
         width: screenSize.width,
         height: screenSize.height * 0.85,
         child: Column(
           children: [
-            // ── Titelzeile ───────────────────────────────────────────
+            // ── Titelzeile ───────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+              padding: const EdgeInsets.fromLTRB(
+                AppConfig.spacingLarge,
+                AppConfig.spacingMedium,
+                AppConfig.spacingSmall,
+                0,
+              ),
               child: Row(
                 children: [
                   const Icon(Icons.article_outlined),
-                  const SizedBox(width: 8),
-                  const Text(
+                  const SizedBox(width: AppConfig.spacingSmall),
+                  Text(
                     'Log-Ansicht',
-                    style: TextStyle(
-                      fontSize: 18,
+                    style: textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -157,76 +164,183 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
               ),
             ),
 
-            const Divider(height: 8),
+            const Divider(height: AppConfig.spacingSmall),
 
-            // ── Filter-Chips ─────────────────────────────────────────
-            SizedBox(
-              height: 44,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                children: _levelMeta.entries.map((entry) {
-                  final isSelected = _selectedLevel == entry.key;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(
-                        '${entry.value.$3} ${entry.value.$1}',
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : entry.value.$2,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
-                        ),
-                      ),
-                      selected: isSelected,
-                      selectedColor: entry.value.$2,
-                      checkmarkColor: Colors.white,
-                      visualDensity: VisualDensity.compact,
-                      onSelected: (_) =>
-                          setState(() => _selectedLevel = entry.key),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-
-            // ── Zähler ───────────────────────────────────────────────
+            // ── F-006: Level-Filter als Dropdown ────────────────────────
+            // Ersetzt die horizontale FilterChip-Reihe.
+            // Passt auf S20 (360dp) ohne horizontales Scrollen.
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConfig.spacingLarge,
+                vertical: AppConfig.spacingXSmall,
+              ),
               child: Row(
                 children: [
-                  Text(
-                    '${events.length} Einträge',
-                    style: Theme.of(context).textTheme.bodySmall,
+                  // Label
+                  Icon(
+                    Icons.filter_list,
+                    size: AppConfig.iconSizeMedium,
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  const Spacer(),
+                  const SizedBox(width: AppConfig.spacingSmall),
                   Text(
-                    'ab ${_label(_selectedLevel)}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                    'Mindest-Level:',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(width: AppConfig.spacingSmall),
+
+                  // Dropdown
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppConfig.spacingSmall,
+                        vertical: AppConfig.spacingXSmall,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _color(_selectedLevel)
+                            .withValues(alpha: AppConfig.opacitySubtle),
+                        borderRadius: BorderRadius.circular(
+                          AppConfig.borderRadiusMedium,
+                        ),
+                        border: Border.all(
+                          color: _color(_selectedLevel)
+                              .withValues(alpha: AppConfig.opacityMedium),
+                        ),
+                      ),
+                      child: DropdownButton<Level>(
+                        value: _selectedLevel,
+                        isExpanded: true,
+                        isDense: true,
+                        underline: const SizedBox.shrink(),
+                        icon: Icon(
+                          Icons.expand_more,
+                          color: _color(_selectedLevel),
+                          size: AppConfig.iconSizeMedium,
+                        ),
+                        // Dropdown-Einträge: alle 6 Level mit Emoji + Label
+                        items: _levelMeta.entries.map((entry) {
+                          final level = entry.key;
+                          final label = entry.value.$1;
+                          final color = entry.value.$2;
+                          final emoji = entry.value.$3;
+                          final isSelected = _selectedLevel == level;
+
+                          return DropdownMenuItem<Level>(
+                            value: level,
+                            child: Row(
+                              children: [
+                                Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                const SizedBox(
+                                  width: AppConfig.spacingXSmall,
+                                ),
+                                Text(
+                                  label,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    color: color,
+                                    fontWeight: isSelected
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (Level? newLevel) {
+                          if (newLevel != null) {
+                            setState(() => _selectedLevel = newLevel);
+                          }
+                        },
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            const Divider(height: 4),
+            // ── Zähler ───────────────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConfig.spacingLarge,
+                vertical: AppConfig.spacingXSmall,
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    '${events.length} Einträge',
+                    style: textTheme.bodySmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const Spacer(),
+                  // Aktiver Filter als farbiger Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppConfig.spacingSmall,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _color(_selectedLevel)
+                          .withValues(alpha: AppConfig.opacitySubtle),
+                      borderRadius: BorderRadius.circular(
+                        AppConfig.borderRadiusXSmall,
+                      ),
+                      border: Border.all(
+                        color: _color(_selectedLevel)
+                            .withValues(alpha: AppConfig.opacityMedium),
+                      ),
+                    ),
+                    child: Text(
+                      'ab ${_emoji(_selectedLevel)} ${_label(_selectedLevel)}',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: _color(_selectedLevel),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
 
-            // ── Log-Liste ────────────────────────────────────────────
+            const Divider(height: AppConfig.spacingXSmall),
+
+            // ── Log-Liste ────────────────────────────────────────────────
             Expanded(
               child: events.isEmpty
                   ? Center(
-                      child: Text(
-                        'Keine Logs auf diesem Level.',
-                        style: Theme.of(context).textTheme.bodyMedium,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: AppConfig.iconSizeXLarge,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: AppConfig.spacingMedium),
+                          Text(
+                            'Keine Einträge auf '
+                            '${_emoji(_selectedLevel)} '
+                            '${_label(_selectedLevel)} oder höher.',
+                            style: textTheme.bodyMedium?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ),
                     )
                   : ListView.separated(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(AppConfig.spacingSmall),
                       itemCount: events.length,
                       separatorBuilder: (_, __) => const Divider(
                         height: 1,
-                        indent: 8,
-                        endIndent: 8,
+                        indent: AppConfig.spacingSmall,
+                        endIndent: AppConfig.spacingSmall,
                       ),
                       itemBuilder: (context, index) {
                         final event = events[index];
@@ -237,17 +351,18 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
                         return ExpansionTile(
                           dense: true,
                           leading: Container(
-                            width: 4,
-                            height: 36,
+                            width: AppConfig.strokeWidthThick,
+                            height: AppConfig.spacingXXLarge,
                             decoration: BoxDecoration(
                               color: color,
-                              borderRadius: BorderRadius.circular(2),
+                              borderRadius: BorderRadius.circular(
+                                AppConfig.borderRadiusXXSmall,
+                              ),
                             ),
                           ),
                           title: Text(
                             '$emoji  ${event.lines.first}',
-                            style: TextStyle(
-                              fontSize: 12,
+                            style: textTheme.bodySmall?.copyWith(
                               color: color,
                               fontWeight: FontWeight.w600,
                             ),
@@ -256,18 +371,24 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
                           ),
                           subtitle: Text(
                             label,
-                            style: TextStyle(fontSize: 10, color: color),
+                            style: textTheme.labelSmall?.copyWith(
+                              color: color,
+                            ),
                           ),
                           // Stack-Trace & weitere Zeilen aufklappbar
                           children: event.lines.skip(1).map((line) {
                             return Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                              padding: const EdgeInsets.fromLTRB(
+                                AppConfig.spacingLarge,
+                                0,
+                                AppConfig.spacingLarge,
+                                AppConfig.spacingXSmall,
+                              ),
                               child: SelectableText(
                                 line,
-                                style: const TextStyle(
-                                  fontSize: 11,
+                                style: textTheme.bodySmall?.copyWith(
                                   fontFamily: 'monospace',
+                                  fontSize: AppConfig.fontSizeXSmall,
                                 ),
                               ),
                             );

@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.8.5+19 | Zuletzt aktualisiert: April 2026
+**Version:** 0.9.0+25 | Zuletzt aktualisiert: April 2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **610 Tests bestanden, 3 skipped, 0 Fehler**
+✅ **625 Tests bestanden, 3 skipped, 0 Fehler**
 
 > `--exclude-tags performance` st optional verfügbar, aber nicht erforderlich.
 > Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
@@ -568,6 +568,12 @@ flutter test test/widgets/artikel_detail_screen_test.dart
 | Suche                 | 2     | Texteingabe, Leer-Hinweis                          |
 | DB-Icon Farbe         | 1     | Icon-Farbe nicht null                              |
 
+Fixes in v0.9.0+25:
+
+- Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
+- `erstelltAm` / `aktualisiertAm` als Pflichtfelder im Testartikel ergänzt
+- `_pumpScreenWithArtikel()` Helper hinzugefügt (Dropdown-Test via `initialArtikel`)
+- Suchfeld-Label korrigiert: `'Suche...' → 'Suche…'` (U+2026, 1:1 aus Widget)
 
 ```bash
 flutter test test/widgets/artikel_list_screen_test.dart

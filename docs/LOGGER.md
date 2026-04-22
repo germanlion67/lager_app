@@ -70,8 +70,31 @@ try {
 | `Main`          | `INFO`  | `[Main] Starte initialen Sync nach Setup...`                              | Nach URL-Konfiguration                      |
 | `Main`          | `INFO`  | `[Main] Initialer Sync abgeschlossen`                                     | Sync fertig, UI-Wechsel                     |
 | `Main`          | `INFO`  | `[Main] Kein Sync nötig → direkt zur App`                                 | Web oder nicht eingeloggt                   |
+| `ArtikelList`   | `INFO`  | `[ArtikelList] Sync gestartet`                                            | Bei manuellem Sync-Start                    |
+| `ArtikelList`   | `INFO`  | `[ArtikelList] Sync erfolgreich — Liste neu geladen`                      | Nach `SyncStatus.success` + `_ladeArtikel()`|
+| `ArtikelList`   | `ERROR` | `[ArtikelList] Sync fehlgeschlagen: {fehlertext}`                         | Nach `SyncStatus.error` mit Fehlertext      |
+| `AppLogService` | `DEBUG` | `[LogDialog] Level-Filter geändert: {level}`                              | F-006: Dropdown-Auswahl geändert            |
+| `Settings`      | `INFO`  | `[Settings] show_last_sync geändert: {true/false}`                        | F-007: Toggle-Änderung persistiert          |
 
 💡 Neue Log-Events hier eintragen damit die Nachrichtenformate konsistent bleiben.
+
+---
+
+## 🎛️ Log-Dialog — Level-Filter (F-006)
+
+Der In-App Log-Viewer (`AppLogService.showLogDialog()`) verwendet seit `v0.9.0+25`
+einen `DropdownButton<Level>` statt der früheren horizontalen Button-Reihe.
+
+| Eigenschaft | Wert |
+| :---------- | :--- |
+| Widget | `DropdownButton<Level>` |
+| Default | `Level.error` |
+| Verfügbare Level | `trace`, `debug`, `info`, `warning`, `error`, `fatal` |
+| Farbe | Passt sich dynamisch dem gewählten Level an |
+| Leer-State | `check_circle_outline`-Icon + Level-Name im Text |
+
+**Vorteil:** Auf schmalen Displays (360dp) passt der Filter in eine Zeile —
+die frühere Button-Reihe benötigte horizontales Scrollen.
 
 ---
 

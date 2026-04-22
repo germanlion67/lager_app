@@ -135,7 +135,7 @@ lager_app/
 │   │   ├── services/       # Business-Logik (40 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
 │   │   └── widgets/        # Wiederverwendbare UI-Komponenten (12 Widgets)
-│   └── test/               # 610 Tests (3 skipped), 28 Testdateien
+│   └── test/               # 625 Tests (3 skipped), 28 Testdateien
 ├── packages/               # Lokale Dart-Pakete (runtime_env_config)
 ├── server/                 # PocketBase Backend + Backup-Container
 ├── docs/                   # Dokumentation (16 Dateien)
@@ -442,6 +442,52 @@ Server eine neuere Version hat.
 
 ---
 
+## 🎛️ F-006 / F-007 — Log-Dialog & Sync-Zeitstempel-Toggle (ab v0.9.0+25)
+
+### F-006: Log-Level-Filter als Dropdown
+
+Der In-App Log-Dialog verwendet einen `DropdownButton<Level>` statt der
+früheren horizontalen Button-Reihe (6 × `FilterChip`).
+
+| Eigenschaft | Vorher | Nachher |
+|:------------|:-------|:--------|
+| Widget | `ListView` + 6 × `FilterChip` horizontal | `DropdownButton<Level>` |
+| Platzbedarf | 44px Höhe + horizontale Scrollbar | Eine Zeile, kein Scrollen |
+| Default | `Level.trace` (alles) | `Level.error` (nur Fehler) |
+| Farbe | Chip-Farbe fix | Container passt sich dynamisch an Level an |
+| Leer-State | Nur Text | `check_circle_outline`-Icon + Level-Name |
+
+**Begründung:** Auf 360dp-Displays (z.B. Samsung S20) passte die Button-Reihe
+nicht in eine Zeile. Der Dropdown benötigt nur eine Zeile und skaliert auf
+alle Displaybreiten.
+
+---
+
+### F-007: Sync-Zeitstempel-Toggle (ValueNotifier-Pattern)
+
+Der Sync-Zeitstempel in der `ArtikelListScreen`-AppBar kann in den
+Einstellungen ein- und ausgeblendet werden.
+
+```text
+Settings ──writes──► showLastSyncNotifier ──notifies──► ArtikelListScreen
+             SharedPreferences (persist)        setState() → rebuild
+```
+| Alternative                     | Problem                                        |
+| :------------------------------ | :--------------------------------------------- |
+| `SharedPreferences` direkt in `initState()` | Nicht reaktiv — braucht App-Neustart           |
+| `Provider` / `Riverpod`         | Overhead für eine einzelne `bool`-Präferenz    |
+| `InheritedWidget`               | Zu viel Boilerplate                            |
+| `ValueNotifier` ✅              | Leichtgewichtig, kein extra Package, sofortige Wirkung |
+
+Implementierung:
+
+- SharedPreferences-Key: `show_last_sync` (Default: `true`)
+- `ValueNotifier<bool> showLastSyncNotifier` in `ArtikelListScreen`
+- `initState()` liest Präferenz, Settings schreibt + notifiziert
+- Rebuild erfolgt sofort ohne App-Neustart
+
+---
+
 ## 🎨 Design-System & Konfiguration
 
 Um die Wartbarkeit zu erhöhen, nutzt die App eine dreistufige Konfiguration in `app/lib/config/`:
@@ -513,10 +559,13 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folg
 ---
 ### 6. Wartungs-Notiz am Ende des Dokuments
 
-> **Zuletzt aktualisiert:** v0.8.9+24 (2026-04-21)
-> B-007: Intelligenter Bild-Sync (Timestamp-Check) & UI-Politur (Sync-Zeitstempel).
-> B-006: SyncManagementScreen auf SyncOrchestrator umgestellt
-> B-005: ETag-basierte Konflikt-Erkennung vor PATCH
-> B-004: GlobalKey-Pattern + addPostFrameCallback für Callback-Registrierung
+> **Zuletzt aktualisiert:** v0.9.0+25 (2026-04-22)
+> B-008: Card-Layout ArtikelListScreen wiederhergestellt (Artikelnummer, Chips, Feldname-Fix)
+> B-009: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button
+> B-010: Snackbar-Feedback bei Sync-Start, Sync-Erfolg, Sync-Fehler
+> B-012: Sync-Label TextOverflow.ellipsis + titleSpacing in AppBar
+> F-006: Log-Level-Filter als DropdownButton<Level>, Default Level.error
+> F-007: Sync-Zeitstempel-Toggle via ValueNotifier + SharedPreferences
+> O-009: Widget-Tests ArtikelListScreen abgeschlossen (15 Tests grün)
 
 [Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md) | [CI/CD & Deployment](../DEPLOYMENT.md)
