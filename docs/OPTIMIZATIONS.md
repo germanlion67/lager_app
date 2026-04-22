@@ -23,10 +23,9 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `O` = Optimierung / Refactoring / Codequalität
 - `P` = Performance / Plattform / Laufzeitverbesserung
 - `T` = Tests / Testinfrastruktur / Testausbau
-- `OPT` = bereichsübergreifendes internes Optimierungsvorhaben
 
 ### Nächste freie Kürzel
-- `B-013`, `F-008`, `H-004`, `K-007`, `M-013`, `N-007`, `O-010`, `P-006`, `T-009`, `OPT-002`
+- `B-013`, `F-008`, `H-004`, `K-007`, `M-013`, `N-007`, `O-011`, `P-006`, `T-009`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -70,7 +69,7 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
 
-### OPT-001: `SettingsScreen` — Logik in testbaren Controller extrahieren
+### O-010: `SettingsScreen` — Logik in testbaren Controller extrahieren
 **Typ:** Refactoring / Testbarkeit  
 **Betrifft:** `lib/screens/settings_screen.dart`
 
