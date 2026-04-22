@@ -9,7 +9,7 @@ Pflicht: Jede neue Abstraktion kurz begründen (1–3 Sätze) und minimal halten
 
 *   **Repo:** `germanlion67/lager_app` | Branch: `main`
 *   **Monorepo-Struktur:**
-    *   `app/` — Flutter Hauptanwendung (Flutter 3.41.4, Dart ≥ 3.3.0)
+    *   `app/` — Flutter Hauptanwendung (Flutter 3.41.7, Dart 3.11.5)
     *   `server/` — PocketBase 0.25 Backend (pb_migrations/, pb_data/, Backup-Container)
     *   `packages/runtime_env_config/` — lokales Flutter-Plugin für Web-Runtime-Konfiguration
     *   `docs/` — Modular aufgebaute Dokumentation (16 Dateien)
@@ -17,7 +17,7 @@ Pflicht: Jede neue Abstraktion kurz begründen (1–3 Sätze) und minimal halten
 *   **Plattformen (Hybrid-Cloud / Offline-First):**
     *   Mobile/Desktop: lokale SQLite + Hintergrund-Sync zu PocketBase
     *   Web (Docker/Caddy): Flutter Web SPA, direkter PocketBase-Zugriff, kein SQLite
-*   **Aktuelle Version:** `0.8.5+20` (Stand: 20.04.2026)
+*   **Aktuelle Version:** `0.9.1+26` (Stand: 22.04.2026)
 *   **Testsuite:** `610 Tests` (3 skipped), 28 Testdateien + Test-Helper in `test/helpers/`
 *   **Lizenz:** MIT
 
@@ -597,7 +597,7 @@ AppErrorHandler.showErrorDialog(...)  // modaler Dialog
 
 Release-Secrets: `GH_PAT`, `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`, `ANDROID_KEY_ALIAS`, `POCKETBASE_URL`
 
-Flutter-Version: `3.41.4` (stable) — in allen Workflows fixiert
+Flutter-Version: `3.41.7` (stable) — in allen Workflows fixiert
 
 --- 
 
@@ -612,7 +612,7 @@ Flutter-Version: `3.41.4` (stable) — in allen Workflows fixiert
 
 --- 
 
-## 13) Offene Aufgaben (Stand: v0.8.5+20)
+## 13) Offene Aufgaben (Stand: v0.9.1+26)
 🔴 Hoch — Keine aktuell
 🟡 Mittel
 
@@ -657,7 +657,7 @@ Wenn du eine Aufgabe bekommst:
   - Betroffene Dateien
   - Neue/angepasste Tests + Ausführungsbefehl
   - Doku-Änderungen (welche Datei, was geändert)
-  - Commit-Message: `feat:` / `fix:` / `test:` / `docs:` / `refactor:`
+  - Commit-Message: `chore:`/ `feat:` / `fix:` / `test:` / `docs:` / `refactor:`
 
 --- 
 
@@ -675,29 +675,34 @@ uuid: ^4.5.1
 # UI
 provider: ^6.0.3
 intl: ^0.20.2
-google_fonts: ^8.0.2
 cached_network_image: ^3.2.3
 url_launcher: ^6.3.1
+cupertino_icons: ^1.0.9
 
 # Bilder & Kamera
 image_picker: ^1.2.0
 image: ^4.2.0
 crop_your_image: ^2.0.0
-mobile_scanner: ^7.0.1
+
 
 # Dateien
-file_picker: ^10.1.0
+file_picker: ^11.0.2
 file_selector: ^1.0.4
+file_selector_platform_interface: ^2.7.0
 path_provider: ^2.0.11
 open_file: ^3.2.1
+path: ^1.9.0
 mime: ^2.0.0
-share_plus: ^10.1.2
+share_plus: ^12.0.2
 web: ^1.1.0
+
+# Scanner (nur Mobile)
+mobile_scanner: ^7.0.1
 
 # Export/Import
 pdf: ^3.8.1
 printing: ^5.9.0
-csv: ^6.0.0
+csv: ^8.0.0
 archive: ^4.0.7
 xml: ^6.6.1
 
@@ -709,15 +714,16 @@ crypto: ^3.0.3
 
 # System
 local_auth: ^3.0.1
-device_info_plus: ^10.1.0
-package_info_plus: ^9.0.0
+device_info_plus: ^12.4.0
+package_info_plus: ^9.0.1
 logger: ^2.0.2
-flutter_local_notifications: ^19.4.1
+flutter_local_notifications: ^21.0.0
 runtime_env_config: {path: ../packages/runtime_env_config}
+google_fonts: ^8.0.2
 
 # Dev
 mockito: ^5.6.4
-build_runner: ^2.4.6
+build_runner: ^2.14.0
 flutter_lints: ^6.0.0
 flutter_native_splash: ^2.3.10
 ```

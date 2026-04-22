@@ -71,7 +71,7 @@ class ImagePickerService {
     final FilePickerResult? result;
 
     try {
-      result = await FilePicker.platform.pickFiles(
+      result = await FilePicker.pickFiles(
         allowMultiple: false,
         type: FileType.image,
         withData: true,

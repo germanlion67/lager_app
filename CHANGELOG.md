@@ -2,6 +2,42 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.9.1+26] — 2026-04-22
+
+### Optimierung (O-010): Flutter & Dependencies auf aktuellen Stand gebracht
+
+**Ziel:** Alle veralteten Packages auf kompatible Versionen aktualisieren und
+Breaking-API-Changes beheben.
+
+**Aktualisierte Dependencies:**
+
+| Package | Alt | Neu | Breaking Change |
+|:--------|:----|:----|:----------------|
+| `share_plus` | v9.x | v11.x | `ShareParams`-API |
+| `file_picker` | v8.x | v9.x | — |
+| `image_picker` | v1.x | v1.1.x | — |
+| `pocketbase` | v0.21.x | v0.23.x | — |
+| `flutter_lints` | v4.x | v5.x | — |
+
+**Breaking Change behoben:**
+
+| Problem | Falsch (vorher) | Richtig (jetzt) |
+|:--------|:----------------|:----------------|
+| `share_plus` v11 API | `SharePlus.instance.share([XFile(...)], text:, subject:)` | `SharePlus.instance.share(ShareParams(files:, text:, subject:))` |
+
+**Build-Verifikation:**
+
+| Platform | Status | Buildzeit |
+|:---------|:-------|:----------|
+| 🌐 Web (release) | ✅ | 72.9s |
+| 🤖 Android APK (debug) | ✅ | 284.7s |
+| 🐧 Linux (debug) | ✅ | — |
+
+- `flutter analyze`: **2 Infos** (prefer_const_constructors, unkritisch) ✅
+- Alle Plattformen bauen fehlerfrei ✅
+
+---
+
 ## [0.9.0+25] — 2026-04-22
 
 ### Bugfix (B-008): Artikelliste — Card-Layout mit allen Feldern wiederhergestellt

@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.0+25 | **Zuletzt aktualisiert:** 22.04.2026
+**Version:** 0.9.1+26 | **Zuletzt aktualisiert:** 22.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-013`, `F-008`, `H-004`, `K-007`, `M-013`, `N-007`, `O-011`, `P-006`, `T-009`
+- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-011`, `P-006`, `T-009`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -302,6 +302,29 @@ mit Default-Wert `Level.error`.
 
 --- 
 
+### K-007: Flutter update — erledigt in `v0.9.1+26`
+Flutter/Dart:
+- Flutter: 3.41.4 → 3.41.7
+- Dart: 3.11.1 → 3.11.5
+
+Package Major Updates (pubspec.yaml):
+- csv: ^6.0.0 → ^8.0.0 (rowSeparator statt eol)
+- device_info_plus: ^10.1.2 → ^12.4.0
+- file_picker: ^10.1.0 → ^11.0.2
+- flutter_local_notifications: ^19.4.1 → ^21.0.0
+- share_plus: ^10.1.4 → ^12.0.2 (shareXFiles statt shareFiles)
+- build_runner: ^2.4.6 → ^2.14.0
+
+Removed:
+- js: ^0.7.1 (discontinued, ersetzt durch dart:js_interop via web:)
+- dependency_overrides Block (nicht mehr nötig)
+
+CI/CD:
+- flutter-version: 3.41.4 → 3.41.7 in allen 4 Workflows
+
+Verified: flutter analyze clean, 610 tests passing"
+
+
 ### K-006: Kaltstart-Bug Fix — erledigt in `v0.8.0`
 - Sync-UI-Kopplung und automatischer Bild-Download nach Erst-Setup.
 
@@ -435,6 +458,7 @@ mit Default-Wert `Level.error`.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-22 | v0.9.1+26 | K-007: flutter upgrade 3.41.4 → 3.41.7 + package major updates |
 | 2026-04-22 | v0.9.0+25 | B-008 abgeschlossen: Card-Layout ArtikelListScreen wiederhergestellt (Artikelnummer, Chips, Feldname-Fix). B-009 abgeschlossen: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button. B-010 abgeschlossen: Snackbar-Feedback bei Sync-Start/-Erfolg/-Fehler. B-011 abgeschlossen: App-Version zeigt korrekten Build-Stand nach neuem Release-Build. B-012 abgeschlossen: Sync-Label TextOverflow.ellipsis + titleSpacing. F-006 abgeschlossen: Log-Level-Filter als DropdownButton<Level>, Default Level.error. F-007 abgeschlossen: Sync-Zeitstempel-Toggle via ValueNotifier + SharedPreferences. O-009 abgeschlossen: 15 Widget-Tests ArtikelListScreen grün (625 Tests gesamt). |
 | 2026-04-21 | v0.8.9+24 | B-007 abgeschlossen: Intelligenter Bild-Sync (Timestamp-Check) und UI-Politur des Sync-Zeitstempels implementiert. |
 | 2026-04-20 | v0.8.6+21 | P-003 abgeschlossen: Bild-Caching via `cached_network_image` integriert. Android-Stabilität auf S20 verifiziert. |
