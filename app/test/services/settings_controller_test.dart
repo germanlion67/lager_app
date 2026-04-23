@@ -11,6 +11,7 @@ class FakePocketBaseService extends PocketBaseService {
     this.updateUrlResult = true,
     this.checkHealthResult = true,
     this.defaultUrlAfterReset = '',
+    this.throwOnUpdate = false,
   }) : super.testable() {
     _url = initialUrl;
   }
@@ -19,6 +20,7 @@ class FakePocketBaseService extends PocketBaseService {
   final bool updateUrlResult;
   final bool checkHealthResult;
   final String defaultUrlAfterReset;
+  final bool throwOnUpdate;
 
   String _url = '';
   bool resetCalled = false;
@@ -29,6 +31,10 @@ class FakePocketBaseService extends PocketBaseService {
 
   @override
   Future<bool> updateUrl(String newUrl) async {
+    if (throwOnUpdate) {
+      throw Exception('updateUrl failed');
+    }
+
     lastUpdateUrl = newUrl;
     if (updateUrlResult) {
       _url = newUrl.trim();
@@ -88,6 +94,20 @@ void main() {
       controller.dispose();
     });
 
+    test('lädt show_last_sync=false aus SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({
+        showLastSyncPrefsKey: false,
+      });
+
+      final controller = SettingsController();
+      await controller.init();
+
+      expect(controller.showLastSync, isFalse);
+      expect(showLastSyncNotifier.value, isFalse);
+
+      controller.dispose();
+    });
+
     test('erkennt URL-Änderung als ungespeicherte Änderung', () async {
       final controller = SettingsController();
       await controller.init();
@@ -111,6 +131,24 @@ void main() {
       controller.artikelNummerController.text = '1234';
 
       expect(controller.hasUnsavedChanges, isTrue);
+
+      controller.dispose();
+    });
+
+    test('saveSettings speichert artikel_start_nummer nicht bei nicht leerer DB',
+        () async {
+      final controller = SettingsController();
+      await controller.init();
+
+      controller.isDatabaseEmpty = false;
+      controller.artikelNummerController.text = '1234';
+
+      final result = await controller.saveSettings();
+      final prefs = await SharedPreferences.getInstance();
+
+      expect(result, SaveSettingsResult.success);
+      expect(prefs.getInt('artikel_start_nummer'), isNull);
+      expect(controller.hasUnsavedChanges, isFalse);
 
       controller.dispose();
     });
@@ -241,6 +279,27 @@ void main() {
       expect(fakeService.lastUpdateUrl, 'https://new.example.com');
       expect(controller.pocketBaseUrlController.text, 'https://new.example.com');
       expect(controller.hasUnsavedChanges, isFalse);
+
+      controller.dispose();
+    });
+
+    test('saveSettings gibt error zurück, wenn updateUrl eine Exception wirft',
+        () async {
+      final fakeService = FakePocketBaseService(
+        initialUrl: 'https://initial.example.com',
+        throwOnUpdate: true,
+      );
+
+      final controller = SettingsController(pocketBaseService: fakeService);
+      await controller.init();
+
+      controller.pocketBaseUrlController.text = 'https://new.example.com';
+
+      final result = await controller.saveSettings();
+
+      expect(result, SaveSettingsResult.error);
+      expect(controller.pocketBaseUrlController.text, 'https://new.example.com');
+      expect(controller.hasUnsavedChanges, isTrue);
 
       controller.dispose();
     });

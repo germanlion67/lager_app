@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-011`, `P-006`, `T-009`
+- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-012`, `P-006`, `T-010`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -73,7 +73,47 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 
 ## 🟢 Priorität: Nice-to-Have
 
-*(Keine offenen Punkte)*
+### O-011: `AppLockService` testbarer machen
+**Typ:** Optimierung / Testbarkeit  
+**Betrifft:** `lib/services/app_lock_service.dart`
+
+**Problem**
+`AppLockService` ist eng an Singleton-, Persistenz- und Plattformlogik
+gekoppelt. Dadurch sind isolierte Tests für App-Lock-Verhalten und
+Settings-nahe Lade-/Speicherpfade nur eingeschränkt möglich.
+
+**Ziel**
+App-Lock-Verhalten fachlich besser testbar machen, ohne die bestehende
+Runtime-API unnötig zu verkomplizieren.
+
+**Mögliche Umsetzung**
+- Interface oder abstrahierte Auth-/Storage-Grenzen einführen
+- Test-Hooks oder gezielte Overrides für Persistenz/Auth erlauben
+- App-Lock-Lade-/Speicherpfade ohne echte Plattformabhängigkeit testbar machen
+
+--- 
+
+### T-009: Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade
+**Typ:** Testausbau  
+**Betrifft:** `lib/screens/settings_controller.dart`,
+             `lib/screens/settings_state.dart`
+
+**Ziel**
+Nach O-010 sollen verbleibende Rand- und Fehlerpfade der
+Settings-Logik gezielt durch Unit-Tests abgesichert werden.
+
+**Mögliche Abdeckung**
+- `saveSettings()`-Fehlerpfad (`SaveSettingsResult.error`)
+- Default-Verhalten für `showLastSync`, wenn keine Pref gesetzt ist
+- zusätzliche Persistenztests für Settings-nahe Werte
+- App-Lock-bezogene Lade-/Speicherpfade, soweit ohne größeren
+  Architekturumbau testbar
+
+**Optionaler Begleitfix**
+- Ergebnisbehandlung in `SettingsScreen._saveSettings()` stilistisch
+  expliziter machen (`switch` mit klaren `break`-/`return`-Pfaden)
+
+
 
 ## ⏭️ Future (nicht in Planung)
 
@@ -92,9 +132,9 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 | ✅ Abgeschlossen | 55 | 47 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 2 | 0 | 2 |
-| 🟢 Nice-to-Have | 0 | 0 | 0 |
+| 🟢 Nice-to-Have | 2 | 0 | 2 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **62** | **57** | **4** |
+| **Gesamt** | **64** | **57** | **6** |
 
 
 ---
