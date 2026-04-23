@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **Alle Tests erfolgreich abgeschlossen**
+✅ **642 Tests bestanden, 3 skipped, 0 Fehler**
 
 > `--exclude-tags performance` ist optional verfügbar, aber nicht erforderlich.  
 > Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
@@ -31,6 +31,7 @@ flutter test
 | `test/models/artikel_model_test.dart` | Unit | 64 | O-002 |
 | `test/models/attachment_model_test.dart` | Unit | 30 | O-002 |
 | `test/models/nextcloud_credentials_test.dart` | Unit | 4 | — |
+| `test/services/app_lock_service_test.dart` | Unit | 13 | O-011 |
 | `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 |
 | `test/services/artikel_export_service_test.dart` | Unit + Widget | 2 | — |
 | `test/services/artikel_import_service_test.dart` | Unit | 4 | — |
@@ -60,7 +61,7 @@ flutter test
 | `test/helpers/no_op_nextcloud_service.dart` | Test-Helper | — | O-006 |
 | `test/mocks/sync_service_mocks.dart` | Test-Helper | — | T-001 |
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
-| **Gesamt** | **632** | **aktualisieren** |  |
+| **Gesamt** |  | **645** |  |
 
 > Hinweis: Die Dateiübersicht ist auf den Stand **0.9.2+32** angehoben.  
 > Für neu hinzugekommene Testdateien sollten die exakten Testanzahlen bei der nächsten vollständigen Testinventur nachgetragen werden.

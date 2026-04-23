@@ -152,47 +152,8 @@ app/lib/
 
 ### app/test/ — Tests (625 Tests, 3 skipped, 28 Testdateien)
 
-```text
-app/test/
-├── helpers/                          # Test-Doubles & Utilities
-│   ├── fake_sync_status_provider.dart    # FakeSyncStatusProvider
-│   └── no_op_nextcloud_service.dart      # Timer-freier NextcloudService Test-Double
-├── mocks/                            # Mockito-generierte Mocks
-│   ├── sync_service_mocks.dart           # Mock-Definitionen (@GenerateMocks)
-│   └── sync_service_mocks.mocks.dart     # Generierter Code
-├── models/                           # Modell-Tests
-│   ├── artikel_model_test.dart           # 64 Tests - Konstruktor, fromMap, toMap, copyWith, Sync
-│   ├── attachment_model_test.dart        # 30 Tests - Limits, MIME-Whitelist, Validierung
-│   └── nextcloud_credentials_test.dart   # 4 Tests - Parsing, Gleichheit, Edge-Cases
-├── services/                         # Service-Tests
-│   ├── app_log_service_test.dart         # 14 Tests - Logging-Tests
-│   ├── artikel_db_service_test.dart      # 75 Tests - In-Memory SQLite CRUD (alle Methoden)
-│   ├── artikel_db_service_test_helper.dart  # Schema-Setup Helper
-│   ├── artikel_export_service_test.dart  # 2 Tests - CSV-Erzeugung
-│   ├── artikel_import_service_test.dart  # 4 Tests - CSV-Parsing
-│   ├── attachment_service_test.dart      # 34 Tests
-│   ├── backup_status_test.dart           # 22 Tests - fromJson, Status-Auswertung
-│   ├── image_picker_service_test.dart    # 15 Tests
-│   ├── nextcloud_client_test.dart        # 39 Tests
-│   ├── nextcloud_listfiles_test.dart     # 1 Test - Nextcloud Dateiliste
-│   ├── pocketbase_sync_service_test.dart # 17 Tests
-│   ├── pocketbase_sync_service_conflict_test.dart  # 11 Tests - ETag-Konflikt-Logik
-│   ├── sync_orchestrator_test.dart       # 9 Tests - SyncStatus Enum, ETag Grenzwerte
-│   └── sync_status_provider_test.dart    # 5 Tests - Stream-Events, State-Änderungen
-├── utils/                            # Utility-Tests
-│   ├── attachment_utils_test.dart        # 28 tests - Validierung: Größe→Anzahl→MIME
-│   ├── image_processing_utils_test.dart  # 30 Tests - Thumbnail, Kompression
-│   └── uuid_generator_test.dart          # 23 Tests - UUID-Format, Eindeutigkeit
-├── widgets/                          # Widget-Tests
-│   ├── artikel_detail_screen_test.dart   # 24 Tests - Detail-Screen (DI-basiert)
-│   ├── artikel_erfassen_test.dart        # 11 Tests - Erfassen-Screen
-│   ├── artikel_list_screen_test.dart     # 15 Tests - Listen-Screen (pump statt pumpAndSettle)
-│   └── merge_dialog_test.dart            # 18 Tests
-├── conflict_resolution_test.dart         # 77 Tests - Konflikt-Auflösung Widget-Test
-└── performance/                      # Performance-Tests
-    └── import_500_smoke_test.dart        # 1 Test (self-contained, @Tags performance)
+>  Testdateien, sowie alle Tests beschrieben — Ziele, Abdeckungen und lokaler Aufruf befinden sich hier: 🧪 **[TESTING.md](docs/TESTING.md):** 
 
-```
 
 ### app/ — Weitere Dateien
 

@@ -2,6 +2,55 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.9.2+32] — 2026-04-23
+
+### Optimierung (O-011): `AppLockService` testbarer gemacht
+
+**Ziel:** Das App-Lock-Verhalten fachlich besser testbar machen, ohne die
+bestehende Runtime-API unnötig zu verkomplizieren.
+
+**Umsetzung:**
+- `AppLockService` um gezielte Test-Hooks erweitert
+- Persistenzzugriffe kontrollierbarer gemacht
+- App-Lock-Lade-/Speicherpfade ohne echte Plattformabhängigkeit besser testbar
+- bestehende Runtime-Nutzung bewusst schlank und kompatibel gehalten
+
+**Ergebnis:**
+- isolierte Tests für App-Lock-Verhalten sind jetzt deutlich einfacher möglich
+- settings-nahe App-Lock-Pfade lassen sich gezielter absichern
+- keine unnötige Aufblähung der Produktions-API
+
+---
+
+### Tests (T-009): Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade
+
+**Ziel:** Nach O-010 verbleibende Rand- und Fehlerpfade der
+Settings-Logik gezielt durch Unit-Tests absichern.
+
+**Ergänzte Testabdeckung:**
+- `saveSettings()`-Fehlerpfad mit `SaveSettingsResult.error`
+- Default-Verhalten für `showLastSync`, wenn keine Preference gesetzt ist
+- zusätzliche Persistenztests für settings-nahe Werte
+- App-Lock-bezogene Lade-/Speicherpfade im nun testbareren Setup mit abgesichert
+
+**Ergebnis:**
+- `SettingsController`-Tests fachlich vervollständigt
+- T-009 abgeschlossen
+- O-011 praktisch mit abgeschlossen, da die App-Lock-nahen Testpfade jetzt
+  sauber erreichbar sind
+
+**Teststatus:**
+- `flutter test`: **642 Tests bestanden** ✅
+
+---
+
+### Dokumentation
+
+- `docs/TESTING.md` aktualisiert
+- `docs/OPTIMIZATIONS.md` um Abschluss von **T-009** und **O-011** ergänzt
+- Dokumentationsstand auf **v0.9.2+32** nachgezogen
+
+
 ## [0.9.1+29] — 2026-04-23
 
 ### Refactoring (O-010): SettingsScreen-Logik in SettingsController ausgelagert

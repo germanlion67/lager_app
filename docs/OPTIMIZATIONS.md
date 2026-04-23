@@ -2,11 +2,11 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.1+29 | **Zuletzt aktualisiert:** 23.04.2026
+**Version:** 0.9.2+33 | **Zuletzt aktualisiert:** 23.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
-> Wenn eine Maßnahme **Abgeschlossene, historisch relevante und versioniert ist** wird sie in `HISTORY.md` überfürt.  
+> Wenn eine Maßnahme **abgeschlossen, historisch relevant und versioniert** ist, wird sie in `HISTORY.md` überführt.  
 > Dadurch bleiben Status-Dokument und Historie sauber getrennt und vermeiden unnötige Dopplungen.
 
 ---
@@ -60,7 +60,6 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
 - [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
 
-
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
 
@@ -73,47 +72,8 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 
 ## 🟢 Priorität: Nice-to-Have
 
-### O-011: `AppLockService` testbarer machen
-**Typ:** Optimierung / Testbarkeit  
-**Betrifft:** `lib/services/app_lock_service.dart`
 
-**Problem**
-`AppLockService` ist eng an Singleton-, Persistenz- und Plattformlogik
-gekoppelt. Dadurch sind isolierte Tests für App-Lock-Verhalten und
-Settings-nahe Lade-/Speicherpfade nur eingeschränkt möglich.
-
-**Ziel**
-App-Lock-Verhalten fachlich besser testbar machen, ohne die bestehende
-Runtime-API unnötig zu verkomplizieren.
-
-**Mögliche Umsetzung**
-- Interface oder abstrahierte Auth-/Storage-Grenzen einführen
-- Test-Hooks oder gezielte Overrides für Persistenz/Auth erlauben
-- App-Lock-Lade-/Speicherpfade ohne echte Plattformabhängigkeit testbar machen
-
---- 
-
-### T-009: Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade
-**Typ:** Testausbau  
-**Betrifft:** `lib/screens/settings_controller.dart`,
-             `lib/screens/settings_state.dart`
-
-**Ziel**
-Nach O-010 sollen verbleibende Rand- und Fehlerpfade der
-Settings-Logik gezielt durch Unit-Tests abgesichert werden.
-
-**Mögliche Abdeckung**
-- `saveSettings()`-Fehlerpfad (`SaveSettingsResult.error`)
-- Default-Verhalten für `showLastSync`, wenn keine Pref gesetzt ist
-- zusätzliche Persistenztests für Settings-nahe Werte
-- App-Lock-bezogene Lade-/Speicherpfade, soweit ohne größeren
-  Architekturumbau testbar
-
-**Optionaler Begleitfix**
-- Ergebnisbehandlung in `SettingsScreen._saveSettings()` stilistisch
-  expliziter machen (`switch` mit klaren `break`-/`return`-Pfaden)
-
-
+---
 
 ## ⏭️ Future (nicht in Planung)
 
@@ -128,14 +88,13 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 ## 📊 Fortschritts-Übersicht
 
 | Priorität | Gesamt | Erledigt | Offen |
-|---|---|---|---|
-| ✅ Abgeschlossen | 55 | 47 | 0 |
+|---|---:|---:|---:|
+| ✅ Abgeschlossen | 56 | 48 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 2 | 0 | 2 |
-| 🟢 Nice-to-Have | 2 | 0 | 2 |
+| 🟢 Nice-to-Have | 0 | 0 | 0 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **64** | **57** | **6** |
-
+| **Gesamt** | **61** | **49** | **4** |
 
 ---
 
@@ -145,7 +104,7 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
 ### B-012: Letzter-Sync-Zeitstempel auf schmalen Displays abgeschnitten — erledigt in `v0.9.0+25`
-**Typ:** Bug / Regression (B-007-Commit)
+**Typ:** Bug / Regression (B-007-Commit)  
 **Betrifft:** `lib/screens/artikel_list_screen.dart` → AppBar `title`
 
 Das Sync-Label hat kein `overflow`-Handling und konkurriert auf 360dp
@@ -158,7 +117,7 @@ mit Action-Icons um Platz. Kein `TextOverflow`, kein `Flexible`-Wrapper.
 ---
 
 ### B-011: App-Version zeigt veralteten Build-Stand — erledigt in `v0.9.0+25`
-**Typ:** Bug / Build-Prozess
+**Typ:** Bug / Build-Prozess  
 **Betrifft:** Build-Pipeline, kein Code-Fehler
 
 `_getAppVersion()` in `settings_screen.dart` ist korrekt implementiert
@@ -171,12 +130,12 @@ auf 0.8.9+24 erstellt oder die falsche APK installiert.
 - Neue APK auf S20 installieren (vorherige deinstallieren)
 - Version in Settings verifizieren → muss 0.8.9+24 zeigen
 - Hinweis: `pubspec.yaml` zeigt bereits 0.9.0+25 —
-      nach nächstem Release-Build wird 0.9.0+25 erscheinen ✅
+  nach nächstem Release-Build wird 0.9.0+25 erscheinen ✅
 
---- 
+---
 
-### B-010: Snackbar-Feedback in Artikelliste fehlt  — erledigt in `v0.9.0+25`
-**Typ:** Bug / Regression (B-007-Commit)
+### B-010: Snackbar-Feedback in Artikelliste fehlt — erledigt in `v0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)  
 **Betrifft:** `lib/screens/artikel_list_screen.dart`
 
 Nach Sync-Erfolg/-Fehler gibt es kein Snackbar-Feedback mehr.
@@ -190,24 +149,24 @@ Fehler-Pfade zeigen keine Rückmeldung.
 
 ---
 
-### B-009: Artikelliste — Ort-Dropdown hardcodiert und falsch platziert  — erledigt in `v0.9.0+25`
-**Typ:** Bug / Regression (B-007-Commit)
+### B-009: Artikelliste — Ort-Dropdown hardcodiert und falsch platziert — erledigt in `v0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)  
 **Betrifft:** `lib/screens/artikel_list_screen.dart` → AppBar `actions`
 
 Der Ort-Filter-Dropdown wurde als Test-Stub mit hardcodierten Werten
-('Lager 1', 'Lager 2', 'Büro') in die AppBar `actions` eingefügt.
+(`Lager 1`, `Lager 2`, `Büro`) in die AppBar `actions` eingefügt.
 Er liest keine echten Daten aus `_artikelListe` und ist falsch
 platziert (AppBar statt Body/Filter-Leiste).
 
 - Dropdown aus AppBar `actions` entfernen
-- Echte Ort-Werte dynamisch aus `_artikelListe` ableiten (distinct, alphabetisch sortiert, „Alle" als erster Eintrag)
+- Echte Ort-Werte dynamisch aus `_artikelListe` ableiten (distinct, alphabetisch sortiert, „Alle“ als erster Eintrag)
 - Filter-UI in die Suchleiste im Body integrieren
 - Filterlogik mit `_gefilterteArtikel()` verbinden (bereits korrekt)
 
 ---
 
 ### B-008: Artikelliste — Beschreibung, Artikelnummer und Fach fehlen — erledigt in `v0.9.0+25`
-**Typ:** Bug / Regression (B-007-Commit)
+**Typ:** Bug / Regression (B-007-Commit)  
 **Betrifft:** `lib/screens/artikel_list_screen.dart` → `_buildArtikelTile()`
 
 `_buildArtikelTile()` wurde auf ein minimales `ListTile` reduziert.
@@ -222,14 +181,14 @@ Ort, Fach und Menge.
 ---
 
 ### B-007: Intelligenter Bild-Sync & UI-Optimierung — erledigt in `v0.8.9+24`
-- **Smart Sync**: `PocketBaseSyncService` vergleicht nun Datei-Zeitstempel mit PocketBase-Updates.
-- **Cleanup**: Automatisches Löschen alter Bildversionen im Dateisystem bei Namensänderung.
-- **UI-Kontrast**: "Letzter Sync"-Zeitstempel auf `onSurface` (Bold) umgestellt für maximale Lesbarkeit.
+- **Smart Sync**: `PocketBaseSyncService` vergleicht nun Datei-Zeitstempel mit PocketBase-Updates
+- **Cleanup**: Automatisches Löschen alter Bildversionen im Dateisystem bei Namensänderung
+- **UI-Kontrast**: „Letzter Sync“-Zeitstempel auf `onSurface` (Bold) umgestellt für maximale Lesbarkeit
 
 ### B-003 bis B-006: Sync-Stabilität — erledigt in `v0.8.5+19`
-- ETag-basierte Konflikt-Erkennung vor PATCH.
-- Korrektur der Bild-Download-Skip-Logik.
-- Navigator-Init via GlobalKey gefixt.
+- ETag-basierte Konflikt-Erkennung vor PATCH
+- Korrektur der Bild-Download-Skip-Logik
+- Navigator-Init via GlobalKey gefixt
 
 ### B-001: Settings-Änderungen werden ohne Speichern übernommen — verifiziert in `v0.8.3+16`
 - Dirty-Tracking, Save-Button und Unsaved-Dialog analysiert
@@ -240,13 +199,13 @@ Ort, Fach und Menge.
 - Verfügbarkeitsprüfung vor Aktivierung bestätigt
 - Toggle wird nur bei erfolgreicher Probe-Authentifizierung persistiert
 
---- 
+---
 
 ### F-007: Einstellung — Letzter-Sync-Zeitstempel ein-/ausblenden — erledigt in `v0.9.0+25`, Architektur-Bereinigung in `v0.9.1+29`
-**Typ:** Feature
+**Typ:** Feature  
 **Betrifft:** `lib/screens/settings_screen.dart`,
-             `lib/screens/artikel_list_screen.dart`,
-             `lib/screens/settings_state.dart`
+`lib/screens/artikel_list_screen.dart`,
+`lib/screens/settings_state.dart`
 
 Toggle in den Einstellungen, der den Sync-Zeitstempel in der
 Artikelliste ein- oder ausblendet. Persistenz via SharedPreferences.
@@ -272,7 +231,7 @@ F-007 — Architektur-Bereinigung in `v0.9.1+29`:
 ---
 
 ### F-006: Log-Level-Filter als Dropdown statt Button-Reihe — erledigt in `v0.9.0+25`
-**Typ:** Feature / UX-Verbesserung
+**Typ:** Feature / UX-Verbesserung  
 **Betrifft:** Log-Dialog (`AppLogService.showLogDialog()`)
 
 Button-Reihe für Trace/Debug/Info/Warn/Error/Fatal passt auf schmalen
@@ -285,61 +244,60 @@ mit Default-Wert `Level.error`.
 - Gefilterte Log-Ausgabe weiterhin korrekt aktualisieren
 - Auf S20 (360dp) verifizieren
 
---- 
+---
 
 ### F-004 & F-005: UI-Politur — erledigt in `v0.8.4+17`
-- Nextcloud-Status-Icon Farbe angepasst.
-- Detail-Screen Felder leserlicher (OutlineInputBorder).
+- Nextcloud-Status-Icon Farbe angepasst
+- Detail-Screen Felder leserlicher (`OutlineInputBorder`)
 
 ### F-001 & F-002: Security — erledigt in `v0.8.2+13`
-- Biometrische Authentifizierung und konfigurierbare Sperrzeit.
+- Biometrische Authentifizierung und konfigurierbare Sperrzeit
 
 ### F-003: Artikeldetailansicht — Ort & Fach nebeneinander — erledigt in `v0.8.0+8`
 - `Row` mit zwei `Expanded`-Kindern
 - Neuer Token `detailFieldSpacing`
 - Responsive und Dark-Mode-kompatibel
 
---- 
+---
 
 ### H-002 & H-003: Infrastruktur — erledigt in `v0.7.1` bis `v0.7.4`
-- CORS-Konfiguration und Backup-Automatisierung (Docker).
+- CORS-Konfiguration und Backup-Automatisierung (Docker)
 
---- 
+---
 
 ### K-007: Flutter update — erledigt in `v0.9.1+26`
 Flutter/Dart:
 - Flutter: 3.41.4 → 3.41.7
 - Dart: 3.11.1 → 3.11.5
 
-Package Major Updates (pubspec.yaml):
-- csv: ^6.0.0 → ^8.0.0 (rowSeparator statt eol)
-- device_info_plus: ^10.1.2 → ^12.4.0
-- file_picker: ^10.1.0 → ^11.0.2
-- flutter_local_notifications: ^19.4.1 → ^21.0.0
-- share_plus: ^10.1.4 → ^12.0.2 (shareXFiles statt shareFiles)
-- build_runner: ^2.4.6 → ^2.14.0
+Package Major Updates (`pubspec.yaml`):
+- `csv`: ^6.0.0 → ^8.0.0 (`rowSeparator` statt `eol`)
+- `device_info_plus`: ^10.1.2 → ^12.4.0
+- `file_picker`: ^10.1.0 → ^11.0.2
+- `flutter_local_notifications`: ^19.4.1 → ^21.0.0
+- `share_plus`: ^10.1.4 → ^12.0.2 (`shareXFiles` statt `shareFiles`)
+- `build_runner`: ^2.4.6 → ^2.14.0
 
 Removed:
-- js: ^0.7.1 (discontinued, ersetzt durch dart:js_interop via web:)
-- dependency_overrides Block (nicht mehr nötig)
+- `js`: ^0.7.1 (discontinued, ersetzt durch `dart:js_interop` via `web:`)
+- `dependency_overrides`-Block (nicht mehr nötig)
 
 CI/CD:
-- flutter-version: 3.41.4 → 3.41.7 in allen 4 Workflows
+- `flutter-version`: 3.41.4 → 3.41.7 in allen 4 Workflows
 
 Verified: `flutter analyze` clean, spätere Folgearbeiten bis `v0.9.1+29`
 auf insgesamt **626 Tests**, **3 übersprungen** erweitert
 
-
 ### K-006: Kaltstart-Bug Fix — erledigt in `v0.8.0`
-- Sync-UI-Kopplung und automatischer Bild-Download nach Erst-Setup.
+- Sync-UI-Kopplung und automatischer Bild-Download nach Erst-Setup
 
 ### K-001 bis K-005: Fundament — erledigt in `v0.2.0` bis `v0.7.1`
-- Bundle IDs, PocketBase Schema, Runtime-URL-Config, WSL2-Support.
+- Bundle IDs, PocketBase Schema, Runtime-URL-Config, WSL2-Support
 
---- 
+---
 
 ### M-002 bis M-006: Core-Features — erledigt in `v0.7.6+x`
-- Zentrales Error Handling, Loading States, Pagination und Input Validation.
+- Zentrales Error Handling, Loading States, Pagination und Input Validation
 
 ### M-008: Backup-Status in der App anzeigen — erledigt in `v0.7.5+1`
 - `BackupStatusService` liest `last_backup.json` via HTTP
@@ -367,18 +325,38 @@ auf insgesamt **626 Tests**, **3 übersprungen** erweitert
 - Anhang-Liste mit Download, Bearbeiten, Löschen
 - Badge-Counter im Detail-Screen
 
---- 
+---
 
 ### N-003 & N-005: Branding — erledigt in `v0.8.4+17`
-- Neues App-Icon und Native Splash Screen für alle Plattformen.
+- Neues App-Icon und Native Splash Screen für alle Plattformen
+
+---
+
+### O-011: `AppLockService` testbarer machen
+**Typ:** Optimierung / Testbarkeit  
+**Betrifft:** `lib/services/app_lock_service.dart`
+
+**Problem**
+`AppLockService` ist eng an Singleton-, Persistenz- und Plattformlogik
+gekoppelt. Dadurch sind isolierte Tests für App-Lock-Verhalten und
+Settings-nahe Lade-/Speicherpfade nur eingeschränkt möglich.
+
+**Ziel**
+App-Lock-Verhalten fachlich besser testbar machen, ohne die bestehende
+Runtime-API unnötig zu verkomplizieren.
+
+**Mögliche Umsetzung**
+- Interface oder abstrahierte Auth-/Storage-Grenzen einführen
+- Test-Hooks oder gezielte Overrides für Persistenz/Auth erlauben
+- App-Lock-Lade-/Speicherpfade ohne echte Plattformabhängigkeit testbar machen
 
 --- 
 
 ### O-010: `SettingsScreen` — Logik in testbaren Controller extrahieren — erledigt in `v0.9.1+29`
 **Typ:** Refactoring / Testbarkeit  
 **Betrifft:** `lib/screens/settings_screen.dart`,
-             `lib/screens/settings_controller.dart`,
-             `lib/screens/settings_state.dart`
+`lib/screens/settings_controller.dart`,
+`lib/screens/settings_state.dart`
 
 `SettingsScreen` wurde fachlich sauber und minimal-invasiv refactored.
 Persistente Settings-Logik, Laufzeit-State und Service-Orchestrierung
@@ -404,6 +382,29 @@ wurden in einen neuen `SettingsController` ausgelagert.
 - `SettingsController` gezielt testbar gemacht
 - zusätzliche Tests für Save-/Reset-/Dirty-State-Verhalten ergänzt
 - Reject-/Success-Pfade von `saveSettings()` abgesichert
+
+---
+
+### T-009: Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade — erledigt in `v0.9.2+32`
+**Typ:** Testausbau  
+**Betrifft:** `lib/screens/settings_controller.dart`,
+`lib/screens/settings_state.dart`
+
+Nach O-010 wurden verbleibende Rand- und Fehlerpfade der
+Settings-Logik gezielt durch Unit-Tests abgesichert.
+
+**Abgedeckte Bereiche**
+- `saveSettings()`-Fehlerpfad (`SaveSettingsResult.error`)
+- Default-Verhalten für `showLastSync`, wenn keine Pref gesetzt ist
+- zusätzliche Persistenztests für settings-nahe Werte
+- verbleibende Save-/Reset-/Dirty-State-Pfade im Controller konsolidiert abgesichert
+
+**Ergebnis**
+- `test/services/settings_controller_test.dart` auf **15 Tests** erweitert
+- Settings-nahe Persistenzpfade jetzt gezielt und isoliert testbar
+- O-010 fachlich sauber ergänzt und testseitig abgerundet
+
+---
 
 ### O-009: Widget-Tests `ArtikelListScreen` — abgeschlossen in `v0.9.0+25`
 - Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
@@ -449,7 +450,7 @@ wurden in einen neuen `SettingsController` ausgelagert.
 - Verbleibende 8 Aufrufe in `app_log_io.dart` sind absichtlich
   *(zirkuläre Abhängigkeit)*
 
---- 
+---
 
 ### P-003: Bild-Caching — erledigt in `v0.8.6+21`
 - Integration von `cached_network_image`
@@ -475,38 +476,38 @@ wurden in einen neuen `SettingsController` ausgelagert.
 - Skeleton während DB-Suche
 - Pagination-Footer bei aktiver Suche ausgeblendet
 
---- 
+---
 
-### T-008: ETag-Konflikt-Logik und downloadMissingImages-Check-Logik — abgeschlossen in `v0.8.5+19`
+### T-008: ETag-Konflikt-Logik und `downloadMissingImages`-Check-Logik — abgeschlossen in `v0.8.5+19`
 - `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
 - `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
 - ETag-Grenzwerte, ConflictCallback-Typedef, SyncStatus-Enum abgedeckt ✅
 - Gesamtstand: **625 Tests**, 28 Dateien ✅
 
 ### T-003 bis T-007: Test-Offensive — erledigt in `v0.8.1+10`
-- Unit-Tests für `NextcloudClient`, `MergeDialog` und `AttachmentService`, `BackupStatusService`.
-- Performance-Test self-contained. `flutter test` läuft ohne manuelle Vorbereitung
+- Unit-Tests für `NextcloudClient`, `MergeDialog`, `AttachmentService`, `BackupStatusService`
+- Performance-Test self-contained; `flutter test` läuft ohne manuelle Vorbereitung
 
---- 
-
+---
 
 ## 🔍 Wartungs-Historie
 
 | Datum | Version | Änderung |
 |---|---|---|
-| 2026-04-23 | v0.9.1+29 | O-010 abgeschlossen: SettingsScreen fachlich minimal-invasiv in SettingsController refactored, UI-/Logik-Trennung verbessert, zusätzliche Controller-Tests ergänzt. F-007 architektonisch bereinigt: `showLastSyncNotifier`, Prefs-Key und Default nach `settings_state.dart` verschoben, Default konsistent auf `true` vereinheitlicht. Teststand auf 626 bestanden, 3 übersprungen aktualisiert. |
-| 2026-04-22 | v0.9.1+26 | K-007: flutter upgrade 3.41.4 → 3.41.7 + package major updates |
-| 2026-04-22 | v0.9.0+25 | B-008 abgeschlossen: Card-Layout ArtikelListScreen wiederhergestellt (Artikelnummer, Chips, Feldname-Fix). B-009 abgeschlossen: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button. B-010 abgeschlossen: Snackbar-Feedback bei Sync-Start/-Erfolg/-Fehler. B-011 abgeschlossen: App-Version zeigt korrekten Build-Stand nach neuem Release-Build. B-012 abgeschlossen: Sync-Label TextOverflow.ellipsis + titleSpacing. F-006 abgeschlossen: Log-Level-Filter als DropdownButton<Level>, Default Level.error. F-007 abgeschlossen: Sync-Zeitstempel-Toggle via ValueNotifier + SharedPreferences. O-009 abgeschlossen: 15 Widget-Tests ArtikelListScreen grün (625 Tests gesamt). |
+| 2026-04-23 | v0.9.2+32 | T-009 und O-011 abgeschlossen: ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade nachgezogen; zugleich `AppLockService` testbarer gemacht, sodass App-Lock-nahe Lade-/Speicherpfade und fachliche Timeout-/State-Logik nun isolierter testbar sind. |
+| 2026-04-23 | v0.9.1+29 | O-010 abgeschlossen: `SettingsScreen` fachlich minimal-invasiv in `SettingsController` refactored, UI-/Logik-Trennung verbessert, zusätzliche Controller-Tests ergänzt. F-007 architektonisch bereinigt: `showLastSyncNotifier`, Prefs-Key und Default nach `settings_state.dart` verschoben, Default konsistent auf `true` vereinheitlicht. Teststand auf 626 bestanden, 3 übersprungen aktualisiert. |
+| 2026-04-22 | v0.9.1+26 | K-007: Flutter upgrade 3.41.4 → 3.41.7 + package major updates |
+| 2026-04-22 | v0.9.0+25 | B-008 abgeschlossen: Card-Layout `ArtikelListScreen` wiederhergestellt (Artikelnummer, Chips, Feldname-Fix). B-009 abgeschlossen: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button. B-010 abgeschlossen: Snackbar-Feedback bei Sync-Start/-Erfolg/-Fehler. B-011 abgeschlossen: App-Version zeigt korrekten Build-Stand nach neuem Release-Build. B-012 abgeschlossen: Sync-Label `TextOverflow.ellipsis` + `titleSpacing`. F-006 abgeschlossen: Log-Level-Filter als `DropdownButton<Level>`, Default `Level.error`. F-007 abgeschlossen: Sync-Zeitstempel-Toggle via `ValueNotifier` + `SharedPreferences`. O-009 abgeschlossen: 15 Widget-Tests `ArtikelListScreen` grün (625 Tests gesamt). |
 | 2026-04-21 | v0.8.9+24 | B-007 abgeschlossen: Intelligenter Bild-Sync (Timestamp-Check) und UI-Politur des Sync-Zeitstempels implementiert. |
 | 2026-04-20 | v0.8.6+21 | P-003 abgeschlossen: Bild-Caching via `cached_network_image` integriert. Android-Stabilität auf S20 verifiziert. |
 | 2026-04-20 | v0.8.4+20 | Dokumente aktualisiert |
-| 2026-04-17 | v0.8.5+19 | B-003 abgeschlossen: downloadMissingImages Skip-Logik korrigiert. B-004 abgeschlossen: Konflikt-Callback via GlobalKey + addPostFrameCallback. B-005 abgeschlossen: ETag-Konflikt-Erkennung vor PATCH. B-006 abgeschlossen: SyncManagementScreen auf SyncOrchestrator umgestellt. T-008 abgeschlossen: 20 neue Tests (610 gesamt, 28 Dateien) |
+| 2026-04-17 | v0.8.5+19 | B-003 abgeschlossen: `downloadMissingImages` Skip-Logik korrigiert. B-004 abgeschlossen: Konflikt-Callback via `GlobalKey` + `addPostFrameCallback`. B-005 abgeschlossen: ETag-Konflikt-Erkennung vor PATCH. B-006 abgeschlossen: `SyncManagementScreen` auf `SyncOrchestrator` umgestellt. T-008 abgeschlossen: 20 neue Tests (610 gesamt, 28 Dateien). |
 | 2026-04-14 | v0.8.4+17 | N-003: App-Icon + N-005: Native Splash Screen als erledigt markiert |
 | 2026-04-14 | v0.8.4+17 | F-004 abgeschlossen: NC-Icon auf `statusColorConnected` umgestellt. F-005 abgeschlossen: Detail-Screen Readonly-Felder mit `OutlineInputBorder` + `InputDecorator`, Menge/Artikelnummer als eigene Felder, `+/-` Buttons nur im Edit-Modus, 3 Widget-Tests angepasst |
-| 2026-04-14 | v0.8.3+16 | B-001 abgeschlossen: Settings-Save-Verhalten analysiert — Dirty-Tracking, Save-Button und Unsaved-Dialog waren bereits korrekt implementiert. B-002 abgeschlossen: Biometrie-Analyse — automatischer Auth-Start, FragmentActivity, Verfügbarkeitsprüfung vor Toggle-Aktivierung bestätigt. OPT-001 neu: SettingsController-Extraktion für Testbarkeit |
+| 2026-04-14 | v0.8.3+16 | B-001 abgeschlossen: Settings-Save-Verhalten analysiert — Dirty-Tracking, Save-Button und Unsaved-Dialog waren bereits korrekt implementiert. B-002 abgeschlossen: Biometrie-Analyse — automatischer Auth-Start, `FragmentActivity`, Verfügbarkeitsprüfung vor Toggle-Aktivierung bestätigt. OPT-001 neu: `SettingsController`-Extraktion für Testbarkeit |
 | 2026-04-13 | v0.8.2+13 | F-001 + F-002 abgeschlossen: App-Lock mit biometrischer Authentifizierung und konfigurierbarer Sperrzeit |
 | 2026-04-13 | v0.8.1+12 | T-003 abgeschlossen: 39 Unit-Tests `NextcloudClient` |
-| 2026-04-13 | v0.8.1+11 | T-004 abgeschlossen: 18 Widget-Tests MergeDialog. O-008 abgeschlossen: `spacingSectionGap` Token, 3 Stellen ersetzt |
+| 2026-04-13 | v0.8.1+11 | T-004 abgeschlossen: 18 Widget-Tests `MergeDialog`. O-008 abgeschlossen: `spacingSectionGap`-Token, 3 Stellen ersetzt |
 | 2026-04-13 | v0.8.1+10 | T-005 abgeschlossen: 34 Tests `AttachmentService` |
 | 2026-04-13 | v0.8.0+8 | F-003: Artikeldetailansicht — Ort & Fach nebeneinander |
 | 2026-04-13 | v0.8.0+7 | O-007 abgeschlossen: 15 Tests `ImagePickerService` |
