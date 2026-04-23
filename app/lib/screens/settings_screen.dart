@@ -1,17 +1,8 @@
-// lib/screens/settings_screen.dart
-//
-// CHANGES:
-//   F-007 — Toggle "Letzter-Sync-Zeitstempel anzeigen" in _buildPocketBaseCard().
-//            SharedPreferences Key: 'show_last_sync' (Default: true).
-//            Änderung wirkt sofort via ValueNotifier — kein App-Neustart nötig.
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
-import '../services/app_lock_service.dart';
-import '../services/artikel_db_service.dart';
+
 import '../services/pocketbase_service.dart';
 import '../services/app_log_service.dart';
 
@@ -20,10 +11,8 @@ import '../widgets/backup_status_widget.dart';
 
 import 'package:local_auth/local_auth.dart';
 
-// F-007: Globaler ValueNotifier — ArtikelListScreen lauscht darauf.
-// Außerhalb der Klasse damit ArtikelListScreen ihn direkt importieren kann.
-// Default ist false — Zeitstempel beim Start nicht sichtbar
-final ValueNotifier<bool> showLastSyncNotifier = ValueNotifier<bool>(false);
+import 'settings_controller.dart';
+
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onLogout;
@@ -35,62 +24,32 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _artikelNummerController = TextEditingController();
-  final _pocketBaseUrlController = TextEditingController();
-
-  late final PocketBaseService _pbService;
-  late final ArtikelDbService _db;
-
-  bool _isDatabaseEmpty = true;
-  bool _isCheckingConnection = false;
-  bool? _pbConnectionOk;
-
-  bool _appLockEnabled = false;
-  bool _appLockBiometricsEnabled = true;
-  int _appLockTimeoutMinutes = 5;
-
-  bool _hasUnsavedChanges = false;
-  String _initialUrl = '';
-  String _initialArtikelNummer = '';
-
-  // F-007: Lokaler State für den Toggle — wird aus SharedPreferences geladen
-  bool _showLastSync = true;
+  late final SettingsController _controller;
 
   @override
   void initState() {
     super.initState();
-    _pbService = PocketBaseService();
-    _db = ArtikelDbService();
+    _controller = SettingsController();
+    _initController();
+  }
 
-    _loadSettings();
-    if (!kIsWeb) {
-      _checkDatabaseStatus();
+  Future<void> _initController() async {
+    try {
+      await _controller.init();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Einstellungen konnten nicht geladen werden: $e'),
+        ),
+      );
     }
-
-    _pocketBaseUrlController.addListener(_checkForUnsavedChanges);
-    _artikelNummerController.addListener(_checkForUnsavedChanges);
   }
 
   @override
   void dispose() {
-    _pocketBaseUrlController.removeListener(_checkForUnsavedChanges);
-    _artikelNummerController.removeListener(_checkForUnsavedChanges);
-    _artikelNummerController.dispose();
-    _pocketBaseUrlController.dispose();
+    _controller.dispose();
     super.dispose();
-  }
-
-  // ── B-001: Dirty-Tracking ────────────────────────────────────────────────
-
-  void _checkForUnsavedChanges() {
-    final urlChanged =
-        _pocketBaseUrlController.text.trim() != _initialUrl;
-    final artikelChanged =
-        _artikelNummerController.text.trim() != _initialArtikelNummer;
-    final dirty = urlChanged || artikelChanged;
-    if (dirty != _hasUnsavedChanges) {
-      setState(() => _hasUnsavedChanges = dirty);
-    }
   }
 
   Future<bool> _showUnsavedChangesDialog() async {
@@ -118,124 +77,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return result ?? false;
   }
 
-  // ── Laden ────────────────────────────────────────────────────────────────
-
-  Future<void> _loadSettings() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      if (!_pbService.isInitialized) {
-        await _pbService.initialize();
-      }
-      if (!mounted) return;
-      setState(() {
-        _artikelNummerController.text =
-            (prefs.getInt('artikel_start_nummer') ?? 1000).toString();
-        _pocketBaseUrlController.text = _pbService.url;
-        if (!kIsWeb) {
-          _appLockEnabled = AppLockService().isEnabled;
-          _appLockBiometricsEnabled = AppLockService().isBiometricsEnabled;
-          _appLockTimeoutMinutes =
-              (AppLockService().timeoutSeconds / 60).round().clamp(1, 30);
-        }
-
-        _initialUrl = _pocketBaseUrlController.text.trim();
-        _initialArtikelNummer = _artikelNummerController.text.trim();
-        _hasUnsavedChanges = false;
-
-        // F-007: Präferenz laden + Notifier synchronisieren
-        _showLastSync = prefs.getBool('show_last_sync') ?? false;
-        showLastSyncNotifier.value = _showLastSync;
-      });
-    } catch (e, st) {
-      AppLogService.logger.e('Laden fehlgeschlagen', error: e, stackTrace: st);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Einstellungen konnten nicht geladen werden: $e'),
-        ),
-      );
-    }
-  }
-
-  // F-007: Toggle-Handler — sofortige Wirkung via Notifier + persistieren
-  Future<void> _onShowLastSyncChanged(bool value) async {
-    // 1. Lokalen State + Notifier sofort aktualisieren
-    //    → ArtikelListScreen reagiert ohne Neustart
-    setState(() => _showLastSync = value);
-    showLastSyncNotifier.value = value;
-
-    // 2. Persistieren
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('show_last_sync', value);
-    } catch (e, st) {
-      AppLogService.logger.e(
-        'show_last_sync speichern fehlgeschlagen',
-        error: e,
-        stackTrace: st,
-      );
-      if (!mounted) return;
-      // Rollback bei Fehler
-      setState(() => _showLastSync = !value);
-      showLastSyncNotifier.value = !value;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Einstellung konnte nicht gespeichert werden: $e'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _checkDatabaseStatus() async {
-    if (kIsWeb) return;
-    try {
-      final isEmpty = await _db.isDatabaseEmpty();
-      if (!mounted) return;
-      setState(() => _isDatabaseEmpty = isEmpty);
-    } catch (e, st) {
-      AppLogService.logger
-          .e('DB-Status prüfen fehlgeschlagen', error: e, stackTrace: st);
-    }
-  }
-
-  // ── PocketBase ───────────────────────────────────────────────────────────
-
-  Future<void> _testPocketBaseConnection() async {
-    setState(() {
-      _isCheckingConnection = true;
-      _pbConnectionOk = null;
-    });
-
-    try {
-      final testUrl = _pocketBaseUrlController.text.trim();
-      if (testUrl.isNotEmpty && testUrl != _pbService.url) {
-        final ok = await _pbService.updateUrl(testUrl);
-        if (!mounted) return;
-        setState(() => _pbConnectionOk = ok);
-        _showConnectionSnackBar(ok);
-      } else {
-        final ok = await _pbService.checkHealth();
-        if (!mounted) return;
-        setState(() => _pbConnectionOk = ok);
-        _showConnectionSnackBar(ok);
-      }
-    } catch (e, st) {
-      AppLogService.logger
-          .e('PocketBase-Test fehlgeschlagen', error: e, stackTrace: st);
-      if (!mounted) return;
-      setState(() => _pbConnectionOk = false);
-      final colorScheme = Theme.of(context).colorScheme;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Verbindungsfehler: $e'),
-          backgroundColor: colorScheme.error,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _isCheckingConnection = false);
-    }
-  }
-
   void _showConnectionSnackBar(bool ok) {
     final colorScheme = Theme.of(context).colorScheme;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -248,6 +89,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: ok ? colorScheme.tertiary : colorScheme.error,
       ),
     );
+  }
+
+  Future<void> _testPocketBaseConnection() async {
+    final ok = await _controller.testPocketBaseConnection();
+    if (!mounted) return;
+    _showConnectionSnackBar(ok);
   }
 
   Future<void> _resetPocketBaseUrl() async {
@@ -283,25 +130,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
     if (confirm == true) {
-      try {
-        await _pbService.resetToDefault();
-        if (!mounted) return;
-        setState(() {
-          _pocketBaseUrlController.text = _pbService.url;
-          _pbConnectionOk = null;
-        });
-      } catch (e, st) {
-        AppLogService.logger
-            .e('URL-Reset fehlgeschlagen', error: e, stackTrace: st);
-        if (!mounted) return;
+      final ok = await _controller.resetPocketBaseUrl();
+      if (!mounted) return;
+      if (!ok) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Zurücksetzen: $e')),
+          const SnackBar(content: Text('Fehler beim Zurücksetzen der URL')),
         );
       }
     }
   }
-
-  // ── Datenbank ────────────────────────────────────────────────────────────
 
   Future<void> _deleteDatabase() async {
     if (kIsWeb) return;
@@ -334,85 +171,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (!mounted) return;
     if (confirm == true) {
-      try {
-        await _db.resetDatabase();
-        await _checkDatabaseStatus();
-        await _loadSettings();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Lokale Datenbank gelöscht – '
-              'Sie können jetzt eine neue Start-Artikelnummer festlegen',
-            ),
+      final ok = await _controller.deleteDatabase();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            ok
+                ? 'Lokale Datenbank gelöscht – '
+                    'Sie können jetzt eine neue Start-Artikelnummer festlegen'
+                : 'Fehler beim Löschen der Datenbank',
           ),
-        );
-      } catch (e, st) {
-        AppLogService.logger
-            .e('DB-Löschen fehlgeschlagen', error: e, stackTrace: st);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Fehler beim Löschen: $e')),
-        );
-      }
+        ),
+      );
     }
   }
-
-  // ── Speichern ────────────────────────────────────────────────────────────
 
   Future<void> _saveSettings() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final newUrl = _pocketBaseUrlController.text.trim();
-      if (newUrl.isNotEmpty) {
-        final urlUpdated = await _pbService.updateUrl(newUrl);
-        if (!urlUpdated) {
-          if (!mounted) return;
-          final colorScheme = Theme.of(context).colorScheme;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text(
-                '⚠️ PocketBase URL konnte nicht gesetzt werden – '
-                'Server nicht erreichbar oder URL ungültig. '
-                'Bestehende URL bleibt aktiv.',
-              ),
-              backgroundColor: colorScheme.secondary,
+    final result = await _controller.saveSettings();
+    if (!mounted) return;
+
+    final colorScheme = Theme.of(context).colorScheme;
+
+    switch (result) {
+      case SaveSettingsResult.success:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✅ Einstellungen gespeichert')),
+        );
+      case SaveSettingsResult.pocketBaseUrlRejected:
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              '⚠️ PocketBase URL konnte nicht gesetzt werden – '
+              'Server nicht erreichbar oder URL ungültig. '
+              'Bestehende URL bleibt aktiv.',
             ),
-          );
-          setState(() {
-            _pocketBaseUrlController.text = _pbService.url;
-          });
-          return;
-        }
-      }
-
-      if (!kIsWeb && _isDatabaseEmpty) {
-        final artikelNummer =
-            int.tryParse(_artikelNummerController.text.trim()) ?? 1000;
-        await prefs.setInt('artikel_start_nummer', artikelNummer);
-      }
-
-      if (!mounted) return;
-      _initialUrl = _pocketBaseUrlController.text.trim();
-      _initialArtikelNummer = _artikelNummerController.text.trim();
-      setState(() => _hasUnsavedChanges = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Einstellungen gespeichert')),
-      );
-    } catch (e, st) {
-      AppLogService.logger
-          .e('Speichern fehlgeschlagen', error: e, stackTrace: st);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Fehler beim Speichern: $e')),
-      );
+            backgroundColor: colorScheme.secondary,
+          ),
+        );
+      case SaveSettingsResult.error:
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fehler beim Speichern')),
+        );
     }
   }
-
-  // ── Logout ───────────────────────────────────────────────────────────────
 
   Future<void> _handleLogout() async {
     final colorScheme = Theme.of(context).colorScheme;
@@ -448,74 +251,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  // ── Build ────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: !_hasUnsavedChanges,
-      onPopInvokedWithResult: (didPop, _) async {
-        if (didPop) return;
-        final navigator = Navigator.of(context);
-        final shouldLeave = await _showUnsavedChangesDialog();
-        if (shouldLeave && mounted) {
-          navigator.pop();
-        }
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Einstellungen'),
-          actions: [
-            IconButton(
-              onPressed: _saveSettings,
-              icon: Icon(
-                _hasUnsavedChanges ? Icons.save : Icons.save_outlined,
-              ),
-              tooltip: _hasUnsavedChanges
-                  ? 'Änderungen speichern'
-                  : 'Einstellungen speichern',
-            ),
-          ],
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppConfig.spacingLarge),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_hasUnsavedChanges)
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      bottom: AppConfig.spacingMedium,
-                    ),
-                    child: _buildStatusContainer(
-                      icon: Icons.edit_note,
-                      message: 'Du hast ungespeicherte Änderungen. '
-                          'Tippe auf 💾 zum Speichern.',
-                      type: _StatusType.warning,
-                    ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return PopScope(
+          canPop: !_controller.hasUnsavedChanges,
+          onPopInvokedWithResult: (didPop, _) async {
+            if (didPop) return;
+            final navigator = Navigator.of(context);
+            final shouldLeave = await _showUnsavedChangesDialog();
+            if (shouldLeave && mounted) {
+              navigator.pop();
+            }
+          },
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Einstellungen'),
+              actions: [
+                IconButton(
+                  onPressed: _saveSettings,
+                  icon: Icon(
+                    _controller.hasUnsavedChanges
+                        ? Icons.save
+                        : Icons.save_outlined,
                   ),
-                _buildAccountCard(),
-                const SizedBox(height: AppConfig.spacingLarge),
-                _buildPocketBaseCard(),
-                const SizedBox(height: AppConfig.spacingLarge),
-                const BackupStatusWidget(),
-                const SizedBox(height: AppConfig.spacingLarge),
-                if (!kIsWeb) _buildSecurityCard(),
-                if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-                if (!kIsWeb) _buildArtikelNummerCard(),
-                if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-                _buildInfoCard(),
+                  tooltip: _controller.hasUnsavedChanges
+                      ? 'Änderungen speichern'
+                      : 'Einstellungen speichern',
+                ),
               ],
             ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppConfig.spacingLarge),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_controller.hasUnsavedChanges)
+                      Padding(
+                        padding: const EdgeInsets.only(
+                          bottom: AppConfig.spacingMedium,
+                        ),
+                        child: _buildStatusContainer(
+                          icon: Icons.edit_note,
+                          message: 'Du hast ungespeicherte Änderungen. '
+                              'Tippe auf 💾 zum Speichern.',
+                          type: _StatusType.warning,
+                        ),
+                      ),
+                    _buildAccountCard(),
+                    const SizedBox(height: AppConfig.spacingLarge),
+                    _buildPocketBaseCard(),
+                    const SizedBox(height: AppConfig.spacingLarge),
+                    const BackupStatusWidget(),
+                    const SizedBox(height: AppConfig.spacingLarge),
+                    if (!kIsWeb) _buildSecurityCard(),
+                    if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
+                    if (!kIsWeb) _buildArtikelNummerCard(),
+                    if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
+                    _buildInfoCard(),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
-
-  // ── PocketBase Card (mit F-007 Toggle) ───────────────────────────────────
 
   Widget _buildPocketBaseCard() {
     final colorScheme = Theme.of(context).colorScheme;
@@ -527,7 +333,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Card-Header ──────────────────────────────────────────────
             Row(
               children: [
                 Icon(Icons.dns, color: colorScheme.primary),
@@ -539,10 +344,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                 ),
                 const Spacer(),
-                if (_pbConnectionOk != null)
+                if (_controller.pbConnectionOk != null)
                   Icon(
-                    _pbConnectionOk! ? Icons.check_circle : Icons.error,
-                    color: _pbConnectionOk!
+                    _controller.pbConnectionOk!
+                        ? Icons.check_circle
+                        : Icons.error,
+                    color: _controller.pbConnectionOk!
                         ? colorScheme.tertiary
                         : colorScheme.error,
                     size: AppConfig.iconSizeMedium,
@@ -550,10 +357,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
             const SizedBox(height: AppConfig.spacingLarge),
-
-            // ── URL-Eingabe ──────────────────────────────────────────────
             TextFormField(
-              controller: _pocketBaseUrlController,
+              controller: _controller.pocketBaseUrlController,
               decoration: InputDecoration(
                 labelText: 'PocketBase URL',
                 hintText: 'http://192.168.1.100:8080',
@@ -581,14 +386,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               },
             ),
             const SizedBox(height: AppConfig.spacingMedium),
-
-            // ── Verbindung testen ────────────────────────────────────────
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed:
-                    _isCheckingConnection ? null : _testPocketBaseConnection,
-                icon: _isCheckingConnection
+                onPressed: _controller.isCheckingConnection
+                    ? null
+                    : _testPocketBaseConnection,
+                icon: _controller.isCheckingConnection
                     ? const SizedBox(
                         width: AppConfig.iconSizeSmall,
                         height: AppConfig.iconSizeSmall,
@@ -598,26 +402,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       )
                     : const Icon(Icons.wifi_find),
                 label: Text(
-                  _isCheckingConnection
+                  _controller.isCheckingConnection
                       ? 'Prüfe Verbindung...'
                       : 'Verbindung testen',
                 ),
               ),
             ),
-
-            if (_pbConnectionOk != null) ...[
+            if (_controller.pbConnectionOk != null) ...[
               const SizedBox(height: AppConfig.spacingSmall),
               _buildStatusContainer(
-                icon: _pbConnectionOk! ? Icons.check_circle : Icons.error,
-                message: _pbConnectionOk!
+                icon: _controller.pbConnectionOk!
+                    ? Icons.check_circle
+                    : Icons.error,
+                message: _controller.pbConnectionOk!
                     ? 'Verbindung erfolgreich! Server ist erreichbar.'
                     : 'Server nicht erreichbar. Bitte URL und Netzwerk prüfen.',
-                type: _pbConnectionOk!
+                type: _controller.pbConnectionOk!
                     ? _StatusType.success
                     : _StatusType.error,
               ),
             ],
-
             if (kIsWeb) ...[
               const SizedBox(height: AppConfig.spacingMedium),
               _buildStatusContainer(
@@ -628,8 +432,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 type: _StatusType.info,
               ),
             ],
-
-            // ── F-007: Sync-Zeitstempel Toggle ──────────────────────────
             const SizedBox(height: AppConfig.spacingMedium),
             const Divider(),
             const SizedBox(height: AppConfig.spacingXSmall),
@@ -644,8 +446,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 'Zeigt den Zeitpunkt der letzten Synchronisierung '
                 'in der Titelzeile der Artikelliste an.',
               ),
-              value: _showLastSync,
-              onChanged: _onShowLastSyncChanged,
+              value: _controller.showLastSync,
+              onChanged: (value) async {
+                final ok = await _controller.setShowLastSync(value);
+                if (!mounted || ok) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Einstellung konnte nicht gespeichert werden',
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -653,12 +465,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Account Card ─────────────────────────────────────────────────────────
-  // (unverändert — vollständig übernommen)
-
   Widget _buildAccountCard() {
-    final isLoggedIn = _pbService.isAuthenticated;
-    final userEmail = _pbService.currentUserEmail;
+    final pbService = PocketBaseService();
+    final isLoggedIn = pbService.isAuthenticated;
+    final userEmail = pbService.currentUserEmail;
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
@@ -789,10 +599,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── Security Card, ArtikelNummer Card, Info Card ─────────────────────────
-  // (unverändert — aus Original übernommen, hier nicht wiederholt
-  //  um die Diff-Größe zu minimieren. Vollständige Datei enthält sie.)
-
   Widget _buildSecurityCard() {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -826,11 +632,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Icons.lock_outline,
                 color: colorScheme.onSurfaceVariant,
               ),
-              value: _appLockEnabled,
+              value: _controller.appLockEnabled,
               onChanged: (value) async {
-                final previousValue = _appLockEnabled;
-                setState(() => _appLockEnabled = value);
-                await AppLockService().setEnabled(value);
+                final previousValue = _controller.appLockEnabled;
+                await _controller.setAppLockEnabled(value);
                 if (!mounted) return;
                 ScaffoldMessenger.of(context).clearSnackBars();
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -843,8 +648,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     action: SnackBarAction(
                       label: 'Rückgängig',
                       onPressed: () async {
-                        setState(() => _appLockEnabled = previousValue);
-                        await AppLockService().setEnabled(previousValue);
+                        await _controller.setAppLockEnabled(previousValue);
                       },
                     ),
                   ),
@@ -861,7 +665,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Icons.fingerprint,
                 color: colorScheme.onSurfaceVariant,
               ),
-              value: _appLockBiometricsEnabled,
+              value: _controller.appLockBiometricsEnabled,
               onChanged: (value) async {
                 if (value) {
                   final auth = LocalAuthentication();
@@ -912,9 +716,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     return;
                   }
                 }
-                if (!mounted) return;
-                setState(() => _appLockBiometricsEnabled = value);
-                await AppLockService().setBiometricsEnabled(value);
+
+                await _controller.setAppLockBiometricsEnabled(value);
                 if (!mounted) return;
                 if (value) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -925,26 +728,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               },
             ),
-            if (_appLockEnabled) ...[
+            if (_controller.appLockEnabled) ...[
               const SizedBox(height: AppConfig.spacingSmall),
               Text(
-                'Sperrzeit: $_appLockTimeoutMinutes Minuten',
+                'Sperrzeit: ${_controller.appLockTimeoutMinutes} Minuten',
                 style: textTheme.bodyMedium,
               ),
               Slider(
-                value: _appLockTimeoutMinutes.toDouble(),
+                value: _controller.appLockTimeoutMinutes.toDouble(),
                 min: 1,
                 max: 30,
                 divisions: 29,
-                label: '$_appLockTimeoutMinutes min',
+                label: '${_controller.appLockTimeoutMinutes} min',
                 onChanged: (value) {
-                  setState(() => _appLockTimeoutMinutes = value.round());
+                  _controller.setAppLockTimeoutPreview(value.round());
                 },
                 onChangeEnd: (value) async {
                   final minutes = value.round();
-                  final previousMinutes = _appLockTimeoutMinutes;
-                  setState(() => _appLockTimeoutMinutes = minutes);
-                  await AppLockService().setTimeoutSeconds(minutes * 60);
+                  final previousMinutes = _controller.appLockTimeoutMinutes;
+                  await _controller.setAppLockTimeoutMinutes(minutes);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).clearSnackBars();
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -955,12 +757,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       action: SnackBarAction(
                         label: 'Rückgängig',
                         onPressed: () async {
-                          setState(
-                            () => _appLockTimeoutMinutes = previousMinutes,
-                          );
-                          await AppLockService().setTimeoutSeconds(
-                            previousMinutes * 60,
-                          );
+                          await _controller
+                              .setAppLockTimeoutMinutes(previousMinutes);
                         },
                       ),
                     ),
@@ -992,17 +790,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: AppConfig.spacingLarge),
             TextFormField(
-              controller: _artikelNummerController,
-              enabled: _isDatabaseEmpty,
+              controller: _controller.artikelNummerController,
+              enabled: _controller.isDatabaseEmpty,
               decoration: InputDecoration(
                 labelText: 'Start-Artikelnummer',
                 hintText: 'z.B. 1000',
                 prefixIcon: const Icon(Icons.tag),
-                helperText: _isDatabaseEmpty
+                helperText: _controller.isDatabaseEmpty
                     ? 'Neue Artikel erhalten eine ID ab dieser Nummer'
                     : 'Kann nur bei leerer Datenbank geändert werden',
                 border: const OutlineInputBorder(),
-                suffixIcon: _isDatabaseEmpty
+                suffixIcon: _controller.isDatabaseEmpty
                     ? null
                     : Icon(
                         Icons.lock,
@@ -1021,7 +819,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return null;
               },
             ),
-            if (!_isDatabaseEmpty) ...[
+            if (!_controller.isDatabaseEmpty) ...[
               const SizedBox(height: AppConfig.spacingMedium),
               _buildStatusContainer(
                 icon: Icons.info_outline,
@@ -1048,8 +846,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildInfoCard() {
-    final pbUrl = _pbService.url;
+    final pbUrl = PocketBaseService().url;
     final textTheme = Theme.of(context).textTheme;
+    final pbService = PocketBaseService();
 
     return Card(
       child: Padding(
@@ -1081,8 +880,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _infoRow('PocketBase URL', pbUrl),
             _infoRow(
               'Auth-Status',
-              _pbService.isAuthenticated
-                  ? 'Angemeldet (${_pbService.currentUserEmail ?? "–"})'
+              pbService.isAuthenticated
+                  ? 'Angemeldet (${pbService.currentUserEmail ?? "–"})'
                   : 'Nicht angemeldet',
             ),
           ],

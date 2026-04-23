@@ -23,8 +23,10 @@ Future<void> _pumpScreen(WidgetTester tester) async {
   addTearDown(tester.view.resetPhysicalSize);
   addTearDown(tester.view.resetDevicePixelRatio);
 
-  await tester.pumpWidget(_wrap(const ArtikelErfassenScreen()));
-  await tester.pumpAndSettle(const Duration(seconds: 5));
+  await tester.pumpWidget(
+    _wrap(const ArtikelErfassenScreen(initialArtikelnummer: 1000)),
+  );
+  await tester.pump();
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +74,6 @@ void main() {
       expect(find.text('Fach *'), findsOneWidget);
     });
 
-    // v0.7.8 Punkt 6: Bild-Button ist jetzt IconButton mit Icons.image
     testWidgets('Bilddatei-Button ist sichtbar', (tester) async {
       await _pumpScreen(tester);
 
@@ -85,25 +86,25 @@ void main() {
       expect(btn, findsOneWidget);
     });
 
-    // v0.7.8 Punkt 6: Kamera-Button ist jetzt IconButton mit Icons.camera_alt
     testWidgets(
-        'Kamera-Button Sichtbarkeit entspricht isCameraAvailable',
-        (tester) async {
-      await _pumpScreen(tester);
+      'Kamera-Button Sichtbarkeit entspricht isCameraAvailable',
+      (tester) async {
+        await _pumpScreen(tester);
 
-      final btn = find.byWidgetPredicate(
-        (widget) =>
-            widget is IconButton &&
-            widget.tooltip == 'Kamera',
-      );
+        final btn = find.byWidgetPredicate(
+          (widget) =>
+              widget is IconButton &&
+              widget.tooltip == 'Kamera',
+        );
 
-      if (ImagePickerService.isCameraAvailable) {
-        await _scrollTo(tester, btn);
-        expect(btn, findsOneWidget);
-      } else {
-        expect(btn, findsNothing);
-      }
-    });
+        if (ImagePickerService.isCameraAvailable) {
+          await _scrollTo(tester, btn);
+          expect(btn, findsOneWidget);
+        } else {
+          expect(btn, findsNothing);
+        }
+      },
+    );
 
     testWidgets('Speichern- und Abbrechen-Button sind vorhanden',
         (tester) async {
@@ -126,7 +127,6 @@ void main() {
     testWidgets('Leere Pflichtfelder zeigen Fehlermeldungen', (tester) async {
       await _pumpScreen(tester);
 
-      // Menge + Artikelnummer leeren
       await tester.enterText(
         find.widgetWithText(TextFormField, 'Menge'),
         '',
@@ -180,7 +180,6 @@ void main() {
     testWidgets('Gültige Menge 0 zeigt keinen Fehler', (tester) async {
       await _pumpScreen(tester);
 
-      // Menge ist bereits '0'
       await _tapSpeichern(tester);
 
       expect(find.text('Bitte eine Menge eingeben'), findsNothing);
@@ -193,51 +192,54 @@ void main() {
   // -------------------------------------------------------------------------
   group('ArtikelErfassenScreen – Abbrechen', () {
     testWidgets(
-        'Abbrechen ohne Änderungen → kein Bestätigungsdialog',
-        (tester) async {
-      await _pumpScreen(tester);
+      'Abbrechen ohne Änderungen → kein Bestätigungsdialog',
+      (tester) async {
+        await _pumpScreen(tester);
 
-      await _tapAbbrechen(tester);
+        await _tapAbbrechen(tester);
 
-      expect(find.text('Änderungen verwerfen?'), findsNothing);
-    });
-
-    testWidgets(
-        'Abbrechen nach Eingabe → Bestätigungsdialog erscheint',
-        (tester) async {
-      await _pumpScreen(tester);
-
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Name *'),
-        'Testartikel',
-      );
-      await tester.pumpAndSettle();
-
-      await _tapAbbrechen(tester);
-
-      expect(find.text('Änderungen verwerfen?'), findsOneWidget);
-      expect(find.text('Weiter bearbeiten'), findsOneWidget);
-      expect(find.text('Verwerfen'), findsOneWidget);
-    });
+        expect(find.text('Änderungen verwerfen?'), findsNothing);
+      },
+    );
 
     testWidgets(
-        'Bestätigungsdialog — Weiter bearbeiten schließt Dialog',
-        (tester) async {
-      await _pumpScreen(tester);
+      'Abbrechen nach Eingabe → Bestätigungsdialog erscheint',
+      (tester) async {
+        await _pumpScreen(tester);
 
-      await tester.enterText(
-        find.widgetWithText(TextFormField, 'Name *'),
-        'Testartikel',
-      );
-      await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Name *'),
+          'Testartikel',
+        );
+        await tester.pumpAndSettle();
 
-      await _tapAbbrechen(tester);
+        await _tapAbbrechen(tester);
 
-      await tester.tap(find.text('Weiter bearbeiten'));
-      await tester.pumpAndSettle();
+        expect(find.text('Änderungen verwerfen?'), findsOneWidget);
+        expect(find.text('Weiter bearbeiten'), findsOneWidget);
+        expect(find.text('Verwerfen'), findsOneWidget);
+      },
+    );
 
-      expect(find.text('Änderungen verwerfen?'), findsNothing);
-      expect(find.text('Neuen Artikel erfassen'), findsOneWidget);
-    });
+    testWidgets(
+      'Bestätigungsdialog — Weiter bearbeiten schließt Dialog',
+      (tester) async {
+        await _pumpScreen(tester);
+
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Name *'),
+          'Testartikel',
+        );
+        await tester.pumpAndSettle();
+
+        await _tapAbbrechen(tester);
+
+        await tester.tap(find.text('Weiter bearbeiten'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('Änderungen verwerfen?'), findsNothing);
+        expect(find.text('Neuen Artikel erfassen'), findsOneWidget);
+      },
+    );
   });
 }

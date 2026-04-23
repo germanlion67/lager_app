@@ -31,6 +31,7 @@ import '../widgets/artikel_bild_widget.dart';
 import 'artikel_detail_screen.dart';
 import 'artikel_erfassen_screen.dart';
 import 'settings_screen.dart';
+import 'settings_state.dart';
 
 import 'list_screen_mobile_actions.dart'
     if (dart.library.html) 'list_screen_web_actions.dart'
