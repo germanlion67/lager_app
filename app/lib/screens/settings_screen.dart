@@ -1,3 +1,5 @@
+// lib/screens/settings_screen.dart
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
