@@ -135,7 +135,7 @@ lager_app/
 │   │   ├── services/       # Business-Logik (40 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
 │   │   └── widgets/        # Wiederverwendbare UI-Komponenten (12 Widgets)
-│   └── test/               # 625 Tests (3 skipped), 28 Testdateien
+│   └── test/               # 626 Tests (3 skipped), 29 Testdateien
 ├── packages/               # Lokale Dart-Pakete (runtime_env_config)
 ├── server/                 # PocketBase Backend + Backup-Container
 ├── docs/                   # Dokumentation (16 Dateien)
@@ -469,8 +469,10 @@ Der Sync-Zeitstempel in der `ArtikelListScreen`-AppBar kann in den
 Einstellungen ein- und ausgeblendet werden.
 
 ```text
-Settings ──writes──► showLastSyncNotifier ──notifies──► ArtikelListScreen
-             SharedPreferences (persist)        setState() → rebuild
+SettingsScreen / SettingsController
+        └─ writes ─► showLastSyncNotifier (settings_state.dart)
+                           └─ notifies ─► ArtikelListScreen
+                                              rebuild
 ```
 | Alternative                     | Problem                                        |
 | :------------------------------ | :--------------------------------------------- |
@@ -482,11 +484,29 @@ Settings ──writes──► showLastSyncNotifier ──notifies──► Arti
 Implementierung:
 
 - SharedPreferences-Key: `show_last_sync` (Default: `true`)
-- `ValueNotifier<bool> showLastSyncNotifier` in `ArtikelListScreen`
-- `initState()` liest Präferenz, Settings schreibt + notifiziert
+- `showLastSyncNotifier` liegt zentral in `settings_state.dart`
+- `SettingsController` lädt/speichert die Präferenz
+- `ArtikelListScreen` hört reaktiv auf den Notifier
 - Rebuild erfolgt sofort ohne App-Neustart
 
 ---
+
+## 🧩 Screen-/Controller-Trennung (O-010)
+
+Seit `v0.9.1+29` wird im Settings-Bereich zwischen UI und fachlicher Logik
+klarer getrennt:
+
+- `SettingsScreen`: Rendering, Dialoge, SnackBars, Navigation, Logout-Handling
+- `SettingsController`: Laden/Speichern der Settings, Dirty-Tracking,
+  PocketBase-URL-Prüfung, App-Lock-Status, DB-Status
+- `settings_state.dart`: UI-neutraler geteilter Settings-State
+  (`showLastSyncNotifier`, Prefs-Key, Defaultwert)
+
+**Ziel:** bessere Testbarkeit ohne vollständigen Architektur-Umbau.
+Die Lösung ist bewusst minimal-invasiv und führt keine zusätzliche
+State-Management-Bibliothek ein.
+
+--- 
 
 ## 🎨 Design-System & Konfiguration
 
@@ -523,8 +543,11 @@ Dies gilt analog für die **Dokumenten-Funktionalität**: Auf nativen Plattforme
     *   `Strict-Transport-Security`: Erzwingt HTTPS.
     *   `X-Frame-Options`: Verhindert Clickjacking.
 3.  **Network Isolation**: In Docker-Produktions-Setups kommunizieren Frontend und Backend über ein isoliertes internes Netzwerk ohne direkte Port-Exposition.
-4.  **Datei-Validierung**: Beim Dokument-Upload wird der MIME-Type serverseitig geprüft, um unerwünschte Dateitypen abzuweisen.
-5. **App-Lock (F-001/F-002)**: Auf nativen Plattformen (Android, Desktop) kann die App mit biometrischer Authentifizierung (`local_auth`) gesperrt werden. Bei nicht verfügbarer Biometrie greift der Geräte-PIN als Fallback. Die Sperrzeit ist konfigurierbar (Standard: 5 Minuten Inaktivität).
+4.  **Datei-Validierung**: Beim Dokument-Upload wird der MIME-Type serverseitig geprüft, um     unerwünschte Dateitypen abzuweisen.
+5. **App-Lock (F-001/F-002)**: Auf nativen mobilen Plattformen kann die App
+   mit biometrischer Authentifizierung (`local_auth`) gesperrt werden.
+   Bei nicht verfügbarer Biometrie greift der Geräte-PIN als Fallback.
+   Die Sperrzeit ist konfigurierbar (Standard: 5 Minuten Inaktivität).
 
 ---
 
@@ -559,7 +582,8 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folg
 ---
 ### 6. Wartungs-Notiz am Ende des Dokuments
 
-> **Zuletzt aktualisiert:** v0.9.0+25 (2026-04-22)
+> **Zuletzt aktualisiert:** v0.9.1+29 (2026-04-23)
+> O-010: SettingsScreen fachlich minimal-invasiv in `Settings
 > B-008: Card-Layout ArtikelListScreen wiederhergestellt (Artikelnummer, Chips, Feldname-Fix)
 > B-009: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button
 > B-010: Snackbar-Feedback bei Sync-Start, Sync-Erfolg, Sync-Fehler

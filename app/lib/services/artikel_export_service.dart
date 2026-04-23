@@ -63,7 +63,7 @@ class ArtikelExportService {
       );
     }
 
-    return const ListToCsvConverter().convert(rows);
+    return const CsvEncoder().convert(rows);
   }
 
   String _sanitizeCsvValue(String v) {
@@ -149,7 +149,7 @@ class ArtikelExportService {
       // ✅ kein await — void
       _logger.i('Export gestartet ($exportType)');
 
-      final savedPath = await FilePicker.platform.saveFile(
+      final savedPath = await FilePicker.saveFile(
         dialogTitle: 'Exportiere Artikeldaten',
         fileName: fileName,
         type: FileType.custom,
@@ -219,7 +219,7 @@ class ArtikelExportService {
       final zipData = ZipEncoder().encode(archive);
       final filename = _buildBackupFilename();
 
-      final result = await FilePicker.platform.saveFile(
+      final result = await FilePicker.saveFile(
         dialogTitle: 'Backup als ZIP speichern',
         fileName: filename,
         type: FileType.custom,
@@ -320,7 +320,7 @@ class ArtikelExportService {
       final filename = _buildBackupFilename();
 
       try {
-        final result = await FilePicker.platform.saveFile(
+        final result = await FilePicker.saveFile(
           dialogTitle: 'Backup als ZIP speichern',
           fileName: filename,
           type: FileType.custom,

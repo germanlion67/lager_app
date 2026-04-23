@@ -82,10 +82,12 @@ class PdfSaverImpl implements PdfSaver {
 
       // ── Mobile ─────────────────────────────────────────────────────────────
       if (Platform.isAndroid || Platform.isIOS) {
-        final shareResult = await Share.shareXFiles(
-          [XFile(filePath)],
-          text: 'PDF-Export aus Lager-App',
-          subject: 'Artikel-PDF',
+        final shareResult = await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(filePath)],
+            text: 'PDF-Export aus Lager-App',
+            subject: 'Artikel-PDF',
+          ),
         );
         final success = shareResult.status == ShareResultStatus.success;
         if (success) {
@@ -217,7 +219,7 @@ class PdfSaverImpl implements PdfSaver {
     String dialogTitle,
   ) async {
     try {
-      final savedPath = await FilePicker.platform.saveFile(
+      final savedPath = await FilePicker.saveFile(
         dialogTitle: dialogTitle,
         fileName: fileName,
         type: FileType.custom,

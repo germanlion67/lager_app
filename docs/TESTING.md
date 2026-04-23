@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.9.0+25 | Zuletzt aktualisiert: April 2026
+**Version:** 0.9.1+29 | Zuletzt aktualisiert: 23.04.2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **625 Tests bestanden, 3 skipped, 0 Fehler**
+✅ **626 Tests bestanden, 3 skipped, 0 Fehler**
 
 > `--exclude-tags performance` st optional verfügbar, aber nicht erforderlich.
 > Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
@@ -44,17 +44,18 @@ flutter test
 | `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 11 | T-008 |
 | `test/services/sync_orchestrator_test.dart`                | Unit | 9  | T-008 |
 | `test/services/sync_status_provider_test.dart`| Unit          | 5           | K-006   |
+| `test/screens/settings_controller_test.dart`| Unit          | 1           | O-010   |
 | `test/utils/attachment_utils_test.dart`| Unit          | 28          | —       |
 | `test/utils/image_processing_utils_test.dart`| Unit          | 30          | O-002   |
 | `test/utils/uuid_generator_test.dart`| Unit          | 23          | O-002   |
 | `test/widgets/artikel_detail_screen_test.dart`| Widget        | 24          | O-006   |
 | `test/widgets/artikel_erfassen_test.dart`| Widget        | 11          | O-006   |
-| `test/widgets/artikel_list_screen_test.dart`| Widget        | 15          | O-006   |
+| `test/widgets/artikel_list_screen_test.dart`| Widget        | 15          | O-009   |
 | `test/widgets/merge_dialog_test.dart`| Widget        | 18          | T-004   |
 | `test/performance/import_500_smoke_test.dart`| Performance   | 1           | T-007   |
 | `test/helpers/fake_sync_status_provider.dart`| Test-Helper   | —           | K-006   |
 | `test/helpers/no_op_nextcloud_service.dart`| Test-Helper   | —           | O-006   |
-| **Gesamt** | | **610 (3 skipped)** | |
+| **Gesamt** | | **626 (3 skipped)** | |
 
 ---
 
@@ -291,6 +292,32 @@ flutter test test/models/attachment_model_test.dart
 ```bash
 flutter test test/services/artikel_db_service_test.dart
 ```
+
+### `screens/settings_controller_test.dart` — O-010 (1 Testdatei)
+
+**Ziel:** Unit-Tests für den ausgelagerten `SettingsController` — fachliche
+Settings-Logik ohne UI testen.
+
+**Abgedeckte Bereiche:**
+- Dirty-State-Verhalten bei Änderung und Rücksetzen auf Initialwerte
+- Persistenz von `showLastSync` inklusive `false`
+- `resetPocketBaseUrl()` entfernt ungespeicherte Änderungen korrekt
+- `saveSettings()` Erfolgspfad:
+  - `SaveSettingsResult.success`
+  - URL wird übernommen
+  - Dirty-State wird zurückgesetzt
+- `saveSettings()` Reject-Pfad:
+  - `SaveSettingsResult.pocketBaseUrlRejected`
+  - URL wird auf Initialwert zurückgesetzt
+  - `pbConnectionOk` wird korrekt auf `false` gesetzt
+
+**Strategie:**
+- Controller isoliert testen statt UI über Widget-Mocks zu treiben
+- Service-Abhängigkeiten gezielt injizieren bzw. testbar machen
+- Fokus auf Save-/Reset-/Dirty-State-Logik und SharedPreferences-nahe Pfade
+
+```bash
+flutter test test/screens/settings_controller_test.dart
 
 ---
 
@@ -548,7 +575,7 @@ flutter test test/widgets/artikel_detail_screen_test.dart
 
 ---
 
-### `widgets/artikel_list_screen_test.dart` — O-006 (15 Widget-Tests)
+### `widgets/artikel_list_screen_test.dart` — O-009 (15 Widget-Tests)
 
 **Ziel:** Widget-Tests für `ArtikelListScreen`.
 
@@ -660,7 +687,7 @@ flutter test --reporter expanded --no-pub
 
 | Anforderung   | Details                                            |
 | :------------ | :------------------------------------------------- |
-| Flutter SDK   | ≥ 3.41.4                                           |
+| Flutter SDK   | ≥ 3.41.7                                           |
 | Betriebssystem | Linux, Windows oder macOS                          |
 | `flutter pub get` | Einmalig im `app/`-Verzeichnis ausführen         |
 | `--exclude-tags performance` | Optional — nicht erforderlich                      |

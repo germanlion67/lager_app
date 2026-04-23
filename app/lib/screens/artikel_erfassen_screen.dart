@@ -25,7 +25,12 @@ import 'artikel_erfassen_io.dart'
     if (dart.library.html) 'artikel_erfassen_stub.dart' as platform;
 
 class ArtikelErfassenScreen extends StatefulWidget {
-  const ArtikelErfassenScreen({super.key});
+  const ArtikelErfassenScreen({
+    super.key,
+    this.initialArtikelnummer,
+  });
+
+  final int? initialArtikelnummer;
 
   @override
   State<ArtikelErfassenScreen> createState() => _ArtikelErfassenScreenState();
@@ -51,6 +56,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
+  bool _isInitializing = true;  // verhindert Dirty-State durch Initialwerte
 
   int? _suggestedArtikelnummer;
 
@@ -82,21 +88,33 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       }
     });
 
-    _initArtikelnummer();
+    if (widget.initialArtikelnummer != null) {
+      _suggestedArtikelnummer = widget.initialArtikelnummer;
+      _artikelnummerCtrl.text = widget.initialArtikelnummer.toString();
+      _hasUnsavedChanges = false;
+      _isInitializing = false;
+    } else {
+      _initArtikelnummer();
+    }
   }
 
   Future<void> _initArtikelnummer() async {
     final next = await _getNextArtikelnummer();
-    _suggestedArtikelnummer = next;
-    if (mounted) {
-      setState(() {
-        _artikelnummerCtrl.text = next.toString();
-      });
-    }
+    if (!mounted) return;
+
+    setState(() {
+      _suggestedArtikelnummer = next;
+      _artikelnummerCtrl.text = next.toString();
+      _hasUnsavedChanges = false;
+      _isInitializing = false;
+    });
   }
 
   void _markDirty() {
-    if (!_hasUnsavedChanges) setState(() => _hasUnsavedChanges = true);
+    if (_isInitializing) return;
+    if (!_hasUnsavedChanges) {
+      setState(() => _hasUnsavedChanges = true);
+    }
   }
 
   @override

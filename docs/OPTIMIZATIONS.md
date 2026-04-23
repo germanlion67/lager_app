@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.0+25 | **Zuletzt aktualisiert:** 22.04.2026
+**Version:** 0.9.1+29 | **Zuletzt aktualisiert:** 23.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -23,10 +23,9 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `O` = Optimierung / Refactoring / Codequalität
 - `P` = Performance / Plattform / Laufzeitverbesserung
 - `T` = Tests / Testinfrastruktur / Testausbau
-- `OPT` = bereichsübergreifendes internes Optimierungsvorhaben
 
 ### Nächste freie Kürzel
-- `B-013`, `F-008`, `H-004`, `K-007`, `M-013`, `N-007`, `O-010`, `P-006`, `T-009`, `OPT-002`
+- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-011`, `P-006`, `T-009`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -70,56 +69,7 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
 
-### OPT-001: `SettingsScreen` — Logik in testbaren Controller extrahieren
-**Typ:** Refactoring / Testbarkeit  
-**Betrifft:** `lib/screens/settings_screen.dart`
-
-**Problem**
-`SettingsScreen` ist ein monolithischer StatefulWidget (~700 Zeilen), der UI, State-Management und Service-Aufrufe vermischt:
-- `initState()` → `SharedPreferences`, `AppLockService`, `PocketBaseService`
-- `_loadSettings()` → 3 Service-Aufrufe direkt
-- `_saveSettings()` → SharedPreferences + PocketBase + AppLock
-- `_testPocketBaseConnection()` → Netzwerk-Call
-- Dirty-Tracking → inline in `setState()`
-- ~15 `_build*Card()` Methoden → UI
-
-**Konsequenzen**
-- ❌ Widget-Tests nur mit erheblichem Mocking-Aufwand
-- ❌ `PocketBaseService` ist Singleton ohne DI
-- ❌ Dirty-Tracking, Validierung und Save-Logik nicht isoliert testbar
-- ❌ UI-Änderungen berühren Business-Logik
-- ❌ Aktuell 0% Test-Coverage für Settings
-
-**Lösungsvorschlag**
-State und Logik in einen `SettingsController` (`ChangeNotifier`) extrahieren, der per Constructor-Injection testbar wird:
-
-```dart
-class SettingsController extends ChangeNotifier {
-  final SharedPreferences _prefs;
-  final AppLockService _appLock;
-  final PocketBaseService _pb;
-
-  SettingsController({
-    required SharedPreferences prefs,
-    required AppLockService appLock,
-    required PocketBaseService pb,
-  });
-
-  bool get isDirty => _pbUrl != _originalPbUrl || ...;
-
-  Future<void> load() async {
-    // ...
-  }
-
-  Future<bool> save() async {
-    // ...
-  }
-}
-```
-
 ---
-
-
 
 ## 🟢 Priorität: Nice-to-Have
 
@@ -139,12 +89,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---|---|---|
-| ✅ Abgeschlossen | 54 | 46 | 0 |
+| ✅ Abgeschlossen | 55 | 47 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 3 | 0 | 3 |
+| 🟡 Mittel | 2 | 0 | 2 |
 | 🟢 Nice-to-Have | 0 | 0 | 0 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **62** | **57** | **5** |
+| **Gesamt** | **62** | **57** | **4** |
 
 
 ---
@@ -252,19 +202,32 @@ Ort, Fach und Menge.
 
 --- 
 
-### F-007: Einstellung — Letzter-Sync-Zeitstempel ein-/ausblenden — erledigt in `v0.9.0+25`
+### F-007: Einstellung — Letzter-Sync-Zeitstempel ein-/ausblenden — erledigt in `v0.9.0+25`, Architektur-Bereinigung in `v0.9.1+29`
 **Typ:** Feature
 **Betrifft:** `lib/screens/settings_screen.dart`,
-             `lib/screens/artikel_list_screen.dart`
+             `lib/screens/artikel_list_screen.dart`,
+             `lib/screens/settings_state.dart`
 
 Toggle in den Einstellungen, der den Sync-Zeitstempel in der
 Artikelliste ein- oder ausblendet. Persistenz via SharedPreferences.
 
-- Toggle in `_buildPocketBaseCard()` oder neue Sync-Card ergänzen (SharedPreferences Key: `show_last_sync`, Default: `true`)
-- `ArtikelListScreen` liest Präferenz in `initState()`
-- Reaktiv: Änderung wirkt ohne App-Neustart (z.B. via `ValueNotifier` oder Provider)
-- Auf S20 und Tablet verifizieren
-F-007 — Hotfix: ValueListenableBuilder in ArtikelListScreen ergänzt; Toggle war funktionslos da Notifier nie abgehört wurde.
+- Toggle in den Einstellungen ergänzt
+- SharedPreferences-Key: `show_last_sync`
+- Reaktive Wirkung ohne App-Neustart via `ValueNotifier<bool>`
+- Default fachlich konsistent auf `true` vereinheitlicht
+- `showLastSyncNotifier`, Prefs-Key und Default in
+  `settings_state.dart` zentralisiert
+- `ArtikelListScreen` bezieht den gemeinsamen State nicht mehr aus
+  `settings_screen.dart`
+
+F-007 — Hotfix in `v0.9.0+25`:
+- `ValueListenableBuilder` in `ArtikelListScreen` ergänzt; Toggle war
+  zuvor funktionslos, da der Notifier nie abgehört wurde
+
+F-007 — Architektur-Bereinigung in `v0.9.1+29`:
+- `showLastSyncNotifier` aus `settings_screen.dart` herausgelöst
+- zentrale, UI-neutrale Datei `settings_state.dart` eingeführt
+- gemeinsame State-Abhängigkeit vom Screen entkoppelt
 
 ---
 
@@ -302,6 +265,30 @@ mit Default-Wert `Level.error`.
 - CORS-Konfiguration und Backup-Automatisierung (Docker).
 
 --- 
+
+### K-007: Flutter update — erledigt in `v0.9.1+26`
+Flutter/Dart:
+- Flutter: 3.41.4 → 3.41.7
+- Dart: 3.11.1 → 3.11.5
+
+Package Major Updates (pubspec.yaml):
+- csv: ^6.0.0 → ^8.0.0 (rowSeparator statt eol)
+- device_info_plus: ^10.1.2 → ^12.4.0
+- file_picker: ^10.1.0 → ^11.0.2
+- flutter_local_notifications: ^19.4.1 → ^21.0.0
+- share_plus: ^10.1.4 → ^12.0.2 (shareXFiles statt shareFiles)
+- build_runner: ^2.4.6 → ^2.14.0
+
+Removed:
+- js: ^0.7.1 (discontinued, ersetzt durch dart:js_interop via web:)
+- dependency_overrides Block (nicht mehr nötig)
+
+CI/CD:
+- flutter-version: 3.41.4 → 3.41.7 in allen 4 Workflows
+
+Verified: `flutter analyze` clean, spätere Folgearbeiten bis `v0.9.1+29`
+auf insgesamt **626 Tests**, **3 übersprungen** erweitert
+
 
 ### K-006: Kaltstart-Bug Fix — erledigt in `v0.8.0`
 - Sync-UI-Kopplung und automatischer Bild-Download nach Erst-Setup.
@@ -346,6 +333,37 @@ mit Default-Wert `Level.error`.
 - Neues App-Icon und Native Splash Screen für alle Plattformen.
 
 --- 
+
+### O-010: `SettingsScreen` — Logik in testbaren Controller extrahieren — erledigt in `v0.9.1+29`
+**Typ:** Refactoring / Testbarkeit  
+**Betrifft:** `lib/screens/settings_screen.dart`,
+             `lib/screens/settings_controller.dart`,
+             `lib/screens/settings_state.dart`
+
+`SettingsScreen` wurde fachlich sauber und minimal-invasiv refactored.
+Persistente Settings-Logik, Laufzeit-State und Service-Orchestrierung
+wurden in einen neuen `SettingsController` ausgelagert.
+
+**Umsetzung**
+- `settings_controller.dart` eingeführt
+- `SettingsScreen` auf UI-nahe Verantwortung reduziert:
+  - Dialoge
+  - SnackBars
+  - Navigation / Logout-Handling
+  - Rendering
+- In den Controller verschoben:
+  - Laden und Speichern der Settings
+  - Dirty-Tracking
+  - PocketBase-URL prüfen / speichern / zurücksetzen
+  - DB-Status prüfen
+  - App-Lock-Status laden / speichern
+- `TextEditingController` bewusst pragmatisch im Controller belassen
+  (`artikelNummerController`, `pocketBaseUrlController`)
+
+**Testauswirkung**
+- `SettingsController` gezielt testbar gemacht
+- zusätzliche Tests für Save-/Reset-/Dirty-State-Verhalten ergänzt
+- Reject-/Success-Pfade von `saveSettings()` abgesichert
 
 ### O-009: Widget-Tests `ArtikelListScreen` — abgeschlossen in `v0.9.0+25`
 - Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
@@ -436,6 +454,8 @@ mit Default-Wert `Level.error`.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-23 | v0.9.1+29 | O-010 abgeschlossen: SettingsScreen fachlich minimal-invasiv in SettingsController refactored, UI-/Logik-Trennung verbessert, zusätzliche Controller-Tests ergänzt. F-007 architektonisch bereinigt: `showLastSyncNotifier`, Prefs-Key und Default nach `settings_state.dart` verschoben, Default konsistent auf `true` vereinheitlicht. Teststand auf 626 bestanden, 3 übersprungen aktualisiert. |
+| 2026-04-22 | v0.9.1+26 | K-007: flutter upgrade 3.41.4 → 3.41.7 + package major updates |
 | 2026-04-22 | v0.9.0+25 | B-008 abgeschlossen: Card-Layout ArtikelListScreen wiederhergestellt (Artikelnummer, Chips, Feldname-Fix). B-009 abgeschlossen: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button. B-010 abgeschlossen: Snackbar-Feedback bei Sync-Start/-Erfolg/-Fehler. B-011 abgeschlossen: App-Version zeigt korrekten Build-Stand nach neuem Release-Build. B-012 abgeschlossen: Sync-Label TextOverflow.ellipsis + titleSpacing. F-006 abgeschlossen: Log-Level-Filter als DropdownButton<Level>, Default Level.error. F-007 abgeschlossen: Sync-Zeitstempel-Toggle via ValueNotifier + SharedPreferences. O-009 abgeschlossen: 15 Widget-Tests ArtikelListScreen grün (625 Tests gesamt). |
 | 2026-04-21 | v0.8.9+24 | B-007 abgeschlossen: Intelligenter Bild-Sync (Timestamp-Check) und UI-Politur des Sync-Zeitstempels implementiert. |
 | 2026-04-20 | v0.8.6+21 | P-003 abgeschlossen: Bild-Caching via `cached_network_image` integriert. Android-Stabilität auf S20 verifiziert. |

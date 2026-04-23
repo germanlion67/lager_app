@@ -1,12 +1,12 @@
 // lib/services/artikel_import_service.dart
 
+import 'package:csv/csv.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:file_picker/file_picker.dart';
 import 'package:archive/archive.dart' show ArchiveFile, ZipDecoder;
-import 'package:csv/csv.dart';
 import 'package:logger/logger.dart';
 import '../config/app_images.dart';
 import '../models/artikel_model.dart';
@@ -119,10 +119,7 @@ class ArtikelImportService {
 
     List<List<dynamic>> rows;
     try {
-      rows = const CsvToListConverter(
-        eol: '\n',
-        shouldParseNumbers: false,
-      ).convert(cleanedCsv);
+      rows = const CsvDecoder().convert(cleanedCsv);
     } catch (e, stack) {
       // ✅ named parameters
       _logger.e('CSV-Parse-Fehler:', error: e, stackTrace: stack);
@@ -247,7 +244,7 @@ class ArtikelImportService {
   ) async {
     final FilePickerResult? result;
         try {
-          result = await FilePicker.platform.pickFiles(
+          result = await FilePicker.pickFiles(
             allowMultiple: false,
             type: FileType.custom,
             allowedExtensions: ['json', 'csv'],
@@ -387,7 +384,7 @@ class ArtikelImportService {
   }) async {
     final FilePickerResult? result;
         try {
-          result = await FilePicker.platform.pickFiles(
+          result = await FilePicker.pickFiles(
             dialogTitle: 'ZIP-Backup auswählen',
             type: FileType.custom,
             allowedExtensions: ['zip'],
