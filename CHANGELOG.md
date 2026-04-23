@@ -2,6 +2,99 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.9.1+29] — 2026-04-23
+
+### Refactoring (O-010): SettingsScreen-Logik in SettingsController ausgelagert
+
+**Ziel:** `SettingsScreen` fachlich sauber und minimal-invasiv entlasten, indem
+persistente Settings-Logik, Laufzeit-State und Service-Orchestrierung in einen
+neuen `SettingsController` verschoben werden.
+
+**Umsetzung:**
+- Neuer `settings_controller.dart` für testbare Settings-Logik
+- `SettingsScreen` behält nur UI-nahe Verantwortung:
+  - Dialoge
+  - SnackBars
+  - Navigation / Logout-Handling
+  - Rendering
+- Persistenz und Orchestrierung aus dem Screen herausgelöst:
+  - Laden und Speichern der Settings
+  - Dirty-Tracking
+  - PocketBase-URL prüfen / speichern / zurücksetzen
+  - DB-Status prüfen
+  - App-Lock-Status laden / speichern
+- `TextEditingController` bewusst pragmatisch im Controller belassen
+  (`artikelNummerController`, `pocketBaseUrlController`)
+
+**In den Controller verschobener State:**
+- `isDatabaseEmpty`
+- `isCheckingConnection`
+- `pbConnectionOk`
+- `appLockEnabled`
+- `appLockBiometricsEnabled`
+- `appLockTimeoutMinutes`
+- `hasUnsavedChanges`
+- `showLastSync`
+- Initialwerte für Dirty-Tracking von URL und Artikelnummer
+
+---
+
+### Architektur-Fix (F-007): showLastSync-Status zentralisiert und entkoppelt
+
+**Problem:** `showLastSyncNotifier` lag bisher in `settings_screen.dart`.
+Dadurch musste `artikel_list_screen.dart` fachlich unnötig einen Screen
+importieren, nur um auf geteilten State zuzugreifen.
+
+**Lösung:**
+- Neue Datei `lib/screens/settings_state.dart`
+- Zentralisiert:
+  - `showLastSyncPrefsKey`
+  - `defaultShowLastSync`
+  - `showLastSyncNotifier`
+- `defaultShowLastSync` fachlich konsistent auf `true` vereinheitlicht
+- `SettingsController` und `ArtikelListScreen` nutzen jetzt denselben
+  UI-neutralen State aus `settings_state.dart`
+
+**Ergebnis:**
+- `showLastSyncNotifier` liegt nicht mehr in `settings_screen.dart`
+- gemeinsame Settings-State-Abhängigkeit wurde vom Screen entkoppelt
+- `ArtikelListScreen` bezieht den Toggle-State nicht mehr aus einem UI-Screen
+
+---
+
+### Tests: SettingsController gezielt erweitert
+
+**Neue bzw. ergänzte Testabdeckung:**
+- Dirty-State wird korrekt zurückgesetzt, wenn Werte wieder auf Initialstand gehen
+- `setShowLastSync(false)` wird korrekt persistiert
+- `resetPocketBaseUrl()` setzt URL zurück und entfernt ungespeicherte Änderungen
+- `saveSettings()` Erfolgspfad:
+  - Rückgabe `SaveSettingsResult.success`
+  - neue URL übernommen
+  - Dirty-State zurückgesetzt
+- `saveSettings()` Reject-Pfad:
+  - Rückgabe `SaveSettingsResult.pocketBaseUrlRejected`
+  - URL wird auf Initialwert zurückgesetzt
+  - `pbConnectionOk = false`
+
+**Teststatus:**
+- `flutter test`: **626 Tests bestanden**, **3 übersprungen** ✅
+
+---
+
+### Dokumentation / Ergebnis
+
+**Fachliches Ergebnis:**
+- O-010 umgesetzt: saubere, testbare Trennung von UI und Logik im Settings-Bereich
+- F-007 mitbereinigt: zentraler `showLastSync`-State, konsistenter Default,
+  keine unsaubere State-Kopplung mehr über `settings_screen.dart`
+
+**Arbeitsweise:**
+- bewusst minimal-invasiv
+- keine neue generische Controller-Architektur eingeführt
+- keine `AppLockService`-API geraten
+- bestehende UI-Struktur weitgehend beibehalten
+
 ## [0.9.1+26] — 2026-04-22
 
 ### Optimierung (O-010): Flutter & Dependencies auf aktuellen Stand gebracht
