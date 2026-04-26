@@ -50,17 +50,15 @@ Artikel _makeArtikel({
   String? thumbnailPfad = '/images/r10k_thumb.jpg',
   String? thumbnailEtag,
   String? remoteBildPfad,
-  // ✅ const String ist erlaubt als Default
   String? uuid = _fixedUuid,
-  // ✅ FIX: Sentinel-Wert -1 = "nutze _fixedMillis"
-  //         Sentinel-Wert null = "lass Konstruktor-Default greifen"
   int? updatedAt = -1,
   bool deleted = false,
   String? etag,
+  String? lastSyncedEtag,
+  String? pendingResolution,
   String? remotePath,
   String? deviceId,
 }) {
-  // ✅ Sentinel auflösen im Body — hier sind non-const Werte erlaubt
   final resolvedUpdatedAt = updatedAt == -1 ? _fixedMillis : updatedAt;
 
   return Artikel(
@@ -78,9 +76,11 @@ Artikel _makeArtikel({
     aktualisiertAm: _fixedDate,
     remoteBildPfad: remoteBildPfad,
     uuid: uuid,
-    updatedAt: resolvedUpdatedAt, // ✅ null → Konstruktor-Default
+    updatedAt: resolvedUpdatedAt,
     deleted: deleted,
     etag: etag,
+    lastSyncedEtag: lastSyncedEtag,
+    pendingResolution: pendingResolution,
     remotePath: remotePath,
     deviceId: deviceId,
   );
@@ -107,8 +107,11 @@ Map<String, dynamic> _makeMap({
   dynamic updatedAt = -1,
   dynamic deleted = 0,
   String? etag,
+  String? lastSyncedEtag,
+  String? pendingResolution,
   String? remotePath,
   String? deviceId,
+
 }) {
   // ✅ Sentinel auflösen im Body
   final resolvedUpdatedAt = updatedAt == -1 ? _fixedMillis : updatedAt;
@@ -131,8 +134,11 @@ Map<String, dynamic> _makeMap({
     'updated_at': resolvedUpdatedAt,
     'deleted': deleted,
     'etag': etag,
+    'last_synced_etag': lastSyncedEtag,
+    'pending_resolution': pendingResolution,    
     'remote_path': remotePath,
     'device_id': deviceId,
+
   };
 }
 
@@ -186,6 +192,8 @@ void main() {
           thumbnailEtag: null,
           remoteBildPfad: null,
           etag: null,
+          lastSyncedEtag: null,
+          pendingResolution: null,
           remotePath: null,
           deviceId: null,
         );
@@ -196,8 +204,22 @@ void main() {
         expect(artikel.thumbnailEtag, isNull);
         expect(artikel.remoteBildPfad, isNull);
         expect(artikel.etag, isNull);
+        expect(artikel.lastSyncedEtag, isNull);
+        expect(artikel.pendingResolution, isNull);
         expect(artikel.remotePath, isNull);
         expect(artikel.deviceId, isNull);
+      });
+
+      test('setzt neue Sync-Felder wenn angegeben', () {
+        final artikel = _makeArtikel(
+          etag: 'etag-1',
+          lastSyncedEtag: 'etag-0',
+          pendingResolution: 'force_local',
+        );
+
+        expect(artikel.etag, equals('etag-1'));
+        expect(artikel.lastSyncedEtag, equals('etag-0'));
+        expect(artikel.pendingResolution, equals('force_local'));
       });
     });
 
@@ -323,6 +345,54 @@ void main() {
         expect(map.containsKey('updatedAt'), isFalse);
         expect(map.containsKey('remotePath'), isFalse);
         expect(map.containsKey('deviceId'), isFalse);
+        expect(map.containsKey('last_synced_etag'), isTrue);
+        expect(map.containsKey('pending_resolution'), isTrue);
+        expect(map.containsKey('lastSyncedEtag'), isFalse);
+        expect(map.containsKey('pendingResolution'), isFalse);
+      });
+      test('serialisiert lastSyncedEtag und pendingResolution in snake_case', () {
+        final map = _makeArtikel(
+          lastSyncedEtag: 'etag-base',
+          pendingResolution: 'force_merge',
+        ).toMap();
+
+        expect(map['last_synced_etag'], equals('etag-base'));
+        expect(map['pending_resolution'], equals('force_merge'));
+      });
+
+      test('serialisiert neue Sync-Felder als null wenn nicht gesetzt', () {
+        final map = _makeArtikel(
+          lastSyncedEtag: null,
+          pendingResolution: null,
+        ).toMap();
+
+        expect(map['last_synced_etag'], isNull);
+        expect(map['pending_resolution'], isNull);
+      });
+
+    });
+
+    // =======================================================================
+    // toPocketBaseMap()
+    // =======================================================================
+    group('toPocketBaseMap()', () {
+      test('enthält die bewusst freigegebenen PB-Felder', () {
+        final map = _makeArtikel(
+          deviceId: 'dev-1',
+          updatedAt: 123456789,
+          etag: 'etag-local',
+          lastSyncedEtag: 'etag-base',
+          pendingResolution: 'force_local',
+          remotePath: 'rec_local',
+        ).toPocketBaseMap();
+
+        expect(map['device_id'], equals('dev-1'));
+        expect(map['updated_at'], equals(123456789));
+
+        expect(map.containsKey('etag'), isFalse);
+        expect(map.containsKey('last_synced_etag'), isFalse);
+        expect(map.containsKey('pending_resolution'), isFalse);
+        expect(map.containsKey('remote_path'), isFalse);
       });
     });
 
@@ -375,6 +445,120 @@ void main() {
         expect(artikel.erstelltAm.month, equals(1));
         expect(artikel.erstelltAm.day, equals(15));
       });
+
+      test('liest last_synced_etag und pending_resolution aus SQLite-Map', () {
+        final artikel = Artikel.fromMap(
+          _makeMap(
+            lastSyncedEtag: 'etag-base',
+            pendingResolution: 'force_local',
+          ),
+        );
+
+        expect(artikel.lastSyncedEtag, equals('etag-base'));
+        expect(artikel.pendingResolution, equals('force_local'));
+      });      
+
+    // =======================================================================
+    // fromPocketBase()
+    // =======================================================================
+    group('fromPocketBase()', () {
+      test('setzt etag und lastSyncedEtag aus updated', () {
+        final artikel = Artikel.fromPocketBase(
+          {
+            'uuid': _fixedUuid,
+            'name': 'Remote Artikel',
+            'artikelnummer': 2001,
+            'menge': 7,
+            'ort': 'Remote Regal',
+            'fach': 'Remote Fach',
+            'beschreibung': 'Von PocketBase',
+            'deleted': false,
+            'updated': '2025-02-01T12:00:00.000Z',
+            'created': '2025-02-01T11:00:00.000Z',
+          },
+          'rec_001',
+        );
+
+        expect(artikel.etag, equals('2025-02-01T12:00:00.000Z'));
+        expect(artikel.lastSyncedEtag, equals('2025-02-01T12:00:00.000Z'));
+        expect(artikel.pendingResolution, isNull);
+        expect(artikel.remotePath, equals('rec_001'));
+      });
+
+      test('fällt auf recordId zurück wenn updated leer ist', () {
+        final artikel = Artikel.fromPocketBase(
+          {
+            'uuid': _fixedUuid,
+            'name': 'Remote Artikel',
+            'menge': 7,
+            'ort': 'Remote Regal',
+            'fach': 'Remote Fach',
+            'beschreibung': 'Von PocketBase',
+            'deleted': false,
+            'created': '2025-02-01T11:00:00.000Z',
+          },
+          'rec_fallback',
+        );
+
+        expect(artikel.etag, equals('rec_fallback'));
+        expect(artikel.lastSyncedEtag, equals('rec_fallback'));
+        expect(artikel.remotePath, equals('rec_fallback'));
+      });
+
+      test('übernimmt bild-Feld als remoteBildPfad', () {
+        final artikel = Artikel.fromPocketBase(
+          {
+            'uuid': _fixedUuid,
+            'name': 'Remote Artikel',
+            'menge': 7,
+            'ort': 'Remote Regal',
+            'fach': 'Remote Fach',
+            'beschreibung': 'Von PocketBase',
+            'bild': 'bild_abc123.jpg',
+            'created': '2025-02-01T11:00:00.000Z',
+            'updated': '2025-02-01T12:00:00.000Z',
+          },
+          'rec_img',
+        );
+
+        expect(artikel.remoteBildPfad, equals('bild_abc123.jpg'));
+      });
+
+      test('liest device_id und deviceId robust', () {
+        final artikelSnake = Artikel.fromPocketBase(
+          {
+            'uuid': 'uuid-snake',
+            'name': 'Snake',
+            'menge': 1,
+            'ort': 'A',
+            'fach': '1',
+            'beschreibung': '',
+            'device_id': 'dev-snake',
+            'created': '2025-02-01T11:00:00.000Z',
+            'updated': '2025-02-01T12:00:00.000Z',
+          },
+          'rec_snake',
+        );
+
+        final artikelCamel = Artikel.fromPocketBase(
+          {
+            'uuid': 'uuid-camel',
+            'name': 'Camel',
+            'menge': 1,
+            'ort': 'A',
+            'fach': '1',
+            'beschreibung': '',
+            'deviceId': 'dev-camel',
+            'created': '2025-02-01T11:00:00.000Z',
+            'updated': '2025-02-01T12:00:00.000Z',
+          },
+          'rec_camel',
+        );
+
+        expect(artikelSnake.deviceId, equals('dev-snake'));
+        expect(artikelCamel.deviceId, equals('dev-camel'));
+      });
+    });
 
       // -----------------------------------------------------------------------
       // Null-Handling
@@ -511,7 +695,27 @@ void main() {
           expect(artikel.aktualisiertAm.month, equals(9));
           expect(artikel.aktualisiertAm.day, equals(20));
         });
+        test('liest lastSyncedEtag (camelCase) als Fallback', () {
+          final map = _makeMap();
+          map.remove('last_synced_etag');
+          map['lastSyncedEtag'] = 'etag-camel';
 
+          expect(
+            Artikel.fromMap(map).lastSyncedEtag,
+            equals('etag-camel'),
+          );
+        });
+
+        test('liest pendingResolution (camelCase) als Fallback', () {
+          final map = _makeMap();
+          map.remove('pending_resolution');
+          map['pendingResolution'] = 'force_merge';
+
+          expect(
+            Artikel.fromMap(map).pendingResolution,
+            equals('force_merge'),
+          );
+        });
         test('liest updated_at (snake_case) korrekt', () {
           expect(
             Artikel.fromMap(_makeMap(updatedAt: 1705312200000)).updatedAt,
@@ -589,6 +793,22 @@ void main() {
         expect(roundtripped.remotePath, isNull);
         expect(roundtripped.deviceId, isNull);
       });
+      test('neue Sync-Felder überleben Roundtrip korrekt', () {
+        final original = _makeArtikel(
+          etag: 'etag-current',
+          lastSyncedEtag: 'etag-base',
+          pendingResolution: 'force_local',
+          remotePath: 'rec_123',
+        );
+
+        final roundtripped = Artikel.fromMap(original.toMap());
+
+        expect(roundtripped.etag, equals('etag-current'));
+        expect(roundtripped.lastSyncedEtag, equals('etag-base'));
+        expect(roundtripped.pendingResolution, equals('force_local'));
+        expect(roundtripped.remotePath, equals('rec_123'));
+      });
+
     });
 
     // =======================================================================
@@ -641,6 +861,36 @@ void main() {
         final original = _makeArtikel(thumbnailPfad: '/thumb.jpg');
         expect(original.copyWith(thumbnailPfad: null).thumbnailPfad, isNull);
       });
+      test('kann lastSyncedEtag und pendingResolution ändern', () {
+        final original = _makeArtikel(
+          lastSyncedEtag: 'etag-old',
+          pendingResolution: 'force_local',
+        );
+
+        final copy = original.copyWith(
+          lastSyncedEtag: 'etag-new',
+          pendingResolution: 'force_merge',
+        );
+
+        expect(copy.lastSyncedEtag, equals('etag-new'));
+        expect(copy.pendingResolution, equals('force_merge'));
+      });
+
+      test('kann lastSyncedEtag und pendingResolution auf null setzen', () {
+        final original = _makeArtikel(
+          lastSyncedEtag: 'etag-old',
+          pendingResolution: 'force_local',
+        );
+
+        final copy = original.copyWith(
+          lastSyncedEtag: null,
+          pendingResolution: null,
+        );
+
+        expect(copy.lastSyncedEtag, isNull);
+        expect(copy.pendingResolution, isNull);
+      });
+
     });
 
     // =======================================================================
@@ -699,6 +949,20 @@ void main() {
         expect(str, contains('Fach 3'));
         expect(str, contains('false'));
       });
+      test('enthält lastSyncedEtag und pendingResolution', () {
+        final artikel = _makeArtikel(
+          etag: 'etag-current',
+          lastSyncedEtag: 'etag-base',
+          pendingResolution: 'force_merge',
+        );
+
+        final str = artikel.toString();
+
+        expect(str, contains('etag-current'));
+        expect(str, contains('etag-base'));
+        expect(str, contains('force_merge'));
+      });
+
     });
   });
 }

@@ -58,11 +58,13 @@ Artikel _makeArtikel({
   String? uuid,
   bool deleted = false,
   String? etag,
+  String? lastSyncedEtag,
+  String? pendingResolution,
   String? remotePath,
   String? remoteBildPfad,
 }) {
   return Artikel(
-    name: name ?? 'Artikel ${DateTime.now().microsecondsSinceEpoch}',
+    name: name ?? 'Artikel ${DateTime.now().toUtc().microsecondsSinceEpoch}',
     artikelnummer: artikelnummer,
     menge: menge,
     ort: ort,
@@ -72,9 +74,11 @@ Artikel _makeArtikel({
     erstelltAm: DateTime.now().toUtc(),
     aktualisiertAm: DateTime.now().toUtc(),
     uuid: uuid ?? UuidGenerator.generate(),
-    updatedAt: DateTime.now().millisecondsSinceEpoch,
+    updatedAt: DateTime.now().toUtc().millisecondsSinceEpoch,
     deleted: deleted,
     etag: etag,
+    lastSyncedEtag: lastSyncedEtag,
+    pendingResolution: pendingResolution,
     remotePath: remotePath,
     remoteBildPfad: remoteBildPfad,
   );
@@ -140,10 +144,10 @@ void main() {
       });
 
       test('aktualisiert updated_at beim Insert', () async {
-        final before = DateTime.now().millisecondsSinceEpoch;
+        final before = DateTime.now().toUtc().millisecondsSinceEpoch;
         final artikel = _makeArtikel();
         final id = await service.insertArtikel(artikel);
-        final after = DateTime.now().millisecondsSinceEpoch;
+        final after = DateTime.now().toUtc().millisecondsSinceEpoch;
 
         final db = await service.database;
         final result = await db.query(
@@ -178,7 +182,22 @@ void main() {
         final alle = await service.getAlleArtikel();
         expect(alle.length, equals(5));
       });
+      test('setzt pending_resolution auf null beim Insert', () async {
+        final artikel = _makeArtikel(pendingResolution: 'force_local');
+        final id = await service.insertArtikel(artikel);
+
+        final db = await service.database;
+        final result = await db.query(
+          'artikel',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        expect(result.first['pending_resolution'], isNull);
+      });
+
     });
+
+
 
     // =======================================================================
     // getAlleArtikel()
@@ -289,9 +308,9 @@ void main() {
         final artikel = _makeArtikel();
         final id = await service.insertArtikel(artikel);
 
-        final before = DateTime.now().millisecondsSinceEpoch;
+        final before = DateTime.now().toUtc().millisecondsSinceEpoch;
         await service.updateArtikel(artikel.copyWith(id: id, name: 'Neu'));
-        final after = DateTime.now().millisecondsSinceEpoch;
+        final after = DateTime.now().toUtc().millisecondsSinceEpoch;
 
         final db = await service.database;
         final result = await db.query(
@@ -303,6 +322,54 @@ void main() {
         expect(updatedAt, greaterThanOrEqualTo(before));
         expect(updatedAt, lessThanOrEqualTo(after));
       });
+      test('löscht pending_resolution beim normalen Update', () async {
+        final artikel = _makeArtikel();
+        final id = await service.insertArtikel(artikel);
+
+        final db = await service.database;
+        await db.update(
+          'artikel',
+          {'pending_resolution': 'force_local'},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        await service.updateArtikel(
+          artikel.copyWith(id: id, name: 'Neu geändert'),
+        );
+
+        final result = await db.query(
+          'artikel',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        expect(result.first['pending_resolution'], isNull);
+      });
+
+      test('behält last_synced_etag beim normalen Update', () async {
+        final artikel = _makeArtikel();
+        final id = await service.insertArtikel(artikel);
+
+        final db = await service.database;
+        await db.update(
+          'artikel',
+          {'last_synced_etag': 'remote-v1'},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        await service.updateArtikel(
+          artikel.copyWith(id: id, name: 'Neu geändert'),
+        );
+
+        final result = await db.query(
+          'artikel',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        expect(result.first['last_synced_etag'], equals('remote-v1'));
+      });
+
     });
 
     // =======================================================================
@@ -370,6 +437,28 @@ void main() {
         // ✅ Physisch noch vorhanden — nur deleted=1
         expect(result.length, equals(1));
       });
+      test('löscht pending_resolution beim Soft-Delete', () async {
+        final artikel = _makeArtikel();
+        final id = await service.insertArtikel(artikel);
+
+        final db = await service.database;
+        await db.update(
+          'artikel',
+          {'pending_resolution': 'force_merge'},
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+
+        await service.deleteArtikel(artikel.copyWith(id: id));
+
+        final result = await db.query(
+          'artikel',
+          where: 'id = ?',
+          whereArgs: [id],
+        );
+        expect(result.first['pending_resolution'], isNull);
+      });
+
     });
 
     // =======================================================================
@@ -552,6 +641,205 @@ void main() {
         );
         expect(result.first['remote_path'], equals('bestehender-pfad'));
       });
+      test('setzt last_synced_etag für Artikel', () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+
+        await service.markSynced(artikel.uuid, 'etag-xyz');
+
+        final db = await service.database;
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        expect(result.first['last_synced_etag'], equals('etag-xyz'));
+      });
+
+      test('löscht pending_resolution bei erfolgreichem Sync', () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+
+        final db = await service.database;
+        await db.update(
+          'artikel',
+          {'pending_resolution': 'force_local'},
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+
+        await service.markSynced(artikel.uuid, 'etag-final');
+
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        expect(result.first['pending_resolution'], isNull);
+      });
+
+    });
+
+    // =======================================================================
+    // markAsModified()
+    // =======================================================================
+    group('markAsModified()', () {
+      test('setzt etag auf null', () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+        await service.markSynced(artikel.uuid, 'etag-v1');
+
+        await service.markAsModified(artikel.uuid);
+
+        final db = await service.database;
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        expect(result.first['etag'], isNull);
+      });
+
+      test('löscht pending_resolution bei normaler lokaler Änderung', () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+
+        final db = await service.database;
+        await db.update(
+          'artikel',
+          {
+            'etag': 'etag-v1',
+            'last_synced_etag': 'etag-v1',
+            'pending_resolution': 'force_local',
+          },
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+
+        await service.markAsModified(artikel.uuid);
+
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        expect(result.first['etag'], isNull);
+        expect(result.first['last_synced_etag'], equals('etag-v1'));
+        expect(result.first['pending_resolution'], isNull);
+      });
+      test('aktualisiert updated_at bei markAsModified()', () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+        await service.markSynced(artikel.uuid, 'etag-v1');
+
+        final db = await service.database;
+        final beforeResult = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        final beforeUpdatedAt = beforeResult.first['updated_at'] as int;
+
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        await service.markAsModified(artikel.uuid);
+
+        final afterResult = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        final afterUpdatedAt = afterResult.first['updated_at'] as int;
+
+        expect(afterUpdatedAt, greaterThan(beforeUpdatedAt));
+      });
+
+    });
+
+    // =======================================================================
+    // Force-Resolution-Helfer
+    // =======================================================================
+    group('Force-Resolution-Helfer', () {
+      test('markForForceLocal() aktualisiert updated_at', () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+        await service.markSynced(artikel.uuid, 'etag-v1');
+
+        final db = await service.database;
+        final beforeResult = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        final beforeUpdatedAt = beforeResult.first['updated_at'] as int;
+
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        await service.markForForceLocal(artikel.uuid);
+
+        final afterResult = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        final afterUpdatedAt = afterResult.first['updated_at'] as int;
+
+        expect(afterUpdatedAt, greaterThan(beforeUpdatedAt));
+      });
+
+      test('markForForceMerge() aktualisiert updated_at', () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+        await service.markSynced(artikel.uuid, 'etag-v1');
+
+        final db = await service.database;
+        final beforeResult = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        final beforeUpdatedAt = beforeResult.first['updated_at'] as int;
+
+        await Future<void>.delayed(const Duration(milliseconds: 2));
+        await service.markForForceMerge(artikel.uuid);
+
+        final afterResult = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        final afterUpdatedAt = afterResult.first['updated_at'] as int;
+
+        expect(afterUpdatedAt, greaterThan(beforeUpdatedAt));
+      });
+
+      test('clearPendingResolution() lässt etag und last_synced_etag unverändert',
+          () async {
+        final artikel = _makeArtikel();
+        await service.insertArtikel(artikel);
+
+        final db = await service.database;
+        await db.update(
+          'artikel',
+          {
+            'etag': 'etag-v2',
+            'last_synced_etag': 'etag-v1',
+            'pending_resolution': 'force_local',
+          },
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+
+        await service.clearPendingResolution(artikel.uuid);
+
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+
+        expect(result.first['etag'], equals('etag-v2'));
+        expect(result.first['last_synced_etag'], equals('etag-v1'));
+        expect(result.first['pending_resolution'], isNull);
+      });
     });
 
     // =======================================================================
@@ -625,6 +913,40 @@ void main() {
         final alle = await service.getAlleArtikel();
         expect(alle.first.bildPfad, equals('/remote/path/bild.jpg'));
       });
+      test('setzt last_synced_etag wenn etag angegeben wird', () async {
+        final artikel = _makeArtikel();
+        await service.upsertArtikel(artikel, etag: 'upsert-etag');
+
+        final db = await service.database;
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [artikel.uuid],
+        );
+        expect(result.first['last_synced_etag'], equals('upsert-etag'));
+      });
+
+      test('löscht pending_resolution nicht automatisch wenn kein etag angegeben wird',
+          () async {
+        final uuid = UuidGenerator.generate();
+
+        await service.upsertArtikel(
+          _makeArtikel(
+            uuid: uuid,
+            pendingResolution: 'force_local',
+          ),
+        );
+
+        final db = await service.database;
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [uuid],
+        );
+
+        expect(result.first['pending_resolution'], equals('force_local'));
+      });
+
     });
 
     // =======================================================================
@@ -728,7 +1050,7 @@ void main() {
         expect(exists, isFalse);
       });
 
-      test('gibt false zurück bei leerem Name', () async {
+      test('gibt false zurück wenn keine leere Kombination existiert', () async {
         final exists = await service.existsKombination(
           name: '',
           ort: 'Regal A',
@@ -771,9 +1093,9 @@ void main() {
       });
 
       test('Roundtrip: setLastSyncTime() → getLastSyncTime()', () async {
-        final before = DateTime.now().subtract(const Duration(seconds: 1));
+        final before = DateTime.now().toUtc().subtract(const Duration(seconds: 1));
         await service.setLastSyncTime();
-        final after = DateTime.now().add(const Duration(seconds: 1));
+        final after = DateTime.now().toUtc().add(const Duration(seconds: 1));
 
         final result = await service.getLastSyncTime();
         expect(result, isNotNull);
@@ -1012,6 +1334,28 @@ void main() {
         expect(result.first['etag'], isNull);
         expect(result.first['remoteBildPfad'], equals('/remote/neu.jpg'));
       });
+      test('setRemoteBildPfadByUuid() löscht pending_resolution', () async {
+        final uuid = UuidGenerator.generate();
+        await service.insertArtikel(_makeArtikel(uuid: uuid));
+
+        final db = await service.database;
+        await db.update(
+          'artikel',
+          {'pending_resolution': 'force_local'},
+          where: 'uuid = ?',
+          whereArgs: [uuid],
+        );
+
+        await service.setRemoteBildPfadByUuid(uuid, '/remote/neu.jpg');
+
+        final result = await db.query(
+          'artikel',
+          where: 'uuid = ?',
+          whereArgs: [uuid],
+        );
+        expect(result.first['pending_resolution'], isNull);
+      });
+
     });
 
     // =======================================================================

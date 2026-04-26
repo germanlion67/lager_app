@@ -25,7 +25,7 @@ abstract final class ArtikelDbServiceTestHelper {
     final db = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE artikel (
@@ -46,6 +46,8 @@ abstract final class ArtikelDbServiceTestHelper {
               updated_at INTEGER NOT NULL DEFAULT 0,
               deleted INTEGER NOT NULL DEFAULT 0,
               etag TEXT,
+              last_synced_etag TEXT,
+              pending_resolution TEXT,
               remote_path TEXT,
               device_id TEXT,
               kategorie TEXT
@@ -58,6 +60,7 @@ abstract final class ArtikelDbServiceTestHelper {
               updated_at INTEGER NOT NULL
             )
           ''');
+
           // ✅ Indizes — identisch mit _createIndices()
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_artikel_updated_at '
@@ -85,8 +88,6 @@ abstract final class ArtikelDbServiceTestHelper {
     );
 
     // ✅ In-Memory-DB in den Service injizieren
-    // ArtikelDbService exponiert database als Future<Database> —
-    // wir setzen _db direkt via injectDatabase()
-    service.injectDatabase(db);
+    await service.injectDatabase(db);
   }
 }

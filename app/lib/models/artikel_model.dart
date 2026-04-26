@@ -8,6 +8,7 @@ import 'package:logger/logger.dart';
 class _Undefined {
   const _Undefined();
 }
+
 const _undefined = _Undefined();
 
 class Artikel {
@@ -30,6 +31,8 @@ class Artikel {
   final int updatedAt;
   final bool deleted;
   final String? etag;
+  final String? lastSyncedEtag;
+  final String? pendingResolution;
   final String? remotePath;
   final String? deviceId;
 
@@ -53,6 +56,8 @@ class Artikel {
     int? updatedAt,
     this.deleted = false,
     this.etag,
+    this.lastSyncedEtag,
+    this.pendingResolution,
     this.remotePath,
     this.deviceId,
   })  : uuid = uuid ?? UuidGenerator.generate(),
@@ -81,6 +86,8 @@ class Artikel {
       'updated_at': updatedAt,
       'deleted': deleted ? 1 : 0,
       'etag': etag,
+      'last_synced_etag': lastSyncedEtag,
+      'pending_resolution': pendingResolution,
       'remote_path': remotePath,
       'device_id': deviceId,
     };
@@ -89,27 +96,22 @@ class Artikel {
   }
 
   /// PocketBase-Format: nur echte PB-Schema-Felder.
-  /// remote_path und etag werden mitgeschickt damit PocketBase
-  /// nach einem Bild-Upload den Datei-Pfad und ETag korrekt speichert.
-  /// etag ist hier die PocketBase Record-ID (Surrogate-ETag) —
-  /// sie identifiziert eindeutig den Stand des Remote-Records
-  /// und wird für Konflikt-Erkennung beim Sync genutzt.
+  /// Lokale Sync-Steuerfelder wie `last_synced_etag` und
+  /// `pending_resolution` werden bewusst nicht übertragen.
   Map<String, dynamic> toPocketBaseMap() {
-      return {
-        'name': name,
-        'artikelnummer': artikelnummer, // M-007
-        'menge': menge,
-        'ort': ort,
-        'fach': fach,
-        'beschreibung': beschreibung,
-        'uuid': uuid,
-        'updated_at': updatedAt, // ← NEU: Sync-Timestamp für PocketBase
-        'deleted': deleted,
-        'device_id': deviceId,
-        'remote_path': remotePath,
-        'etag': etag,
-      };
-    }
+    return {
+      'name': name,
+      'artikelnummer': artikelnummer, // M-007
+      'menge': menge,
+      'ort': ort,
+      'fach': fach,
+      'beschreibung': beschreibung,
+      'uuid': uuid,
+      'updated_at': updatedAt,
+      'deleted': deleted,
+      'device_id': deviceId,
+    };
+  }
 
   /// SQLite → Artikel.
   ///
@@ -118,8 +120,6 @@ class Artikel {
   /// - PocketBase liefert Felder in camelCase (z.B. remotePath, deviceId).
   /// - Fallbacks (??) stellen sicher dass fromMap() für beide Quellen
   ///   funktioniert ohne separate fromSQLite()- und fromPocketBase()-Pfade.
-  /// - Felder ohne Fallback (z.B. etag, uuid) existieren in beiden
-  ///   Quellen unter demselben Key.
   factory Artikel.fromMap(Map<String, dynamic> map) {
     final parsedId = map['id'] is int
         ? map['id'] as int
@@ -134,7 +134,7 @@ class Artikel {
     return Artikel(
       id: parsedId,
       name: map['name']?.toString() ?? '',
-      artikelnummer: _parseIntNullable(map['artikelnummer']), // M-007: null wenn nicht vorhanden
+      artikelnummer: _parseIntNullable(map['artikelnummer']),
       menge: parsedMenge,
       ort: map['ort']?.toString() ?? '',
       fach: map['fach']?.toString() ?? '',
@@ -142,22 +142,20 @@ class Artikel {
       bildPfad: map['bildPfad']?.toString() ?? '',
       thumbnailPfad: map['thumbnailPfad']?.toString(),
       thumbnailEtag: map['thumbnailEtag']?.toString(),
-      // FIX #8: _parseDateTime() gibt jetzt immer UTC zurück
       erstelltAm: _parseDateTime(erstelltAmValue),
       aktualisiertAm: _parseDateTime(aktualisiertAmValue),
       remoteBildPfad: map['remoteBildPfad']?.toString(),
       uuid: map['uuid']?.toString() ?? UuidGenerator.generate(),
-      // snake_case (SQLite) mit camelCase-Fallback (PocketBase)
       updatedAt: _parseInt(map['updated_at'] ?? map['updatedAt']),
       deleted: map['deleted'] == 1 || map['deleted'] == true,
-      // etag: gleicher Key in SQLite und PocketBase → kein Fallback nötig
       etag: map['etag']?.toString(),
-      // snake_case (SQLite) mit camelCase-Fallback (PocketBase)
-      remotePath: map['remote_path']?.toString()
-          ?? map['remotePath']?.toString(),
-      // snake_case (SQLite) mit camelCase-Fallback (PocketBase)
-      deviceId: map['device_id']?.toString()
-          ?? map['deviceId']?.toString(),
+      lastSyncedEtag: map['last_synced_etag']?.toString() ??
+          map['lastSyncedEtag']?.toString(),
+      pendingResolution: map['pending_resolution']?.toString() ??
+          map['pendingResolution']?.toString(),
+      remotePath:
+          map['remote_path']?.toString() ?? map['remotePath']?.toString(),
+      deviceId: map['device_id']?.toString() ?? map['deviceId']?.toString(),
     );
   }
 
@@ -179,16 +177,17 @@ class Artikel {
     final String? pbRemoteBildPfad =
         pbBildPfad != null && pbBildPfad.isNotEmpty ? pbBildPfad : null;
 
+    final effectiveUpdated = aktualisiertAmValue?.toString();
+
     return Artikel(
       id: null,
       name: data['name']?.toString() ?? '',
-      artikelnummer: _parseIntNullable(data['artikelnummer']), // M-007
+      artikelnummer: _parseIntNullable(data['artikelnummer']),
       menge: parsedMenge,
       ort: data['ort']?.toString() ?? '',
       fach: data['fach']?.toString() ?? '',
       beschreibung: data['beschreibung']?.toString() ?? '',
       bildPfad: '',
-      // FIX #8: _parseDateTime() gibt jetzt immer UTC zurück
       erstelltAm: _parseDateTime(erstelltAmValue),
       aktualisiertAm: _parseDateTime(aktualisiertAmValue),
       remoteBildPfad: pbRemoteBildPfad,
@@ -196,23 +195,22 @@ class Artikel {
       updatedAt: aktualisiertAmValue != null
           ? _parseDateTimeToMillis(aktualisiertAmValue)
           : DateTime.now().toUtc().millisecondsSinceEpoch,
-      // FIX #8: ↑ UTC-Normalisierung im Fallback
       deleted: data['deleted'] == true,
-      // etag = PocketBase Record-ID als Surrogate-ETag.
-      // Identifiziert eindeutig den Stand des Remote-Records.
-      // Wird für Konflikt-Erkennung beim bidirektionalen Sync genutzt.
-      etag: recordId,
-      // remotePath = PocketBase Record-ID als Referenz auf den Remote-Record.
-      // Wird genutzt um den lokalen Artikel mit dem PB-Record zu verknüpfen.
+      etag: effectiveUpdated != null && effectiveUpdated.isNotEmpty
+          ? effectiveUpdated
+          : recordId,
+      lastSyncedEtag: effectiveUpdated != null && effectiveUpdated.isNotEmpty
+          ? effectiveUpdated
+          : recordId,
+      pendingResolution: null,
       remotePath: recordId,
-      deviceId: data['deviceId']?.toString(),
+      deviceId:
+          data['device_id']?.toString() ?? data['deviceId']?.toString(),
     );
   }
 
   // ==================== HELPER ====================
 
-  // FIX #8: _parseDateTime() normalisiert immer auf UTC
-  // → verhindert Zeitzonenprobleme beim Sync zwischen Geräten
   static DateTime _parseDateTime(dynamic value) {
     if (value == null) {
       _logger.w(
@@ -220,9 +218,9 @@ class Artikel {
       );
       return DateTime.now().toUtc();
     }
-    if (value is DateTime) return value.toUtc(); // FIX #8: .toUtc()
+    if (value is DateTime) return value.toUtc();
     try {
-      return DateTime.parse(value.toString()).toUtc(); // FIX #8: .toUtc()
+      return DateTime.parse(value.toString()).toUtc();
     } catch (e, stack) {
       _logger.e(
         '❌ _parseDateTime: Ungültiger Wert "$value" konnte nicht geparst '
@@ -230,16 +228,14 @@ class Artikel {
         error: e,
         stackTrace: stack,
       );
-      return DateTime.now().toUtc(); // FIX #8: .toUtc()
+      return DateTime.now().toUtc();
     }
   }
 
-  // FIX #8: _parseDateTimeToMillis() normalisiert auf UTC vor Konvertierung
   static int _parseDateTimeToMillis(dynamic value) {
     if (value == null) return DateTime.now().toUtc().millisecondsSinceEpoch;
     if (value is DateTime) return value.toUtc().millisecondsSinceEpoch;
     try {
-      // FIX #8: .toUtc() vor .millisecondsSinceEpoch
       return DateTime.parse(value.toString())
           .toUtc()
           .millisecondsSinceEpoch;
@@ -268,7 +264,6 @@ class Artikel {
     return parsed ?? 0;
   }
 
-  // M-007: Helper für nullable int parsing
   static int? _parseIntNullable(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
@@ -281,7 +276,7 @@ class Artikel {
   Artikel copyWith({
     Object? id = _undefined,
     String? name,
-    Object? artikelnummer = _undefined, // M-007: nullable field
+    Object? artikelnummer = _undefined,
     int? menge,
     String? ort,
     String? fach,
@@ -296,13 +291,17 @@ class Artikel {
     Object? updatedAt = _undefined,
     bool? deleted,
     Object? etag = _undefined,
+    Object? lastSyncedEtag = _undefined,
+    Object? pendingResolution = _undefined,
     Object? remotePath = _undefined,
     Object? deviceId = _undefined,
   }) {
     return Artikel(
       id: id is _Undefined ? this.id : id as int?,
       name: name ?? this.name,
-      artikelnummer: artikelnummer is _Undefined ? this.artikelnummer : artikelnummer as int?, // M-007
+      artikelnummer: artikelnummer is _Undefined
+          ? this.artikelnummer
+          : artikelnummer as int?,
       menge: menge ?? this.menge,
       ort: ort ?? this.ort,
       fach: fach ?? this.fach,
@@ -320,17 +319,19 @@ class Artikel {
           ? this.remoteBildPfad
           : remoteBildPfad as String?,
       uuid: uuid ?? this.uuid,
-      updatedAt: updatedAt is _Undefined
-          ? this.updatedAt
-          : updatedAt as int?,
+      updatedAt: updatedAt is _Undefined ? this.updatedAt : updatedAt as int?,
       deleted: deleted ?? this.deleted,
       etag: etag is _Undefined ? this.etag : etag as String?,
+      lastSyncedEtag: lastSyncedEtag is _Undefined
+          ? this.lastSyncedEtag
+          : lastSyncedEtag as String?,
+      pendingResolution: pendingResolution is _Undefined
+          ? this.pendingResolution
+          : pendingResolution as String?,
       remotePath: remotePath is _Undefined
           ? this.remotePath
           : remotePath as String?,
-      deviceId: deviceId is _Undefined
-          ? this.deviceId
-          : deviceId as String?,
+      deviceId: deviceId is _Undefined ? this.deviceId : deviceId as String?,
     );
   }
 
@@ -355,7 +356,8 @@ class Artikel {
   @override
   String toString() {
     return 'Artikel(uuid: $uuid, artikelnummer: $artikelnummer, name: $name, menge: $menge, '
-        'ort: $ort, fach: $fach, deleted: $deleted)';
+        'ort: $ort, fach: $fach, deleted: $deleted, etag: $etag, '
+        'lastSyncedEtag: $lastSyncedEtag, pendingResolution: $pendingResolution)';
   }
 
   @override

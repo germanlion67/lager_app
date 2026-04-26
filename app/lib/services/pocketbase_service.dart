@@ -18,6 +18,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:logger/logger.dart';
 import '../config/app_config.dart';
 
+import 'pocketbase_sync_contracts.dart';
+
 class LoginTimeoutException implements Exception {
   final Duration timeout;
 
@@ -28,7 +30,7 @@ class LoginTimeoutException implements Exception {
       'LoginTimeoutException: Login nach ${timeout.inSeconds}s abgebrochen.';
 }
 
-class PocketBaseService {
+class PocketBaseService implements SyncPocketBaseService {
 
   static const String _prefsKey = 'pocketbase_url';
 
@@ -58,6 +60,7 @@ class PocketBaseService {
   /// Der aktive PocketBase-Client.
   /// Muss vorher mit [initialize] initialisiert werden.
   /// Wirft [StateError] wenn keine URL konfiguriert ist.
+  @override
   PocketBase get client {
     if (_client == null) {
       throw StateError(
@@ -71,13 +74,16 @@ class PocketBaseService {
   }
 
   /// Aktuelle PocketBase-URL (kann leer sein wenn nicht konfiguriert).
+  @override
   String get url => _currentUrl;
 
   /// Prüft ob der Service initialisiert ist (unabhängig davon ob eine URL
   /// konfiguriert ist).
+ 
   bool get isInitialized => _initialized;
 
   /// Prüft ob ein funktionsfähiger Client vorhanden ist.
+  @override
   bool get hasClient => _client != null;
 
   /// Gibt `true` zurück wenn keine brauchbare URL konfiguriert ist
@@ -326,6 +332,7 @@ class PocketBaseService {
   // ---------------------------------------------------------------------------
 
   /// Gibt zurück, ob aktuell ein Benutzer eingeloggt ist.
+  @override
   bool get isAuthenticated {
     final c = _client;
     if (c == null) return false;
@@ -333,6 +340,7 @@ class PocketBaseService {
   }
 
   /// Gibt die ID des aktuell eingeloggten Benutzers zurück, oder null.
+  @override
   String? get currentUserId {
     final c = _client;
     if (c == null) return null;

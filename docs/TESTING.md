@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.9.2+32 | **Zuletzt aktualisiert:** 23.04.2026
+**Version:** 0.9.3 | **Zuletzt aktualisiert:** 26.04.2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **642 Tests bestanden, 3 skipped, 0 Fehler**
+✅ **661 Tests bestanden, 3 skipped, 0 Fehler**
 
 > `--exclude-tags performance` ist optional verfügbar, aber nicht erforderlich.  
 > Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
@@ -28,11 +28,11 @@ flutter test
 | Datei | Kategorie | Tests | Aufgabe |
 | :-- | :-- | :--: | :-- |
 | `test/conflict_resolution_test.dart` | Unit + Widget | 77 | T-001 |
-| `test/models/artikel_model_test.dart` | Unit | 64 | O-002 |
+| `test/models/artikel_model_test.dart` | Unit | 64 | O-002 / T-001 |
 | `test/models/attachment_model_test.dart` | Unit | 30 | O-002 |
 | `test/models/nextcloud_credentials_test.dart` | Unit | 4 | — |
 | `test/services/app_lock_service_test.dart` | Unit | 13 | O-011 |
-| `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 |
+| `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 / T-001 |
 | `test/services/artikel_export_service_test.dart` | Unit + Widget | 2 | — |
 | `test/services/artikel_import_service_test.dart` | Unit | 4 | — |
 | `test/services/app_log_service_test.dart` | Unit | 14 | — |
@@ -43,7 +43,7 @@ flutter test
 | `test/services/nextcloud_client_test.dart` | Unit | 39 | T-003 |
 | `test/services/nextcloud_listfiles_test.dart` | Unit | 1 | — |
 | `test/services/pocketbase_sync_service_test.dart` | Unit | 17 | T-002 |
-| `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 11 | T-008 |
+| `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 11 | T-008 / T-001 |
 | `test/services/settings_controller_test.dart` | Unit | 15 | O-010 / T-009 |
 | `test/services/sync_orchestrator_test.dart` | Unit | 9 | T-008 |
 | `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
@@ -61,10 +61,10 @@ flutter test
 | `test/helpers/no_op_nextcloud_service.dart` | Test-Helper | — | O-006 |
 | `test/mocks/sync_service_mocks.dart` | Test-Helper | — | T-001 |
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
-| **Gesamt** |  | **645** |  |
+| **Gesamt** |  | **664** |  |
 
-> Hinweis: Die Dateiübersicht ist auf den Stand **0.9.2+32** angehoben.  
-> Für neu hinzugekommene Testdateien sollten die exakten Testanzahlen bei der nächsten vollständigen Testinventur nachgetragen werden.
+> Hinweis: Der letzte verifizierte Gesamtlauf ergab **661 bestandene Tests** und **3 übersprungene Tests**.  
+> Die Dateisummen dienen der Übersicht und können bei zukünftigen kleineren Testumbauten leicht abweichen.
 
 ---
 
@@ -106,21 +106,31 @@ flutter test test/services/nextcloud_client_test.dart
 
 ### `conflict_resolution_test.dart` — T-001 (77 Tests)
 
-**Ziel:** Vollständige Konfliktlösungs-Pipeline bis zum UI-Merge.
+**Ziel:** Abdeckung des Konfliktauflösungs-Flows im UI-/Resolution-Scope.
 
-**Abgedeckte Klassen:** `ConflictData`, `ConflictResolution` (Enum), `SyncService.detectConflicts()`, `ConflictResolutionScreen`
+**Abgedeckte Bereiche:**
+- `ConflictData`
+- `ConflictResolution`
+- `ConflictResolutionScreen`
+- Nutzerentscheidungen für Konflikte
+- Merge-Dialog und Übergabe des Merge-Ergebnisses
 
 | Gruppe | Tests | Was wird geprüft |
 | :-- | :--: | :-- |
 | `T-001.1: ConflictData` | 11 | Konstruktor, Pflichtfelder, Null-Handling |
 | `T-001.2: ConflictResolution Enum` | 6 | Enum-Werte, Index, `byName` |
-| `T-001.3: detectConflicts()` | 9 | ETag-Vergleich, Konflikt-Erkennung, Fehlerbehandlung |
-| `T-001.4: _determineConflictReason()` | 15 | Zeitstempel-Szenarien (gleich, zeitnah, lokal/remote neuer) |
 | `T-001.5: Widget-Tests` | 20 | `ConflictResolutionScreen` UI, Navigation, Dialog, Pop-Result |
+| `T-001.9` | — | Merge-Dialog öffnet sich, Felder werden gewählt, Ergebnis wird korrekt weitergegeben |
+| `T-001.10` | — | Skip speichert keine Auflösung im UI-Flow |
+| `T-001.11` | — | Mehrere Konflikte, Fortschritt `(1/2)`, Weiter-Navigation, Hilfe-Dialog |
 | `T-001.extra: Feld-Vergleiche` | 10 | Artikel-Properties als Vergleichsgrundlage |
 | `T-001.extra: Collections` | 4 | `ConflictData` in Listen, Resolution-Tracking |
 
-**Besonderheit:** Widget-Tests laufen mit `setSurfaceSize(1024×900)` — der Standard-Viewport (800×600) ist zu klein für die Side-by-Side-Versionskarten nach Auswahl. `addTearDown` stellt den Default-Viewport nach jedem Test wieder her.
+**Wichtiger fachlicher Hinweis:**  
+Diese Testdatei prüft den **UI-/Resolution-Flow**. Die eigentliche produktive Konflikterkennung gegen den echten `PocketBaseSyncService` ist zusätzlich in `pocketbase_sync_service_conflict_test.dart` abgesichert.
+
+**Besonderheit:**  
+Widget-Tests laufen mit `setSurfaceSize(1024×900)` — der Standard-Viewport ist für die Side-by-Side-Versionskarten zu klein. `addTearDown` stellt den Default-Viewport nach jedem Test wieder her.
 
 ```bash
 flutter test test/conflict_resolution_test.dart
@@ -128,15 +138,13 @@ flutter test test/conflict_resolution_test.dart
 
 ---
 
-### `services/pocketbase_sync_service_test.dart` — T-002 & B-007 (17 Tests)
+### `services/pocketbase_sync_service_test.dart` — T-002 (17 Tests)
 
-**Ziel:** Unit-Tests für die PocketBase-Sync-Logik — Push, Pull, Fehlerbehandlung, inkl. der neuen Smart-Sync-Logik für Bilder.
+**Ziel:** Unit-Tests für die PocketBase-Sync-Logik — Push, Pull, Fehlerbehandlung, inklusive Smart-Sync-Logik für Bilder.
 
 **Strategie:**
-- Manuelle Fakes statt `@GenerateMocks` — `PocketBaseService` und `ArtikelDbService` sind Singletons mit Factory-Konstruktoren
+- Manuelle Fakes statt `@GenerateMocks`
 - `TestableSyncService` repliziert die Sync-Logik mit injizierbaren Fakes
-- `FakeRecordService` erweitert `RecordService` mit exakten Methoden-Signaturen (PocketBase SDK v0.23.2)
-- `RecordModel.fromJson()` statt Konstruktor-Parameter für `id`/`created`/`updated`
 - Kein Netzwerk, kein SQLite, kein Dateisystem, kein `build_runner` nötig
 
 | Gruppe | Tests | Was wird geprüft |
@@ -165,32 +173,33 @@ flutter test test/services/pocketbase_sync_service_test.dart
 
 ---
 
-### `services/pocketbase_sync_service_conflict_test.dart` + `services/sync_orchestrator_test.dart` — T-008 (20 Tests)
 
-**Ziel:** Unit-Tests für ETag-basierte Konflikt-Erkennung in `PocketBaseSyncService` und `downloadMissingImages`-Skip-Logik im `SyncOrchestrator`.
+### `services/pocketbase_sync_service_conflict_test.dart` + `services/sync_orchestrator_test.dart` — T-008 / T-001 (20 Tests)
 
-**Strategie:**
-- Reine Unit-Tests ohne Netzwerk, SQLite oder Dateisystem
-- ETag-Logik als isolierte Funktion mit Laufzeit-Parametern getestet  
-  (`dead_code`-Lint vermieden durch lokale Funktion statt `false && X`)
-- `Artikel()`-Konstruktor: `erstelltAm`/`aktualisiertAm` als `DateTime` (nicht `String`)
-- `ConflictCallback`-Typedef direkt auf Typ-Kompatibilität geprüft
+**Ziel:** Fachlich belastbare Absicherung der Konflikterkennung und des Konfliktverhaltens im Sync-Umfeld.
+
+### Was seit v0.9.3 zusätzlich abgesichert ist
+- Konflikterkennung basiert auf `last_synced_etag` statt allein auf `etag`
+- bewusste Force-Resolution-Zustände sind testbar
+- Skip-Recall beim nächsten Sync ist gegen den echten Produktivservice abgesichert
+- Delete-vs-Remote-Edit wird als echter Konflikt erkannt
 
 | Gruppe | Tests | Datei | Was wird geprüft |
 | :-- | :--: | :-- | :-- |
 | ConflictCallback Typedef | 1 | conflict_test | Typ-Kompatibilität des Callbacks |
 | `onConflictDetected` initial | 1 | conflict_test | Initial `null` nach Konstruktor |
-| ETag-Konflikt-Logik (Unit) | 5 | conflict_test | Leer, gleich, verschieden, `deleted`, leerer Remote |
-| downloadMissingImages Datei-Check | 3 | conflict_test | Leerer Pfad, nicht-existent, existiert mit Inhalt |
+| Konfliktlogik Baseline/Remote | 5 | conflict_test | Vergleich gegen synchronisierte Baseline statt Dirty-Flag allein |
+| Skip-Recall beim nächsten Sync | — | conflict_test | Übersprungene Konflikte erscheinen erneut |
+| Force-Resolution-Verhalten | — | conflict_test | `force_local` / `force_merge` werden fachlich respektiert |
+| Delete-vs-Remote-Edit | — | conflict_test | Lokales Soft-Delete + Remote-Änderung erzeugt Konflikt |
 | ConflictCapture Integration | 1 | conflict_test | Callback mit korrekten lokalen + Remote-Artikeln |
 | ConflictCallback Typedef (Orchestrator) | 2 | orchestrator_test | Zuweisung, Exception-Handling |
 | SyncStatus Enum | 2 | orchestrator_test | Vollständigkeit, exhaustiver Switch |
-| ETag Grenzwerte | 2 | orchestrator_test | Whitespace-Unterschied, beide leer |
+| ETag-/Baseline-Grenzwerte | 2 | orchestrator_test | Randfälle für Vergleichslogik |
 
-**Fixes während Test-Erstellung:**
-- `Artikel()`-Konstruktor: `erstelltAm`/`aktualisiertAm` sind `DateTime`, nicht `String` — alle Test-Instanzen auf `DateTime.now()` umgestellt
-- `dead_code`-Lint: `false && X`-Muster durch lokale Funktion mit Laufzeit-Parametern ersetzt
-- `expected_token`: fehlende `});` nach `test()` und `group()` ergänzt
+**Wichtiger fachlicher Hinweis:**  
+Diese Tests decken nicht nur eine isolierte Hilfsfunktion ab, sondern sichern zentrale Konfliktfälle gegen den produktiven Sync-Kontext ab.  
+Insbesondere **T-001.10** und **T-001.12** werden hier entscheidend fachlich belegt.
 
 ```bash
 flutter test test/services/pocketbase_sync_service_conflict_test.dart
@@ -253,16 +262,23 @@ flutter test test/models/attachment_model_test.dart
 
 ---
 
-### `services/artikel_db_service_test.dart` — O-002 (75 Tests)
+### `services/artikel_db_service_test.dart` — O-002 / T-001 (75 Tests)
 
-**Ziel:** Integrationstests für alle Methoden des `ArtikelDbService`.
+**Ziel:** Integrationstests für alle Methoden des `ArtikelDbService`, einschließlich der Sync-Metadaten für die Konfliktauflösung.
 
 **Strategie:**
-- `sqflite_common_ffi` mit `inMemoryDatabasePath` — kein Dateisystem nötig
+- `sqflite_common_ffi` mit `inMemoryDatabasePath`
 - `injectDatabase()` (`@visibleForTesting`) für saubere Test-Isolation
 - `ArtikelDbServiceTestHelper` für wiederverwendbaren In-Memory-Setup
 
-| Methode | Was wird geprüft |
+**Zusätzlich fachlich relevant für v0.9.3:**
+- Persistenz von `last_synced_etag`
+- Persistenz von `pending_resolution`
+- Zustandsübergänge für normale lokale Änderungen
+- Zustandsübergänge für erfolgreiche Synchronisation
+- Rücksetzen bewusster Konfliktentscheidungen
+
+| Methode / Bereich | Was wird geprüft |
 | :-- | :-- |
 | `insertArtikel()` | Einfügen, UUID-Eindeutigkeit, `ConflictAlgorithm` |
 | `getAlleArtikel()` | Pagination, deleted-Filter |
@@ -270,9 +286,11 @@ flutter test test/models/attachment_model_test.dart
 | `deleteArtikel()` | Soft-Delete (`deleted=1`) |
 | `getArtikelByUUID()` | Treffer, kein Treffer |
 | `getArtikelByRemotePath()` | Treffer, kein Treffer |
-| `getPendingChanges()` | `etag=null`-Filter |
-| `markSynced()` | ETag + `remote_path` setzen |
+| `getPendingChanges()` | Pending-/Dirty-Filter |
+| `markSynced()` | `etag`, `last_synced_etag` und `remote_path` setzen |
 | `upsertArtikel()` | Insert + Update-Pfad |
+| Sync-Metadaten | `last_synced_etag` bleibt bei normalen lokalen Änderungen erhalten |
+| Force-Resolution | `pending_resolution` kann gesetzt und zurückgesetzt werden |
 | `searchArtikel()` | Suche nach Name/Beschreibung |
 | `existsKombination()` / `existsArtikelnummer()` | Duplikat-Erkennung |
 | `setLastSyncTime()` / `getLastSyncTime()` | Persistierung des Sync-Zeitstempels |
@@ -282,14 +300,39 @@ flutter test test/models/attachment_model_test.dart
 | `insertArtikelList()` | Batch-Insert |
 | `updateBildPfad()` / `updateRemoteBildPfad()` | Bild-Pfad-Updates |
 | `setBildPfadByUuid()` / `setThumbnailPfadByUuid()` | UUID-basierte Bild-Updates |
-| `setBildPfadByUuidSilent()` | Setzt nur `bildPfad` — kein `updated_at`, kein Sync-Trigger |
+| `setBildPfadByUuidSilent()` | Setzt nur `bildPfad` — kein `updated_at`, kein normaler Sync-Trigger |
 | `setThumbnailEtagByUuid()` / `setRemoteBildPfadByUuid()` | ETag + Remote-Pfad |
 | `getUnsyncedArtikel()` | Nicht synchronisierte Artikel |
 
-> ⚠️ **Hinweis:** Dieser Test setzt `sqflite_common_ffi` voraus. Unter Linux/Windows läuft er nativ. Unter macOS kann eine zusätzliche FFI-Konfiguration nötig sein.
+> ⚠️ **Hinweis:** Dieser Test setzt `sqflite_common_ffi` voraus. Unter Linux/Windows läuft er nativ. Unter macOS kann zusätzliche FFI-Konfiguration nötig sein.
 
 ```bash
 flutter test test/services/artikel_db_service_test.dart
+```
+
+---
+
+### `models/artikel_model_test.dart` — O-002 / T-001 (64 Tests)
+
+**Ziel:** Absicherung des `Artikel`-Modells inklusive der neuen Sync-Metadaten.
+
+**Zusätzlich fachlich relevant für v0.9.3:**
+- `lastSyncedEtag` wird korrekt serialisiert und deserialisiert
+- `pendingResolution` wird korrekt serialisiert und deserialisiert
+- `copyWith()` transportiert die neuen Felder korrekt
+- PocketBase-Mapping enthält keine lokalen Sync-Steuerinformationen
+
+**Abgedeckte Bereiche:**
+- Konstruktor
+- `toMap()`
+- `fromMap()`
+- Roundtrip
+- `copyWith()`
+- Gleichheit / `hashCode`
+- Modellkonsistenz für lokale Sync-Metadaten
+
+```bash
+flutter test test/models/artikel_model_test.dart
 ```
 
 ---
@@ -689,31 +732,25 @@ flutter test --reporter expanded --no-pub
 
 ---
 
-## 🔧 Voraussetzungen
 
-| Anforderung | Details |
-| :-- | :-- |
-| Flutter SDK | ≥ 3.41.7 |
-| Betriebssystem | Linux, Windows oder macOS |
-| `flutter pub get` | Einmalig im `app/`-Verzeichnis ausführen |
-| `--exclude-tags performance` | Optional — nicht erforderlich |
-| macOS + `sqflite_ffi` | Ggf. zusätzliche FFI-Konfiguration nötig |
-
----
 
 ## 🚫 Manuelle Integrationstests (T-001)
 
-Die folgenden Tests sind **nicht automatisierbar** und müssen manuell durchgeführt werden (erfordern zwei verbundene Geräte oder Browser-Tabs):
+Die folgenden Szenarien waren ursprünglich als manuelle Integrationstests formuliert.  
+Für **v0.9.3** ist ein wesentlicher Teil inzwischen zusätzlich automatisiert abgesichert.
 
-| Test | Beschreibung |
-| :-- | :-- |
-| T-001.6 | Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint |
-| T-001.7 | „Lokal behalten" → Server wird überschrieben |
-| T-001.8 | „Server übernehmen" → Lokale Daten werden ersetzt |
-| T-001.9 | „Zusammenführen" → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt |
-| T-001.10 | „Überspringen" → Konflikt bleibt, erscheint beim nächsten Sync erneut |
-| T-001.11 | Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige |
-| T-001.12 | Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt |
+| Test | Beschreibung | Status |
+| :-- | :-- | :-- |
+| T-001.6 | Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint | Weiterhin primär manuell |
+| T-001.7 | „Lokal behalten" → Server wird überschrieben | Fachlich automatisiert abgesichert, optional zusätzlich manuell prüfbar |
+| T-001.8 | „Server übernehmen" → Lokale Daten werden ersetzt | Fachlich automatisiert abgesichert, optional zusätzlich manuell prüfbar |
+| T-001.9 | „Zusammenführen" → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt | Durch Widget-Tests fachlich abgesichert, optional zusätzlich manuell prüfbar |
+| T-001.10 | „Überspringen" → Konflikt bleibt, erscheint beim nächsten Sync erneut | Automatisiert abgesichert |
+| T-001.11 | Mehrere Konflikte gleichzeitig → sequentielle Bearbeitung mit Fortschrittsanzeige | Durch Widget-Tests fachlich abgesichert |
+| T-001.12 | Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt | Automatisiert abgesichert |
+
+**Wichtiger Hinweis:**  
+Für den Release-Stand **0.9.3** gelten insbesondere **T-001.7 bis T-001.12** fachlich als umgesetzt und automatisiert nachvollziehbar abgesichert.
 
 ---
 
@@ -725,6 +762,7 @@ Die folgenden Tests sind **nicht automatisierbar** und müssen manuell durchgef�
 | :-- | :-- | :-- |
 | `fake_sync_status_provider.dart` | Test-Double für `SyncStatusProvider` — emittiert kontrollierte Sync-Events | `sync_status_provider_test.dart`, Sync-UI-Tests |
 | `no_op_nextcloud_service.dart` | Timer-freier Test-Double via `NextcloudServiceInterface` | `artikel_list_screen_test.dart` |
+
 
 ### Verwendung von `FakeSyncStatusProvider`
 
@@ -755,7 +793,16 @@ fake.dispose();
 | `FakeRecordService` | Erweitert `RecordService` — Handler-Callbacks für alle CRUD-Operationen |
 | `FakePocketBase` | Erweitert `PocketBase` — leitet `collection()` auf `FakeRecordService` um |
 | `TestableSyncService` | Repliziert `PocketBaseSyncService`-Logik mit injizierbaren Fakes |
-| `istKonfliktFn` (lokal) | Laufzeit-Funktion in T-008 — ersetzt `false && X`-Muster für `dead_code`-Lint |
+
+### Testbarkeit des echten PocketBaseSyncService
+
+Seit dem Abschluss von T-001.10 und T-001.12 wurde zusätzlich die produktive
+Sync-Logik testbarer gemacht:
+
+- `PocketBaseSyncService` kann über schlanke Service-Contracts näher an der echten Produktivlogik getestet werden
+- Konflikt-Recall und Delete-vs-Edit wurden dadurch nicht nur theoretisch, sondern gegen den realen Sync-Service abgesichert
+
+---
 
 ### Fake-Klassen für AttachmentService (`attachment_service_test.dart`)
 
@@ -764,6 +811,18 @@ fake.dispose();
 | `FakeAttachmentRecordService` | Erweitert `RecordService` — Handler-Callbacks inkl. `perPage` / `page` / `sort` |
 | `FakePocketBaseForAttachment` | Erweitert `PocketBase` — leitet `collection()` um |
 | `fakeClientException()` | Helper — erzeugt `ClientException` mit `originalError:` (SDK v0.23.2) |
+
+---
+
+## 🔧 Voraussetzungen
+
+| Anforderung | Details |
+| :-- | :-- |
+| Flutter SDK | ≥ 3.41.7 |
+| Betriebssystem | Linux, Windows oder macOS |
+| `flutter pub get` | Einmalig im `app/`-Verzeichnis ausführen |
+| `--exclude-tags performance` | Optional — nicht erforderlich |
+| macOS + `sqflite_ffi` | Ggf. zusätzliche FFI-Konfiguration nötig |
 
 ---
 

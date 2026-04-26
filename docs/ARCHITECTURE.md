@@ -148,49 +148,31 @@ lager_app/
 
 ## 💾 Datenmodell (PocketBase Schema)
 
-Das Herzstück der Anwendung ist die Collection `artikel`. Ergänzt wird sie durch die Collection `artikel_dokumente` für die Dokumentenverwaltung.
+Das Herzstück der Anwendung ist die Collection `artikel`. Ergänzt wird sie durch die Collection `attachments` für Dateianhänge.
 
 ### Collection: `artikel`
 
-| Feld           | Typ       | Beschreibung                                       | Index              |
-| :------------- | :-------- | :------------------------------------------------- | :----------------- |
-| `id`           | `INTEGER` | Lokaler Auto-Increment PK (nur SQLite)             | —                  |
-| `uuid`         | `TEXT`    | Globaler Identifier (RFC-4122 V4), geräteübergreifend eindeutig | ✅ `idx_uuid`      |
-| `artikelnummer`| `INTEGER` | Fachliche ID (≥ 1000), automatisch vergeben        | ✅ `idx_unique_an` |
-| `name`         | `TEXT`    | Bezeichnung des Artikels (Pflicht, 2–100 Zeichen)  | ✅ `idx_search_name` |
-| `menge`        | `INTEGER` | Lagerbestand (≥ 0, max 999.999)                    | —                  |
-| `ort`          | `TEXT`    | Lagerort (Pflichtfeld)                             | —                  |
-| `fach`         | `TEXT`    | Lagerfach (Pflichtfeld)                            | —                  |
-| `beschreibung` | `TEXT`    | Freitext                                           | —                  |
-| `kategorie`    | `TEXT`    | Kategorie                                          | —                  |
-| `remote_path`  | `TEXT`    | PocketBase Record-ID (Verbindung zum Server)       | —                  |
-| `updated_at`   | `INTEGER` | Unix-Timestamp ms (Delta-Sync)                     | ✅ `idx_sync`      |
-| `deleted`      | `INTEGER` | Soft-Delete (0 = aktiv, 1 = gelöscht)              | ✅ `idx_sync`      |
-| `etag`         | `TEXT`    | `NULL` = lokale Änderung ausstehend (Pending)      | —                  |
-| `bildPfad`     | `TEXT`    | Lokaler Pfad Originalbild                          | —                  |
-| `thumbnailPfad`| `TEXT`    | Lokaler Pfad Vorschaubild                          | —                  |
-| `remoteBildPfad`| `TEXT`    | Dateiname auf PocketBase                           | —                  |
-| `erstelltAm`   | `TEXT`    | ISO 8601 Erstellungsdatum                          | —                  |
-
-### Collection: `artikel_dokumente`
-
-Jedes Dokument ist über `artikel_uuid` eindeutig einem Artikel zugeordnet.
-Unterstützte Dateitypen: PDF, DOCX, XLSX, TXT und weitere.
-
-| Feld                 | Typ       | Beschreibung                                       | Index                |
-| :------------------- | :-------- | :------------------------------------------------- | :------------------- |
-| `artikel_uuid`       | `TEXT`    | FK → `artikel.uuid`                                | ✅ `idx_dok_artikel_uuid` |
-| `uuid`               | `TEXT`    | Globaler Identifier des Dokuments                  | ✅ `idx_dok_uuid`    |
-| `remote_path`        | `TEXT`    | PocketBase Record-ID                               | —                    |
-| `dateiname`          | `TEXT`    | Originaler Dateiname (z.B. datenblatt.pdf)         | —                    |
-| `dateityp`           | `TEXT`    | MIME-Type (z.B. application/pdf)                   | —                    |
-| `dateipfad`          | `TEXT`    | Lokaler Pfad (nur Native)                          | —                    |
-| `remoteDokumentPfad` | `TEXT`    | Dateiname auf PocketBase                           | —                    |
-| `beschreibung`       | `TEXT`    | Optionale Beschreibung                             | —                    |
-| `erstelltAm`         | `TEXT`    | ISO 8601                                           | —                    |
-| `updated_at`         | `INTEGER` | Unix-Timestamp ms (Delta-Sync)                     | ✅ `idx_dok_sync`    |
-| `deleted`            | `INTEGER` | Soft-Delete (0 = aktiv, 1 = gelöscht)              | ✅ `idx_dok_sync`    |
-| `etag`               | `TEXT`    | `NULL` = lokale Änderung ausstehend (Pending)      | —                    |
+| Feld | Typ | Beschreibung | Index |
+| :--- | :--- | :--- | :--- |
+| `id` | `INTEGER` | Lokaler Auto-Increment PK (nur SQLite) | — |
+| `uuid` | `TEXT` | Globaler Identifier (RFC-4122 V4), geräteübergreifend eindeutig | ✅ `idx_uuid` |
+| `artikelnummer` | `INTEGER` | Fachliche ID (≥ 1000), automatisch vergeben | ✅ `idx_unique_an` |
+| `name` | `TEXT` | Bezeichnung des Artikels (Pflicht, 2–100 Zeichen) | ✅ `idx_search_name` |
+| `menge` | `INTEGER` | Lagerbestand (≥ 0, max 999.999) | — |
+| `ort` | `TEXT` | Lagerort (Pflichtfeld) | — |
+| `fach` | `TEXT` | Lagerfach (Pflichtfeld) | — |
+| `beschreibung` | `TEXT` | Freitext | — |
+| `kategorie` | `TEXT` | Kategorie | — |
+| `remote_path` | `TEXT` | PocketBase Record-ID (Verbindung zum Server) | — |
+| `updated_at` | `INTEGER` | Unix-Timestamp in ms für lokale Änderungsverfolgung / Delta-Sync | ✅ `idx_sync` |
+| `deleted` | `INTEGER` | Soft-Delete (0 = aktiv, 1 = gelöscht) | ✅ `idx_sync` |
+| `etag` | `TEXT` | Aktueller synchronisierter Remote-Stand; `NULL` bedeutet lokale Änderung pending | — |
+| `last_synced_etag` | `TEXT` | Letzter erfolgreich bestätigter Remote-Stand als Konfliktvergleichsbasis | — |
+| `pending_resolution` | `TEXT` | Offene Nutzerentscheidung für den nächsten Sync (`force_local`, `force_merge`) | — |
+| `bildPfad` | `TEXT` | Lokaler Pfad Originalbild | — |
+| `thumbnailPfad` | `TEXT` | Lokaler Pfad Vorschaubild | — |
+| `remoteBildPfad` | `TEXT` | Dateiname auf PocketBase | — |
+| `erstelltAm` | `TEXT` | ISO 8601 Erstellungsdatum | — |
 
 ### Collection: `attachments` (ab v0.7.2)
 
@@ -211,22 +193,218 @@ Dateianhänge pro Artikel. Unterstützt PDF, Office-Dokumente, Bilder und Textda
 
 **API-Regeln:** Auth-pflichtig seit v0.7.3 (M-009). Wird über PocketBase Collection Rules gesteuert.
 
-### Synchronisations-Logik (Offline-First)
+---
 
-Der Sync-Prozess nutzt das **Last-Write-Wins** Prinzip in Verbindung mit einem **Soft-Delete** Mechanismus:
-1.  **Push**: Lokale Änderungen (SQLite) werden anhand der `uuid` zu PocketBase gepusht.
-2.  **Pull**: Datensätze, deren `updated_at` neuer als der letzte Sync-Zeitpunkt ist, werden heruntergeladen.
-3.  **Conflict**: Bei gleichzeitiger Änderung wird vor jedem PATCH der
-    Remote-Record geladen und dessen `updated`-Timestamp (ISO 8601) mit
-    dem lokalen `etag` verglichen. Bei Abweichung wird der
-    `onConflictDetected`-Callback aufgerufen — der Nutzer entscheidet
-    über den `ConflictResolutionScreen`. Blindes Überschreiben findet
-    nicht statt.
-4.  **Dokumente**: Werden in einem **separaten Sync-Zyklus** behandelt — unabhängig von Textdaten und Bildern.
+## 🔄 Synchronisations-Logik (Offline-First)
 
+Die mobile und native Desktop-App arbeitet **offline-first** mit lokaler SQLite-Datenbank und synchronisiert gegen PocketBase.  
+Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Sync-Logik nicht.
 
-#### Bild-Synchronisation (Smart Logic)
-Die Bild-Sync-Logik arbeitet getrennt von den Textdaten, um Bandbreite zu sparen und Dateiversionen zu verwalten:
+### Grundprinzip
+
+1. **Lokale Änderungen**
+   - Änderungen werden zunächst lokal in SQLite gespeichert.
+   - `etag = null` kennzeichnet einen Datensatz als **dirty / pending**.
+   - `last_synced_etag` bleibt dabei als letzter bestätigter Remote-Stand erhalten.
+
+2. **Push**
+   - Pending-Datensätze werden anhand der `uuid` bzw. `remote_path` zum Server synchronisiert.
+   - Vor einem Update wird der aktuelle Remote-Stand geprüft.
+
+3. **Pull**
+   - Remote-Änderungen werden anhand des Delta-Syncs geladen und lokal übernommen.
+   - Fehlende lokale Datensätze werden eingefügt, veränderte aktualisiert.
+
+4. **Konflikterkennung**
+   - Konflikte werden nicht mehr allein aus `etag` abgeleitet.
+   - Vergleichsbasis ist `last_synced_etag` als letzter bekannter gemeinsamer Stand.
+
+5. **Konfliktauflösung**
+   - Nutzerentscheidungen werden lokal persistiert und beim nächsten Sync gezielt respektiert.
+   - Unterstützte Fachfälle:
+     - Lokal behalten
+     - Server übernehmen
+     - Zusammenführen
+     - Überspringen
+     - Soft-Delete lokal vs. Remote-Änderung
+
+---
+
+## 🔀 Konfliktauflösung ab v0.9.3 (T-001.7–T-001.12)
+
+### Root Cause des alten Verhaltens
+
+Der frühere Mechanismus verwendete `etag` gleichzeitig als:
+1. Dirty-Marker
+2. letzten bekannten Remote-Stand
+
+Das war fachlich instabil, weil lokale Änderungen `etag = null` setzten und damit
+die Vergleichsbasis für spätere Konflikterkennung verloren ging. Das Ergebnis war
+in problematischen Fällen faktisch **„last write wins“**.
+
+### Neue Sync-Metadaten
+
+| Feld | Bedeutung |
+|---|---|
+| `etag` | Aktueller Sync-Zustand; `NULL` bedeutet lokale Änderung pending |
+| `last_synced_etag` | Letzter erfolgreich bestätigter Remote-Stand |
+| `pending_resolution` | Bewusste Nutzerentscheidung für genau einen nächsten Sync-Versuch |
+
+### `pending_resolution`-Werte
+
+| Wert | Bedeutung |
+|---|---|
+| `NULL` | Keine offene Sonderbehandlung |
+| `force_local` | Nutzer will lokale Version beim nächsten Sync bewusst pushen |
+| `force_merge` | Nutzer will manuell erzeugte Merge-Version beim nächsten Sync pushen |
+
+### Zielverhalten bei Konflikten
+
+#### Normaler Edit-vs-Edit-Konflikt
+Wenn der Remote-Stand von `last_synced_etag` abweicht und keine offene Force-Resolution existiert:
+- Konflikt erkennen
+- `onConflictDetected` auslösen
+- `ConflictResolutionScreen` anzeigen
+- kein blindes Überschreiben
+
+#### useLocal
+Wenn Nutzer **„Lokal behalten“** wählt:
+- lokal `pending_resolution = force_local` setzen
+- nächster Sync darf den Serverstand gezielt überschreiben
+- nach erfolgreichem Push werden `etag` und `last_synced_etag` aktualisiert
+- `pending_resolution` wird wieder gelöscht
+
+#### useRemote
+Wenn Nutzer **„Server übernehmen“** wählt:
+- Remote-Version wird lokal vollständig übernommen
+- lokale Vergleichsbasis wird neu gesetzt
+- Konflikt ist damit sofort aufgelöst
+
+#### merge
+Wenn Nutzer **„Zusammenführen“** wählt:
+- Merge-Ergebnis wird lokal gespeichert
+- `pending_resolution = force_merge`
+- nächster Sync darf diese Merge-Version gezielt hochladen
+- nach erfolgreichem Push wird der Zustand wieder bereinigt
+
+#### skip
+Wenn Nutzer **„Überspringen“** wählt:
+- keine Auflösung wird persistiert
+- Datensatz bleibt pending
+- Konflikt erscheint beim nächsten Sync erneut
+
+#### delete vs remote edit
+Wenn lokal ein Soft-Delete markiert wurde, der Remote-Datensatz aber seit `last_synced_etag` verändert wurde:
+- keine direkte Remote-Löschung
+- Konflikt statt blindem Delete
+- bewusste Auflösung durch den Nutzer erforderlich
+
+---
+
+## Sync-Invarianten (niemals brechen)
+
+| Invariante | Bedeutung |
+| :--- | :--- |
+| `uuid` ist stabil | Nie ändern — geräteübergreifender Identifier |
+| `remote_path` = PocketBase Record-ID | Verbindung zum Server — nie ohne sauberen Sync neu belegen |
+| `etag = NULL` | Lokaler Datensatz ist dirty / pending |
+| `last_synced_etag` bleibt bei normalen lokalen Änderungen erhalten | Vergleichsbasis für spätere Konflikterkennung |
+| `pending_resolution = force_local` | Nächster Sync darf bewusst lokal überschreiben |
+| `pending_resolution = force_merge` | Nächster Sync darf bewusst Merge-Ergebnis pushen |
+| `deleted = 1` | Soft-Delete lokal; tatsächliche Server-Löschung nur ohne Konflikt |
+| `setBildPfadByUuidSilent()` | Setzt nur `bildPfad`, löst keinen normalen Datensync-Trigger aus |
+
+---
+
+## 🔀 Konflikt-Erkennung & Callback-Registrierung
+
+### Konflikterkennung ab v0.9.3
+
+Vor einem Update oder Delete wird der aktuelle Remote-Stand mit dem lokal
+gespeicherten `last_synced_etag` verglichen.
+
+**Vereinfacht gilt:**
+- **kein Konflikt**, wenn Remote-Stand unverändert zum letzten bestätigten Stand ist
+- **Konflikt**, wenn Remote seit `last_synced_etag` geändert wurde und lokal ebenfalls Änderungen vorliegen
+- **Force-Push erlaubt**, wenn `pending_resolution` bewusst gesetzt wurde
+
+### Konfliktfälle
+
+| Fall | Verhalten |
+|---|---|
+| Neuer lokaler Datensatz ohne Remote-Bezug | Direkt `create()` |
+| Lokale Änderung, Remote unverändert seit `last_synced_etag` | Direkt `update()` |
+| Lokale Änderung, Remote geändert seit `last_synced_etag` | Konflikt |
+| Lokales Soft-Delete, Remote unverändert | Remote darf gelöscht werden |
+| Lokales Soft-Delete, Remote geändert seit `last_synced_etag` | Konflikt |
+| `pending_resolution = force_local` | Bewusster Überschreib-Push erlaubt |
+| `pending_resolution = force_merge` | Bewusster Merge-Push erlaubt |
+
+> **Wichtig:** Die Konfliktprüfung basiert fachlich auf dem zuletzt bestätigten gemeinsamen Stand (`last_synced_etag`) und nicht mehr nur auf dem aktuellen Dirty-Flag.
+
+### ConflictCallback Typedef
+
+```dart
+typedef ConflictCallback = Future<void> Function(
+  ConflictData conflict,
+);
+```
+
+`PocketBaseSyncService` hält einen nullable `ConflictCallback`:
+
+```dart
+ConflictCallback? onConflictDetected;
+```
+
+Der Callback wird von `SyncOrchestrator` gesetzt und leitet Konflikte
+an den `ConflictResolutionScreen` weiter.
+
+### Callback-Registrierung via GlobalKey
+
+**Problem:** `onConflictDetected` darf erst registriert werden, wenn ein
+verfügbarer Navigator-Kontext existiert.
+
+**Lösung:** Registrierung nach dem ersten Frame über `GlobalKey<NavigatorState>`.
+
+```dart
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
+MaterialApp(
+  navigatorKey: navigatorKey,
+  ...
+)
+
+WidgetsBinding.instance.addPostFrameCallback((_) {
+  syncOrchestrator.onConflictDetected = (conflict) async {
+    final nav = navigatorKey.currentState;
+    if (nav == null) return;
+    await nav.push(MaterialPageRoute(
+      builder: (_) => ConflictResolutionScreen(...),
+    ));
+  };
+});
+```
+
+---
+
+### DB-Reopen nach App-Resume
+
+Nach einem Hintergrundwechsel (`AppLifecycleState.resumed`) wird die
+SQLite-Verbindung explizit wiederhergestellt, bevor ein neuer Sync startet:
+
+```dart
+case AppLifecycleState.resumed:
+  await artikelDbService.openDatabase();
+  await _syncIfConnected();
+```
+
+`openDatabase()` ist idempotent und bei bereits geöffneter DB ein No-op.
+
+---
+
+### Bild-Synchronisation (Smart Logic)
+
+Die Bild-Sync-Logik arbeitet getrennt von den Textdaten, um Bandbreite zu sparen und Dateiversionen sauber zu behandeln:
 
 ```text
 ┌─────────────────────────────────────────────────────────┐
@@ -582,14 +760,13 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folg
 ---
 ### 6. Wartungs-Notiz am Ende des Dokuments
 
-> **Zuletzt aktualisiert:** v0.9.1+29 (2026-04-23)
-> O-010: SettingsScreen fachlich minimal-invasiv in `Settings
-> B-008: Card-Layout ArtikelListScreen wiederhergestellt (Artikelnummer, Chips, Feldname-Fix)
-> B-009: Ort-Dropdown dynamisch aus Artikelliste, in Body integriert, Reset-Button
-> B-010: Snackbar-Feedback bei Sync-Start, Sync-Erfolg, Sync-Fehler
-> B-012: Sync-Label TextOverflow.ellipsis + titleSpacing in AppBar
-> F-006: Log-Level-Filter als DropdownButton<Level>, Default Level.error
-> F-007: Sync-Zeitstempel-Toggle via ValueNotifier + SharedPreferences
-> O-009: Widget-Tests ArtikelListScreen abgeschlossen (15 Tests grün)
+> **Zuletzt aktualisiert:** v0.9.3 (2026-04-26)  
+> T-001.7 bis T-001.12 fachlich abgeschlossen und dokumentiert  
+> Sync-Konflikterkennung auf `last_synced_etag` als stabile Vergleichsbasis umgestellt  
+> `pending_resolution` für bewusste Nutzerentscheidungen (`force_local`, `force_merge`) ergänzt  
+> Konfliktauflösung für „Lokal behalten“, „Server übernehmen“, „Zusammenführen“ und „Überspringen“ konsolidiert  
+> Skip-Recall beim nächsten Sync fachlich und automatisiert abgesichert  
+> Delete-vs-Remote-Edit als echter Konfliktfall umgesetzt und dokumentiert  
+> Architekturtext für Offline-First-Sync von implizitem Last-Write-Wins auf explizite Konfliktauflösung aktualisiert
 
 [Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md) | [CI/CD & Deployment](../DEPLOYMENT.md)
