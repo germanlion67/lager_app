@@ -1,14 +1,16 @@
 // test/conflict_resolution_test.dart
 //
-// T-001: Unit-Tests für die Konfliktlösungs-Pipeline (M-007).
+// T-001: Tests für Konfliktdaten und Konfliktauflösungs-UI.
 //
 // Strategie:
-// - ConflictData und ConflictResolution werden direkt getestet (reine Datenklassen).
-// - T-001.3: detectConflicts() wird mit Mockito-Mocks getestet.
-// - T-001.4: _determineConflictReason() ist private → wird über detectConflicts()
-//   getestet, da conflictReason im ConflictData-Ergebnis landet.
-// - T-001.5: Widget-Test für ConflictResolutionScreen mit gemocktem SyncService.
-// - Manuelle Integrationstests (T-001.6–T-001.12) bleiben manuell.
+// - ConflictData und ConflictResolution werden direkt getestet.
+// - ConflictResolutionScreen wird per Widget-Tests mit gemocktem SyncService geprüft.
+// - Fokus: Auswahl von useLocal/useRemote/merge/skip,
+//   Fortschrittsanzeige bei mehreren Konflikten und Ergebnisübergabe beim Merge.
+//
+// Hinweis:
+// - Die eigentliche Konflikterkennung im Sync-Layer wird in den spezifischen
+//   Sync-/Konflikttests separat geprüft und gehört nicht in diese Datei.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,8 +18,7 @@ import 'package:mockito/mockito.dart';
 
 import 'package:lager_app/models/artikel_model.dart';
 import 'package:lager_app/screens/conflict_resolution_screen.dart';
-import 'package:lager_app/services/sync_service.dart';
-import 'package:lager_app/services/nextcloud_client.dart';
+
 
 import 'mocks/sync_service_mocks.mocks.dart';
 
@@ -71,20 +72,6 @@ ConflictData _makeConflict({
     remoteVersion: remote ?? _makeArtikel(menge: 120, fach: '5'),
     conflictReason: reason,
     detectedAt: DateTime(2026, 4, 2, 14, 30),
-  );
-}
-
-/// Erzeugt ein [RemoteItemMeta] für Mock-Zwecke.
-/// Path entspricht dem Schema `uuid.json`, etag ist frei wählbar.
-RemoteItemMeta _makeRemoteItem({
-  required String uuid,
-  required String etag,
-  DateTime? lastModified,
-}) {
-  return RemoteItemMeta(
-    path: '$uuid.json',
-    etag: etag,
-    lastModified: lastModified ?? DateTime(2026, 4, 1, 12, 0),
   );
 }
 
@@ -279,413 +266,6 @@ void main() {
   });
 
   // ============================================================
-  // T-001.3: SyncService.detectConflicts()
-  // ============================================================
-  //
-  // Strategie:
-  // - MockNextcloudClient und MockArtikelDbService via @GenerateMocks.
-  // - SyncService wird mit echten Mocks instanziiert.
-  // - detectConflicts() ruft intern _determineConflictReason() auf →
-  //   T-001.4 wird hier mitgetestet (private Methode).
-
-  group('T-001.3: SyncService.detectConflicts()', () {
-    late MockNextcloudClient mockClient;
-    late MockArtikelDbService mockDb;
-    late SyncService syncService;
-
-    // Feste Zeitstempel für reproduzierbare Tests
-    final baseTime = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-    final laterTime = DateTime(2026, 4, 1, 14, 0).millisecondsSinceEpoch;
-
-    setUp(() {
-      mockClient = MockNextcloudClient();
-      mockDb = MockArtikelDbService();
-      syncService = SyncService(mockClient, mockDb);
-    });
-
-    test('gibt leere Liste zurück wenn keine lokalen Artikel vorhanden',
-        () async {
-      when(mockDb.getAlleArtikel()).thenAnswer((_) async => []);
-      when(mockClient.listItemsEtags()).thenAnswer((_) async => []);
-
-      final result = await syncService.detectConflicts();
-
-      expect(result, isEmpty);
-      verify(mockDb.getAlleArtikel()).called(1);
-      verify(mockClient.listItemsEtags()).called(1);
-    });
-
-    test('gibt leere Liste zurück wenn ETags übereinstimmen (kein Konflikt)',
-        () async {
-      final artikel = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-abc',
-        updatedAt: baseTime,
-      );
-      when(mockDb.getAlleArtikel()).thenAnswer((_) async => [artikel]);
-      when(mockClient.listItemsEtags()).thenAnswer(
-        (_) async => [_makeRemoteItem(uuid: 'uuid-1', etag: 'etag-abc')],
-      );
-
-      final result = await syncService.detectConflicts();
-
-      expect(result, isEmpty);
-      // downloadItem darf nicht aufgerufen werden — kein ETag-Konflikt
-      verifyNever(mockClient.downloadItem(any));
-    });
-
-    test('gibt leere Liste zurück wenn lokaler ETag null ist', () async {
-      // Artikel ohne ETag (noch nie gesynct) → kein Konflikt erkennbar
-      final artikel = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: null,
-        updatedAt: baseTime,
-      );
-      when(mockDb.getAlleArtikel()).thenAnswer((_) async => [artikel]);
-      when(mockClient.listItemsEtags()).thenAnswer(
-        (_) async => [_makeRemoteItem(uuid: 'uuid-1', etag: 'etag-remote')],
-      );
-
-      final result = await syncService.detectConflicts();
-
-      // ETag-Check: artikel.etag != null → false → kein Konflikt
-      expect(result, isEmpty);
-      verifyNever(mockClient.downloadItem(any));
-    });
-
-    test('erkennt ETag-Abweichung als Konflikt', () async {
-      final lokalerArtikel = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-lokal',
-        updatedAt: laterTime,
-        name: 'Lokal-Name',
-        menge: 150,
-      );
-      final remoteArtikel = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-remote',
-        updatedAt: baseTime,
-        name: 'Remote-Name',
-        menge: 100,
-      );
-
-      when(mockDb.getAlleArtikel()).thenAnswer((_) async => [lokalerArtikel]);
-      when(mockClient.listItemsEtags()).thenAnswer(
-        (_) async => [_makeRemoteItem(uuid: 'uuid-1', etag: 'etag-remote')],
-      );
-      when(mockClient.downloadItem('uuid-1.json')).thenAnswer(
-        (_) async => remoteArtikel.toJson(),
-      );
-
-      final result = await syncService.detectConflicts();
-
-      expect(result.length, 1);
-      expect(result.first.localVersion.uuid, 'uuid-1');
-      expect(result.first.localVersion.name, 'Lokal-Name');
-      expect(result.first.remoteVersion.name, 'Remote-Name');
-      expect(result.first.detectedAt, isNotNull);
-      verify(mockClient.downloadItem('uuid-1.json')).called(1);
-    });
-
-    test('erkennt mehrere ETag-Konflikte gleichzeitig', () async {
-      final artikel1 = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-lokal-1',
-        updatedAt: laterTime,
-      );
-      final artikel2 = _makeArtikel(
-        uuid: 'uuid-2',
-        etag: 'etag-lokal-2',
-        updatedAt: baseTime,
-      );
-      final remote1 = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-remote-1',
-        updatedAt: baseTime,
-      );
-      final remote2 = _makeArtikel(
-        uuid: 'uuid-2',
-        etag: 'etag-remote-2',
-        updatedAt: laterTime,
-      );
-
-      when(mockDb.getAlleArtikel()).thenAnswer(
-        (_) async => [artikel1, artikel2],
-      );
-      when(mockClient.listItemsEtags()).thenAnswer(
-        (_) async => [
-          _makeRemoteItem(uuid: 'uuid-1', etag: 'etag-remote-1'),
-          _makeRemoteItem(uuid: 'uuid-2', etag: 'etag-remote-2'),
-        ],
-      );
-      when(mockClient.downloadItem('uuid-1.json')).thenAnswer(
-        (_) async => remote1.toJson(),
-      );
-      when(mockClient.downloadItem('uuid-2.json')).thenAnswer(
-        (_) async => remote2.toJson(),
-      );
-
-      final result = await syncService.detectConflicts();
-
-      expect(result.length, 2);
-      final uuids = result.map((c) => c.localVersion.uuid).toList();
-      expect(uuids, containsAll(['uuid-1', 'uuid-2']));
-    });
-
-    test('überspringt Artikel die nicht auf dem Server existieren', () async {
-      final artikel = _makeArtikel(
-        uuid: 'uuid-nur-lokal',
-        etag: 'etag-lokal',
-        updatedAt: baseTime,
-      );
-      when(mockDb.getAlleArtikel()).thenAnswer((_) async => [artikel]);
-      when(mockClient.listItemsEtags()).thenAnswer((_) async => []);
-
-      final result = await syncService.detectConflicts();
-
-      expect(result, isEmpty);
-      verifyNever(mockClient.downloadItem(any));
-    });
-
-    test('gibt leere Liste zurück bei getAlleArtikel-Fehler (graceful)',
-        () async {
-      when(mockDb.getAlleArtikel()).thenThrow(Exception('DB-Fehler'));
-
-      final result = await syncService.detectConflicts();
-
-      // detectConflicts() fängt alle Exceptions und gibt [] zurück
-      expect(result, isEmpty);
-    });
-
-    test('überspringt einzelnen Artikel bei downloadItem-Fehler', () async {
-      final artikel1 = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-lokal',
-        updatedAt: baseTime,
-      );
-      final artikel2 = _makeArtikel(
-        uuid: 'uuid-2',
-        etag: 'etag-gleich',
-        updatedAt: baseTime,
-      );
-
-      when(mockDb.getAlleArtikel()).thenAnswer(
-        (_) async => [artikel1, artikel2],
-      );
-      when(mockClient.listItemsEtags()).thenAnswer(
-        (_) async => [
-          _makeRemoteItem(uuid: 'uuid-1', etag: 'etag-remote'),
-          _makeRemoteItem(uuid: 'uuid-2', etag: 'etag-gleich'),
-        ],
-      );
-      when(mockClient.downloadItem('uuid-1.json')).thenThrow(
-        Exception('Netzwerkfehler'),
-      );
-
-      final result = await syncService.detectConflicts();
-
-      // uuid-1 wird übersprungen (Fehler), uuid-2 hat keinen Konflikt
-      expect(result, isEmpty);
-    });
-
-    test('ConflictData enthält detectedAt nahe der aktuellen Zeit', () async {
-      final lokalerArtikel = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-lokal',
-        updatedAt: laterTime,
-      );
-      final remoteArtikel = _makeArtikel(
-        uuid: 'uuid-1',
-        etag: 'etag-remote',
-        updatedAt: baseTime,
-      );
-
-      when(mockDb.getAlleArtikel()).thenAnswer((_) async => [lokalerArtikel]);
-      when(mockClient.listItemsEtags()).thenAnswer(
-        (_) async => [_makeRemoteItem(uuid: 'uuid-1', etag: 'etag-remote')],
-      );
-      when(mockClient.downloadItem('uuid-1.json')).thenAnswer(
-        (_) async => remoteArtikel.toJson(),
-      );
-
-      final before = DateTime.now();
-      final result = await syncService.detectConflicts();
-      final after = DateTime.now();
-
-      expect(result.length, 1);
-      expect(
-        result.first.detectedAt.isAfter(before) ||
-            result.first.detectedAt.isAtSameMomentAs(before),
-        isTrue,
-      );
-      expect(
-        result.first.detectedAt.isBefore(after) ||
-            result.first.detectedAt.isAtSameMomentAs(after),
-        isTrue,
-      );
-    });
-  });
-
-  // ============================================================
-  // T-001.4: SyncService._determineConflictReason()
-  //
-  // Private Methode → wird über detectConflicts() getestet.
-  // conflictReason landet direkt in ConflictData.conflictReason.
-  //
-  // Szenarien laut Implementierung:
-  //   local.updatedAt == remote.updatedAt → 'Gleichzeitige Bearbeitung'
-  //   |diff| < 60_000ms                  → 'Zeitnahe Bearbeitung (Xs Unterschied)'
-  //   local.updatedAt > remote.updatedAt  → 'Lokale Version neuer (Xm/Xh/Xd)'
-  //   remote.updatedAt > local.updatedAt  → 'Remote Version neuer (Xm/Xh/Xd)'
-  // ============================================================
-
-  group('T-001.4: _determineConflictReason() via detectConflicts()', () {
-    late MockNextcloudClient mockClient;
-    late MockArtikelDbService mockDb;
-    late SyncService syncService;
-
-    setUp(() {
-      mockClient = MockNextcloudClient();
-      mockDb = MockArtikelDbService();
-      syncService = SyncService(mockClient, mockDb);
-    });
-
-    /// Führt detectConflicts() mit einem Konflikt-Paar durch
-    /// und gibt den conflictReason zurück.
-    Future<String> getConflictReason({
-      required int localUpdatedAt,
-      required int remoteUpdatedAt,
-    }) async {
-      final lokalerArtikel = _makeArtikel(
-        uuid: 'uuid-reason-test',
-        etag: 'etag-lokal',
-        updatedAt: localUpdatedAt,
-      );
-      final remoteArtikel = _makeArtikel(
-        uuid: 'uuid-reason-test',
-        etag: 'etag-remote',
-        updatedAt: remoteUpdatedAt,
-      );
-
-      when(mockDb.getAlleArtikel()).thenAnswer((_) async => [lokalerArtikel]);
-      when(mockClient.listItemsEtags()).thenAnswer(
-        (_) async => [
-          _makeRemoteItem(uuid: 'uuid-reason-test', etag: 'etag-remote'),
-        ],
-      );
-      when(mockClient.downloadItem('uuid-reason-test.json')).thenAnswer(
-        (_) async => remoteArtikel.toJson(),
-      );
-
-      final conflicts = await syncService.detectConflicts();
-      expect(conflicts.length, 1, reason: 'Genau ein Konflikt erwartet');
-      return conflicts.first.conflictReason;
-    }
-
-    test('Szenario: gleiche Zeitstempel → "Gleichzeitige Bearbeitung"',
-        () async {
-      final sameTime = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: sameTime,
-        remoteUpdatedAt: sameTime,
-      );
-      expect(reason, 'Gleichzeitige Bearbeitung');
-    });
-
-    test('Szenario: 30s Unterschied → "Zeitnahe Bearbeitung"', () async {
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base + 30000,
-        remoteUpdatedAt: base,
-      );
-      expect(reason, contains('Zeitnahe Bearbeitung'));
-      expect(reason, contains('30s'));
-    });
-
-    test('Szenario: 59s Unterschied → noch "Zeitnahe Bearbeitung"', () async {
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base + 59000,
-        remoteUpdatedAt: base,
-      );
-      expect(reason, contains('Zeitnahe Bearbeitung'));
-      expect(reason, contains('59s'));
-    });
-
-    test('Szenario: exakt 60s Unterschied → "Lokale Version neuer"', () async {
-      // Grenzfall: 60_000ms ist NICHT mehr zeitnah (< 60000 ist false)
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base + 60000,
-        remoteUpdatedAt: base,
-      );
-      expect(reason, contains('Lokale Version neuer'));
-      // 60s → inMinutes = 1 → "1m"
-      expect(reason, contains('1m'));
-    });
-
-    test('Szenario: lokale Version 5 Minuten neuer', () async {
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base + 5 * 60 * 1000,
-        remoteUpdatedAt: base,
-      );
-      expect(reason, contains('Lokale Version neuer'));
-      expect(reason, contains('5m'));
-    });
-
-    test('Szenario: lokale Version 3 Stunden neuer', () async {
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base + 3 * 60 * 60 * 1000,
-        remoteUpdatedAt: base,
-      );
-      expect(reason, contains('Lokale Version neuer'));
-      expect(reason, contains('3h'));
-    });
-
-    test('Szenario: lokale Version 2 Tage neuer', () async {
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base + 2 * 24 * 60 * 60 * 1000,
-        remoteUpdatedAt: base,
-      );
-      expect(reason, contains('Lokale Version neuer'));
-      expect(reason, contains('2d'));
-    });
-
-    test('Szenario: remote Version 5 Minuten neuer', () async {
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base,
-        remoteUpdatedAt: base + 5 * 60 * 1000,
-      );
-      expect(reason, contains('Remote Version neuer'));
-      expect(reason, contains('5m'));
-    });
-
-    test('Szenario: remote Version 1 Stunde neuer', () async {
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base,
-        remoteUpdatedAt: base + 60 * 60 * 1000,
-      );
-      expect(reason, contains('Remote Version neuer'));
-      expect(reason, contains('1h'));
-    });
-
-    test('Szenario: remote 30s neuer → "Zeitnahe Bearbeitung"', () async {
-      // remote ist neuer als lokal, aber |diff| < 60s → zeitnah
-      final base = DateTime(2026, 4, 1, 12, 0).millisecondsSinceEpoch;
-      final reason = await getConflictReason(
-        localUpdatedAt: base,
-        remoteUpdatedAt: base + 30000,
-      );
-      expect(reason, contains('Zeitnahe Bearbeitung'));
-    });
-  });
-
-  // ============================================================
   // T-001.4: Konflikt-Grund-Szenarien (Daten-Ebene, kein Mock)
   // ============================================================
 
@@ -728,13 +308,6 @@ void main() {
   group('T-001.5: ConflictResolutionScreen Widget-Tests', () {
     late MockSyncService mockSyncService;
 
-    /// Pumpt den Screen mit einem größeren Viewport (1024×900).
-    ///
-    /// Hintergrund: Der Standard-Test-Viewport (800×600) ist zu klein
-    /// für die Side-by-Side-Versionskarten. Wenn isSelected=true wird,
-    /// erscheint Icons.check_circle → +4px → RenderFlex-Overflow.
-    /// setSurfaceSize() simuliert einen größeren Bildschirm.
-    /// addTearDown() stellt den Default-Viewport nach dem Test wieder her.
     Future<void> pumpConflictScreen(
       WidgetTester tester,
       List<ConflictData> conflicts,
@@ -762,8 +335,6 @@ void main() {
       ).thenAnswer((_) async {});
     });
 
-    // ── Leere Konflikt-Liste ──────────────────────────────────
-
     testWidgets('zeigt "Keine Konflikte" bei leerer Liste', (tester) async {
       await pumpConflictScreen(tester, []);
 
@@ -777,8 +348,6 @@ void main() {
 
       expect(find.text('Konflikte'), findsOneWidget);
     });
-
-    // ── Einzelner Konflikt ────────────────────────────────────
 
     testWidgets('zeigt Konflikt-Titel mit Artikelname', (tester) async {
       final conflict = _makeConflict(
@@ -921,6 +490,57 @@ void main() {
       verifyNever(mockSyncService.applyConflictResolution(any, any));
     });
 
+    testWidgets(
+      'Merge übergibt bearbeitete mergedVersion an applyConflictResolution',
+      (tester) async {
+        final conflict = _makeConflict(
+          local: _makeArtikel(
+            uuid: 'uuid-merge-test',
+            name: 'Lokaler Name',
+            menge: 10,
+          ),
+          remote: _makeArtikel(
+            uuid: 'uuid-merge-test',
+            name: 'Remote Name',
+            menge: 20,
+          ),
+        );
+
+        await pumpConflictScreen(tester, [conflict]);
+
+        await tester.tap(find.text('Manuell zusammenführen'));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.byType(TextField).first,
+          'Gemergter Name',
+        );
+        await tester.enterText(
+          find.byType(TextField).at(1),
+          '42',
+        );
+
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Zusammenführen'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Auflösen'));
+        await tester.pumpAndSettle();
+
+        final verification = verify(
+          mockSyncService.applyConflictResolution(
+            any,
+            ConflictResolution.merge,
+            mergedVersion: captureAnyNamed('mergedVersion'),
+          ),
+        )..called(1);
+
+        final mergedArtikel = verification.captured.single as Artikel;
+        expect(mergedArtikel.uuid, equals('uuid-merge-test'));
+        expect(mergedArtikel.name, equals('Gemergter Name'));
+        expect(mergedArtikel.menge, equals(42));
+      },
+    );
+
     testWidgets('Screen popt nach Auflösen mit resolved/skipped Map',
         (tester) async {
       final conflict = _makeConflict(
@@ -964,8 +584,6 @@ void main() {
       expect(resultMap['resolved'], 1);
       expect(resultMap['skipped'], 0);
     });
-
-    // ── Mehrere Konflikte ─────────────────────────────────────
 
     testWidgets('zeigt "(1/2)" bei zwei Konflikten', (tester) async {
       final conflicts = [

@@ -115,7 +115,7 @@ class _PocketBaseConflictAdapter implements SyncService {
 
   _PocketBaseConflictAdapter(this._db);
 
-  @override
+@override
   Future<void> applyConflictResolution(
     ConflictData conflict,
     ConflictResolution resolution, {
@@ -123,39 +123,55 @@ class _PocketBaseConflictAdapter implements SyncService {
   }) async {
     switch (resolution) {
       case ConflictResolution.useLocal:
-        // Lokale Version behalten → als dirty markieren → nächster Push
-        // überschreibt Server-Version (force push).
-        await _db.markAsModified(conflict.localVersion.uuid);
+        // Bewusste Nutzerentscheidung:
+        // lokale Version beim nächsten Sync gezielt nach Remote pushen.
+        await _db.markForForceLocal(conflict.localVersion.uuid);
         _log.i(
           '[Conflict] Lokale Version behalten: ${conflict.localVersion.uuid}',
         );
+        return;
 
       case ConflictResolution.useRemote:
-        // Remote-Version übernehmen → lokal speichern mit Server-ETag.
+        // Remote-Version lokal übernehmen und als synchronisierten Stand speichern.
+        final remoteEtag = conflict.remoteVersion.etag ??
+            conflict.remoteVersion.lastSyncedEtag ??
+            conflict.remoteVersion.remotePath ??
+            '';
+
         await _db.upsertArtikel(
           conflict.remoteVersion,
-          etag: conflict.remoteVersion.etag ??
-              conflict.remoteVersion.remotePath ??
-              '',
+          etag: remoteEtag,
         );
+        await _db.clearPendingResolution(conflict.remoteVersion.uuid);
         _log.i(
           '[Conflict] Remote-Version übernommen: ${conflict.remoteVersion.uuid}',
         );
+        return;
 
       case ConflictResolution.merge:
         if (mergedVersion != null) {
+          // Gemergte Version lokal speichern und bewusst für Force-Push markieren.
           await _db.updateArtikel(mergedVersion);
-          await _db.markAsModified(mergedVersion.uuid);
+          await _db.markForForceMerge(mergedVersion.uuid);
           _log.i(
             '[Conflict] Zusammengeführte Version gespeichert: '
             '${mergedVersion.uuid}',
           );
+        } else {
+          _log.w(
+            '[Conflict] Merge gewählt, aber mergedVersion ist null: '
+            '${conflict.localVersion.uuid}',
+          );
         }
+        return;
 
       case ConflictResolution.skip:
+        // Absichtlich nichts ändern:
+        // Konflikt bleibt offen und wird beim nächsten Sync erneut erkannt.
         _log.i(
           '[Conflict] Übersprungen: ${conflict.localVersion.uuid}',
         );
+        return;
     }
   }
 

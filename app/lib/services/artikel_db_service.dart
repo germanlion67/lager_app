@@ -12,10 +12,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/artikel_model.dart';
 import '../utils/uuid_generator.dart';
 
+import 'pocketbase_sync_contracts.dart';
+
 import 'artikel_db_platform_io.dart'
     if (dart.library.html) 'artikel_db_platform_stub.dart' as platform;
 
-class ArtikelDbService {
+class ArtikelDbService implements SyncArtikelDbService {
   static final ArtikelDbService _instance = ArtikelDbService._internal();
   factory ArtikelDbService() => _instance;
   ArtikelDbService._internal();
@@ -38,7 +40,7 @@ class ArtikelDbService {
   Future<Database> _initDb() async {
     try {
       return await platform.openArtikelDatabase(
-        version: 4,
+        version: 5,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -54,7 +56,7 @@ class ArtikelDbService {
 
   // ==================== SCHEMA ====================
 
-  static const _createTableSql = '''
+static const _createTableSql = '''
     CREATE TABLE artikel (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,
@@ -73,6 +75,8 @@ class ArtikelDbService {
       updated_at INTEGER NOT NULL DEFAULT 0,
       deleted INTEGER NOT NULL DEFAULT 0,
       etag TEXT,
+      last_synced_etag TEXT,
+      pending_resolution TEXT,
       remote_path TEXT,
       device_id TEXT,
       kategorie TEXT
@@ -145,6 +149,21 @@ class ArtikelDbService {
         );
         _logger.i("✅ Migration v4: Spalte 'artikelnummer' hinzugefügt.");
       }
+
+      if (oldVersion < 5) {
+        await db.execute(
+          'ALTER TABLE artikel ADD COLUMN last_synced_etag TEXT',
+        );
+        await db.execute(
+          'ALTER TABLE artikel ADD COLUMN pending_resolution TEXT',
+        );
+        _logger.i(
+          "✅ Migration v5: Spalten 'last_synced_etag' und "
+          "'pending_resolution' hinzugefügt.",
+        );
+      }
+
+
     } catch (e, stack) {
       _logger.e(
         '❌ Fehler bei der Datenbank-Migration von Version '
@@ -235,7 +254,7 @@ class ArtikelDbService {
           'artikel',
           {
             'uuid': uuid,
-            'updated_at': DateTime.now().millisecondsSinceEpoch,
+            'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
           },
           where: 'id = ?',
           whereArgs: [article['id']],
@@ -259,8 +278,9 @@ class ArtikelDbService {
     try {
       final db = await database;
       final data = artikel.toMap();
-      data['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+      data['updated_at'] = DateTime.now().toUtc().millisecondsSinceEpoch;
       data['etag'] = null;
+      data['pending_resolution'] = null;
       final id = await db.insert(
         'artikel',
         data,
@@ -278,6 +298,7 @@ class ArtikelDbService {
     }
   }
 
+  @override
   Future<List<Artikel>> getAlleArtikel({
     int limit = 500,
     int offset = 0,
@@ -307,18 +328,27 @@ class ArtikelDbService {
     }
   }
 
+
   Future<void> updateArtikel(Artikel artikel) async {
     try {
       final db = await database;
       final data = Map<String, dynamic>.from(artikel.toMap());
-      data['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+      data['updated_at'] = DateTime.now().toUtc().millisecondsSinceEpoch;
       data['etag'] = null;
+      data['pending_resolution'] = null;
+      // Bei normalen lokalen Updates bleibt der zuletzt synchronisierte
+      // Server-Stand erhalten. Deshalb last_synced_etag hier nicht
+      // überschreiben. Der aktuelle etag und offene Konfliktmarker
+      // werden dagegen zurückgesetzt.
+      data.remove('last_synced_etag');
+
       final rowsAffected = await db.update(
         'artikel',
         data,
         where: 'id = ?',
         whereArgs: [artikel.id],
       );
+
       if (rowsAffected > 0) {
         _logger.i(
           '✅ Artikel ${artikel.uuid} (ID: ${artikel.id}) aktualisiert.',
@@ -340,6 +370,7 @@ class ArtikelDbService {
     }
   }
 
+  @override
   Future<void> deleteArtikel(Artikel artikel) async {
     try {
       final db = await database;
@@ -347,8 +378,9 @@ class ArtikelDbService {
         'artikel',
         {
           'deleted': 1,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
           'etag': null,
+          'pending_resolution': null,
         },
         where: 'id = ?',
         whereArgs: [artikel.id],
@@ -384,7 +416,7 @@ class ArtikelDbService {
         'artikel',
         {
           'bildPfad': bildPfad,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
         },
         where: 'id = ?',
         whereArgs: [artikelId],
@@ -414,7 +446,7 @@ class ArtikelDbService {
         'artikel',
         {
           'remoteBildPfad': remotePfad,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
         },
         where: 'id = ?',
         whereArgs: [artikelId],
@@ -443,7 +475,7 @@ class ArtikelDbService {
         'artikel',
         {
           'bildPfad': bildPfad,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
         },
         where: 'uuid = ?',
         whereArgs: [uuid],
@@ -521,6 +553,7 @@ class ArtikelDbService {
   /// Unterschied zu setBildPfadByUuid():
   /// - setBildPfadByUuid() setzt updated_at → Artikel wird als dirty erkannt
   /// - setBildPfadByUuidSilent() ändert NUR bildPfad → kein Sync-Trigger
+  @override
   Future<void> setBildPfadByUuidSilent(String uuid, String bildPfad) async {
     try {
       final db = await database;
@@ -562,9 +595,10 @@ class ArtikelDbService {
         'artikel',
         {
           'remoteBildPfad': remoteBildPfad,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
           // FIX Finding 2: etag nullen → Artikel wird als pending erkannt.
           'etag': null,
+          'pending_resolution': null,
         },
         where: 'uuid = ?',
         whereArgs: [uuid],
@@ -587,6 +621,7 @@ class ArtikelDbService {
 
   // ==================== LOOKUP ====================
 
+  @override
   Future<Artikel?> getArtikelByUUID(String uuid) async {
     try {
       final db = await database;
@@ -664,6 +699,7 @@ class ArtikelDbService {
 
   // Gelöschte Artikel (deleted = 1) werden bewusst mitgeliefert,
   // da der Sync-Service auch Löschungen propagieren muss.
+  @override
   Future<List<Artikel>> getPendingChanges() async {
     try {
       final db = await database;
@@ -689,6 +725,7 @@ class ArtikelDbService {
 
   /// FIX Finding 3: remote_path wird zusammen mit etag gesetzt,
   /// damit getArtikelByRemotePath() nach einem Push funktioniert.
+  @override
   Future<void> markSynced(
     String uuid,
     String etag, {
@@ -696,7 +733,11 @@ class ArtikelDbService {
   }) async {
     try {
       final db = await database;
-      final data = <String, dynamic>{'etag': etag};
+      final data = <String, dynamic>{
+        'etag': etag,
+        'last_synced_etag': etag,
+        'pending_resolution': null,
+      };
       if (remotePath != null) data['remote_path'] = remotePath;
 
       final rowsAffected = await db.update(
@@ -707,7 +748,8 @@ class ArtikelDbService {
       );
       if (rowsAffected > 0) {
         _logger.d(
-          '✅ Artikel UUID $uuid als synchronisiert markiert (ETag: $etag).',
+          '✅ Artikel UUID $uuid als synchronisiert markiert '
+          '(ETag: $etag, Basis aktualisiert).',
         );
       } else {
         _logger.w(
@@ -725,14 +767,21 @@ class ArtikelDbService {
     }
   }
 
+  @override
   Future<void> upsertArtikel(Artikel artikel, {String? etag}) async {
     try {
       final db = await database;
       final data = artikel.toMap();
-      if (etag != null) data['etag'] = etag;
+
+      if (etag != null) {
+        data['etag'] = etag;
+        data['last_synced_etag'] = etag;
+        data['pending_resolution'] = null;
+      }
+
       data['updated_at'] = artikel.updatedAt > 0
           ? artikel.updatedAt
-          : DateTime.now().millisecondsSinceEpoch;
+          : DateTime.now().toUtc().millisecondsSinceEpoch;
 
       final existing = await db.query(
         'artikel',
@@ -742,8 +791,6 @@ class ArtikelDbService {
       );
 
       if (existing.isNotEmpty) {
-        // Lokalen bildPfad schützen — Remote kennt nur remoteBildPfad,
-        // niemals den gerätespezifischen lokalen Dateipfad.
         final existingBildPfad = existing.first['bildPfad'] as String? ?? '';
         if (existingBildPfad.isNotEmpty &&
             (data['bildPfad'] as String? ?? '').isEmpty) {
@@ -802,10 +849,11 @@ class ArtikelDbService {
     }
   }
 
+  @override
   Future<void> setLastSyncTime() async {
     try {
       final db = await database;
-      final now = DateTime.now().millisecondsSinceEpoch;
+      final now = DateTime.now().toUtc().millisecondsSinceEpoch;
       await db.insert(
         'sync_meta',
         {
@@ -837,7 +885,7 @@ class ArtikelDbService {
       if (result.isEmpty) return null;
       final ms = int.tryParse(result.first['value'] as String? ?? '');
       if (ms == null) return null;
-      return DateTime.fromMillisecondsSinceEpoch(ms);
+      return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
     } catch (e, stack) {
       _logger.e(
         '❌ Fehler beim Abrufen der letzten Synchronisationszeit: $e',
@@ -882,7 +930,8 @@ class ArtikelDbService {
         'artikel',
         {
           'etag': null,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
+          'pending_resolution': null,
         },
         where: 'uuid = ?',
         whereArgs: [uuid],
@@ -890,7 +939,7 @@ class ArtikelDbService {
       if (rowsAffected > 0) {
         _logger.d(
           '✅ Artikel UUID $uuid als dirty markiert '
-          '(etag = null, updated_at = jetzt).',
+          '(etag = null, updated_at = jetzt, pending_resolution gelöscht).',
         );
       } else {
         _logger.w(
@@ -906,6 +955,95 @@ class ArtikelDbService {
     }
   }
 
+Future<void> markForForceLocal(String uuid) async {
+    try {
+      final db = await database;
+      final rowsAffected = await db.update(
+        'artikel',
+        {
+          'etag': null,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
+          'pending_resolution': 'force_local',
+        },
+        where: 'uuid = ?',
+        whereArgs: [uuid],
+      );
+      if (rowsAffected > 0) {
+        _logger.d(
+          '✅ Artikel UUID $uuid für bewusstes lokales Überschreiben markiert.',
+        );
+      } else {
+        _logger.w(
+          '⚠️ markForForceLocal: Artikel UUID $uuid nicht gefunden.',
+        );
+      }
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler bei markForForceLocal für Artikel UUID $uuid: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+  Future<void> markForForceMerge(String uuid) async {
+    try {
+      final db = await database;
+      final rowsAffected = await db.update(
+        'artikel',
+        {
+          'etag': null,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
+          'pending_resolution': 'force_merge',
+        },
+        where: 'uuid = ?',
+        whereArgs: [uuid],
+      );
+      if (rowsAffected > 0) {
+        _logger.d(
+          '✅ Artikel UUID $uuid für Merge-Overwrite markiert.',
+        );
+      } else {
+        _logger.w(
+          '⚠️ markForForceMerge: Artikel UUID $uuid nicht gefunden.',
+        );
+      }
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler bei markForForceMerge für Artikel UUID $uuid: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
+
+  Future<void> clearPendingResolution(String uuid) async {
+    try {
+      final db = await database;
+      final rowsAffected = await db.update(
+        'artikel',
+        {'pending_resolution': null},
+        where: 'uuid = ?',
+        whereArgs: [uuid],
+      );
+      if (rowsAffected > 0) {
+        _logger.d(
+          '✅ pending_resolution für Artikel UUID $uuid gelöscht.',
+        );
+      } else {
+        _logger.w(
+          '⚠️ clearPendingResolution: Artikel UUID $uuid nicht gefunden.',
+        );
+      }
+    } catch (e, stack) {
+      _logger.e(
+        '❌ Fehler beim Löschen von pending_resolution '
+        'für Artikel UUID $uuid: $e',
+        error: e,
+        stackTrace: stack,
+      );
+    }
+  }
 
 
 
@@ -1051,8 +1189,9 @@ class ArtikelDbService {
         'artikel',
         {
           'deleted': 1,
-          'updated_at': DateTime.now().millisecondsSinceEpoch,
+          'updated_at': DateTime.now().toUtc().millisecondsSinceEpoch,
           'etag': null,
+          'pending_resolution': null,
         },
         where: 'deleted = ?',
         whereArgs: [0],
@@ -1080,7 +1219,8 @@ class ArtikelDbService {
           final data = artikel.toMap();
           // Sicherstellen dass restored Artikel neu synchronisiert werden
           data['etag'] = null;
-          data['updated_at'] = DateTime.now().millisecondsSinceEpoch;
+          data['pending_resolution'] = null;
+          data['updated_at'] = DateTime.now().toUtc().millisecondsSinceEpoch;
           await txn.insert(
             'artikel',
             data,
@@ -1178,8 +1318,11 @@ class ArtikelDbService {
 
   /// Nur für Tests — injiziert eine externe DB-Instanz.
   /// Umgeht _initDb() und damit den plattformspezifischen Dateipfad.
-  @visibleForTesting
-  void injectDatabase(Database db) {
+@visibleForTesting
+  Future<void> injectDatabase(Database db) async {
+    if (!identical(_db, db)) {
+      await _db?.close();
+    }
     _db = db;
   }
 

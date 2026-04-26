@@ -9,9 +9,10 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
 import '../models/artikel_model.dart';
-import 'artikel_db_service.dart';
-import 'pocketbase_service.dart';
+
 import '../config/app_config.dart';
+
+import 'pocketbase_sync_contracts.dart';
 
 typedef ConflictCallback = Future<void> Function(
   Artikel lokalerArtikel,
@@ -20,8 +21,8 @@ typedef ConflictCallback = Future<void> Function(
 
 class PocketBaseSyncService {
   final String collectionName;
-  final PocketBaseService _pbService;
-  final ArtikelDbService _db;
+  final SyncPocketBaseService _pbService;
+  final SyncArtikelDbService _db;
   final Logger _logger = Logger();
 
   ConflictCallback? onConflictDetected;
@@ -61,10 +62,37 @@ class PocketBaseSyncService {
 
         if (artikel.deleted == true) {
           if (list.items.isNotEmpty) {
+            final remoteRecord = list.items.first;
+            final remoteUpdated = _safeGet(remoteRecord.data, 'updated');
+            final lokalerEtag = artikel.etag ?? '';
+
+            final hasConflict = lokalerEtag.isNotEmpty &&
+                lokalerEtag != 'deleted' &&
+                remoteUpdated.isNotEmpty &&
+                lokalerEtag != remoteUpdated;
+
+            if (hasConflict) {
+              _logger.w(
+                'PocketBaseSync: Delete-Konflikt erkannt für ${artikel.uuid}',
+              );
+
+              if (onConflictDetected != null) {
+                final remoteArtikel = Artikel.fromPocketBase(
+                  Map<String, dynamic>.from(remoteRecord.data),
+                  remoteRecord.id,
+                  created: _safeGet(remoteRecord.data, 'created'),
+                  updated: remoteUpdated,
+                );
+                await onConflictDetected!(artikel, remoteArtikel);
+              }
+              continue;
+            }
+
             await _pbService.client
                 .collection(collectionName)
-                .delete(list.items.first.id);
+                .delete(remoteRecord.id);
           }
+
           await _db.markSynced(artikel.uuid, 'deleted');
           continue;
         }

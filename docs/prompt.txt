@@ -609,7 +609,7 @@ Flutter-Version: `3.41.7` (stable) — in allen Workflows fixiert
 
 ---
 
-## 13) Offene Aufgaben (Stand: v0.9.1+26)
+## 13) Offene Aufgaben (Stand: v0.9.2+33)
 
 🔴 **Hoch** — Keine aktuell
 
@@ -617,10 +617,9 @@ Flutter-Version: `3.41.7` (stable) — in allen Workflows fixiert
 
 | ID      | Aufgabe                                                  | Details |
 |:--------|:---------------------------------------------------------|:--------|
-| `P-004` | Android Kamera-Test                                      | Vollständiger Test auf echten Geräten (S20) |
+| `P-004` | Android Kamera-Test                                      | Vollständiger Test auf echten Geräten (S20, A51) |
 | `T-001` | Manuelle Integrationstests                               | T-001.6–T-001.12: Konflikt-Szenarien End-to-End |
-| `T-009` | Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade | Fehlerpfade, Defaults, App-Lock-nahe Persistenz |
-| `O-011` | `AppLockService` testbarer machen                        | Optionaler Folgepunkt nach O-010 |
+
 
 ⏭️ **Future**
 

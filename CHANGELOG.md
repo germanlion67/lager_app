@@ -2,6 +2,78 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+
+## [0.9.3] — 2026-04-26
+
+### Feature (T-001.7–T-001.12): Konfliktauflösung im PocketBase Offline-First-Sync fachlich vervollständigt
+
+**Ziel:** Die Konfliktauflösung im PocketBase-basierten Sync sollte für die
+manuellen Testfälle T-001.7 bis T-001.12 fachlich sauber, testbar und
+dokumentierbar abgeschlossen werden.
+
+**Root Cause:**
+Der bisherige Konfliktmechanismus nutzte `etag` gleichzeitig als Dirty-Marker
+und als letzten bekannten Remote-Stand. Lokale Änderungen setzten `etag = null`,
+wodurch die Vergleichsbasis für spätere Konflikterkennung verloren ging. Das
+führte faktisch zu „last write wins“ statt zu belastbarer Konflikterkennung.
+
+**Umsetzung:**
+- Datenmodell um lokale Sync-Metadaten erweitert:
+  - `last_synced_etag`
+  - `pending_resolution`
+- SQLite-Schema und DB-Service für konfliktfähige Zustandsübergänge erweitert
+- Sync-Service auf Vergleich gegen `last_synced_etag` umgestellt
+- Konfliktentscheidungen aus dem UI persistent gemacht:
+  - `force_local`
+  - `force_merge`
+- Modell-Mapping bereinigt, damit lokale Sync-Metadaten nicht an PocketBase
+  übertragen werden
+- Konflikt- und UI-Tests auf die neue Baseline-/Resolution-Semantik umgestellt
+- echter `PocketBaseSyncService` über Contracts testbar gemacht
+- Delete-vs-Remote-Edit als echter Konfliktfall umgesetzt
+
+**Fachlich abgesichertes Ergebnis:**
+- **T-001.7** — „Lokal behalten“ überschreibt beim nächsten Sync gezielt den Serverstand
+- **T-001.8** — „Server übernehmen“ ersetzt die lokale Version sauber
+- **T-001.9** — „Zusammenführen“ übergibt das Merge-Ergebnis korrekt in den Auflösungsflow
+- **T-001.10** — „Überspringen“ speichert keine Auflösung; Konflikt erscheint beim nächsten Sync erneut
+- **T-001.11** — mehrere Konflikte werden sequentiell mit Fortschrittsanzeige bearbeitet
+- **T-001.12** — lokales Soft-Delete bei zwischenzeitlicher Remote-Änderung wird als Konflikt erkannt und nicht mehr blind gelöscht
+
+**Wichtige technische Änderungen:**
+- `app/lib/models/artikel_model.dart`
+- `app/lib/services/artikel_db_service.dart`
+- `app/lib/services/pocketbase_sync_service.dart`
+- `app/lib/services/pocketbase_sync_contracts.dart`
+- `app/lib/services/pocketbase_service.dart`
+- `app/lib/main.dart`
+- `app/test/models/artikel_model_test.dart`
+- `app/test/services/artikel_db_service_test.dart`
+- `app/test/services/artikel_db_service_test_helper.dart`
+- `app/test/services/pocketbase_sync_service_conflict_test.dart`
+- `app/test/conflict_resolution_test.dart`
+
+**Ergebnis:**
+- Root Cause fachlich adressiert
+- Konflikterkennung robust gegen lokale Dirty-Zustände gemacht
+- bewusste Nutzerentscheidungen im nächsten Sync gezielt respektierbar
+- Skip-Recall gegen den echten Produktivservice abgesichert
+- Delete-vs-Edit-Edge-Case als Soll-Verhalten implementiert und automatisiert getestet
+- Version 0.9.3 ist für den Scope T-001.7 bis T-001.12 fachlich releasefähig
+
+**Teststatus:**
+- `flutter test`: **661 Tests bestanden**, **3 Tests übersprungen** ✅
+
+---
+
+### Dokumentation
+
+- Konfliktauflösungs- und Sync-Dokumentation für den Abschluss von
+  **T-001.7 bis T-001.12** nachgezogen
+- fachlicher Abschlussstand für **Version 0.9.3** konsolidiert
+- Delete-vs-Remote-Edit-Konfliktfall als abgeschlossen dokumentierbar
+
+
 ## [0.9.2+32] — 2026-04-23
 
 ### Optimierung (O-011): `AppLockService` testbarer gemacht

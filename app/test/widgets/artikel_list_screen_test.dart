@@ -59,6 +59,7 @@ const _createSyncMetaTableSql = '''
 // In-Memory-DB — nur für Tests die tatsächlich DB-Zugriff brauchen
 // ---------------------------------------------------------------------------
 Future<void> _injectInMemoryDb() async {
+  final service = ArtikelDbService();
   final db = await databaseFactoryFfi.openDatabase(
     inMemoryDatabasePath,
     options: OpenDatabaseOptions(
@@ -69,7 +70,7 @@ Future<void> _injectInMemoryDb() async {
       },
     ),
   );
-  ArtikelDbService().injectDatabase(db);
+  await service.injectDatabase(db);
 }
 
 // ---------------------------------------------------------------------------
