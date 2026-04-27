@@ -60,6 +60,29 @@ class FakeArtikelDbService implements SyncArtikelDbService {
     String? remotePath,
   }) async {
     markSyncedCalls.add(MarkSyncedCall(uuid, etag, remotePath));
+
+    final existing = byUuid[uuid];
+    if (existing == null) return;
+
+    final synced = existing.copyWith(
+      etag: etag == 'deleted' ? existing.etag : etag,
+      lastSyncedEtag: etag == 'deleted' ? existing.lastSyncedEtag : etag,
+      remotePath: remotePath ?? existing.remotePath,
+      pendingResolution: null,
+      deleted: etag == 'deleted' ? true : false,
+    );
+
+    byUuid[uuid] = synced;
+
+    final idxAlle = alleArtikel.indexWhere((a) => a.uuid == uuid);
+    if (idxAlle != -1) {
+      alleArtikel[idxAlle] = synced;
+    }
+
+    final idxPending = pendingChanges.indexWhere((a) => a.uuid == uuid);
+    if (idxPending != -1) {
+      pendingChanges[idxPending] = synced;
+    }
   }
 
   @override
@@ -419,5 +442,257 @@ void main() {
           expect(fakeDb.markSyncedCalls, isEmpty);
         },
       );
+    test(
+      'T-001.13: pull überschreibt force_local-Datensatz nicht mit Remote-Version',
+      () async {
+        final lokal = makeArtikel(
+          uuid: 'uuid-pull-force-local',
+          etag: '2026-01-15 10:00:00.000Z',
+          lastSyncedEtag: '2026-01-15 10:00:00.000Z',
+          pendingResolution: 'force_local',
+          remotePath: 'pb-force-local-1',
+          name: 'Lokale bewusste Entscheidung',
+          menge: 5,
+        );
+
+        fakeDb.pendingChanges = [];
+        fakeDb.alleArtikel = [lokal];
+        fakeDb.byUuid[lokal.uuid] = lokal;
+
+        final remoteRecord = makeRecord(
+          id: 'pb-force-local-1',
+          updated: '2026-01-15 11:00:00.000Z',
+          data: {
+            'uuid': lokal.uuid,
+            'name': 'Remote geändert',
+            'menge': 99,
+            'ort': 'Remote Lager',
+            'fach': 'R9',
+            'beschreibung': 'remote',
+            'deleted': false,
+          },
+        );
+
+        fakeRecordService.onGetFullList = () async => [remoteRecord];
+        final capture = ConflictCapture();
+        syncService.onConflictDetected = capture.call;
+
+        await syncService.syncOnce();
+
+        expect(capture.callCount, equals(0));
+        expect(fakeDb.upsertCalls, isEmpty);
+        expect(fakeDb.deleteCalls, isEmpty);
+        expect(fakeDb.markSyncedCalls, isEmpty);
+      },
+    );
+
+    test(
+      'T-001.14: pull überschreibt force_merge-Datensatz nicht mit Remote-Version',
+      () async {
+        final lokal = makeArtikel(
+          uuid: 'uuid-pull-force-merge',
+          etag: '2026-01-15 10:00:00.000Z',
+          lastSyncedEtag: '2026-01-15 10:00:00.000Z',
+          pendingResolution: 'force_merge',
+          remotePath: 'pb-force-merge-1',
+          name: 'Gemergte lokale Entscheidung',
+          menge: 12,
+        );
+
+        fakeDb.pendingChanges = [];
+        fakeDb.alleArtikel = [lokal];
+        fakeDb.byUuid[lokal.uuid] = lokal;
+
+        final remoteRecord = makeRecord(
+          id: 'pb-force-merge-1',
+          updated: '2026-01-15 11:00:00.000Z',
+          data: {
+            'uuid': lokal.uuid,
+            'name': 'Remote überschreibt sonst',
+            'menge': 77,
+            'ort': 'Remote Lager',
+            'fach': 'R8',
+            'beschreibung': 'remote',
+            'deleted': false,
+          },
+        );
+
+        fakeRecordService.onGetFullList = () async => [remoteRecord];
+        final capture = ConflictCapture();
+        syncService.onConflictDetected = capture.call;
+
+        await syncService.syncOnce();
+
+        expect(capture.callCount, equals(0));
+        expect(fakeDb.upsertCalls, isEmpty);
+        expect(fakeDb.deleteCalls, isEmpty);
+        expect(fakeDb.markSyncedCalls, isEmpty);
+      },
+    );
+    test(
+      'T-001.15: remote-fehlender sauberer Datensatz wird bei validem Pull lokal gelöscht',
+      () async {
+        final lokalZuBehalten = makeArtikel(
+          uuid: 'uuid-remote-still-exists',
+          etag: '2026-01-15 10:00:00.000Z',
+          lastSyncedEtag: '2026-01-15 10:00:00.000Z',
+          pendingResolution: null,
+          remotePath: 'pb-keep-1',
+          name: 'Existiert remote weiter',
+        );
+
+        final lokalZuLoeschen = makeArtikel(
+          uuid: 'uuid-clean-delete',
+          etag: '2026-01-15 10:00:00.000Z',
+          lastSyncedEtag: '2026-01-15 10:00:00.000Z',
+          pendingResolution: null,
+          remotePath: 'pb-clean-delete-1',
+          name: 'Fehlt remote',
+          menge: 3,
+        );
+
+        fakeDb.pendingChanges = [];
+        fakeDb.alleArtikel = [lokalZuBehalten, lokalZuLoeschen];
+        fakeDb.byUuid[lokalZuBehalten.uuid] = lokalZuBehalten;
+        fakeDb.byUuid[lokalZuLoeschen.uuid] = lokalZuLoeschen;
+
+        final remoteRecord = makeRecord(
+          id: 'pb-keep-1',
+          updated: '2026-01-15 11:00:00.000Z',
+          data: {
+            'uuid': 'uuid-remote-still-exists',
+            'name': 'Existiert remote weiter',
+            'menge': 8,
+            'ort': 'Remote Lager',
+            'fach': 'R2',
+            'beschreibung': 'remote ok',
+            'deleted': false,
+          },
+        );
+
+        fakeRecordService.onGetFullList = () async => [remoteRecord];
+
+        final capture = ConflictCapture();
+        syncService.onConflictDetected = capture.call;
+
+        await syncService.syncOnce();
+
+        expect(capture.callCount, equals(0));
+        expect(fakeDb.deleteCalls, hasLength(1));
+        expect(fakeDb.deleteCalls.first.uuid, equals('uuid-clean-delete'));
+      },
+    );
+    test(
+      'T-001.16: erfolgreicher force_local-Push bereinigt pendingResolution lokal',
+      () async {
+        final lokal = makeArtikel(
+          uuid: 'uuid-force-local-cleared',
+          etag: '2026-01-15 10:00:00.000Z',
+          lastSyncedEtag: '2026-01-15 10:00:00.000Z',
+          pendingResolution: 'force_local',
+          remotePath: 'pb-force-local-clear-1',
+          name: 'Lokale Entscheidung',
+        );
+
+        fakeDb.pendingChanges = [lokal];
+        fakeDb.alleArtikel = [lokal];
+        fakeDb.byUuid[lokal.uuid] = lokal;
+
+        final remoteRecord = makeRecord(
+          id: 'pb-force-local-clear-1',
+          updated: '2026-01-15 11:00:00.000Z',
+          data: {
+            'uuid': lokal.uuid,
+            'name': 'Remote Altstand',
+            'menge': 7,
+            'ort': 'Remote',
+            'fach': 'R1',
+            'beschreibung': 'remote',
+            'deleted': false,
+          },
+        );
+
+        fakeRecordService.onGetList =
+            (_) async => makeResultList([remoteRecord]);
+
+        fakeRecordService.onUpdate = (id, body) async => makeRecord(
+              id: id,
+              updated: '2026-01-15 12:00:00.000Z',
+              data: {
+                ...body,
+                'updated': '2026-01-15 12:00:00.000Z',
+              },
+            );
+
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeRecordService.updateEntries, hasLength(1));
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(fakeDb.byUuid[lokal.uuid], isNotNull);
+        expect(
+          fakeDb.byUuid[lokal.uuid]!.pendingResolution,
+          isNull,
+        );
+      },
+    );
+
+    test(
+      'T-001.17: erfolgreicher force_merge-Push bereinigt pendingResolution lokal',
+      () async {
+        final lokal = makeArtikel(
+          uuid: 'uuid-force-merge-cleared',
+          etag: '2026-01-15 10:00:00.000Z',
+          lastSyncedEtag: '2026-01-15 10:00:00.000Z',
+          pendingResolution: 'force_merge',
+          remotePath: 'pb-force-merge-clear-1',
+          name: 'Gemergte Entscheidung',
+        );
+
+        fakeDb.pendingChanges = [lokal];
+        fakeDb.alleArtikel = [lokal];
+        fakeDb.byUuid[lokal.uuid] = lokal;
+
+        final remoteRecord = makeRecord(
+          id: 'pb-force-merge-clear-1',
+          updated: '2026-01-15 11:00:00.000Z',
+          data: {
+            'uuid': lokal.uuid,
+            'name': 'Remote Altstand',
+            'menge': 9,
+            'ort': 'Remote',
+            'fach': 'R2',
+            'beschreibung': 'remote',
+            'deleted': false,
+          },
+        );
+
+        fakeRecordService.onGetList =
+            (_) async => makeResultList([remoteRecord]);
+
+        fakeRecordService.onUpdate = (id, body) async => makeRecord(
+              id: id,
+              updated: '2026-01-15 12:00:00.000Z',
+              data: {
+                ...body,
+                'updated': '2026-01-15 12:00:00.000Z',
+              },
+            );
+
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeRecordService.updateEntries, hasLength(1));
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(fakeDb.byUuid[lokal.uuid], isNotNull);
+        expect(
+          fakeDb.byUuid[lokal.uuid]!.pendingResolution,
+          isNull,
+        );
+      },
+    );
+
   });
 }

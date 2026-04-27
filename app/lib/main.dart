@@ -38,6 +38,9 @@ import 'services/app_lock_service.dart';
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
 import 'services/sync_service.dart';
+import 'services/conflict_resolution_utils.dart';
+import 'services/sync_progress_service.dart';
+import 'services/sync_error_recovery.dart';
 
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
@@ -115,7 +118,17 @@ class _PocketBaseConflictAdapter implements SyncService {
 
   _PocketBaseConflictAdapter(this._db);
 
-@override
+  @override
+  final logger = _log;
+
+  @override
+  final SyncProgressService progressService = SyncProgressService();
+
+  @override
+  final SyncErrorRecoveryService errorRecoveryService =
+      SyncErrorRecoveryService();
+
+  @override
   Future<void> applyConflictResolution(
     ConflictData conflict,
     ConflictResolution resolution, {
@@ -133,10 +146,8 @@ class _PocketBaseConflictAdapter implements SyncService {
 
       case ConflictResolution.useRemote:
         // Remote-Version lokal übernehmen und als synchronisierten Stand speichern.
-        final remoteEtag = conflict.remoteVersion.etag ??
-            conflict.remoteVersion.lastSyncedEtag ??
-            conflict.remoteVersion.remotePath ??
-            '';
+        // Als neue Baseline sind nur belastbare Remote-Versionsstände erlaubt.
+        final remoteEtag = requireRemoteBaselineEtag(conflict.remoteVersion);
 
         await _db.upsertArtikel(
           conflict.remoteVersion,
@@ -175,16 +186,52 @@ class _PocketBaseConflictAdapter implements SyncService {
     }
   }
 
-  // ── Nicht implementierte SyncService-Methoden ─────────────────────────────
-  // Diese werden vom ConflictResolutionScreen nie aufgerufen.
-  // UnimplementedError als Sicherheitsnetz falls doch.
+  @override
+  Future<List<ConflictData>> detectConflicts() async {
+    throw UnimplementedError(
+      '_PocketBaseConflictAdapter.detectConflicts ist nicht implementiert. '
+      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
+    );
+  }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) {
+  Future<String> getDeviceId() async {
     throw UnimplementedError(
-      '_PocketBaseConflictAdapter: '
-      '${invocation.memberName} ist nicht implementiert. '
-      'Nur applyConflictResolution() wird unterstützt.',
+      '_PocketBaseConflictAdapter.getDeviceId ist nicht implementiert. '
+      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
+    );
+  }
+
+  @override
+  Future<void> syncAttachments() async {
+    throw UnimplementedError(
+      '_PocketBaseConflictAdapter.syncAttachments ist nicht implementiert. '
+      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
+    );
+  }
+
+  @override
+  Future<SyncResult> syncOnce() async {
+    throw UnimplementedError(
+      '_PocketBaseConflictAdapter.syncOnce ist nicht implementiert. '
+      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>> syncWithConflictResolution() async {
+    throw UnimplementedError(
+      '_PocketBaseConflictAdapter.syncWithConflictResolution ist nicht '
+      'implementiert. Der ConflictResolutionScreen benötigt nur '
+      'applyConflictResolution().',
+    );
+  }
+
+  @override
+  Future<bool> testAndInitialize() async {
+    throw UnimplementedError(
+      '_PocketBaseConflictAdapter.testAndInitialize ist nicht implementiert. '
+      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
     );
   }
 }
@@ -213,6 +260,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   bool _cleanupDone = false;
   bool _syncRunning = false;
+  bool _isConflictScreenOpen = false;
 
   bool _needsSetup = false;
   bool _isCheckingAuth = true;
@@ -288,18 +336,28 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       return;
     }
 
+    if (_isConflictScreenOpen) {
+      _log.w(
+        '[Main] Konflikt-UI bereits offen — '
+        'weiterer Konflikt bleibt pending und wird bei erneutem Sync '
+        'erneut erkannt ${lokalerArtikel.uuid}',
+      );
+      return;
+    }
+
     _log.i(
       '[Main] Konflikt-UI für ${lokalerArtikel.name} '
       '(uuid: ${lokalerArtikel.uuid})',
     );
 
-    // ConflictData bauen — ConflictResolutionScreen erwartet diese Struktur
     final conflictData = ConflictData(
       localVersion: lokalerArtikel,
       remoteVersion: remoteArtikel,
       conflictReason: _buildConflictReason(lokalerArtikel, remoteArtikel),
       detectedAt: DateTime.now(),
     );
+
+    _isConflictScreenOpen = true;
 
     try {
       await navigator.push<void>(
@@ -317,6 +375,8 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         error: e,
         stackTrace: st,
       );
+    } finally {
+      _isConflictScreenOpen = false;
     }
   }
 

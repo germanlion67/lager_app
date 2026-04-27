@@ -33,7 +33,7 @@ Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Syn
 | `remote_path` | TEXT | **PocketBase Record-ID** des zugehörigen Server-Datensatzes |
 | `updated_at` | INTEGER | Letzter lokaler Änderungszeitpunkt (Unix ms) |
 | `deleted` | INTEGER | Soft-Delete Flag (0 = aktiv, 1 = gelöscht) |
-| `etag` | TEXT | Aktueller bestätigter Sync-Stand; `NULL` bedeutet: lokale Änderung pending |
+| `etag` | TEXT | Aktueller bestätigter Sync-Zustand; `NULL` bedeutet: lokale Änderung pending |
 | `last_synced_etag` | TEXT | Letzter erfolgreich bestätigter Remote-Stand als stabile Vergleichsbasis für Konflikterkennung |
 | `pending_resolution` | TEXT | Offene Konfliktentscheidung für den nächsten Sync (`force_local`, `force_merge`) |
 | `bildPfad` | TEXT | Lokaler Pfad zum Originalbild |
@@ -56,6 +56,9 @@ Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Syn
 | `NULL` | Keine offene Sonderbehandlung |
 | `force_local` | Nutzer hat „Lokal behalten“ gewählt |
 | `force_merge` | Nutzer hat ein manuelles Merge-Ergebnis gewählt |
+
+**Wichtige fachliche Invariante:**  
+`uuid` ist serverseitig in PocketBase zusätzlich als **required** und **unique** abgesichert.
 
 ---
 
@@ -87,7 +90,6 @@ Dieser Wert dient der Delta-Sync-Optimierung, ist aber **nicht** die primäre Ko
 Für Konflikterkennung auf Datensatzebene ist `last_synced_etag` relevant.
 
 ---
-
 
 ### 1.4 PocketBase Collection: `attachments`
 
@@ -131,14 +133,21 @@ Die Synchronisation folgt einem kontrollierten Offline-First-Ablauf, um Datenkon
 2. **Push**
    - Pending-Datensätze werden zum Server synchronisiert
    - Vor `update()` oder `delete()` wird geprüft, ob der Remote-Stand seit `last_synced_etag` verändert wurde
+   - Wenn bei vorhandenem Remote-Datensatz `last_synced_etag` fehlt, wird der Fall konservativ als Konflikt behandelt
 
 3. **Pull**
    - Neue oder geänderte Remote-Datensätze werden heruntergeladen
    - Lokal erfolgt ein Insert oder Update
+   - Lokale pending-/dirty-Datensätze werden dabei nicht blind überschrieben
+   - Wenn lokal dirty und zugleich keine stabile Vergleichsbasis vorhanden ist, wird ebenfalls ein Konflikt erzeugt
 
 4. **Konfliktauflösung**
    - Konflikte werden nicht blind überschrieben
    - Der Nutzer kann lokal behalten, Remote übernehmen, zusammenführen oder überspringen
+
+5. **Duplicate-UUID-Recovery**
+   - Wenn ein `create()` an einer bereits vorhandenen `uuid` scheitert, sucht der Client den bestehenden Remote-Datensatz erneut per `uuid`
+   - Der lokale Datensatz wird anschließend als mit diesem Remote-Datensatz synchronisiert markiert
 
 ---
 
@@ -153,21 +162,29 @@ Die Synchronisation folgt einem kontrollierten Offline-First-Ablauf, um Datenkon
 │  2. LOCAL → REMOTE (Push)                                    │
 │     ├── WHERE etag IS NULL AND deleted = 0                   │
 │     │     ├── neuer Datensatz → CREATE auf PocketBase        │
+│     │     │     ├── Erfolg → markSynced()                    │
+│     │     │     └── Duplicate-UUID → Lookup-Recovery         │
 │     │     └── bestehender Datensatz → Remote-Stand prüfen    │
-│     │           ├── unverändert seit last_synced_etag        │
-│     │           │     └── UPDATE                             │
+│     │           ├── last_synced_etag fehlt → KONFLIKT        │
 │     │           ├── pending_resolution gesetzt               │
 │     │           │     └── bewusster Force-Push               │
+│     │           ├── unverändert seit last_synced_etag        │
+│     │           │     └── UPDATE                             │
 │     │           └── Remote geändert                          │
 │     │                 └── KONFLIKT                           │
 │     │                      └── onConflictDetected()          │
 │     └── WHERE etag IS NULL AND deleted = 1                   │
+│           ├── last_synced_etag fehlt → KONFLIKT              │
 │           ├── Remote unverändert → DELETE                    │
 │           └── Remote geändert → KONFLIKT                     │
 │                                                              │
 │  3. REMOTE → LOCAL (Pull)                                    │
 │     ├── Neue/geänderte Records von PocketBase holen          │
-│     └── Lokal einfügen oder aktualisieren (upsert)           │
+│     ├── lokal pending_resolution gesetzt? → skip            │
+│     ├── lokal dirty + last_synced_etag fehlt? → KONFLIKT     │
+│     ├── lokal dirty + Remote geändert? → KONFLIKT            │
+│     ├── lokal dirty? → skip                                  │
+│     └── sonst → upsert                                       │
 │                                                              │
 │  4. Schreibe neuen 'last_sync' Timestamp                     │
 └──────────────────────────────────────────────────────────────┘
@@ -175,7 +192,7 @@ Die Synchronisation folgt einem kontrollierten Offline-First-Ablauf, um Datenkon
 
 ---
 
-### 2.3 Konfliktauflösung ab v0.9.3
+### 2.3 Konfliktauflösung ab aktuellem Stand
 
 #### Warum die frühere Logik nicht ausreichte
 
@@ -204,10 +221,13 @@ Die Konflikterkennung basiert jetzt auf:
 | Neuer lokaler Datensatz ohne `remote_path` | Direkt `create()` |
 | Lokale Änderung, Remote unverändert seit `last_synced_etag` | Direkt `update()` |
 | Lokale Änderung, Remote geändert seit `last_synced_etag` | Konflikt |
+| Lokale Änderung, Remote existiert, aber `last_synced_etag` fehlt | Konflikt |
 | Lokales Soft-Delete, Remote unverändert | Remote darf gelöscht werden |
 | Lokales Soft-Delete, Remote geändert seit `last_synced_etag` | Konflikt |
+| Lokales Soft-Delete, Remote existiert, aber `last_synced_etag` fehlt | Konflikt |
 | `pending_resolution = force_local` | Bewusster lokaler Überschreib-Push |
 | `pending_resolution = force_merge` | Bewusster Push des Merge-Ergebnisses |
+| Remote-Create scheitert an bestehender `uuid` | Duplicate-UUID-Recovery per Lookup |
 
 ---
 
@@ -232,50 +252,30 @@ Die Konflikterkennung basiert jetzt auf:
 | `last_synced_etag` bleibt bei normalen lokalen Änderungen erhalten | Vergleichsbasis für spätere Konflikterkennung |
 | `pending_resolution` wird nur für den nächsten Sync verwendet | Kein dauerhafter Zustand |
 | `deleted = 1` | Soft-Delete lokal, nicht automatisch konfliktfrei |
-
----
+| Duplicate-UUID beim Create führt nicht zu Endlosschleifen | Recovery per erneutem Remote-Lookup |
 
 ---
 
 ## 🖼️ 3. Bild-Synchronisation
 
-Die Bild-Sync-Logik arbeitet getrennt von den Textdaten, um Bandbreite zu sparen und Bildversionen sauber zu behandeln.
+Die Bild-Sync-Logik arbeitet getrennt von den Textdaten. Produktiv relevant ist vor allem der Download fehlender oder veralteter lokaler Bilddateien.
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│                BILD SYNC (Smart Logic)                  │
-│                                                         │
-│  Lokal Bild vorhanden?                                  │
-│  ├── JA: remoteBildPfad leer oder ETag abweichend?      │
-│  │       ├── JA → Bild hochladen → remoteBildPfad setzen│
-│  │       └── NEIN: Remote-Bild neuer (Timestamp)?       │
-│  │                 ├── JA → Bild laden (Smart Sync)     │
-│  │                 └── NEIN → Kein Update nötig         │
-│  └── NEIN: remoteBildPfad vorhanden?                    │
-│            ├── JA → Bild vom Server laden → bildPfad    │
-│            └── NEIN → Kein Bild vorhanden               │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Bild-Download & intelligenter Sync
-
-Seit der Smart-Sync-Logik wird ein Bild nicht nur bei komplett fehlender Datei geladen, sondern auch dann, wenn die lokale Datei älter ist als der fachliche Artikelstand.
+### Bild-Download & Nachlade-Logik
 
 ```text
 downloadMissingImages()
-  → getAlleArtikel(limit: 999999)
   → Für jeden Artikel:
       → remoteBildPfad leer? → skip
       → remotePath leer? → skip
-      → Lokale Datei prüfen:
-          ├── Existiert nicht oder 0 Bytes? → DOWNLOAD
-          └── Existiert?
-                └── Datei-Datum < artikel.aktualisiertAm? → DOWNLOAD
-      → Falls DOWNLOAD:
-          1. Alte Dateien im Artikel-Bildordner bereinigen
-          2. HTTP GET /api/files/artikel/{recordId}/{filename}
-          3. Speichern in {cacheDir}/images/{uuid}/{filename}
-          4. setBildPfadByUuidSilent(uuid, localPath)
+      → Lokale Datei fehlt oder 0 Bytes? → DOWNLOAD
+      → Dateiname lokal ≠ remoteBildPfad? → DOWNLOAD
+      → lokale Datei älter als Artikelstand? → DOWNLOAD
+      → sonst → skip
+  → Falls DOWNLOAD:
+      1. Alte Dateien im Artikel-Bildordner bereinigen
+      2. HTTP GET /api/files/artikel/{recordId}/{filename}
+      3. Speichern in {cacheDir}/images/{uuid}/{filename}
+      4. setBildPfadByUuidSilent(uuid, localPath)
 ```
 
 ### `setBildPfadByUuidSilent()`
@@ -295,6 +295,8 @@ Diese Methode verhindert, dass ein reiner Bild-Download versehentlich als normal
 | `setBildPfadByUuidSilent()` | ✅ | ❌ | ❌ | ❌ Nein |
 | `markSynced(...)` | ❌ | ❌ | ✅ | ❌ Nein |
 | `markAsModified(...)` | ❌ | ✅ | ✅ → `NULL` | ✅ Ja |
+
+> Hinweis: Für die eigentliche Konfliktauflösung bei normalen Artikeldaten ist der zentrale Mechanismus nicht mehr allein `markAsModified(...)`, sondern die Kombination aus `etag`, `last_synced_etag` und `pending_resolution`.
 
 ---
 
@@ -374,79 +376,14 @@ Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes 
 
 ---
 
-## Bild-Download & Intelligenter Sync (v0.8.9+24)
-
-Seit Version 0.8.9+24 (B-007) beschränkt sich der Bild-Download nicht mehr nur auf den Kaltstart, sondern führt einen intelligenten Zeitstempel-Vergleich durch, um auch Bild-Updates auf dem Server zu erkennen.
-
-### Download-Logik (Smart Sync)
-
-```text
-downloadMissingImages()
-  → getAlleArtikel(limit: 999999)
-  → Für jeden Artikel:
-      → remoteBildPfad leer? → skip
-      → remotePath (Record-ID) leer? → skip
-      → Lokale Datei prüfen:
-          ├── Existiert nicht oder 0 Bytes? → DOWNLOAD
-          └── Existiert? 
-                └── Datei-Datum < artikel.aktualisiertAm? → DOWNLOAD (Smart Sync)
-      
-      → Falls DOWNLOAD:
-          1. Bereinigung: Lösche alle Dateien im Ordner {cacheDir}/images/{uuid}/
-             (verhindert Dateileichen bei Namensänderung durch PocketBase-Suffixe)
-          2. HTTP GET /api/files/artikel/{recordId}/{filename}
-          3. Speichern in: {cacheDir}/images/{uuid}/{filename}
-          4. setBildPfadByUuidSilent(uuid, localPath)
-```
-
-1. **Record-Sync:** `syncOnce()` synchronisiert Metadaten inkl.
-   `remoteBildPfad` (Dateiname auf PocketBase)
-2. **Image-Sync:** `downloadMissingImages()` prüft alle Artikel und
-   lädt fehlende Bilder von der PocketBase File-API herunter
-
-### Neue DB-Methode: `setBildPfadByUuidSilent()`
-
-```dart
-Future<void> setBildPfadByUuidSilent(String uuid, String bildPfad)
-```
-
-Aktualisiert **nur** den lokalen `bildPfad`, ohne `updated_at` oder `etag`
-zu ändern.
-
-Wichtig für B-007: Da der Smart Sync Bilder basierend auf `aktualisiertAm` neu lädt, darf dieser Zeitstempel nach dem Download nicht verändert werden, da die App sonst in eine Endlosschleife aus "Lokal ist neuer als Server" (Push-Trigger) und "Server ist neuer als Datei" (Download-Trigger) geraten würde.
-
-**Unterschied zu `setBildPfadByUuid()` und verwandten Methoden:**
-
-| Methode | Ändert `bildPfad` | Ändert `updated_at` | Ändert `etag` | Sync-Trigger |
-|---------|-------------------|---------------------|---------------|--------------|
-| `setBildPfadByUuid()` | ✅ | ✅ | ❌ | ✅ Ja (wird als pending erkannt) |
-| `setBildPfadByUuidSilent()` | ✅ | ❌ | ❌ | ❌ Nein |
-| `markSynced(uuid, etag)` | ❌ | ❌ | ✅ Setzt ETag | ❌ Nein |
-| `markAsModified(uuid)` | ❌ | ✅ jetzt | ✅ → NULL | ✅ Ja (Pending) |
-
-### Download-Logik
-
-```text
-downloadMissingImages()
-  → getAlleArtikel(limit: 999999)
-  → Für jeden Artikel:
-      → bildPfad leer? → skip
-      → remotePath (Record-ID) leer? → skip
-      → Lokale Datei existiert UND > 0 Bytes? → skip   ← B-003: Negation war invertiert
-      → HTTP GET /api/files/artikel/{recordId}/{filename}
-      → Speichern in: {cacheDir}/images/{uuid}/{filename}
-      → setBildPfadByUuidSilent(uuid, localPath)
-```
-
----
-
 ## Wartungsnotiz
 
-> **Zuletzt aktualisiert:** v0.9.3 (2026-04-26)  
-> Sync-Metadaten `last_synced_etag` und `pending_resolution` dokumentiert  
-> Konflikterkennung von implizitem Last-Write-Wins auf explizite Vergleichsbasis umgestellt  
-> T-001.7 bis T-001.12 fachlich abgeschlossen und in der Datenbank-/Sync-Dokumentation nachgezogen  
-> Delete-vs-Remote-Edit als Konfliktfall dokumentiert  
+> **Zuletzt aktualisiert:** fix/sync-hardening2-v0.9.4 (2026-04-27)  
+> Sync-Metadaten `last_synced_etag` und `pending_resolution` konsolidiert dokumentiert  
+> Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  
+> Duplicate-UUID-Recovery im Create-Pfad dokumentiert  
+> Serverseitige UUID-Absicherung (`required` + `unique`) ergänzt  
+> Bild-Nachlade-Logik auf aktuellen produktiven Stand präzisiert  
 > Historische `artikel_dokumente`-Sicht als Legacy-Hinweis eingeordnet, aktuelle Attachment-Realität nachgezogen
 
 --- 

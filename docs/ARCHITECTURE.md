@@ -30,9 +30,8 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
 │  │ • SPA Routing   │  │   │  │ • File Storage                │  │
 │  │ • env-config.js │  │   │  │ • Real-time Subscriptions     │  │
 │  └─────────────────┘  │   │  │ • CORS (--origins Flag)       │  │
-│                       │   |  |                               │  │
-└───────────────────────┘   │  └───────────────────────────────┘  │
-                            │  ┌───────────────────────────────┐  │
+│                       │   │  └───────────────────────────────┘  │
+└───────────────────────┘   │  ┌───────────────────────────────┐  │
                             │  │ Auto-Initialization           │  │
                             │  │ • Create Admin User           │  │
                             │  │ • Apply Migrations            │  │
@@ -99,6 +98,7 @@ Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so ko
 ```bash
 flutter run --dart-define=PB_DEV_MODE=1  # überspringt Login-Screen
 ```
+
 --- 
 
 ## 🔐 Authentifizierung & App-Lock
@@ -117,8 +117,7 @@ flutter run --dart-define=PB_DEV_MODE=1  # überspringt Login-Screen
   - Lifecycle: `WidgetsBindingObserver` → `onAppPaused()` / `onAppResumed()`
   - Verfügbarkeitsprüfung: `canCheckBiometrics` + `isDeviceSupported()` vor Aktivierung
   - Probe-Auth: Bei Toggle-Aktivierung wird einmalig `authenticate()` aufgerufen
-  -Nur Native: `kIsWeb`-Guard in `main.dart`
-
+  - Nur Native: `kIsWeb`-Guard in `main.dart`
 
 --- 
 
@@ -135,11 +134,11 @@ lager_app/
 │   │   ├── services/       # Business-Logik (40 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
 │   │   └── widgets/        # Wiederverwendbare UI-Komponenten (12 Widgets)
-│   └── test/               # 626 Tests (3 skipped), 29 Testdateien
+│   └── test/               # Testsuite
 ├── packages/               # Lokale Dart-Pakete (runtime_env_config)
 ├── server/                 # PocketBase Backend + Backup-Container
-├── docs/                   # Dokumentation (16 Dateien)
-└── .github/                # CI/CD Workflows (4 Pipelines)
+├── docs/                   # Dokumentation
+└── .github/                # CI/CD Workflows
 ```
 
 → **Vollständige Dateistruktur mit allen Dateien:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
@@ -166,13 +165,16 @@ Das Herzstück der Anwendung ist die Collection `artikel`. Ergänzt wird sie dur
 | `remote_path` | `TEXT` | PocketBase Record-ID (Verbindung zum Server) | — |
 | `updated_at` | `INTEGER` | Unix-Timestamp in ms für lokale Änderungsverfolgung / Delta-Sync | ✅ `idx_sync` |
 | `deleted` | `INTEGER` | Soft-Delete (0 = aktiv, 1 = gelöscht) | ✅ `idx_sync` |
-| `etag` | `TEXT` | Aktueller synchronisierter Remote-Stand; `NULL` bedeutet lokale Änderung pending | — |
+| `etag` | `TEXT` | Aktueller Sync-Zustand; `NULL` bedeutet lokale Änderung pending | — |
 | `last_synced_etag` | `TEXT` | Letzter erfolgreich bestätigter Remote-Stand als Konfliktvergleichsbasis | — |
 | `pending_resolution` | `TEXT` | Offene Nutzerentscheidung für den nächsten Sync (`force_local`, `force_merge`) | — |
 | `bildPfad` | `TEXT` | Lokaler Pfad Originalbild | — |
 | `thumbnailPfad` | `TEXT` | Lokaler Pfad Vorschaubild | — |
 | `remoteBildPfad` | `TEXT` | Dateiname auf PocketBase | — |
 | `erstelltAm` | `TEXT` | ISO 8601 Erstellungsdatum | — |
+
+**Wichtige fachliche Invariante:**  
+`uuid` ist nicht nur clientseitig relevant, sondern zusätzlich serverseitig in PocketBase als **required** und **unique** abgesichert.
 
 ### Collection: `attachments` (ab v0.7.2)
 
@@ -208,16 +210,18 @@ Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Syn
    - `last_synced_etag` bleibt dabei als letzter bestätigter Remote-Stand erhalten.
 
 2. **Push**
-   - Pending-Datensätze werden anhand der `uuid` bzw. `remote_path` zum Server synchronisiert.
-   - Vor einem Update wird der aktuelle Remote-Stand geprüft.
+   - Pending-Datensätze werden anhand der `uuid` zum Server synchronisiert.
+   - Vor `update()` oder `delete()` wird der aktuelle Remote-Stand gegen `last_synced_etag` geprüft.
+   - Fehlt bei bestehendem Remote-Datensatz die stabile Vergleichsbasis in `last_synced_etag`, wird konservativ ein Konflikt angenommen.
 
 3. **Pull**
-   - Remote-Änderungen werden anhand des Delta-Syncs geladen und lokal übernommen.
-   - Fehlende lokale Datensätze werden eingefügt, veränderte aktualisiert.
+   - Remote-Änderungen werden geladen und lokal übernommen.
+   - Lokale dirty-/pending-Datensätze werden nicht blind überschrieben.
+   - Auch im Pull-Pfad gilt: Fehlt bei lokal dirty + vorhandenem Remote-Datensatz die Vergleichsbasis, wird konservativ ein Konflikt erzeugt.
 
 4. **Konflikterkennung**
    - Konflikte werden nicht mehr allein aus `etag` abgeleitet.
-   - Vergleichsbasis ist `last_synced_etag` als letzter bekannter gemeinsamer Stand.
+   - Vergleichsbasis ist `last_synced_etag` als letzter bestätigter gemeinsamer Stand.
 
 5. **Konfliktauflösung**
    - Nutzerentscheidungen werden lokal persistiert und beim nächsten Sync gezielt respektiert.
@@ -228,9 +232,13 @@ Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Syn
      - Überspringen
      - Soft-Delete lokal vs. Remote-Änderung
 
+6. **Duplicate-UUID-Recovery**
+   - Wenn ein `create()` wegen bereits vorhandener `uuid` fehlschlägt, wird der bestehende Remote-Datensatz erneut per `uuid` gesucht.
+   - Der lokale Datensatz wird anschließend an diesen Remote-Eintrag angehängt, statt bei jedem weiteren Sync erneut zu scheitern.
+
 ---
 
-## 🔀 Konfliktauflösung ab v0.9.3 (T-001.7–T-001.12)
+## 🔀 Konfliktauflösung ab aktuellem Stand
 
 ### Root Cause des alten Verhaltens
 
@@ -267,6 +275,12 @@ Wenn der Remote-Stand von `last_synced_etag` abweicht und keine offene Force-Res
 - `ConflictResolutionScreen` anzeigen
 - kein blindes Überschreiben
 
+#### Fehlende Konfliktbasis
+Wenn lokal Änderungen vorliegen, remote bereits ein passender Datensatz existiert, aber `last_synced_etag` leer ist:
+- Fall konservativ als Konflikt behandeln
+- kein optimistisches Update oder Delete
+- bewusste Nutzerauflösung erforderlich, außer es liegt bereits `force_local` oder `force_merge` vor
+
 #### useLocal
 Wenn Nutzer **„Lokal behalten“** wählt:
 - lokal `pending_resolution = force_local` setzen
@@ -278,6 +292,7 @@ Wenn Nutzer **„Lokal behalten“** wählt:
 Wenn Nutzer **„Server übernehmen“** wählt:
 - Remote-Version wird lokal vollständig übernommen
 - lokale Vergleichsbasis wird neu gesetzt
+- offene Sonderbehandlung wird gelöscht
 - Konflikt ist damit sofort aufgelöst
 
 #### merge
@@ -294,7 +309,7 @@ Wenn Nutzer **„Überspringen“** wählt:
 - Konflikt erscheint beim nächsten Sync erneut
 
 #### delete vs remote edit
-Wenn lokal ein Soft-Delete markiert wurde, der Remote-Datensatz aber seit `last_synced_etag` verändert wurde:
+Wenn lokal ein Soft-Delete markiert wurde, der Remote-Datensatz aber seit `last_synced_etag` verändert wurde oder keine stabile Vergleichsbasis vorhanden ist:
 - keine direkte Remote-Löschung
 - Konflikt statt blindem Delete
 - bewusste Auflösung durch den Nutzer erforderlich
@@ -313,44 +328,22 @@ Wenn lokal ein Soft-Delete markiert wurde, der Remote-Datensatz aber seit `last_
 | `pending_resolution = force_merge` | Nächster Sync darf bewusst Merge-Ergebnis pushen |
 | `deleted = 1` | Soft-Delete lokal; tatsächliche Server-Löschung nur ohne Konflikt |
 | `setBildPfadByUuidSilent()` | Setzt nur `bildPfad`, löst keinen normalen Datensync-Trigger aus |
+| `toPocketBaseMap()` überträgt keine lokalen Konflikt-Steuerfelder | `last_synced_etag` und `pending_resolution` bleiben lokal |
 
 ---
 
 ## 🔀 Konflikt-Erkennung & Callback-Registrierung
 
-### Konflikterkennung ab v0.9.3
-
-Vor einem Update oder Delete wird der aktuelle Remote-Stand mit dem lokal
-gespeicherten `last_synced_etag` verglichen.
-
-**Vereinfacht gilt:**
-- **kein Konflikt**, wenn Remote-Stand unverändert zum letzten bestätigten Stand ist
-- **Konflikt**, wenn Remote seit `last_synced_etag` geändert wurde und lokal ebenfalls Änderungen vorliegen
-- **Force-Push erlaubt**, wenn `pending_resolution` bewusst gesetzt wurde
-
-### Konfliktfälle
-
-| Fall | Verhalten |
-|---|---|
-| Neuer lokaler Datensatz ohne Remote-Bezug | Direkt `create()` |
-| Lokale Änderung, Remote unverändert seit `last_synced_etag` | Direkt `update()` |
-| Lokale Änderung, Remote geändert seit `last_synced_etag` | Konflikt |
-| Lokales Soft-Delete, Remote unverändert | Remote darf gelöscht werden |
-| Lokales Soft-Delete, Remote geändert seit `last_synced_etag` | Konflikt |
-| `pending_resolution = force_local` | Bewusster Überschreib-Push erlaubt |
-| `pending_resolution = force_merge` | Bewusster Merge-Push erlaubt |
-
-> **Wichtig:** Die Konfliktprüfung basiert fachlich auf dem zuletzt bestätigten gemeinsamen Stand (`last_synced_etag`) und nicht mehr nur auf dem aktuellen Dirty-Flag.
-
 ### ConflictCallback Typedef
 
 ```dart
 typedef ConflictCallback = Future<void> Function(
-  ConflictData conflict,
+  Artikel lokalerArtikel,
+  Artikel remoteArtikel,
 );
 ```
 
-`PocketBaseSyncService` hält einen nullable `ConflictCallback`:
+`PocketBaseSyncService` hält einen nullable Konflikt-Callback:
 
 ```dart
 ConflictCallback? onConflictDetected;
@@ -361,77 +354,44 @@ an den `ConflictResolutionScreen` weiter.
 
 ### Callback-Registrierung via GlobalKey
 
-**Problem:** `onConflictDetected` darf erst registriert werden, wenn ein
-verfügbarer Navigator-Kontext existiert.
+Die Registrierung erfolgt nach dem ersten Frame, damit ein nutzbarer
+`NavigatorState` verfügbar ist. Die Navigation zum
+`ConflictResolutionScreen` läuft über ein `GlobalKey<NavigatorState>`.
 
-**Lösung:** Registrierung nach dem ersten Frame über `GlobalKey<NavigatorState>`.
-
-```dart
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
-MaterialApp(
-  navigatorKey: navigatorKey,
-  ...
-)
-
-WidgetsBinding.instance.addPostFrameCallback((_) {
-  syncOrchestrator.onConflictDetected = (conflict) async {
-    final nav = navigatorKey.currentState;
-    if (nav == null) return;
-    await nav.push(MaterialPageRoute(
-      builder: (_) => ConflictResolutionScreen(...),
-    ));
-  };
-});
-```
-
----
+Der UI-Flow ist zusätzlich gegen doppelte parallele Öffnungen des
+Konflikt-Screens gehärtet.
 
 ### DB-Reopen nach App-Resume
 
 Nach einem Hintergrundwechsel (`AppLifecycleState.resumed`) wird die
 SQLite-Verbindung explizit wiederhergestellt, bevor ein neuer Sync startet:
 
-```dart
-case AppLifecycleState.resumed:
-  await artikelDbService.openDatabase();
-  await _syncIfConnected();
-```
-
 `openDatabase()` ist idempotent und bei bereits geöffneter DB ein No-op.
 
 ---
 
-### Bild-Synchronisation (Smart Logic)
+### Bild-Synchronisation
 
-Die Bild-Sync-Logik arbeitet getrennt von den Textdaten, um Bandbreite zu sparen und Dateiversionen sauber zu behandeln:
+Die Bild-Sync-Logik arbeitet getrennt von den Textdaten. Produktiv relevant ist vor allem der Download fehlender oder veralteter lokaler Bilddateien.
 
 ```text
-┌─────────────────────────────────────────────────────────┐
-│                BILD SYNC (Smart Logic)                  │
-│                                                         │
-│  Lokal Bild vorhanden?                                  │
-│  ├── JA: remoteBildPfad leer oder ETag abweichend?      │
-│  │       ├── JA → Bild hochladen → remoteBildPfad setzen│
-│  │       └── NEIN: Remote-Bild neuer (Timestamp)?       │
-│  │                 ├── JA → Bild laden (Smart Sync)     │
-│  │                 └── NEIN → Kein Update nötig         │
-│  └── NEIN: remoteBildPfad vorhanden?                    │
-│            ├── JA → Bild vom Server laden → bildPfad    │
-│            └── NEIN → Kein Bild vorhanden               │
-└─────────────────────────────────────────────────────────┘
+downloadMissingImages()
+  → Für jeden lokalen Artikel:
+      → remoteBildPfad leer? → skip
+      → remotePath leer? → skip
+      → Lokale Datei fehlt / 0 Bytes? → DOWNLOAD
+      → Dateiname hat sich geändert? → DOWNLOAD
+      → Artikelstand neuer als lokale Datei? → DOWNLOAD
+      → sonst → skip
+  → HTTP GET /api/files/artikel/{recordId}/{filename}
+  → Speichern in {cacheDir}/images/{uuid}/{filename}
+  → setBildPfadByUuidSilent(uuid, localPath)
 ```
 
-### Sync-Invarianten (niemals brechen)
-| Invariante                 | Bedeutung                                            |
-| :------------------------- | :--------------------------------------------------- |
-| `uuid` ist stabil          | Nie ändern — geräteübergreifender Identifier         |
-| `remote_path` = PB Record-ID | Verbindung zum Server — nie überschreiben ohne Sync  |
-| `etag` = `NULL`            | Lokale Änderung ausstehend — muss gepusht werden     |
-| `etag` = PB `updated`-Timestamp | ISO 8601 — wird nach erfolgreichem PATCH gesetzt. Abweichung vom Remote-Wert löst Konflikt-Erkennung aus (B-005) |
-| `deleted` = `1`            | Soft-Delete lokal → Hard-Delete beim nächsten Push   |
-| `setBildPfadByUuidSilent()`| Setzt nur `bildPfad`, löst keinen Sync-Trigger aus, Essenziell für Smart Sync, um Endlosschleifen bei Bild-Updates zu verhindern. |
-
+Wichtig:
+- Bilddownload ist vom normalen Textsync getrennt
+- `setBildPfadByUuidSilent()` löst keinen normalen Datensync aus
+- dadurch werden Endlosschleifen durch reine Bildpfad-Updates vermieden
 
 ---
 
@@ -464,19 +424,14 @@ SyncOrchestrator.runOnce()
   _ladeArtikel() → UI aktualisiert
 ```
 
-### SyncManagementScreen (B-006, ab v0.8.5+19)
+### SyncManagementScreen
 
 `SyncManagementScreen` erhält eine `SyncOrchestrator`-Instanz als Parameter
 und ruft `orchestrator.runOnce()` auf — nicht `SyncService` direkt.
 
-**Vorher (falsch):**
+**Korrekt:**
 ```dart
-syncService.syncOnce();   // ❌ umgeht Orchestrator, kein Conflict-Handling
-```
-
-**Nachher (korrekt):**
-```dart
-orchestrator.runOnce();   // ✅ Status-Stream, Conflict-Handling, downloadMissingImages()
+orchestrator.runOnce();
 ```
 
 ### Bild-Fallback-Kette (Mobile/Desktop)
@@ -493,179 +448,21 @@ nutzen eine 4-stufige Fallback-Kette:
 
 Die Bilder werden im Hintergrund von `downloadMissingImages()` heruntergeladen.
 Beim nächsten Laden der Artikelliste (nach `SyncStatus.success`) werden die
-lokalen Dateien verwendet (Priorität 1/2).
+lokalen Dateien verwendet.
 
 ---
 
-## 🔀 Konflikt-Erkennung & Callback-Registrierung
-
-### ETag-basierte Konflikt-Erkennung (B-005, ab v0.8.5+19)
-
-Vor jedem PATCH-Request lädt `PocketBaseSyncService` den aktuellen Remote-Record
-und vergleicht dessen `updated`-Timestamp mit dem lokal gespeicherten `etag`:
-
-```dart
-final istKonflikt = lokalerEtag.isNotEmpty &&
-    lokalerEtag != 'deleted' &&
-    remoteUpdated.isNotEmpty &&
-    lokalerEtag != remoteUpdated;
-```
-
-| Zustand | Verhalten |
-|---------|-----------|
-| `etag` leer (neuer Artikel) | Kein Konflikt-Check — direkt `create()` |
-| `etag == remoteUpdated` | Kein Konflikt — direkt `update()` |
-| `etag != remoteUpdated` | Konflikt — `onConflictDetected`-Callback |
-| `etag == 'deleted'` | Kein Konflikt-Check — direkt `delete()` |
-| `remoteUpdated` leer | Kein Konflikt-Check — Remote-Record nicht gefunden |
-
-> **Wichtig:** `etag` = PocketBase `updated`-Timestamp (ISO 8601), **nicht** die Record-ID.
-
----
-
-### ConflictCallback Typedef
-
-```dart
-typedef ConflictCallback = Future<void> Function(
-  ConflictData conflict,
-);
-```
-
-`PocketBaseSyncService` hält einen nullable `ConflictCallback`:
-
-```dart
-ConflictCallback? onConflictDetected;
-```
-
-Der Callback wird von `SyncOrchestrator` gesetzt und leitet Konflikte
-an den `ConflictResolutionScreen` weiter.
-
----
-
-### Callback-Registrierung via GlobalKey (B-004, ab v0.8.5+19)
-
-**Problem:** `onConflictDetected` wurde vor dem Navigator-Init registriert —
-`Navigator.of(context)` warf einen Fehler, weil kein `MaterialApp`-Kontext
-verfügbar war.
-
-**Lösung:**
-
-```dart
-// main.dart
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
-// In MyApp:
-MaterialApp(
-  navigatorKey: navigatorKey,
-  ...
-)
-
-// Callback-Registrierung nach erstem Frame:
-WidgetsBinding.instance.addPostFrameCallback((_) {
-  syncOrchestrator.onConflictDetected = (conflict) async {
-    final nav = navigatorKey.currentState;
-    if (nav == null) return;
-    await nav.push(MaterialPageRoute(
-      builder: (_) => ConflictResolutionScreen(...),
-    ));
-  };
-});
-```
-
-**Ablauf:**
-
-```text
-main.dart
-  → runApp(MyApp())
-  → addPostFrameCallback()        ← erster Frame gerendert
-      → navigatorKey.currentState verfügbar
-      → syncOrchestrator.onConflictDetected = Callback
-      → _syncIfConnected()        ← Sync startet erst jetzt
-```
-
----
-
-### DB-Reopen nach App-Resume (B-004)
-
-Nach einem Hintergrundwechsel (`AppLifecycleState.resumed`) wird die
-SQLite-Verbindung explizit wiederhergestellt, bevor der Sync startet:
-
-```dart
-// In didChangeAppLifecycleState():
-case AppLifecycleState.resumed:
-  await artikelDbService.openDatabase();   // No-op wenn bereits offen
-  await _syncIfConnected();
-```
-
-`openDatabase()` ist idempotent — wenn `_db != null`, ist der Aufruf ein No-op.
-
----
-
-### ConflictResolution — useLocal Force-Push
-
-Nach `ConflictResolution.useLocal` wird der Artikel via `markAsModified()`
-als dirty markiert:
-
-```dart
-// ArtikelDbService.markAsModified():
-await db.update('artikel',
-  {'etag': null, 'updated_at': DateTime.now().millisecondsSinceEpoch},
-  where: 'uuid = ?', whereArgs: [uuid],
-);
-```
-
-Effekt: Der Artikel erscheint beim nächsten `getPendingChanges()`-Aufruf
-und wird vom `PocketBaseSyncService` zum Server gepusht — auch wenn der
-Server eine neuere Version hat.
-
----
-
-## 🎛️ F-006 / F-007 — Log-Dialog & Sync-Zeitstempel-Toggle (ab v0.9.0+25)
+## 🎛️ F-006 / F-007 — Log-Dialog & Sync-Zeitstempel-Toggle
 
 ### F-006: Log-Level-Filter als Dropdown
 
 Der In-App Log-Dialog verwendet einen `DropdownButton<Level>` statt der
-früheren horizontalen Button-Reihe (6 × `FilterChip`).
-
-| Eigenschaft | Vorher | Nachher |
-|:------------|:-------|:--------|
-| Widget | `ListView` + 6 × `FilterChip` horizontal | `DropdownButton<Level>` |
-| Platzbedarf | 44px Höhe + horizontale Scrollbar | Eine Zeile, kein Scrollen |
-| Default | `Level.trace` (alles) | `Level.error` (nur Fehler) |
-| Farbe | Chip-Farbe fix | Container passt sich dynamisch an Level an |
-| Leer-State | Nur Text | `check_circle_outline`-Icon + Level-Name |
-
-**Begründung:** Auf 360dp-Displays (z.B. Samsung S20) passte die Button-Reihe
-nicht in eine Zeile. Der Dropdown benötigt nur eine Zeile und skaliert auf
-alle Displaybreiten.
-
----
+früheren horizontalen Button-Reihe.
 
 ### F-007: Sync-Zeitstempel-Toggle (ValueNotifier-Pattern)
 
 Der Sync-Zeitstempel in der `ArtikelListScreen`-AppBar kann in den
 Einstellungen ein- und ausgeblendet werden.
-
-```text
-SettingsScreen / SettingsController
-        └─ writes ─► showLastSyncNotifier (settings_state.dart)
-                           └─ notifies ─► ArtikelListScreen
-                                              rebuild
-```
-| Alternative                     | Problem                                        |
-| :------------------------------ | :--------------------------------------------- |
-| `SharedPreferences` direkt in `initState()` | Nicht reaktiv — braucht App-Neustart           |
-| `Provider` / `Riverpod`         | Overhead für eine einzelne `bool`-Präferenz    |
-| `InheritedWidget`               | Zu viel Boilerplate                            |
-| `ValueNotifier` ✅              | Leichtgewichtig, kein extra Package, sofortige Wirkung |
-
-Implementierung:
-
-- SharedPreferences-Key: `show_last_sync` (Default: `true`)
-- `showLastSyncNotifier` liegt zentral in `settings_state.dart`
-- `SettingsController` lädt/speichert die Präferenz
-- `ArtikelListScreen` hört reaktiv auf den Notifier
-- Rebuild erfolgt sofort ohne App-Neustart
 
 ---
 
@@ -680,93 +477,51 @@ klarer getrennt:
 - `settings_state.dart`: UI-neutraler geteilter Settings-State
   (`showLastSyncNotifier`, Prefs-Key, Defaultwert)
 
-**Ziel:** bessere Testbarkeit ohne vollständigen Architektur-Umbau.
-Die Lösung ist bewusst minimal-invasiv und führt keine zusätzliche
-State-Management-Bibliothek ein.
-
---- 
+---
 
 ## 🎨 Design-System & Konfiguration
 
 Um die Wartbarkeit zu erhöhen, nutzt die App eine dreistufige Konfiguration in `app/lib/config/`:
 
-1.  **`AppConfig`**: Hält technische Konstanten (Spacing, Border-Radius, API-Timeouts).
-2.  **`AppTheme`**: Implementiert Material 3 mit Unterstützung für `ThemeMode.system`.
-3.  **`AppImages`**: Verwaltet Asset-Pfade und Feature-Flags für Hintergrundbilder oder Platzhalter.
-
-**Vorteil**: Design-Änderungen (z.B. von 8px auf 12px Eckenradius) werden an genau einer Stelle geändert und wirken sich auf die gesamte App aus.
+1. **`AppConfig`**: Hält technische Konstanten.
+2. **`AppTheme`**: Implementiert Material 3 mit Unterstützung für `ThemeMode.system`.
+3. **`AppImages`**: Verwaltet Asset-Pfade und Feature-Flags.
 
 ---
 
 ## 🛠️ Plattform-Abstraktion (Conditional Imports)
 
-Da `dart:io` (Dateisystem) im Web nicht existiert, nutzt die App **Conditional Imports**. Dies verhindert Compiler-Fehler auf verschiedenen Plattformen.
-
-**Beispiel**:
-*   `artikel_erfassen_io.dart`: Implementiert Kamera-Zugriff und Datei-Operationen für Android/Linux.
-*   `artikel_erfassen_stub.dart`: Implementiert Datei-Upload für Web.
-*   `artikel_erfassen_screen.dart`: Importiert automatisch die richtige Version.
-
-Dies gilt analog für die **Dokumenten-Funktionalität**: Auf nativen Plattformen werden Dokumente lokal gespeichert und via `open_file` geöffnet; im Web erfolgt der Zugriff direkt über den Browser-Download-Mechanismus.
-
-→ **Vollständige Liste aller Conditional Imports:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+Da `dart:io` im Web nicht existiert, nutzt die App **Conditional Imports**.
+Dies verhindert Compiler-Fehler auf verschiedenen Plattformen.
 
 ---
 
 ## 🛡️ Sicherheits-Architektur
 
-1.  **PocketBase Rules**: Der Zugriff auf die API ist im Produktionsmodus (`PB_DEV_MODE=0`) strikt an Rollen (`reader`/`writer`) gebunden. Dies gilt für `artikel` **und** `artikel_dokumente`.
-2.  **Caddy Security**: Der interne Webserver liefert die App mit gehärteten HTTP-Headern aus:
-    *   `Content-Security-Policy`: Verhindert XSS.
-    *   `Strict-Transport-Security`: Erzwingt HTTPS.
-    *   `X-Frame-Options`: Verhindert Clickjacking.
-3.  **Network Isolation**: In Docker-Produktions-Setups kommunizieren Frontend und Backend über ein isoliertes internes Netzwerk ohne direkte Port-Exposition.
-4.  **Datei-Validierung**: Beim Dokument-Upload wird der MIME-Type serverseitig geprüft, um     unerwünschte Dateitypen abzuweisen.
-5. **App-Lock (F-001/F-002)**: Auf nativen mobilen Plattformen kann die App
-   mit biometrischer Authentifizierung (`local_auth`) gesperrt werden.
-   Bei nicht verfügbarer Biometrie greift der Geräte-PIN als Fallback.
-   Die Sperrzeit ist konfigurierbar (Standard: 5 Minuten Inaktivität).
+1. **PocketBase Rules**: Zugriff im Produktionsmodus strikt an Auth/Rollen gebunden.
+2. **Caddy Security**: gehärtete HTTP-Header.
+3. **Network Isolation**: interne Docker-Kommunikation.
+4. **Datei-Validierung**: MIME-Type-Prüfung serverseitig.
+5. **App-Lock**: biometrische Sperre auf nativen mobilen Plattformen.
 
 ---
 
 ## 📄 Dokument-Verwaltung
 
-Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab**, der folgende Funktionen bietet:
-
-```text
-┌─────────────────────────────────────────────────────────┐
-│              DOKUMENTE-TAB (Artikel-Detail)             │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │ 📄 datenblatt.pdf          [Öffnen] [Löschen]   │   │
-│  │ 📄 einbauanleitung.docx    [Öffnen] [Löschen]   │   │
-│  │ 📄 pruefprotokoll.xlsx     [Öffnen] [Löschen]   │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-│  [ + Dokument hinzufügen ]                              │
-│                                                         │
-│  Plattform-Verhalten:                                   │
-│  • Native (Android/Linux): Speichern + open_file        │
-│  • Web: Direkter Browser-Download                       │
-└─────────────────────────────────────────────────────────┘
-```
-
-| Aktion | Native | Web |
-|---|---|---|
-| **Upload** | `file_picker` → lokale Kopie + PocketBase | `file_picker` → direkt zu PocketBase |
-| **Öffnen** | Lokal gespeichert → `open_file` | Browser-Download / Inline-Anzeige |
-| **Löschen** | Soft-Delete lokal → Hard-Delete beim Sync | Direktes DELETE via REST API |
+Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Upload, Öffnen und Löschen von Anhängen.
 
 ---
+
 ### 6. Wartungs-Notiz am Ende des Dokuments
 
-> **Zuletzt aktualisiert:** v0.9.3 (2026-04-26)  
-> T-001.7 bis T-001.12 fachlich abgeschlossen und dokumentiert  
-> Sync-Konflikterkennung auf `last_synced_etag` als stabile Vergleichsbasis umgestellt  
-> `pending_resolution` für bewusste Nutzerentscheidungen (`force_local`, `force_merge`) ergänzt  
-> Konfliktauflösung für „Lokal behalten“, „Server übernehmen“, „Zusammenführen“ und „Überspringen“ konsolidiert  
-> Skip-Recall beim nächsten Sync fachlich und automatisiert abgesichert  
-> Delete-vs-Remote-Edit als echter Konfliktfall umgesetzt und dokumentiert  
-> Architekturtext für Offline-First-Sync von implizitem Last-Write-Wins auf explizite Konfliktauflösung aktualisiert
+> **Zuletzt aktualisiert:** fix/sync-hardening2-v0.9.4 (2026-04-27)  
+> Architekturtext gegen historische ETag-only-Beschreibungen konsolidiert  
+> Konflikterkennung auf `last_synced_etag` als stabile Vergleichsbasis dokumentiert  
+> Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  
+> `pending_resolution` für `force_local` und `force_merge` konsolidiert  
+> Guard gegen doppelte Konflikt-UI-Öffnung berücksichtigt  
+> Duplicate-UUID-Recovery im Create-Pfad dokumentiert  
+> Serverseitige UUID-Absicherung (`required` + `unique`) nachgezogen  
+> Logging für Duplicate-UUID-Recovery als aktueller Sync-Bestandteil berücksichtigt
 
 [Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md) | [CI/CD & Deployment](../DEPLOYMENT.md)

@@ -4,14 +4,13 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:logger/logger.dart';
 import 'package:http/http.dart' as http;
+import 'package:logger/logger.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '../models/artikel_model.dart';
-
 import '../config/app_config.dart';
-
+import '../models/artikel_model.dart';
+import 'app_log_service.dart';
 import 'pocketbase_sync_contracts.dart';
 
 typedef ConflictCallback = Future<void> Function(
@@ -23,7 +22,7 @@ class PocketBaseSyncService {
   final String collectionName;
   final SyncPocketBaseService _pbService;
   final SyncArtikelDbService _db;
-  final Logger _logger = Logger();
+  final Logger _logger = AppLogService.logger;
 
   ConflictCallback? onConflictDetected;
 
@@ -47,6 +46,123 @@ class PocketBaseSyncService {
     }
   }
 
+  bool _isDirty(Artikel artikel) {
+    final etag = artikel.etag ?? '';
+    return etag.isEmpty;
+  }
+
+  bool _hasPendingResolution(Artikel artikel) {
+    final pending = artikel.pendingResolution?.trim() ?? '';
+    return pending.isNotEmpty;
+  }
+
+  bool _isForceResolution(Artikel artikel) {
+    final pending = artikel.pendingResolution?.trim() ?? '';
+    return pending == 'force_local' || pending == 'force_merge';
+  }
+
+  bool _needsConflictBecauseMissingBase(Artikel artikel) {
+    if (_isForceResolution(artikel)) return false;
+    final base = artikel.lastSyncedEtag?.trim() ?? '';
+    return base.isEmpty;
+  }
+
+  Map<String, dynamic> _asStringDynamicMap(dynamic value) {
+    if (value == null) return <String, dynamic>{};
+
+    if (value is Map<String, dynamic>) {
+      return value;
+    }
+
+    if (value is Map) {
+      return value.map(
+        (key, val) => MapEntry(key.toString(), val),
+      );
+    }
+
+    return <String, dynamic>{};
+  }
+
+  String _extractRecordEtag(dynamic record) {
+    final data = _asStringDynamicMap(record.data);
+    final updated = _safeGet(data, 'updated');
+    return updated.isNotEmpty ? updated : record.id.toString();
+  }
+
+  bool _hasRemoteChangedSinceLastSync(Artikel lokal, String remoteEtag) {
+    final base = lokal.lastSyncedEtag?.trim() ?? '';
+    if (base.isEmpty) return false;
+    return remoteEtag.isNotEmpty && remoteEtag != base;
+  }
+
+  Artikel _recordToArtikel(dynamic record) {
+    final data = _asStringDynamicMap(record.data);
+    return Artikel.fromPocketBase(
+      data,
+      record.id.toString(),
+      created: _safeGet(data, 'created'),
+      updated: _safeGet(data, 'updated'),
+    );
+  }
+
+  bool _isDuplicateUuidError(Object error) {
+    final text = error.toString().toLowerCase();
+
+    final mentionsUuid = text.contains('uuid');
+    final mentionsDuplicate = text.contains('duplicate') ||
+        text.contains('unique') ||
+        text.contains('already exists');
+
+    final mentionsValidation =
+        text.contains('validation') && text.contains('uuid');
+
+    return mentionsUuid && (mentionsDuplicate || mentionsValidation);
+  }
+
+  Future<dynamic> _findRemoteRecordByUuid(String uuid) async {
+    final safeUuid = uuid.replaceAll('"', '');
+    final filter = 'uuid = "$safeUuid"';
+
+    final list = await _pbService.client
+        .collection(collectionName)
+        .getList(
+          page: 1,
+          perPage: 1,
+          filter: filter,
+        );
+
+    if (list.items.isEmpty) {
+      return null;
+    }
+
+    return list.items.first;
+  }
+
+  Future<void> _markLocalAsSyncedFromRemote(
+    Artikel artikel,
+    dynamic remoteRecord,
+  ) async {
+    final remoteData = _asStringDynamicMap(remoteRecord.data);
+    final remoteEtag = _safeGet(remoteData, 'updated').isNotEmpty
+        ? _safeGet(remoteData, 'updated')
+        : remoteRecord.id.toString();
+
+    await _db.markSynced(
+      artikel.uuid,
+      remoteEtag,
+      remotePath: remoteRecord.id.toString(),
+    );
+  }
+
+  Future<void> _emitConflictIfPossible(
+    Artikel lokal,
+    Artikel remote,
+  ) async {
+    if (onConflictDetected != null) {
+      await onConflictDetected!(lokal, remote);
+    }
+  }
+
   Future<void> _pushToPocketBase() async {
     final pending = await _db.getPendingChanges();
     _logger.i('PocketBaseSync: pushing ${pending.length} pending changes');
@@ -63,34 +179,35 @@ class PocketBaseSyncService {
         if (artikel.deleted == true) {
           if (list.items.isNotEmpty) {
             final remoteRecord = list.items.first;
-            final remoteUpdated = _safeGet(remoteRecord.data, 'updated');
-            final lokalerEtag = artikel.etag ?? '';
+            final remoteEtag = _extractRecordEtag(remoteRecord);
+            final remoteArtikel = _recordToArtikel(remoteRecord);
 
-            final hasConflict = lokalerEtag.isNotEmpty &&
-                lokalerEtag != 'deleted' &&
-                remoteUpdated.isNotEmpty &&
-                lokalerEtag != remoteUpdated;
+            final missingConflictBase =
+                _needsConflictBecauseMissingBase(artikel);
+
+            if (missingConflictBase) {
+              _logger.w(
+                'PocketBaseSync: Delete-Konflikt ohne last_synced_etag '
+                'für ${artikel.uuid}',
+              );
+              await _emitConflictIfPossible(artikel, remoteArtikel);
+              continue;
+            }
+
+            final hasConflict = !_isForceResolution(artikel) &&
+                _hasRemoteChangedSinceLastSync(artikel, remoteEtag);
 
             if (hasConflict) {
               _logger.w(
                 'PocketBaseSync: Delete-Konflikt erkannt für ${artikel.uuid}',
               );
-
-              if (onConflictDetected != null) {
-                final remoteArtikel = Artikel.fromPocketBase(
-                  Map<String, dynamic>.from(remoteRecord.data),
-                  remoteRecord.id,
-                  created: _safeGet(remoteRecord.data, 'created'),
-                  updated: remoteUpdated,
-                );
-                await onConflictDetected!(artikel, remoteArtikel);
-              }
+              await _emitConflictIfPossible(artikel, remoteArtikel);
               continue;
             }
 
             await _pbService.client
                 .collection(collectionName)
-                .delete(remoteRecord.id);
+                .delete(remoteRecord.id.toString());
           }
 
           await _db.markSynced(artikel.uuid, 'deleted');
@@ -99,63 +216,120 @@ class PocketBaseSyncService {
 
         if (list.items.isNotEmpty) {
           final remoteRecord = list.items.first;
-          final recId = remoteRecord.id;
+          final recId = remoteRecord.id.toString();
+          final remoteEtag = _extractRecordEtag(remoteRecord);
+          final remoteArtikel = _recordToArtikel(remoteRecord);
 
-          final remoteUpdated = _safeGet(remoteRecord.data, 'updated');
-          final lokalerEtag = artikel.etag ?? '';
+          final missingConflictBase =
+              _needsConflictBecauseMissingBase(artikel);
 
-          if (lokalerEtag.isNotEmpty &&
-              lokalerEtag != 'deleted' &&
-              remoteUpdated.isNotEmpty &&
-              lokalerEtag != remoteUpdated) {
-            _logger.w('PocketBaseSync: Konflikt erkannt für ${artikel.uuid}');
-
-            if (onConflictDetected != null) {
-              final remoteArtikel = Artikel.fromPocketBase(
-                Map<String, dynamic>.from(remoteRecord.data),
-                remoteRecord.id,
-                created: _safeGet(remoteRecord.data, 'created'),
-                updated: remoteUpdated,
-              );
-              await onConflictDetected!(artikel, remoteArtikel);
-            }
+          if (missingConflictBase) {
+            _logger.w(
+              'PocketBaseSync: Konflikt ohne last_synced_etag '
+              'für ${artikel.uuid}',
+            );
+            await _emitConflictIfPossible(artikel, remoteArtikel);
             continue;
           }
 
-          final body = artikel.toPocketBaseMap();
+          final hasConflict = !_isForceResolution(artikel) &&
+              _hasRemoteChangedSinceLastSync(artikel, remoteEtag);
+
+          if (hasConflict) {
+            _logger.w('PocketBaseSync: Konflikt erkannt für ${artikel.uuid}');
+            await _emitConflictIfPossible(artikel, remoteArtikel);
+            continue;
+          }
+
+          final body = <String, dynamic>{
+            ...artikel.toPocketBaseMap(),
+          };
+
           if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
             body['owner'] = _pbService.currentUserId;
           }
+
           final updated = await _pbService.client
               .collection(collectionName)
               .update(recId, body: body);
 
+          final updatedData = _asStringDynamicMap(updated.data);
+          final updatedEtag = _safeGet(updatedData, 'updated').isNotEmpty
+              ? _safeGet(updatedData, 'updated')
+              : updated.id.toString();
+
           await _db.markSynced(
             artikel.uuid,
-            _safeGet(updated.data, 'updated').isNotEmpty
-                ? _safeGet(updated.data, 'updated')
-                : updated.id,
-            remotePath: updated.id,
+            updatedEtag,
+            remotePath: updated.id.toString(),
           );
         } else {
-          final body = artikel.toPocketBaseMap();
+          final body = <String, dynamic>{
+            ...artikel.toPocketBaseMap(),
+          };
+
           if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
             body['owner'] = _pbService.currentUserId;
           }
-          final created = await _pbService.client
-              .collection(collectionName)
-              .create(body: body);
 
-          final createdEtag = _safeGet(created.data, 'updated').isNotEmpty
-              ? _safeGet(created.data, 'updated')
-              : created.id;
+          try {
+            final created = await _pbService.client
+                .collection(collectionName)
+                .create(body: body);
 
-          await _db.markSynced(artikel.uuid, createdEtag,
-              remotePath: created.id,);
+            final createdData = _asStringDynamicMap(created.data);
+            final createdEtag = _safeGet(createdData, 'updated').isNotEmpty
+                ? _safeGet(createdData, 'updated')
+                : created.id.toString();
+
+            await _db.markSynced(
+              artikel.uuid,
+              createdEtag,
+              remotePath: created.id.toString(),
+            );
+          } catch (e) {
+            if (!_isDuplicateUuidError(e)) {
+              rethrow;
+            }
+
+            _logger.w(
+              'PocketBaseSync: Duplicate-UUID beim Create erkannt; '
+              'starte Recovery-Lookup (uuid=${artikel.uuid})',
+            );
+
+            try {
+              final existing = await _findRemoteRecordByUuid(artikel.uuid);
+
+              if (existing == null) {
+                throw StateError(
+                  'Duplicate-UUID erkannt, aber kein Remote-Record per uuid '
+                  'gefunden (uuid=${artikel.uuid})',
+                );
+              }
+
+              await _markLocalAsSyncedFromRemote(artikel, existing);
+
+              _logger.i(
+                'PocketBaseSync: Duplicate-UUID-Recovery erfolgreich '
+                '(uuid=${artikel.uuid}, remoteId=${existing.id})',
+              );
+            } catch (recoveryError, recoveryStack) {
+              _logger.e(
+                'PocketBaseSync: Duplicate-UUID-Recovery fehlgeschlagen '
+                '(uuid=${artikel.uuid})',
+                error: recoveryError,
+                stackTrace: recoveryStack,
+              );
+              rethrow;
+            }
+          }
         }
       } catch (e, st) {
-        _logger.e('PocketBase push failed for uuid=${artikel.uuid}',
-            error: e, stackTrace: st,);
+        _logger.e(
+          'PocketBase push failed for uuid=${artikel.uuid}',
+          error: e,
+          stackTrace: st,
+        );
       }
     }
   }
@@ -171,20 +345,86 @@ class PocketBaseSyncService {
 
       for (final r in records) {
         try {
-          final updatedRaw = _safeGet(r.data, 'updated');
+          final data = _asStringDynamicMap(r.data);
+          final updatedRaw = _safeGet(data, 'updated');
+
           final artikel = Artikel.fromPocketBase(
-            Map<String, dynamic>.from(r.data),
-            r.id,
-            created: _safeGet(r.data, 'created'),
+            data,
+            r.id.toString(),
+            created: _safeGet(data, 'created'),
             updated: updatedRaw,
           );
 
-          final etag = updatedRaw.isNotEmpty ? updatedRaw : r.id;
+          final etag = updatedRaw.isNotEmpty ? updatedRaw : r.id.toString();
+          final localArtikel = await _db.getArtikelByUUID(artikel.uuid);
+
+          if (localArtikel != null) {
+            final localDirty = _isDirty(localArtikel);
+            final hasPending = _hasPendingResolution(localArtikel);
+            final missingConflictBase =
+                _needsConflictBecauseMissingBase(localArtikel);
+            final remoteChanged =
+                _hasRemoteChangedSinceLastSync(localArtikel, etag);
+
+            if (hasPending) {
+              _logger.i(
+                'PocketBaseSync: Pull übersprungen wegen pending_resolution '
+                'für ${artikel.uuid}',
+              );
+              if (artikel.uuid.isNotEmpty) {
+                remoteUuids.add(artikel.uuid);
+              }
+              continue;
+            }
+
+            if (localDirty && missingConflictBase) {
+              _logger.w(
+                'PocketBaseSync: Pull-Konflikt ohne last_synced_etag '
+                'für ${artikel.uuid}',
+              );
+              await _emitConflictIfPossible(localArtikel, artikel);
+
+              if (artikel.uuid.isNotEmpty) {
+                remoteUuids.add(artikel.uuid);
+              }
+              continue;
+            }
+
+            if (localDirty && remoteChanged) {
+              _logger.w(
+                'PocketBaseSync: Pull-Konflikt erkannt für ${artikel.uuid}',
+              );
+              await _emitConflictIfPossible(localArtikel, artikel);
+
+              if (artikel.uuid.isNotEmpty) {
+                remoteUuids.add(artikel.uuid);
+              }
+              continue;
+            }
+
+            if (localDirty) {
+              _logger.i(
+                'PocketBaseSync: Pull übersprungen, lokale Änderungen '
+                'vorhanden für ${artikel.uuid}',
+              );
+              if (artikel.uuid.isNotEmpty) {
+                remoteUuids.add(artikel.uuid);
+              }
+              continue;
+            }
+          }
+
           await _db.upsertArtikel(artikel, etag: etag);
 
-          if (artikel.uuid.isNotEmpty) remoteUuids.add(artikel.uuid);
-        } catch (e) {
-          _logger.e('Failed to upsert remote record ${r.id}: $e');
+          if (artikel.uuid.isNotEmpty) {
+            remoteUuids.add(artikel.uuid);
+          }
+        } catch (e, st) {
+          _logger.e(
+            'Failed to upsert remote record ${r.id}',
+            error: e,
+            stackTrace: st,
+          );
         }
       }
 
@@ -194,14 +434,27 @@ class PocketBaseSyncService {
           if (lokal.remotePath != null &&
               lokal.remotePath!.isNotEmpty &&
               !remoteUuids.contains(lokal.uuid)) {
+            final localDirty = _isDirty(lokal);
+            final hasPending = _hasPendingResolution(lokal);
+
+            if (hasPending || localDirty) {
+              _logger.i(
+                'PocketBaseSync: Lokale Löschung übersprungen wegen '
+                'offener lokaler Änderungen für ${lokal.uuid}',
+              );
+              continue;
+            }
+
             _logger.i(
-                'PocketBaseSync: Lösche lokal (remote nicht mehr vorhanden): ${lokal.name}',);
+              'PocketBaseSync: Lösche lokal '
+              '(remote nicht mehr vorhanden): ${lokal.name}',
+            );
             await _db.deleteArtikel(lokal);
           }
         }
       }
-    } catch (e) {
-      _logger.e('PocketBase pull failed: $e');
+    } catch (e, st) {
+      _logger.e('PocketBase pull failed', error: e, stackTrace: st);
       rethrow;
     }
   }
@@ -219,38 +472,44 @@ class PocketBaseSyncService {
 
       for (final artikel in alleArtikel) {
         try {
-          final remoteBild = artikel.remoteBildPfad; // z.B. "bild_abc123.jpg"
+          final remoteBild = artikel.remoteBildPfad;
           final recordId = artikel.remotePath;
 
-          if (remoteBild == null || remoteBild.isEmpty || recordId == null || recordId.isEmpty) {
+          if (remoteBild == null ||
+              remoteBild.isEmpty ||
+              recordId == null ||
+              recordId.isEmpty) {
             skipped++;
             continue;
           }
 
-          // --- VERBESSERTE LOGIK START ---
           bool mussNeuLaden = false;
 
           if (artikel.bildPfad.isEmpty) {
             mussNeuLaden = true;
           } else {
             final localFile = File(artikel.bildPfad);
-            
+
             if (!localFile.existsSync() || localFile.lengthSync() == 0) {
               mussNeuLaden = true;
             } else {
-              // 1. Check: Hat sich der Dateiname in PocketBase geändert?
-              // (PocketBase hängt oft Zufallschars an, wenn man ein Bild ersetzt)
               if (!artikel.bildPfad.endsWith(remoteBild)) {
                 mussNeuLaden = true;
-                _logger.d('Bild-Dateiname hat sich geändert für ${artikel.uuid}. Lade neu.');
-              } 
-              
-              // 2. Check: Ist der Artikel in der DB neuer als das Dateidatum auf dem Handy?
-              // Wir geben 2 Sekunden Puffer für Dateisystem-Ungenauigkeiten.
+                _logger.d(
+                  'Bild-Dateiname hat sich geändert für ${artikel.uuid}. '
+                  'Lade neu.',
+                );
+              }
+
               final lastModified = localFile.lastModifiedSync();
-              if (artikel.aktualisiertAm.isAfter(lastModified.add(const Duration(seconds: 2)))) {
+              if (artikel.aktualisiertAm.isAfter(
+                lastModified.add(const Duration(seconds: 2)),
+              )) {
                 mussNeuLaden = true;
-                _logger.d('Bild in PocketBase ist neuer als lokale Datei für ${artikel.uuid}. Lade neu.');
+                _logger.d(
+                  'Bild in PocketBase ist neuer als lokale Datei für '
+                  '${artikel.uuid}. Lade neu.',
+                );
               }
             }
           }
@@ -259,7 +518,6 @@ class PocketBaseSyncService {
             skipped++;
             continue;
           }
-          // --- VERBESSERTE LOGIK ENDE ---
 
           final imageUrl = _buildImageUrl(recordId, remoteBild);
           if (imageUrl == null) {
@@ -267,25 +525,35 @@ class PocketBaseSyncService {
             continue;
           }
 
+          _logger.d(
+            'PocketBaseSync: Downloading image for ${artikel.uuid}: $imageUrl',
+          );
+
           final response = await http
               .get(Uri.parse(imageUrl), headers: _buildAuthHeaders())
               .timeout(AppConfig.networkTimeout);
 
           if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
             failed++;
+            _logger.w(
+              'PocketBaseSync: Image download HTTP ${response.statusCode} '
+              'für ${artikel.uuid}',
+            );
             continue;
           }
 
           final cacheDir = await getApplicationCacheDirectory();
           final imageDir = Directory('${cacheDir.path}/images/${artikel.uuid}');
-          if (!imageDir.existsSync()) imageDir.createSync(recursive: true);
+          if (!imageDir.existsSync()) {
+            imageDir.createSync(recursive: true);
+          }
 
-          // Alte Dateien im Ordner löschen, bevor wir die neue schreiben
-          // (Verhindert Datenmüll bei Namensänderungen)
           if (imageDir.existsSync()) {
-            imageDir.listSync().forEach((file) {
-              if (file is File) file.deleteSync();
-            });
+            for (final file in imageDir.listSync()) {
+              if (file is File) {
+                file.deleteSync();
+              }
+            }
           }
 
           final localPath = '${imageDir.path}/$remoteBild';
@@ -293,25 +561,36 @@ class PocketBaseSyncService {
           await _db.setBildPfadByUuidSilent(artikel.uuid, localPath);
 
           downloaded++;
+          _logger.d(
+            'PocketBaseSync: Bild gespeichert für ${artikel.uuid}: $localPath',
+          );
         } catch (e) {
           failed++;
-          _logger.w('Image download failed for ${artikel.uuid}: $e');
+          _logger.w('PocketBaseSync: Image download failed for ${artikel.uuid}: $e');
         }
       }
+
       _logger.i(
-          'PocketBaseSync: downloadMissingImages end (downloaded: $downloaded, skipped: $skipped, failed: $failed)',);
-    } catch (e) {
-      _logger.e('PocketBaseSync: downloadMissingImages failed: $e');
+        'PocketBaseSync: downloadMissingImages end '
+        '(downloaded: $downloaded, skipped: $skipped, failed: $failed)',
+      );
+    } catch (e, st) {
+      _logger.e(
+        'PocketBaseSync: downloadMissingImages failed',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
-  // ✅ Single, correct implementation — builds URL directly from base URL string
   String? _buildImageUrl(String recordId, String filename) {
     try {
       if (!_pbService.hasClient || _pbService.url.isEmpty) return null;
       return Uri.parse(_pbService.url)
           .resolve(
-              '/api/files/$collectionName/$recordId/${Uri.encodeComponent(filename)}',)
+            '/api/files/$collectionName/$recordId/'
+            '${Uri.encodeComponent(filename)}',
+          )
           .toString();
     } catch (e) {
       _logger.w('Fehler beim Erstellen der Bild-URL: $e');
@@ -323,7 +602,9 @@ class PocketBaseSyncService {
     final headers = <String, String>{};
     if (_pbService.hasClient && _pbService.isAuthenticated) {
       final token = _pbService.client.authStore.token;
-      if (token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+      if (token.isNotEmpty) {
+        headers['Authorization'] = 'Bearer $token';
+      }
     }
     return headers;
   }

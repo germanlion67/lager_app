@@ -584,6 +584,103 @@ void main() {
       expect(resultMap['resolved'], 1);
       expect(resultMap['skipped'], 0);
     });
+    testWidgets(
+      'zeigt Snackbar und poppt nicht, wenn useRemote-Auflösung fehlschlägt',
+      (tester) async {
+        final conflict = _makeConflict(
+          local: _makeArtikel(uuid: 'uuid-error-remote'),
+          remote: _makeArtikel(uuid: 'uuid-error-remote', menge: 50),
+        );
+
+        when(
+          mockSyncService.applyConflictResolution(
+            any,
+            ConflictResolution.useRemote,
+            mergedVersion: anyNamed('mergedVersion'),
+          ),
+        ).thenThrow(StateError('Keine gültige Remote-Baseline'));
+
+        Object? poppedResult;
+
+        await tester.binding.setSurfaceSize(const Size(1024, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (ctx) => ElevatedButton(
+                onPressed: () async {
+                  poppedResult = await Navigator.of(ctx).push(
+                    MaterialPageRoute<Object>(
+                      builder: (_) => ConflictResolutionScreen(
+                        conflicts: [conflict],
+                        syncService: mockSyncService,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        );
+
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Remote Version'));
+        await tester.pump();
+
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Auflösen'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.textContaining('Fehler beim Auflösen der Konflikte'), findsOneWidget);
+        expect(find.textContaining('Keine gültige Remote-Baseline'), findsOneWidget);
+
+        expect(find.textContaining('Konflikte (1/1)'), findsOneWidget);
+        expect(poppedResult, isNull);
+      },
+    );
+
+    testWidgets(
+      'zeigt Snackbar und bleibt offen, wenn useLocal-Auflösung fehlschlägt',
+      (tester) async {
+        final conflict = _makeConflict(
+          local: _makeArtikel(uuid: 'uuid-error-local'),
+          remote: _makeArtikel(uuid: 'uuid-error-local', menge: 50),
+        );
+
+        when(
+          mockSyncService.applyConflictResolution(
+            any,
+            ConflictResolution.useLocal,
+            mergedVersion: anyNamed('mergedVersion'),
+          ),
+        ).thenThrow(Exception('DB write failed'));
+
+        await pumpConflictScreen(tester, [conflict]);
+
+        await tester.tap(find.text('Lokale Version'));
+        await tester.pump();
+
+        await tester.tap(find.widgetWithText(ElevatedButton, 'Auflösen'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(find.textContaining('Fehler beim Auflösen der Konflikte'), findsOneWidget);
+        expect(find.textContaining('DB write failed'), findsOneWidget);
+
+        expect(find.textContaining('Konflikte (1/1)'), findsOneWidget);
+        verify(
+          mockSyncService.applyConflictResolution(
+            any,
+            ConflictResolution.useLocal,
+            mergedVersion: anyNamed('mergedVersion'),
+          ),
+        ).called(1);
+      },
+    );
 
     testWidgets('zeigt "(1/2)" bei zwei Konflikten', (tester) async {
       final conflicts = [

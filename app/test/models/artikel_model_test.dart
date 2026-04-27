@@ -46,6 +46,7 @@ Artikel _makeArtikel({
   String ort = 'Regal A',
   String fach = 'Fach 3',
   String beschreibung = 'SMD 0805',
+  String? kategorie = 'Elektronik',
   String bildPfad = '/images/r10k.jpg',
   String? thumbnailPfad = '/images/r10k_thumb.jpg',
   String? thumbnailEtag,
@@ -69,6 +70,7 @@ Artikel _makeArtikel({
     ort: ort,
     fach: fach,
     beschreibung: beschreibung,
+    kategorie: kategorie,
     bildPfad: bildPfad,
     thumbnailPfad: thumbnailPfad,
     thumbnailEtag: thumbnailEtag,
@@ -95,6 +97,7 @@ Map<String, dynamic> _makeMap({
   String ort = 'Regal B',
   String fach = 'Fach 1',
   String beschreibung = 'Keramik X7R',
+  String? kategorie = 'Passive Bauteile',
   String bildPfad = '/images/c100n.jpg',
   String? thumbnailPfad = '/images/c100n_thumb.jpg',
   String? thumbnailEtag,
@@ -124,6 +127,7 @@ Map<String, dynamic> _makeMap({
     'ort': ort,
     'fach': fach,
     'beschreibung': beschreibung,
+    'kategorie': kategorie,
     'bildPfad': bildPfad,
     'thumbnailPfad': thumbnailPfad,
     'thumbnailEtag': thumbnailEtag,
@@ -196,6 +200,7 @@ void main() {
           pendingResolution: null,
           remotePath: null,
           deviceId: null,
+          kategorie: null,
         );
 
         expect(artikel.id, isNull);
@@ -208,6 +213,7 @@ void main() {
         expect(artikel.pendingResolution, isNull);
         expect(artikel.remotePath, isNull);
         expect(artikel.deviceId, isNull);
+        expect(artikel.kategorie, isNull);
       });
 
       test('setzt neue Sync-Felder wenn angegeben', () {
@@ -221,6 +227,12 @@ void main() {
         expect(artikel.lastSyncedEtag, equals('etag-0'));
         expect(artikel.pendingResolution, equals('force_local'));
       });
+      test('setzt kategorie wenn angegeben', () {
+        final artikel = _makeArtikel(kategorie: 'Elektronik');
+
+        expect(artikel.kategorie, equals('Elektronik'));
+      });
+
     });
 
     // =======================================================================
@@ -283,6 +295,7 @@ void main() {
         expect(map['fach'], equals('Fach 3'));
         expect(map['uuid'], equals('map-test-uuid'));
         expect(map['deleted'], equals(0));
+        expect(map['kategorie'], equals('Elektronik'));
       });
 
       test('serialisiert deleted=true als int 1', () {
@@ -326,6 +339,7 @@ void main() {
           etag: null,
           remotePath: null,
           deviceId: null,
+          kategorie: null,
         ).toMap();
 
         expect(map['artikelnummer'], isNull);
@@ -334,6 +348,7 @@ void main() {
         expect(map['etag'], isNull);
         expect(map['remote_path'], isNull);
         expect(map['device_id'], isNull);
+        expect(map['kategorie'], isNull);
       });
 
       test('nutzt snake_case Keys für SQLite-Felder', () {
@@ -369,7 +384,10 @@ void main() {
         expect(map['last_synced_etag'], isNull);
         expect(map['pending_resolution'], isNull);
       });
-
+      test('serialisiert kategorie korrekt', () {
+        final map = _makeArtikel(kategorie: 'Mechanik').toMap();
+        expect(map['kategorie'], equals('Mechanik'));
+      });
     });
 
     // =======================================================================
@@ -394,6 +412,12 @@ void main() {
         expect(map.containsKey('pending_resolution'), isFalse);
         expect(map.containsKey('remote_path'), isFalse);
       });
+      test('enthält kategorie im PocketBase-Mapping', () {
+        final map = _makeArtikel(kategorie: 'Werkzeug').toPocketBaseMap();
+
+        expect(map['kategorie'], equals('Werkzeug'));
+      });
+
     });
 
     // =======================================================================
@@ -412,6 +436,7 @@ void main() {
         expect(artikel.uuid, equals(_fixedUuid));
         expect(artikel.deleted, isFalse);
         expect(artikel.updatedAt, equals(_fixedMillis));
+        expect(artikel.kategorie, equals('Passive Bauteile'));
       });
 
       test('parst id als String korrekt zu int (Typ-Koercion)', () {
@@ -457,6 +482,11 @@ void main() {
         expect(artikel.lastSyncedEtag, equals('etag-base'));
         expect(artikel.pendingResolution, equals('force_local'));
       });      
+
+      test('liest kategorie aus Map', () {
+        final artikel = Artikel.fromMap(_makeMap(kategorie: 'Mechanik'));
+        expect(artikel.kategorie, equals('Mechanik'));
+      });
 
     // =======================================================================
     // fromPocketBase()
@@ -558,6 +588,27 @@ void main() {
         expect(artikelSnake.deviceId, equals('dev-snake'));
         expect(artikelCamel.deviceId, equals('dev-camel'));
       });
+      test('liest kategorie aus PocketBase-Daten', () {
+        final artikel = Artikel.fromPocketBase(
+          {
+            'uuid': _fixedUuid,
+            'name': 'Remote Artikel',
+            'artikelnummer': 2001,
+            'menge': 7,
+            'ort': 'Remote Regal',
+            'fach': 'Remote Fach',
+            'beschreibung': 'Von PocketBase',
+            'kategorie': 'Remote Kategorie',
+            'deleted': false,
+            'updated': '2025-02-01T12:00:00.000Z',
+            'created': '2025-02-01T11:00:00.000Z',
+          },
+          'rec_001',
+        );
+
+        expect(artikel.kategorie, equals('Remote Kategorie'));
+      });
+
     });
 
       // -----------------------------------------------------------------------
@@ -640,6 +691,11 @@ void main() {
             ),
           );
         });
+        test('lässt kategorie null wenn nicht vorhanden', () {
+          final map = _makeMap()..['kategorie'] = null;
+          expect(Artikel.fromMap(map).kategorie, isNull);
+        });
+
       });
 
       // -----------------------------------------------------------------------
@@ -738,6 +794,7 @@ void main() {
           ort: 'Regal C',
           fach: 'Fach 2',
           beschreibung: 'Vorwärtsspannung 2V',
+          kategorie: 'Optoelektronik',
           bildPfad: '/images/led_rot.jpg',
           thumbnailPfad: '/images/led_rot_thumb.jpg',
           deleted: false,
@@ -755,6 +812,7 @@ void main() {
         expect(roundtripped.ort, equals(original.ort));
         expect(roundtripped.fach, equals(original.fach));
         expect(roundtripped.beschreibung, equals(original.beschreibung));
+        expect(roundtripped.kategorie, equals(original.kategorie));
         expect(roundtripped.bildPfad, equals(original.bildPfad));
         expect(roundtripped.thumbnailPfad, equals(original.thumbnailPfad));
         expect(roundtripped.deleted, equals(original.deleted));
@@ -784,6 +842,7 @@ void main() {
           etag: null,
           remotePath: null,
           deviceId: null,
+          kategorie: null,
         );
         final roundtripped = Artikel.fromMap(original.toMap());
 
@@ -792,6 +851,7 @@ void main() {
         expect(roundtripped.etag, isNull);
         expect(roundtripped.remotePath, isNull);
         expect(roundtripped.deviceId, isNull);
+        expect(roundtripped.kategorie, isNull);
       });
       test('neue Sync-Felder überleben Roundtrip korrekt', () {
         final original = _makeArtikel(
@@ -890,6 +950,19 @@ void main() {
         expect(copy.lastSyncedEtag, isNull);
         expect(copy.pendingResolution, isNull);
       });
+      test('kann kategorie ändern', () {
+        final original = _makeArtikel(kategorie: 'Elektronik');
+        final copy = original.copyWith(kategorie: 'Mechanik');
+
+        expect(copy.kategorie, equals('Mechanik'));
+        expect(original.kategorie, equals('Elektronik'));
+      });
+      test('kann kategorie auf null setzen', () {
+        final original = _makeArtikel(kategorie: 'Elektronik');
+        final copy = original.copyWith(kategorie: null);
+
+        expect(copy.kategorie, isNull);
+      });
 
     });
 
@@ -962,7 +1035,12 @@ void main() {
         expect(str, contains('etag-base'));
         expect(str, contains('force_merge'));
       });
+      test('enthält kategorie in toString()', () {
+        final artikel = _makeArtikel(kategorie: 'Elektronik');
+        final str = artikel.toString();
 
+        expect(str, contains('Elektronik'));
+      });
     });
   });
 }

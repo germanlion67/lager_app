@@ -44,21 +44,30 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 ### T-001: Tests für Konfliktlösung (M-007)
 Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 
-**Unit- und Widget-Tests — Abgeschlossen ✅ (77 Tests)**
-- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling (11 Tests)
-- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index (6 Tests)
-- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen (9 Tests)
-- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien (15 Tests)
-- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock (20 Tests)
+**Unit-, Widget- und service-nahe Tests — weitgehend ausgebaut ✅**
+- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling
+- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index
+- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
+- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien
+- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
+- [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
+- [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+- [x] Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version
+- [x] Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version
+- [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
+- [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
+- [x] Erfolgreicher `force_local`-/`force_merge`-Push bereinigt `pendingResolution` über `markSynced()`-Contract
 
 **Manuelle Integrationstests**
 - [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
 - [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
 - [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
 - [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
-- [ ] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
-- [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+
+**Hinweis**
+Die technische Konfliktlogik wurde inzwischen deutlich gehärtet; offen sind vor allem noch echte Geräte-/Server-Integrationsläufe.
+
 
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
@@ -67,6 +76,24 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] Vollständige manuelle Tests der Kamerafunktionalität auf verschiedenen Android-Geräten
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
+
+--- 
+
+### T-011: Manuelle und erweiterte Verifikation der gehärteten Sync-Konfliktpfade
+**Beschreibung:** Nach dem technischen Hardening der Konflikt- und Recovery-Logik fehlen noch einige manuelle bzw. weiterführende Verifikationen unter realitätsnahen Bedingungen.
+
+**Offene Punkte**
+- [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
+- [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
+- [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
+- [ ] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [ ] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung stabil
+- [ ] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
+- [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
+- [ ] Optional weitere Recovery-Tests ergänzen: Duplicate-UUID-Recovery Erfolg/Fehler explizit im service-nahen Test
+
+**Ziel**
+Die bereits grüne Testabdeckung durch reale Feld- und Integrationsverifikation ergänzen und die Robustheit des Sync-Verhaltens unter echten Serverbedingungen bestätigen.
 
 ---
 
@@ -383,6 +410,46 @@ wurden in einen neuen `SettingsController` ausgelagert.
 - zusätzliche Tests für Save-/Reset-/Dirty-State-Verhalten ergänzt
 - Reject-/Success-Pfade von `saveSettings()` abgesichert
 
+--- 
+
+### T-010: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows — erledigt in `fix/sync-hardening2-v0.9.4`
+**Typ:** Testausbau / Sync-Hardening / Konfliktlogik  
+**Betrifft:**  
+`lib/services/pocketbase_sync_service.dart`,  
+`lib/services/conflict_resolution_utils.dart`,  
+`lib/main.dart`,  
+`test/services/pocketbase_sync_service_test.dart`,  
+`test/services/pocketbase_sync_service_conflict_test.dart`,  
+`test/services/conflict_resolution_utils_test.dart`,  
+`test/screens/conflict_resolution_screen_test.dart`,  
+`docs/LOGGER.md`,  
+PocketBase-Schema / Admin-Konfiguration (`uuid` als `required` + `unique`)
+
+Die PocketBase-Synchronisation und die Konfliktauflösung wurden in mehreren realen Fehler- und Randfällen gezielt gehärtet.
+
+**Abgedeckte fachliche Verbesserungen**
+- Unsichere Fälle ohne stabile Konfliktbasis (`last_synced_etag`) werden konservativ als Konflikt behandelt
+- Das gilt für Push-Update, Push-Delete und Pull
+- Bewusste Ausnahmen über `pendingResolution = force_local | force_merge` bleiben möglich
+- Duplicate-UUID-Race-Conditions beim Remote-Create werden erkannt und über Recovery-Lookup per `uuid` aufgelöst
+- Recovery-Erfolg und Recovery-Fehler sind im Log nachvollziehbar dokumentiert
+- Die useRemote-Baseline wurde in eine Utility ausgelagert und akzeptiert nur noch belastbare Remote-Baselines
+- Der PocketBase-Conflict-Adapter erfüllt das erwartete Interface explizit und analyzer-konform
+- UI-Fehlerpfade im `ConflictResolutionScreen` wurden abgesichert (Snackbar, kein versehentliches Schließen)
+- Übersprungene Konflikte erscheinen beim nächsten Sync erneut
+- Pull überschreibt Datensätze mit `force_local` oder `force_merge` nicht
+- Soft-Delete lokal + Remote-Edit wird als Konflikt behandelt
+- Remote-Delete-Cleanup ist gegen dirty/pending Datensätze abgesichert
+- Lokales Cleanup erfolgt nur für saubere Datensätze nach plausiblem/validem Pull
+- Erfolgreiche `force_local`-/`force_merge`-Pushes laufen korrekt über den `markSynced()`-Pfad und bereinigen `pendingResolution` auf Contract-Ebene
+
+**Qualitätsstatus**
+- `flutter analyze` grün
+- `flutter test` grün
+
+**Hinweis**
+Die Bereinigung von `pendingResolution` erfolgt nicht direkt im `PocketBaseSyncService`, sondern über den Contract von `markSynced()` in der DB-Schicht. Die Tests bilden dieses Zusammenspiel nun service-nah ab.
+
 ---
 
 ### T-009: Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade — erledigt in `v0.9.2+32`
@@ -494,6 +561,7 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-27 | fix/sync-hardening2-v0.9.4 | T-010 abgeschlossen: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows konsolidiert. Konfliktfälle ohne `last_synced_etag` werden konservativ behandelt, Duplicate-UUID-Recovery inkl. Logging gehärtet, useRemote-Baseline ausgelagert und validiert, UI-Fehlerpfad im `ConflictResolutionScreen` abgesichert sowie service-nahe Tests für Skip-/Force-/Delete-Guards und `markSynced()`-basierte Bereinigung von `pendingResolution` ergänzt. Teststand: 691 Tests grün, 3 übersprungen. |
 | 2026-04-23 | v0.9.2+32 | T-009 und O-011 abgeschlossen: ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade nachgezogen; zugleich `AppLockService` testbarer gemacht, sodass App-Lock-nahe Lade-/Speicherpfade und fachliche Timeout-/State-Logik nun isolierter testbar sind. |
 | 2026-04-23 | v0.9.1+29 | O-010 abgeschlossen: `SettingsScreen` fachlich minimal-invasiv in `SettingsController` refactored, UI-/Logik-Trennung verbessert, zusätzliche Controller-Tests ergänzt. F-007 architektonisch bereinigt: `showLastSyncNotifier`, Prefs-Key und Default nach `settings_state.dart` verschoben, Default konsistent auf `true` vereinheitlicht. Teststand auf 626 bestanden, 3 übersprungen aktualisiert. |
 | 2026-04-22 | v0.9.1+26 | K-007: Flutter upgrade 3.41.4 → 3.41.7 + package major updates |
