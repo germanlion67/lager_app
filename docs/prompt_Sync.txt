@@ -43,6 +43,10 @@ Regeln:
 6. Kleinere Änderungen nur als Datei + Stelle + vorher/nachher zeigen.
 7. Größere oder viele Änderungen pro Datei als komplette Datei zeigen.
 8. Bei Konfliktauflösungen keine semantisch ungeeigneten Fallbacks für Remote-Baselines einführen.
+9. Wenn der Prompt einen zuletzt dokumentierten Stand beschreibt, dieser aber dem aktuell gezeigten Code widerspricht, hat immer der gezeigte Code Vorrang.
+10. Bereits als umgesetzt dokumentierte Punkte dürfen aktiv wieder in Frage gestellt werden, wenn der gezeigte Code, Tests oder die Doku etwas anderes zeigen.
+11. Bei jeder Prüfung explizit zwischen „im Code bestätigt“, „im Test bestätigt“, „nur dokumentiert“, „nicht sichtbar/offen“ und „optional/Architekturverbesserung“ unterscheiden.
+12. Wenn für eine belastbare Bewertung notwendige Dateien oder Dokumente fehlen, diese gezielt anfordern statt mit Annahmen weiterzuarbeiten.
 
 ---
 
@@ -51,12 +55,155 @@ Regeln:
 Wenn Doku, Tests und Code nicht vollständig übereinstimmen, gilt diese Reihenfolge:
 
 1. tatsächlich gezeigter aktueller Produktivcode
-2. aktuelle Tests
-3. aktueller Branch-/Release-Stand `fix/sync-hardening2-v0.9.4`
-4. ältere Doku nur als historische Referenz
+2. tatsächlich gezeigte aktuelle Tests
+3. aktuelle offene Aufgaben / Restpunkte aus `docs/OPTIMIZATIONS.md`
+4. aktueller Branch-/Release-Stand `fix/sync-hardening2-v0.9.4`
+5. ältere Doku nur als historische Referenz
 
 Wichtige Folge:
 Ältere ETag-only-Beschreibungen sind historisch zu interpretieren, wenn sie dem gezeigten aktuellen Code widersprechen.
+
+---
+
+## Relevante Projektdokumente außerhalb des direkten Sync-Codes
+
+Weitere wichtige Kontextquellen laut `PROJECT_STRUCTURE.md`:
+
+- `CHANGELOG.md`
+  - Release- und Änderungsverlauf
+  - hilfreich, um einzuordnen, wann Sync-Verhalten geändert wurde
+
+- `docs/LOGGER.md`
+  - Logging-Konventionen und relevante strukturierte Logpfade
+  - besonders wichtig für Duplicate-UUID-Recovery und Fehleranalyse
+
+- `docs/TESTING.md`
+  - Teststrategie, Testarten und Konventionen
+  - hilfreich bei neuen Sync-Tests oder der Einordnung bestehender Tests
+
+- `docs/THEMING.md`
+  - für Sync fachlich meist nicht relevant
+  - nur bei UI-/Screen-Anpassungen mit visuellen Auswirkungen heranziehen
+
+- `docs/OPTIMIZATIONS.md`
+  - aktuelles Aufgaben-Tracking
+  - maßgeblich für offene Sync-Arbeiten, Prioritäten und Restpunkte
+
+- `docs/DATABASE.md`
+  - Datenbankschema, Migrationsstand, Sync-relevante DB-Felder und Indexe
+
+- `docs/ARCHITECTURE.md`
+  - Gesamtarchitektur, Rollen der Services, Sync-Flows und Systemgrenzen
+
+---
+
+## Startpunkt für neue Sessions ohne Vorwissen
+
+Wenn die konkrete Aufgabe noch unklar ist oder nur allgemein „am Sync weiterarbeiten“ lautet, bitte zuerst gezielt diese Quellen anfragen:
+
+### Für produktive Sync-Logik
+1. `lib/services/pocketbase_sync_service.dart`
+2. `lib/services/artikel_db_service.dart`
+3. `lib/models/artikel_model.dart`
+4. `lib/services/sync_orchestrator.dart`
+5. `lib/main.dart` (nur der konfliktrelevante Teil)
+
+### Für fachliche Einordnung
+6. `docs/OPTIMIZATIONS.md`
+7. `docs/DATABASE.md`
+8. `docs/ARCHITECTURE.md`
+9. `CHANGELOG.md`
+
+### Für Testbewertung
+10. `test/services/pocketbase_sync_service_test.dart`
+11. `test/services/pocketbase_sync_service_conflict_test.dart`
+12. `test/services/artikel_db_service_test.dart`
+13. `test/models/artikel_model_test.dart`
+14. `test/services/sync_orchestrator_test.dart`
+15. konfliktbezogene UI-/Utility-Tests
+
+---
+
+## Welche Dateien bei welcher Fragestellung zuerst anfragen
+
+### Wenn es um Konflikterkennung / Push / Pull geht
+- `lib/services/pocketbase_sync_service.dart`
+- `lib/models/artikel_model.dart`
+- `lib/services/artikel_db_service.dart`
+- passende Sync-Service-Tests
+
+### Wenn es um `pending_resolution`, `force_local`, `force_merge`, `useRemote` geht
+- `lib/services/pocketbase_sync_service.dart`
+- `lib/services/conflict_resolution_utils.dart`
+- `lib/services/artikel_db_service.dart`
+- `test/services/pocketbase_sync_service_conflict_test.dart`
+- `test/services/conflict_resolution_utils_test.dart`
+
+### Wenn es um Konflikt-UI oder Navigation geht
+- `lib/main.dart`
+- `lib/screens/conflict_resolution_screen.dart`
+- konfliktbezogene Screen-/UI-Tests
+
+### Wenn es um Modell-/Mapping-/Persistenzfragen geht
+- `lib/models/artikel_model.dart`
+- `lib/services/artikel_db_service.dart`
+- `docs/DATABASE.md`
+- Modell-/DB-Tests
+
+### Wenn es um Dokumentationsabgleich geht
+- `docs/ARCHITECTURE.md`
+- `docs/DATABASE.md`
+- `docs/OPTIMIZATIONS.md`
+- relevante Produktivdateien
+
+---
+
+## Prüffokus für Folge-Sessions
+
+Wenn nicht anders angegeben, prüfe bei Sync-bezogenen Änderungen in dieser Reihenfolge:
+
+1. fachliche Korrektheit der Konfliktbasis (`last_synced_etag`, Dirty-Zustand, `pending_resolution`)
+2. Schutz vor blindem Überschreiben bei Push/Pull/Delete
+3. korrekter Recovery-Pfad bei Duplicate-UUID und ähnlichen Race-/Retry-Fällen
+4. Stabilität des Konflikt-UI-Flows und der Callback-Verkabelung
+5. Testabdeckung der konkret geänderten Pfade
+6. Doku-Konsistenz nur nachgelagert
+
+---
+
+## Nicht unbeabsichtigt zurückbauen
+
+- Konflikterkennung darf nicht wieder primär auf `etag` statt `last_synced_etag` basieren
+- fehlende Baseline bei dirty + vorhandenem Remote darf nicht optimistisch überschrieben werden
+- `pending_resolution = force_local | force_merge` darf Pull-/Push-Schutz nicht verlieren
+- `useRemote` darf keine unzuverlässigen Baselines wie `remotePath` oder leere Strings verwenden
+- `toPocketBaseMap()` darf keine lokalen Konflikt-Steuerfelder übertragen
+- Duplicate-UUID-Recovery darf nicht wieder in endlose Create-Fehler zurückfallen
+
+---
+
+## Arbeitsstatus für Folge-Sessions
+
+### Als umgesetzt dokumentiert, aber bei Code-Änderungen gegenprüfen
+- Konfliktvergleich nutzt `last_synced_etag` als stabile Baseline
+- fehlende Baseline bei dirty + vorhandenem Remote führt konservativ zum Konflikt
+- `pending_resolution = force_local | force_merge` wird im produktiven Sync respektiert
+- `useRemote` akzeptiert nur belastbare Remote-Baselines
+- Duplicate-UUID-Recovery im Create-Pfad ist implementiert
+- Konflikt-UI ist gegen parallele Mehrfachöffnung abgesichert
+- `kategorie` ist im Modell-/Mapping-/Testpfad ergänzt
+- `toPocketBaseMap()` sendet keine lokalen Konflikt-Steuerfelder
+
+### Noch gezielt zu prüfen oder manuell zu verifizieren
+- reale End-to-End-Verifikation von Duplicate-UUID-Recovery
+- reale Geräte-/Server-Tests für `useLocal`, `useRemote`, `merge`, `skip`
+- Verhalten bei mehreren Konflikten in einem echten Sync-Lauf
+- verbleibende Doku-Altstände in `ARCHITECTURE.md` / `DATABASE.md`
+
+### Optional / spätere Architekturverbesserung
+- dediziertes Interface statt `_PocketBaseConflictAdapter implements SyncService`
+- `ConflictCallback` mit Rückgabewert statt `Future<void>`
+- zusätzliche Persistenzmarkierung für offene Konflikte
 
 ---
 
@@ -87,7 +234,7 @@ Wichtige Eigenschaften:
 Datei:
 - `lib/models/artikel_model.dart`
 
-### Bestätigte relevante Felder
+### Zuletzt dokumentierte relevante Felder
 - `uuid`
 - `updatedAt`
 - `deleted`
@@ -117,7 +264,7 @@ Datei:
 
 Diese Felder sind lokale Sync-Steuerinformationen und dürfen nicht an PocketBase gesendet werden.
 
-### Bestätigte Modell-Ergänzung
+### Zuletzt dokumentierte Modell-Ergänzung
 - `kategorie` ist im Artikel-Modell, im SQLite-/JSON-/PocketBase-Mapping und in `copyWith()` konsistent berücksichtigt
 - relevante Modell- und DB-Tests wurden dafür ergänzt bzw. grün verifiziert
 
@@ -159,7 +306,7 @@ Migrationen:
 
 ---
 
-## Bestätigter Root Cause der alten Logik
+## Zuletzt dokumentierter Root Cause der alten Logik
 
 Die frühere Konfliktlogik nutzte `etag` gleichzeitig als:
 1. Dirty-Marker
@@ -175,7 +322,7 @@ Die neue fachliche Basis trennt daher:
 
 ---
 
-## Bestätigter Ist-Stand der DB-Logik
+## Zuletzt dokumentierter Ist-Stand der DB-Logik
 
 ### Relevante Methoden
 - `getPendingChanges()`
@@ -190,7 +337,7 @@ Die neue fachliche Basis trennt daher:
 - `openDatabase()`
 - `closeDatabase()`
 
-### Fachlich bestätigtes Verhalten
+### Zuletzt dokumentiertes fachliches Verhalten
 - `getPendingChanges()` nutzt:
   - `etag IS NULL OR etag = ''`
 - `markSynced()` setzt:
@@ -219,7 +366,7 @@ Die neue fachliche Basis trennt daher:
 
 ---
 
-## Bestätigter Ist-Stand der produktiven Sync-Logik
+## Zuletzt dokumentierter Ist-Stand der produktiven Sync-Logik
 
 Datei:
 - `lib/services/pocketbase_sync_service.dart`
@@ -330,7 +477,7 @@ Getrennt vom Textsync:
 
 ---
 
-## Bestätigter Ist-Stand der Konflikt-UI und Auflösung
+## Zuletzt dokumentierter Ist-Stand der Konflikt-UI und Auflösung
 
 Dateien:
 - `lib/main.dart`
@@ -382,8 +529,8 @@ Wichtige Einordnung:
 - der Adapter ist bewusst eine kleine Übergangslösung für den ConflictResolutionScreen
 - er ist kein vollwertiger allgemeiner SyncService
 
-
 ### Reales Verhalten der Konfliktauflösung
+
 #### useLocal
 - `_db.markForForceLocal(conflict.localVersion.uuid)`
 
@@ -404,7 +551,6 @@ Nicht mehr zulässig:
 
 Wenn keine belastbare Remote-Baseline vorhanden ist, wird die Auflösung mit `StateError` abgebrochen (fail-fast statt semantisch unsauberer Persistenz).
 
-
 #### merge
 - `_db.updateArtikel(mergedVersion)`
 - `_db.markForForceMerge(mergedVersion.uuid)`
@@ -422,11 +568,14 @@ Wenn keine belastbare Remote-Baseline vorhanden ist, wird die Auflösung mit `St
   - `skipped`
 
 ### Guard gegen doppelte Konflikt-UI
+Zuletzt dokumentiert:
 In `main.dart` wurde ein Guard-State ergänzt, damit der Konflikt-Screen nicht mehrfach parallel geöffnet wird, wenn Konflikte schnell nacheinander eintreffen.
+
+Bei Folgeprüfungen bitte im gezeigten Code verifizieren.
 
 ---
 
-## Bestätigter Ist-Stand des Orchestrators
+## Zuletzt dokumentierter Ist-Stand des Orchestrators
 
 Datei:
 - `lib/services/sync_orchestrator.dart`
@@ -466,14 +615,14 @@ Ziel:
 
 ---
 
-## Bestätigte Testabdeckung
+## Zuletzt dokumentierte Testabdeckung
 
 ### Produktive Konfliktfälle
 Dateien:
 - `test/services/pocketbase_sync_service_test.dart`
 - `test/services/pocketbase_sync_service_conflict_test.dart`
 
-Bestätigt:
+Zuletzt dokumentiert:
 - T-001.10: übersprungener Konflikt erscheint beim nächsten Sync erneut
 - T-001.12: lokales Soft-Delete + Remote-Änderung erzeugt Konflikt statt Remote-Löschung
 - fehlende Konfliktbasis bei bestehendem Remote-Datensatz wird konservativ als Konflikt behandelt
@@ -484,7 +633,7 @@ Dateien:
 - `test/conflict_resolution_test.dart`
 - `test/services/conflict_resolution_utils_test.dart`
 
-Bestätigt:
+Zuletzt dokumentiert:
 - `ConflictData`
 - `ConflictResolution`
 - leere Konfliktliste
@@ -502,7 +651,7 @@ Dateien:
 - `test/models/artikel_model_test.dart`
 - `test/services/artikel_db_service_test.dart`
 
-Bestätigt:
+Zuletzt dokumentiert:
 - `kategorie` bleibt bei SQLite-, JSON- und PocketBase-Roundtrip erhalten
 - `kategorie` ist in `copyWith()` und relevanten DB-/Modelltests abgedeckt
 
@@ -526,9 +675,9 @@ Diese Regeln möglichst nicht brechen:
 
 ---
 
-## Aktuell fachlich bestätigte Fähigkeiten
+## Zuletzt dokumentierte fachlich bestätigte Fähigkeiten
 
-Für den aktuellen Stand gelten fachlich als umgesetzt:
+Für den zuletzt dokumentierten Stand gelten fachlich als umgesetzt:
 
 - T-001.7 — Lokal behalten → gezielter Server-Override beim nächsten Sync
 - T-001.8 — Server übernehmen → Remote-Version ersetzt lokale Version sauber
@@ -547,7 +696,7 @@ Für den aktuellen Stand gelten fachlich als umgesetzt:
 
 ## Teststatus
 
-Bekannter aktueller Stand:
+Bekannter zuletzt dokumentierter Stand:
 - `flutter analyze` grün
 - `flutter test` grün
 
@@ -558,7 +707,7 @@ Besonders relevante Testdateien:
 - `test/services/pocketbase_sync_service_conflict_test.dart`
 - `test/services/sync_orchestrator_test.dart`
 - `test/services/artikel_db_service_test.dart`
-- `test/models/artikel_model_test.dart``
+- `test/models/artikel_model_test.dart`
 
 Wichtiger Test-Hinweis:
 Die Konfliktlogik ist nicht nur im UI-Flow, sondern zusätzlich im produktiven Sync-Kontext abgesichert.
@@ -567,19 +716,27 @@ Die Konfliktlogik ist nicht nur im UI-Flow, sondern zusätzlich im produktiven S
 
 ## Konsolidierter Maßnahmenblock T-010
 
+Dieser Block dient nur als komprimierte Referenz auf den zuletzt dokumentierten Hardening-Stand.
+Die Priorisierung offener Arbeiten erfolgt primär über `docs/OPTIMIZATIONS.md`.
+
 ### T-010 abgeschlossen
 Titel: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery und Recovery-Logging konsolidiert
-Ziel: Die PocketBase-Synchronisation gegen fehlende Konfliktbasis, Duplicate-UUID-Race-Conditions und unklare Recovery-Nachvollziehbarkeit robust absichern.
+
+Ziel:
+Die PocketBase-Synchronisation gegen fehlende Konfliktbasis, Duplicate-UUID-Race-Conditions und unklare Recovery-Nachvollziehbarkeit robust absichern.
+
 Betroffene Dateien/Bereiche:
 - `lib/services/pocketbase_sync_service.dart`
 - `test/services/pocketbase_sync_service_test.dart`
 - `docs/LOGGER.md`
 - PocketBase-Schema / Admin-Konfiguration
+
 Fachlicher Effekt:
 - fehlende Konfliktbasis bei existierendem Remote-Datensatz wird konservativ als Konflikt behandelt
 - Duplicate-UUID beim Create wird durch Lookup-Recovery abgefangen
 - `uuid` ist serverseitig als `required` und `unique` abgesichert
 - Recovery-Ablauf ist über strukturierte Logs nachvollziehbar
+
 Offene Punkte:
 - keine kritischen technischen Blocker innerhalb dieses Maßnahmenblocks
 - optional später End-to-End-Test mit realem PocketBase-Duplicate-Fall
@@ -589,21 +746,25 @@ Offene Punkte:
 
 ## Bekannte Rest-Risiken / offene Prüfungen
 
-### Mittel
-1. `force_merge` wird aktuell technisch wie `force_local` behandelt
-2. Race Condition zwischen Remote-Lesen und anschließendem `update()` / `delete()`
+### Fachlich / produktiv relevant
+1. `force_merge` wird aktuell technisch weitgehend wie `force_local` behandelt; fachliche Differenzierung bei Bedarf weiter prüfen
+2. Race Condition zwischen Remote-Lesen und anschließendem `update()` / `delete()` bleibt prinzipiell möglich
 3. `pending_resolution` kann ohne sauberen UI-/Workflow-Pfad hängen bleiben
-4. `useRemote` bricht nun bewusst fail-fast ab, wenn weder `etag` noch `lastSyncedEtag` vorhanden sind; offen bleibt damit nur die fachliche Sicherstellung, dass reale Konfliktdaten diese Baseline zuverlässig liefern
+4. `useRemote` bricht bewusst fail-fast ab, wenn weder `etag` noch `lastSyncedEtag` vorhanden sind; offen bleibt die fachliche Sicherstellung, dass reale Konfliktdaten diese Baseline zuverlässig liefern
 
-### Niedriger / architektonisch
-5. `_PocketBaseConflictAdapter` ist technisch nur eine Minimal-/Übergangslösung
-6. Pull-Cleanup nutzt `getAlleArtikel(limit: 10000)` konservativ/grob
-7. Leere Remote-Liste löscht lokal nicht aggressiv alles
-8. Bildsync nutzt fachlich `aktualisiertAm` als Näherung
+### Technisch / Robustheit
+5. Pull-Cleanup nutzt `getAlleArtikel(limit: 10000)` konservativ/grob
+6. Leere Remote-Liste löscht lokal bewusst nicht aggressiv alles
+7. Bildsync nutzt fachlich `aktualisiertAm` als Näherung
+
+### Architektur / optional
+8. `_PocketBaseConflictAdapter` ist weiterhin eine Minimal-/Übergangslösung
+9. Konflikte könnten künftig zusätzlich persistent markiert werden
+10. `ConflictCallback` mit direkter Rückgabe einer Entscheidung kann langfristig semantisch klarer sein
 
 ### Doku / Konsolidierung
-9. `docs/ARCHITECTURE.md` und `docs/DATABASE.md` weiter gegen historische Altstände prüfen
-10. ältere Beschreibungen der ETag-only-Logik konsequent entfernen oder als historisch markieren
+11. `docs/ARCHITECTURE.md` und `docs/DATABASE.md` weiter gegen historische Altstände prüfen
+12. ältere Beschreibungen der ETag-only-Logik konsequent entfernen oder als historisch markieren
 
 ---
 
@@ -679,16 +840,18 @@ Wenn ich dir eine Datei, einen Fehler, einen Test oder einen Teilbereich der Syn
 7. passenden Commit-Text
 8. optional passenden Doku-/Changelog-Baustein
 
+Wenn die gezeigten Informationen dafür nicht ausreichen, fordere bitte zuerst gezielt die fehlenden Dateien, Teststellen oder Doku-Ausschnitte an.
+
 ---
 
 ## Format für Abschluss jedes Schritts
 
 ### Abarbeitungsstand mit Status
-Schritt <Nr.> abgeschlossen
-Titel: <kurzer Titel>
-Ziel: <fachliches Ziel>
-Betroffene Dateien: <Dateien>
-Fachlicher Effekt: <Nutzen für die Sync-Logik>
+Schritt <Nr.> abgeschlossen  
+Titel: <kurzer Titel>  
+Ziel: <fachliches Ziel>  
+Betroffene Dateien: <Dateien>  
+Fachlicher Effekt: <Nutzen für die Sync-Logik>  
 Offene Punkte: <noch offen>
 
 ### Commit-Text

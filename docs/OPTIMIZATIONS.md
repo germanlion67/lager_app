@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.2+33 | **Zuletzt aktualisiert:** 23.04.2026
+**Version:** 0.9.4+34 | **Zuletzt aktualisiert:** 27.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-012`, `P-006`, `T-010`
+- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-012`, `P-006`, `T-011`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -41,10 +41,10 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 
 ## 🟡 Priorität: Mittel
 
-### T-001: Tests für Konfliktlösung (M-007)
-Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
+### T-001: Konfliktlösung, Sync-Hardening und Integrationsverifikation (M-007)
+Manuelle Integrationstests und Restverifikation für die inzwischen deutlich gehärtete Konflikt- und Sync-Pipeline.
 
-**Unit-, Widget- und service-nahe Tests — weitgehend ausgebaut ✅**
+**Technische Basis, Hardening und service-nahe Tests — weitgehend abgeschlossen ✅**
 - [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling
 - [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index
 - [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
@@ -57,16 +57,44 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
 - [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
 - [x] Erfolgreicher `force_local`-/`force_merge`-Push bereinigt `pendingResolution` über `markSynced()`-Contract
+- [x] Produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
+- [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
+- [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
+- [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
+- [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
+- [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
 
-**Manuelle Integrationstests**
+**Manuelle Integrations- und Feldtests**
 - [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
 - [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
 - [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
 - [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
+- [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
+- [ ] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [ ] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung stabil
+- [ ] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
+- [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
+
+**Verbleibende technische Restpunkte**
+- [ ] Artikel-Modell und Persistenz für `kategorie` vervollständigen
+- [ ] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
+- [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
+
+**Optional / spätere Verfeinerung**
+- [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
+- [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
+- [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
+- [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
+- [ ] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
+- [ ] Optional gezielte Modelltests für Roundtrip- und `copyWith()`-Null-Semantik ergänzen
+- [ ] Optional Semantik von `aktualisiertAm` vs. `updatedAt` dokumentieren oder klarer benennen
+- [ ] Optional Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
+- [ ] Optional Restprüfung auf konsistente UTC-/Zeitstempel-Semantik in `artikel_db_service.dart`
+- [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
 
 **Hinweis**
-Die technische Konfliktlogik wurde inzwischen deutlich gehärtet; offen sind vor allem noch echte Geräte-/Server-Integrationsläufe.
+Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
 
 
 ### P-004: Android Kamera-Test abschließen
@@ -76,24 +104,6 @@ Die technische Konfliktlogik wurde inzwischen deutlich gehärtet; offen sind vor
 - [ ] Vollständige manuelle Tests der Kamerafunktionalität auf verschiedenen Android-Geräten
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
-
---- 
-
-### T-011: Manuelle und erweiterte Verifikation der gehärteten Sync-Konfliktpfade
-**Beschreibung:** Nach dem technischen Hardening der Konflikt- und Recovery-Logik fehlen noch einige manuelle bzw. weiterführende Verifikationen unter realitätsnahen Bedingungen.
-
-**Offene Punkte**
-- [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
-- [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
-- [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
-- [ ] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
-- [ ] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung stabil
-- [ ] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
-- [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
-- [ ] Optional weitere Recovery-Tests ergänzen: Duplicate-UUID-Recovery Erfolg/Fehler explizit im service-nahen Test
-
-**Ziel**
-Die bereits grüne Testabdeckung durch reale Feld- und Integrationsverifikation ergänzen und die Robustheit des Sync-Verhaltens unter echten Serverbedingungen bestätigen.
 
 ---
 
@@ -118,10 +128,10 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 |---|---:|---:|---:|
 | ✅ Abgeschlossen | 56 | 48 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 2 | 0 | 2 |
+| 🟡 Mittel | 1 | 0 | 1 |
 | 🟢 Nice-to-Have | 0 | 0 | 0 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **61** | **49** | **4** |
+| **Gesamt** | **60** | **48** | **3** |
 
 ---
 
