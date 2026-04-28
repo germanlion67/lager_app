@@ -442,6 +442,7 @@ class MockArtikelDbService extends _i1.Mock implements _i11.ArtikelDbService {
     String? uuid,
     String? etag, {
     String? remotePath,
+    String? remoteBildPfad,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -450,7 +451,10 @@ class MockArtikelDbService extends _i1.Mock implements _i11.ArtikelDbService {
             uuid,
             etag,
           ],
-          {#remotePath: remotePath},
+          {
+            #remotePath: remotePath,
+            #remoteBildPfad: remoteBildPfad,
+          },
         ),
         returnValue: _i7.Future<void>.value(),
         returnValueForMissingStub: _i7.Future<void>.value(),
@@ -665,6 +669,17 @@ class MockArtikelDbService extends _i1.Mock implements _i11.ArtikelDbService {
         Invocation.method(
           #closeDatabase,
           [],
+        ),
+        returnValue: _i7.Future<void>.value(),
+        returnValueForMissingStub: _i7.Future<void>.value(),
+      ) as _i7.Future<void>);
+
+  @override
+  _i7.Future<void> clearBildInfoByUuidSilent(String? uuid) =>
+      (super.noSuchMethod(
+        Invocation.method(
+          #clearBildInfoByUuidSilent,
+          [uuid],
         ),
         returnValue: _i7.Future<void>.value(),
         returnValueForMissingStub: _i7.Future<void>.value(),

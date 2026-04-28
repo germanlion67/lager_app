@@ -284,6 +284,8 @@ Relevante SQLite-Spalten in `artikel`:
 - `last_synced_etag`
 - `pending_resolution`
 - zusätzlich Bildpfade und Fachdaten
+- remote_bild_pfad    ← NEU, Remote-URL des Bildes (PocketBase File)
+- bild_pfad           (lokaler Cache-Pfad, bereits erwähnt)
 
 DB-Version:
 - `version: 5`
@@ -326,7 +328,8 @@ Die neue fachliche Basis trennt daher:
 
 ### Relevante Methoden
 - `getPendingChanges()`
-- `markSynced(uuid, etag, {remotePath})`
+- `markSynced(uuid, etag, {remotePath, remoteBildPfad})`
+- `clearBildInfoByUuidSilent(uuid)`
 - `upsertArtikel(artikel, {etag})`
 - `markAsModified(uuid)`
 - `markForForceLocal(uuid)`
@@ -336,6 +339,7 @@ Die neue fachliche Basis trennt daher:
 - `setBildPfadByUuidSilent(uuid, bildPfad)`
 - `openDatabase()`
 - `closeDatabase()`
+– `clearBildInfoByUuidSilent(uuid)`
 
 ### Zuletzt dokumentiertes fachliches Verhalten
 - `getPendingChanges()` nutzt:
@@ -345,6 +349,8 @@ Die neue fachliche Basis trennt daher:
   - `last_synced_etag`
   - `pending_resolution = null`
   - optional `remote_path`
+  - `remote_bild_pfad` (wenn mitgeliefert)
+  - lässt vorhandenes `bildPfad` unverändert
 - `updateArtikel()`:
   - setzt `etag = null`
   - setzt `pending_resolution = null`
@@ -672,6 +678,10 @@ Diese Regeln möglichst nicht brechen:
 - `toPocketBaseMap()` darf keine lokalen Konflikt-Steuerfelder übertragen
 - Duplicate-UUID beim Create darf nicht zu endlosen Wiederholungsfehlern führen
 - fehlende Konfliktbasis bei existierendem Remote-Pendant darf nicht still optimistisch überschrieben werden
+- `setBildPfadByUuidSilent()` und `clearBildInfoByUuidSilent()` dürfen
+keinen normalen Datensync auslösen (nur Bild-Caching)
+
+> remote_bild_pfad sollte nur serverseitig gesetzt/überschrieben werden und lokal nicht manuell verändert werden.
 
 ---
 

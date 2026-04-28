@@ -1,3 +1,5 @@
+//lib/services/pocketbase_sync_service.dart
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:pocketbase/pocketbase.dart';
@@ -31,6 +33,9 @@ class FakePbService implements SyncPocketBaseService {
   });
 }
 
+// -----------------------------------------------------------------------------
+// Fake-DB-Service für Tests
+// -----------------------------------------------------------------------------
 class FakeArtikelDbService implements SyncArtikelDbService {
   List<Artikel> pendingChanges = [];
   List<Artikel> alleArtikel = [];
@@ -43,6 +48,23 @@ class FakeArtikelDbService implements SyncArtikelDbService {
   final List<SetBildPfadCall> setBildPfadSilentCalls = [];
   bool setLastSyncTimeCalled = false;
 
+  // ────────────────────────────────────────────────────────────────────────
+  //  Neue Methode (Pflicht seit Interface-Erweiterung)
+  // ────────────────────────────────────────────────────────────────────────
+  @override
+  Future<void> clearBildInfoByUuidSilent(String uuid) async {
+    final a = byUuid[uuid];
+    if (a != null) {
+      byUuid[uuid] = a.copyWith(
+        bildPfad: '',
+        remoteBildPfad: null,
+      );
+    }
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  //  Bereits vorhandene Methoden (evtl. leicht angepasst)
+  // ────────────────────────────────────────────────────────────────────────
   @override
   Future<List<Artikel>> getPendingChanges() async => pendingChanges;
 
@@ -58,6 +80,7 @@ class FakeArtikelDbService implements SyncArtikelDbService {
     String uuid,
     String etag, {
     String? remotePath,
+    String? remoteBildPfad,   // ➊ NEU – optional
   }) async {
     markSyncedCalls.add(MarkSyncedCall(uuid, etag, remotePath));
 

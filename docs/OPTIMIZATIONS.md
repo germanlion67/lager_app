@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+34 | **Zuletzt aktualisiert:** 27.04.2026
+**Version:** 0.9.4+36 | **Zuletzt aktualisiert:** 28.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-012`, `P-006`, `T-011`
+- `B-014`, `F-009`, `H-004`, `K-008`, `M-014`, `N-007`, `O-012`, `P-006`, `T-011`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -77,8 +77,8 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
 
 **Verbleibende technische Restpunkte**
-- [ ] Artikel-Modell und Persistenz für `kategorie` vervollständigen
-- [ ] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
+- [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
+- [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
 - [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
 
 **Optional / spätere Verfeinerung**
@@ -105,10 +105,61 @@ Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deut
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
 
+
+### M-013: Bild-Reset („Bild leeren“) ermöglichen
+**Beschreibung:**  
+Derzeit lässt sich bei einem bestehenden Artikel kein Bild mehr vollständig entfernen.  
+• Setzt der Nutzer `bildPfad = ''`, wird zwar lokal kein Bild mehr angezeigt, beim nächsten Sync bleibt die Datei jedoch weiterhin in PocketBase gespeichert.  
+• Ebenso bleibt `remoteBildPfad` erhalten, sodass ein Pull das alte Bild sofort wiederherstellen würde.  
+Ziel ist ein konsistenter „Bild leeren“-Workflow, der sowohl lokal als auch remote wirklich entfernt.
+
+**Tasks (Entwurf)**  
+1. UI/UX  
+   - Im Detail-Screen klaren „Bild entfernen“-Button ergänzen (Icon 🗑️ oder Kontextmenü).  
+   - Bestätigungs-Dialog („Bild wirklich löschen?“) zur Vermeidung von Fehlklicks.  
+2. Modell / DB  
+   - `bildPfad` in DB auf leeren String setzen.  
+   - `remoteBildPfad` = `null` markieren, damit Pull nicht erneut lädt.  
+3. Sync-Service (`PocketBaseSyncService`)  
+   - Beim Push eines Artikels mit leerem `bildPfad` UND vorhandenem Remote-Bild →  
+     a) PATCH `body['bild'] = null` senden, um File-Feld in PocketBase zu löschen.  
+     b) `remoteBildPfad` lokal in `markSynced()`/`upsert` als `null` persistieren.  
+   - Beim Pull: Wenn Remote `bild`-Feld leer ist, sicherstellen, dass lokal ebenfalls `bildPfad = ''` + `remoteBildPfad = null` stehen.  
+4. Tests  
+   - Unit-Tests für Push-Delete-Pfad (Update mit `body['bild'] = null`).  
+   - Pull-Tests: Remote-Bild entfernt → lokale Datei wird gelöscht & DB-Felder geleert.  
+   - Widget-Test: Button-Flow im Detail-Screen (Dialog, State-Update, Snackbar).  
+5. Optionales Cleanup  
+   - Lokale Datei beim „Bild leeren“ auch physisch löschen (Cache-Pfad).  
+   - Alte Bild-Versionen in PocketBase evtl. via Cloud-Funktion endgültig löschen.
+
+**Abhängigkeiten:**  
+– Keine Blocker, aber greift in bestehende Sync-Hardening-Pfade ein → sorgfältig testen.  
+– Ggf. Koordination mit `downloadMissingImages()`-Logik, damit gelöschte Bilder nicht versehentlich neu geladen werden.
+
+- [x] Artikel-Modell und Persistenz für `bildPfad = ''` / `remoteBildPfad = null`
+- [x] Sync-Service (`PocketBaseSyncService`) – Push-Delete-Pfad & Pull-Cleanup
+- [ ] UI/UX „Bild entfernen“-Button + Bestätigungsdialog
+- [ ] Unit- und Widget-Tests für Button-Flow & Delete-Pfad
+- [ ] Optionales lokales File-Cleanup (Cache)
+
 ---
 
 ## 🟢 Priorität: Nice-to-Have
 
+### F-008: Hintergrund-Sync-Intervall konfigurierbar machen
+**Beschreibung:** Derzeit ist das automatische Sync-Intervall hart auf 15 Minuten eingestellt.  
+Der Nutzer soll im Einstellungs-Screen ein Intervall (1 / 5 / 15 Minuten oder „Nur manuell“) wählen können.  
+Wert wird persistiert (`SharedPreferences.sync_interval_seconds`) und vom `SyncScheduler` gelesen. Änderungen greifen ohne App-Neustart.
+
+**Tasks**
+- [ ] Settings-UI: Dropdown / Slider mit 1, 5, 15 Min, Aus
+- [ ] Neuer/erweiterter `SyncScheduler` oder Refactor von `_startPeriodicSync()`
+- [ ] Persistenz in SharedPreferences
+- [ ] Unit-Tests: Scheduler startet/aktualisiert Timer korrekt
+- [ ] Widget-Test: UI-Einstellung speichert und reflektiert Wert
+
+**Abhängigkeiten:** none  
 
 ---
 
@@ -126,12 +177,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---:|---:|---:|
-| ✅ Abgeschlossen | 56 | 48 | 0 |
+| ✅ Abgeschlossen | 57 | 51 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 1 | 0 | 1 |
-| 🟢 Nice-to-Have | 0 | 0 | 0 |
+| 🟡 Mittel | 2 | 0 | 2 |
+| 🟢 Nice-to-Have | 1 | 0 | 1 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **60** | **48** | **3** |
+| **Gesamt** | **63** | **49** | **5** |
 
 ---
 
@@ -139,6 +190,46 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+
+### B-013: image upload flow, remoteBildPfad support & ghost-file cleanup - erledigt in `v0.9.4+36`
+BREAKING: markSynced() signature extended (remoteBildPfad)
+
+#### ✨ Features
+* B-013 – PocketBaseSyncService
+  * `_buildFiles()` helper + `package:path/path.dart`
+  * Upload Multipart-Image in CREATE/UPDATE (skip on Web / 0-byte / identical)
+* ArtikelDbService
+  * `markSynced(uuid, etag, {remotePath, remoteBildPfad})`
+  * `clearBildInfoByUuidSilent(uuid)` – löscht bildPfad & remoteBildPfad ohne Dirty-Flag
+* Pull-Pfad entfernt lokale Bildinfos, wenn Remote-Bildfeld leer ist
+
+#### 🛠 Fixes / Refactor
+* `_needsConflictBecauseMissingBase()` erwartet jetzt (Artikel lokal, RecordModel remote)
+  und nutzt `_extractRecordEtag(remote)` – alle Aufrufe angepasst
+* Ghost-Files & schnelle Bildwechsel: Sync hält remoteBildPfad sofort aktuell
+* Duplicate-UUID-/Conflict-Pfad unverändert funktionsfähig
+
+#### 🧪 Tests
+* `pocketbase_sync_service_upload_test.dart` – verifiziert Image-Multipart bei CREATE/UPDATE
+* Bestehende Tests auf neue Signaturen & ISO-Timestamps umgestellt
+* Mockito-Mocks per `build_runner` neu generiert
+* 692 Tests grün (+3 bewusst skipped)
+
+#### 📚 Docs
+* Master-Prompt aktualisiert:
+  * neue Methode `clearBildInfoByUuidSilent()`
+  * markSynced-Signatur + remote_bild_pfad in DB-Spaltenliste
+  * Invariant: remote_bild_pfad nur serverseitig gesetzt/überschrieben
+* CHANGELOG-Eintrag B-013 vorbereitet
+
+#### 🔧 Chore
+* `flutter analyze` ohne Findings
+* Skip-Tests geprüft (bewusst deaktiviert)
+
+Refs #B-013
+
+--- 
 
 ### B-012: Letzter-Sync-Zeitstempel auf schmalen Displays abgeschnitten — erledigt in `v0.9.0+25`
 **Typ:** Bug / Regression (B-007-Commit)  
@@ -571,6 +662,7 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-18 | v0.9.4+36 | B-013 abgeschlossen: image upload flow, `remoteBildPfad` |
 | 2026-04-27 | fix/sync-hardening2-v0.9.4 | T-010 abgeschlossen: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows konsolidiert. Konfliktfälle ohne `last_synced_etag` werden konservativ behandelt, Duplicate-UUID-Recovery inkl. Logging gehärtet, useRemote-Baseline ausgelagert und validiert, UI-Fehlerpfad im `ConflictResolutionScreen` abgesichert sowie service-nahe Tests für Skip-/Force-/Delete-Guards und `markSynced()`-basierte Bereinigung von `pendingResolution` ergänzt. Teststand: 691 Tests grün, 3 übersprungen. |
 | 2026-04-23 | v0.9.2+32 | T-009 und O-011 abgeschlossen: ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade nachgezogen; zugleich `AppLockService` testbarer gemacht, sodass App-Lock-nahe Lade-/Speicherpfade und fachliche Timeout-/State-Logik nun isolierter testbar sind. |
 | 2026-04-23 | v0.9.1+29 | O-010 abgeschlossen: `SettingsScreen` fachlich minimal-invasiv in `SettingsController` refactored, UI-/Logik-Trennung verbessert, zusätzliche Controller-Tests ergänzt. F-007 architektonisch bereinigt: `showLastSyncNotifier`, Prefs-Key und Default nach `settings_state.dart` verschoben, Default konsistent auf `true` vereinheitlicht. Teststand auf 626 bestanden, 3 übersprungen aktualisiert. |

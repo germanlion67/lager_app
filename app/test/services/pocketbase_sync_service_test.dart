@@ -15,6 +15,9 @@ import 'package:pocketbase/pocketbase.dart';
 
 import 'package:lager_app/models/artikel_model.dart';
 
+import 'dart:io';
+import 'package:path/path.dart' as p;
+
 // ══════════════════════════════════════════════════════════════════
 // FAKE: PocketBaseService
 // ══════════════════════════════════════════════════════════════════
@@ -127,10 +130,12 @@ typedef GetListHandler = Future<ResultList<RecordModel>> Function(
 typedef GetFullListHandler = Future<List<RecordModel>> Function();
 typedef CreateHandler = Future<RecordModel> Function(
   Map<String, dynamic> body,
+  List<http.MultipartFile> files,
 );
 typedef UpdateHandler = Future<RecordModel> Function(
   String id,
   Map<String, dynamic> body,
+  List<http.MultipartFile> files,
 );
 typedef DeleteHandler = Future<void> Function(String id);
 
@@ -143,7 +148,9 @@ class FakeRecordService extends RecordService {
 
   final List<String> getListFilters = [];
   final List<Map<String, dynamic>> createBodies = [];
+  final List<List<http.MultipartFile>> createFiles = [];
   final List<MapEntry<String, Map<String, dynamic>>> updateEntries = [];
+  final List<List<http.MultipartFile>> updateFiles = [];
   final List<String> deleteIds = [];
   bool getFullListCalled = false;
 
@@ -197,7 +204,8 @@ class FakeRecordService extends RecordService {
     String? fields,
   }) async {
     createBodies.add(Map<String, dynamic>.from(body));
-    if (onCreate != null) return onCreate!(body);
+    createFiles.add(List<http.MultipartFile>.from(files));
+    if (onCreate != null) return onCreate!(body, files);
     return RecordModel.fromJson(<String, dynamic>{'id': 'pb-default'});
   }
 
@@ -212,7 +220,8 @@ class FakeRecordService extends RecordService {
     String? fields,
   }) async {
     updateEntries.add(MapEntry(id, Map<String, dynamic>.from(body)));
-    if (onUpdate != null) return onUpdate!(id, body);
+    updateFiles.add(List<http.MultipartFile>.from(files));
+    if (onUpdate != null) return onUpdate!(id, body, files);
     return RecordModel.fromJson(<String, dynamic>{'id': id});
   }
 
@@ -230,7 +239,9 @@ class FakeRecordService extends RecordService {
   void reset() {
     getListFilters.clear();
     createBodies.clear();
+    createFiles.clear();
     updateEntries.clear();
+    updateFiles.clear();
     deleteIds.clear();
     getFullListCalled = false;
   }
@@ -298,11 +309,20 @@ class TestableSyncService {
     return pending == 'force_local' || pending == 'force_merge';
   }
 
-  bool _needsConflictBecauseMissingBase(Artikel artikel) {
-    if (_isForceResolution(artikel)) return false;
-    final base = artikel.lastSyncedEtag?.trim() ?? '';
-    return base.isEmpty;
+  bool _needsConflictBecauseMissingBase(Artikel a, RecordModel remote) {
+    // force_local / force_merge überspringen Konflikt-Check
+    if (_isForceResolution(a)) return false;
+
+    final remoteEtag = _extractRecordEtag(remote);
+
+    if ((a.lastSyncedEtag ?? '').trim().isNotEmpty) {
+      return a.lastSyncedEtag != remoteEtag;
+    }
+    if (a.etag != null && a.etag == remoteEtag) return false;
+    return true;
   }
+
+
 
   Map<String, dynamic> _asStringDynamicMap(dynamic value) {
     if (value == null) return <String, dynamic>{};
@@ -404,14 +424,18 @@ class TestableSyncService {
 
         final list = await _recordService.getList(filter: filter);
 
+        // ───────────────────────────────────────────────
+        // DELETE-Pfad
+        // ───────────────────────────────────────────────
         if (artikel.deleted == true) {
           if (list.items.isNotEmpty) {
             final remoteRecord = list.items.first;
             final remoteEtag = _extractRecordEtag(remoteRecord);
             final remoteArtikel = _recordToArtikel(remoteRecord);
 
+            // <<< korrigierter Aufruf
             final missingConflictBase =
-                _needsConflictBecauseMissingBase(artikel);
+                _needsConflictBecauseMissingBase(artikel, remoteRecord);
 
             if (missingConflictBase) {
               await _emitConflictIfPossible(artikel, remoteArtikel);
@@ -433,14 +457,19 @@ class TestableSyncService {
           continue;
         }
 
+        // ───────────────────────────────────────────────
+        // CREATE / UPDATE-Pfad
+        // ───────────────────────────────────────────────
         if (list.items.isNotEmpty) {
+          // ---------- UPDATE ----------
           final remoteRecord = list.items.first;
           final recId = remoteRecord.id;
           final remoteEtag = _extractRecordEtag(remoteRecord);
           final remoteArtikel = _recordToArtikel(remoteRecord);
 
+          // <<< korrigierter Aufruf
           final missingConflictBase =
-              _needsConflictBecauseMissingBase(artikel);
+              _needsConflictBecauseMissingBase(artikel, remoteRecord);
 
           if (missingConflictBase) {
             await _emitConflictIfPossible(artikel, remoteArtikel);
@@ -460,7 +489,20 @@ class TestableSyncService {
             body['owner'] = _pbService.currentUserId;
           }
 
-          final updated = await _recordService.update(recId, body: body);
+          final files = _buildFiles(artikel);
+
+          // Bild entfernen, falls Pfad leer UND Remote ein Bild hat
+          final remoteData = _asStringDynamicMap(remoteRecord.data);
+          final remoteBild = _safeGet(remoteData, 'bild');
+          if (artikel.bildPfad.trim().isEmpty && remoteBild.isNotEmpty) {
+            body['bild'] = null; // File-Feld in PocketBase löschen
+          }
+
+          final updated = await _recordService.update(
+            recId,
+            body: body,
+            files: files,
+          );
           final updatedEtag = _safeGet(updated.data, 'updated').isNotEmpty
               ? _safeGet(updated.data, 'updated')
               : updated.id;
@@ -471,13 +513,20 @@ class TestableSyncService {
             remotePath: updated.id,
           );
         } else {
+          // ---------- CREATE ----------
           final body = artikel.toPocketBaseMap();
           if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
             body['owner'] = _pbService.currentUserId;
           }
 
+          final files = _buildFiles(artikel);
+
           try {
-            final created = await _recordService.create(body: body);
+            final created = await _recordService.create(
+              body: body,
+              files: files,
+            );
+
             final createdEtag = _safeGet(created.data, 'updated').isNotEmpty
                 ? _safeGet(created.data, 'updated')
                 : created.id;
@@ -531,7 +580,7 @@ class TestableSyncService {
           final localDirty = _isDirty(localArtikel);
           final hasPending = _hasPendingResolution(localArtikel);
           final missingConflictBase =
-              _needsConflictBecauseMissingBase(localArtikel);
+              _needsConflictBecauseMissingBase(localArtikel, r);
           final remoteChanged =
               _hasRemoteChangedSinceLastSync(localArtikel, etag);
 
@@ -607,6 +656,28 @@ class TestableSyncService {
       if (artikel.bildPfad.isNotEmpty) continue;
       if (!_pbService.hasClient || _pbService.url.isEmpty) continue;
     }
+  }
+
+ 
+
+  // Liefert ggf. eine Multipart-Datei mit dem lokalen Bild.
+  // – Leerer bildPfad   ➜  keine Dateien
+  // – Datei existiert   ➜  1 MultipartFile
+  // – Datei fehlt/leer  ➜  keine Dateien
+  List<http.MultipartFile> _buildFiles(Artikel artikel) {
+    final path = artikel.bildPfad.trim();
+    if (path.isEmpty) return const [];
+
+    final file = File(path);
+    if (!file.existsSync() || file.lengthSync() == 0) return const [];
+
+    return [
+      http.MultipartFile.fromBytes(
+        'bild',                       // Feldname in PocketBase
+        file.readAsBytesSync(),
+        filename: p.basename(path),
+      ),
+    ];
   }
 
   String _safeGet(Map<String, dynamic> data, String key) {
@@ -685,10 +756,11 @@ Artikel makeArtikel({
 // TESTS
 // ══════════════════════════════════════════════════════════════════
 
-const ts1 = '2026-01-10 10:00:00.000Z';
-const ts2 = '2026-01-11 10:00:00.000Z';
-const ts3 = '2026-01-12 10:00:00.000Z';
-const ts4 = '2026-01-13 10:00:00.000Z';
+// TIMESTAMP-Konstanten (alt entfernen, neuen Block einfügen)
+const ts1 = '2026-01-10T10:00:00.000Z';
+const ts2 = '2026-01-11T10:00:00.000Z';
+const ts3 = '2026-01-12T10:00:00.000Z';
+const ts4 = '2026-01-13T10:00:00.000Z';
 
 void main() {
   late FakePbService fakePbService;
@@ -725,7 +797,7 @@ void main() {
       fakeDb.pendingChanges = [artikel];
 
       fakeRecordService.onGetList = (_) async => makeResultList([]);
-      fakeRecordService.onCreate = (body) async => makeRecord(
+      fakeRecordService.onCreate = (body, _) async => makeRecord(
             id: 'pb-new-001',
             data: {'uuid': artikel.uuid, 'name': artikel.name},
           );
@@ -763,7 +835,7 @@ void main() {
 
       fakeRecordService.onGetList =
           (_) async => makeResultList([existingRecord]);
-      fakeRecordService.onUpdate = (id, body) async =>
+      fakeRecordService.onUpdate = (id, body, _) async =>
           makeRecord(id: id, data: body, updated: ts2);
       fakeRecordService.onGetFullList = () async => [];
 
@@ -842,7 +914,7 @@ void main() {
         return makeResultList([]);
       };
 
-      fakeRecordService.onCreate = (body) async => makeRecord(
+      fakeRecordService.onCreate = (body, _) async => makeRecord(
             id: 'pb-ok',
             data: body,
           );
@@ -863,7 +935,7 @@ void main() {
       fakeDb.pendingChanges = [artikel];
 
       fakeRecordService.onGetList = (_) async => makeResultList([]);
-      fakeRecordService.onCreate = (body) async => makeRecord(
+      fakeRecordService.onCreate = (body, _) async => makeRecord(
             id: 'pb-auth',
             data: body,
           );
@@ -900,7 +972,7 @@ void main() {
 
       fakeRecordService.onGetList =
           (_) async => makeResultList([existingRecord]);
-      fakeRecordService.onUpdate = (id, body) async => makeRecord(
+      fakeRecordService.onUpdate = (id, body, _) async => makeRecord(
             id: id,
             data: body,
             updated: ts3,
@@ -939,7 +1011,7 @@ void main() {
 
       fakeRecordService.onGetList =
           (_) async => makeResultList([existingRecord]);
-      fakeRecordService.onUpdate = (id, body) async => makeRecord(
+      fakeRecordService.onUpdate = (id, body, _) async => makeRecord(
             id: id,
             data: body,
             updated: ts3,
@@ -1008,7 +1080,7 @@ void main() {
             'ort': 'Remote',
             'fach': 'R1',
             'beschreibung': 'Remote',
-            'updated': 'remote-new',
+            'updated': ts2,
           },
           updated: ts2,
         );
@@ -1047,7 +1119,7 @@ void main() {
             'ort': 'Remote',
             'fach': 'R1',
             'beschreibung': 'Remote',
-            'updated': 'remote-new',
+            'updated': ts2,
           },
           updated: ts2,
         );
@@ -1085,7 +1157,7 @@ void main() {
             'ort': 'Remote',
             'fach': 'R1',
             'beschreibung': 'Remote',
-            'updated': 'remote-new',
+            'updated': ts2,
           },
           updated: ts2,
         );
@@ -1124,7 +1196,7 @@ void main() {
             'ort': 'Remote',
             'fach': 'R1',
             'beschreibung': 'Remote',
-            'updated': 'remote-new',
+            'updated': ts2,
           },
           updated: ts2,
         );
@@ -1165,14 +1237,14 @@ void main() {
             'ort': artikel.ort,
             'fach': artikel.fach,
             'beschreibung': artikel.beschreibung,
-            'updated': 'remote-new',
+            'updated': ts2,
           },
           updated: ts2,
         );
 
         fakeRecordService.onGetList =
             (_) async => makeResultList([existingRecord]);
-        fakeRecordService.onUpdate = (id, body) async => makeRecord(
+        fakeRecordService.onUpdate = (id, body, _) async => makeRecord(
               id: id,
               data: body,
               updated: 'remote-after-force',
@@ -1220,7 +1292,7 @@ test(
           ]);
         };
 
-        fakeRecordService.onCreate = (body) async {
+        fakeRecordService.onCreate = (body, _) async {
           throw Exception(
             'validation error: uuid already exists (unique constraint)',
           );
@@ -1250,7 +1322,7 @@ test(
         );
         fakeDb.pendingChanges = [artikel];
 
-        fakeRecordService.onCreate = (body) async {
+        fakeRecordService.onCreate = (body, _) async {
           throw Exception('duplicate uuid unique constraint');
         };
 
@@ -1272,7 +1344,7 @@ test(
         fakeDb.pendingChanges = [artikel];
 
         fakeRecordService.onGetList = (_) async => makeResultList([]);
-        fakeRecordService.onCreate = (body) async {
+        fakeRecordService.onCreate = (body, _) async {
           throw Exception('network timeout');
         };
         fakeRecordService.onGetFullList = () async => [];
@@ -1377,7 +1449,7 @@ test(
         makeArtikel(
           uuid: 'uuid-dirty',
           etag: null,
-          lastSyncedEtag: 'sync-1',
+          lastSyncedEtag: ts1,
           remotePath: 'pb-1',
         ),
       ];
@@ -1391,10 +1463,10 @@ test(
           'ort': 'Remote',
           'fach': 'R1',
           'beschreibung': 'Remote',
-          'updated': 'sync-2',
+          'updated': ts2,
           'created': '2026-01-01 00:00:00.000Z',
         },
-        updated: 'sync-2',
+        updated: ts2,
       );
       fakeRecordService.onGetFullList = () async => [remoteRecord];
 
@@ -1412,7 +1484,7 @@ test(
           uuid: 'uuid-pending',
           etag: null,
           pendingResolution: 'force_merge',
-          lastSyncedEtag: 'sync-1',
+          lastSyncedEtag: ts1,
           remotePath: 'pb-1',
         ),
       ];
@@ -1426,10 +1498,10 @@ test(
           'ort': 'X',
           'fach': 'Y',
           'beschreibung': 'Z',
-          'updated': 'sync-2',
+          'updated': ts2,
           'created': '2026-01-01 00:00:00.000Z',
         },
-        updated: 'sync-2',
+        updated: ts2,
       );
       fakeRecordService.onGetFullList = () async => [remoteRecord];
 
@@ -1446,7 +1518,7 @@ test(
         makeArtikel(
           uuid: 'uuid-local-dirty',
           etag: null,
-          lastSyncedEtag: 'sync-1',
+          lastSyncedEtag: ts1,
           remotePath: 'pb-1',
         ),
       ];
@@ -1460,10 +1532,10 @@ test(
           'ort': 'X',
           'fach': 'Y',
           'beschreibung': 'Z',
-          'updated': 'sync-1',
+          'updated': ts1,
           'created': '2026-01-01 00:00:00.000Z',
         },
-        updated: 'sync-1',
+        updated: ts1,
       );
       fakeRecordService.onGetFullList = () async => [remoteRecord];
 
@@ -1534,7 +1606,7 @@ test(
             'ort': 'Remote',
             'fach': 'R1',
             'beschreibung': 'Remote',
-            'updated': 'remote-new',
+            'updated': ts2,
             'created': '2026-01-01 00:00:00.000Z',
           },
           updated: ts2,
@@ -1572,7 +1644,7 @@ test(
             'ort': 'Remote',
             'fach': 'R1',
             'beschreibung': 'Remote',
-            'updated': 'remote-new',
+            'updated': ts2,
             'created': '2026-01-01 00:00:00.000Z',
           },
           updated: ts2,
@@ -1647,7 +1719,7 @@ test(
       fakeDb.pendingChanges = [artikel];
 
       fakeRecordService.onGetList = (_) async => makeResultList([]);
-      fakeRecordService.onCreate = (body) async => makeRecord(
+      fakeRecordService.onCreate = (body, _) async => makeRecord(
             id: 'pb-sanitized',
             data: body,
           );
@@ -1712,4 +1784,56 @@ test(
       expect(fakeDb.setBildPfadSilentCalls, isEmpty);
     });
   });
+
+  // ⇢ am Ende der Datei (z. B. nach den bestehenden Gruppen) anfügen
+  group('Bild-Upload', () {
+    late String tempPath;
+
+    setUp(() async {
+      // 1 kB Dummy-Bild anlegen
+      final dir = await Directory.systemTemp.createTemp('pb_sync_img');
+      final file = File(p.join(dir.path, 'dummy.jpg'));
+      await file.writeAsBytes(List<int>.filled(1024, 0x42));
+      tempPath = file.path;
+    });
+
+    test('create() sendet Multipart-Datei, wenn bildPfad gesetzt', () async {
+      // Arrange
+      final artikel = makeArtikel(
+        uuid: 'uuid-img-create',
+        etag: null,
+        bildPfad: tempPath,
+      );
+      fakeDb.pendingChanges = [artikel];
+
+      fakeRecordService.onGetList = (_) async => makeResultList([]);
+      fakeRecordService.onCreate = (body, files) async {
+        // Erwartung: genau eine Datei wird hochgeladen
+        expect(files, hasLength(1));
+        expect(files.first.filename, endsWith('dummy.jpg'));
+
+        return makeRecord(
+          id: 'pb-img',
+          data: {
+            ...body,
+            'uuid': artikel.uuid,
+            'bild': files.first.filename,
+          },
+          updated: ts2,
+        );
+      };
+      fakeRecordService.onGetFullList = () async => [];
+
+      await syncService.syncOnce();
+
+      expect(fakeRecordService.createFiles.first.length, 1);
+      expect(fakeRecordService.createFiles.first, hasLength(1));
+      expect(
+        fakeRecordService.createFiles.first.first.filename,
+        endsWith('dummy.jpg'),
+      );
+      expect(fakeDb.markSyncedCalls, hasLength(1));
+    });
+  });
+
 }
