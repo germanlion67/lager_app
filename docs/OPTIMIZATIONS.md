@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.2+33 | **Zuletzt aktualisiert:** 23.04.2026
+**Version:** 0.9.4+36 | **Zuletzt aktualisiert:** 28.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-013`, `F-008`, `H-004`, `K-008`, `M-013`, `N-007`, `O-012`, `P-006`, `T-010`
+- `B-014`, `F-009`, `H-004`, `K-008`, `M-014`, `N-007`, `O-012`, `P-006`, `T-011`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -41,24 +41,61 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 
 ## 🟡 Priorität: Mittel
 
-### T-001: Tests für Konfliktlösung (M-007)
-Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
+### T-001: Konfliktlösung, Sync-Hardening und Integrationsverifikation (M-007)
+Manuelle Integrationstests und Restverifikation für die inzwischen deutlich gehärtete Konflikt- und Sync-Pipeline.
 
-**Unit- und Widget-Tests — Abgeschlossen ✅ (77 Tests)**
-- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling (11 Tests)
-- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index (6 Tests)
-- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen (9 Tests)
-- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien (15 Tests)
-- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock (20 Tests)
+**Technische Basis, Hardening und service-nahe Tests — weitgehend abgeschlossen ✅**
+- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling
+- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index
+- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
+- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien
+- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
+- [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
+- [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+- [x] Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version
+- [x] Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version
+- [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
+- [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
+- [x] Erfolgreicher `force_local`-/`force_merge`-Push bereinigt `pendingResolution` über `markSynced()`-Contract
+- [x] Produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
+- [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
+- [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
+- [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
+- [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
+- [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
 
-**Manuelle Integrationstests**
+**Manuelle Integrations- und Feldtests**
 - [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
 - [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
 - [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
 - [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
-- [ ] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
-- [ ] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+- [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
+- [ ] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [ ] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung stabil
+- [ ] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
+- [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
+
+**Verbleibende technische Restpunkte**
+- [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
+- [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
+- [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
+
+**Optional / spätere Verfeinerung**
+- [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
+- [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
+- [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
+- [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
+- [ ] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
+- [ ] Optional gezielte Modelltests für Roundtrip- und `copyWith()`-Null-Semantik ergänzen
+- [ ] Optional Semantik von `aktualisiertAm` vs. `updatedAt` dokumentieren oder klarer benennen
+- [ ] Optional Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
+- [ ] Optional Restprüfung auf konsistente UTC-/Zeitstempel-Semantik in `artikel_db_service.dart`
+- [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
+
+**Hinweis**
+Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
+
 
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
@@ -68,10 +105,61 @@ Manuelle Integrationstests für die gesamte Konflikt-Pipeline.
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
 
+
+### M-013: Bild-Reset („Bild leeren“) ermöglichen
+**Beschreibung:**  
+Derzeit lässt sich bei einem bestehenden Artikel kein Bild mehr vollständig entfernen.  
+• Setzt der Nutzer `bildPfad = ''`, wird zwar lokal kein Bild mehr angezeigt, beim nächsten Sync bleibt die Datei jedoch weiterhin in PocketBase gespeichert.  
+• Ebenso bleibt `remoteBildPfad` erhalten, sodass ein Pull das alte Bild sofort wiederherstellen würde.  
+Ziel ist ein konsistenter „Bild leeren“-Workflow, der sowohl lokal als auch remote wirklich entfernt.
+
+**Tasks (Entwurf)**  
+1. UI/UX  
+   - Im Detail-Screen klaren „Bild entfernen“-Button ergänzen (Icon 🗑️ oder Kontextmenü).  
+   - Bestätigungs-Dialog („Bild wirklich löschen?“) zur Vermeidung von Fehlklicks.  
+2. Modell / DB  
+   - `bildPfad` in DB auf leeren String setzen.  
+   - `remoteBildPfad` = `null` markieren, damit Pull nicht erneut lädt.  
+3. Sync-Service (`PocketBaseSyncService`)  
+   - Beim Push eines Artikels mit leerem `bildPfad` UND vorhandenem Remote-Bild →  
+     a) PATCH `body['bild'] = null` senden, um File-Feld in PocketBase zu löschen.  
+     b) `remoteBildPfad` lokal in `markSynced()`/`upsert` als `null` persistieren.  
+   - Beim Pull: Wenn Remote `bild`-Feld leer ist, sicherstellen, dass lokal ebenfalls `bildPfad = ''` + `remoteBildPfad = null` stehen.  
+4. Tests  
+   - Unit-Tests für Push-Delete-Pfad (Update mit `body['bild'] = null`).  
+   - Pull-Tests: Remote-Bild entfernt → lokale Datei wird gelöscht & DB-Felder geleert.  
+   - Widget-Test: Button-Flow im Detail-Screen (Dialog, State-Update, Snackbar).  
+5. Optionales Cleanup  
+   - Lokale Datei beim „Bild leeren“ auch physisch löschen (Cache-Pfad).  
+   - Alte Bild-Versionen in PocketBase evtl. via Cloud-Funktion endgültig löschen.
+
+**Abhängigkeiten:**  
+– Keine Blocker, aber greift in bestehende Sync-Hardening-Pfade ein → sorgfältig testen.  
+– Ggf. Koordination mit `downloadMissingImages()`-Logik, damit gelöschte Bilder nicht versehentlich neu geladen werden.
+
+- [x] Artikel-Modell und Persistenz für `bildPfad = ''` / `remoteBildPfad = null`
+- [x] Sync-Service (`PocketBaseSyncService`) – Push-Delete-Pfad & Pull-Cleanup
+- [ ] UI/UX „Bild entfernen“-Button + Bestätigungsdialog
+- [ ] Unit- und Widget-Tests für Button-Flow & Delete-Pfad
+- [ ] Optionales lokales File-Cleanup (Cache)
+
 ---
 
 ## 🟢 Priorität: Nice-to-Have
 
+### F-008: Hintergrund-Sync-Intervall konfigurierbar machen
+**Beschreibung:** Derzeit ist das automatische Sync-Intervall hart auf 15 Minuten eingestellt.  
+Der Nutzer soll im Einstellungs-Screen ein Intervall (1 / 5 / 15 Minuten oder „Nur manuell“) wählen können.  
+Wert wird persistiert (`SharedPreferences.sync_interval_seconds`) und vom `SyncScheduler` gelesen. Änderungen greifen ohne App-Neustart.
+
+**Tasks**
+- [ ] Settings-UI: Dropdown / Slider mit 1, 5, 15 Min, Aus
+- [ ] Neuer/erweiterter `SyncScheduler` oder Refactor von `_startPeriodicSync()`
+- [ ] Persistenz in SharedPreferences
+- [ ] Unit-Tests: Scheduler startet/aktualisiert Timer korrekt
+- [ ] Widget-Test: UI-Einstellung speichert und reflektiert Wert
+
+**Abhängigkeiten:** none  
 
 ---
 
@@ -89,12 +177,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---:|---:|---:|
-| ✅ Abgeschlossen | 56 | 48 | 0 |
+| ✅ Abgeschlossen | 57 | 51 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 2 | 0 | 2 |
-| 🟢 Nice-to-Have | 0 | 0 | 0 |
+| 🟢 Nice-to-Have | 1 | 0 | 1 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **61** | **49** | **4** |
+| **Gesamt** | **63** | **49** | **5** |
 
 ---
 
@@ -102,6 +190,46 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+
+### B-013: image upload flow, remoteBildPfad support & ghost-file cleanup - erledigt in `v0.9.4+36`
+BREAKING: markSynced() signature extended (remoteBildPfad)
+
+#### ✨ Features
+* B-013 – PocketBaseSyncService
+  * `_buildFiles()` helper + `package:path/path.dart`
+  * Upload Multipart-Image in CREATE/UPDATE (skip on Web / 0-byte / identical)
+* ArtikelDbService
+  * `markSynced(uuid, etag, {remotePath, remoteBildPfad})`
+  * `clearBildInfoByUuidSilent(uuid)` – löscht bildPfad & remoteBildPfad ohne Dirty-Flag
+* Pull-Pfad entfernt lokale Bildinfos, wenn Remote-Bildfeld leer ist
+
+#### 🛠 Fixes / Refactor
+* `_needsConflictBecauseMissingBase()` erwartet jetzt (Artikel lokal, RecordModel remote)
+  und nutzt `_extractRecordEtag(remote)` – alle Aufrufe angepasst
+* Ghost-Files & schnelle Bildwechsel: Sync hält remoteBildPfad sofort aktuell
+* Duplicate-UUID-/Conflict-Pfad unverändert funktionsfähig
+
+#### 🧪 Tests
+* `pocketbase_sync_service_upload_test.dart` – verifiziert Image-Multipart bei CREATE/UPDATE
+* Bestehende Tests auf neue Signaturen & ISO-Timestamps umgestellt
+* Mockito-Mocks per `build_runner` neu generiert
+* 692 Tests grün (+3 bewusst skipped)
+
+#### 📚 Docs
+* Master-Prompt aktualisiert:
+  * neue Methode `clearBildInfoByUuidSilent()`
+  * markSynced-Signatur + remote_bild_pfad in DB-Spaltenliste
+  * Invariant: remote_bild_pfad nur serverseitig gesetzt/überschrieben
+* CHANGELOG-Eintrag B-013 vorbereitet
+
+#### 🔧 Chore
+* `flutter analyze` ohne Findings
+* Skip-Tests geprüft (bewusst deaktiviert)
+
+Refs #B-013
+
+--- 
 
 ### B-012: Letzter-Sync-Zeitstempel auf schmalen Displays abgeschnitten — erledigt in `v0.9.0+25`
 **Typ:** Bug / Regression (B-007-Commit)  
@@ -383,6 +511,46 @@ wurden in einen neuen `SettingsController` ausgelagert.
 - zusätzliche Tests für Save-/Reset-/Dirty-State-Verhalten ergänzt
 - Reject-/Success-Pfade von `saveSettings()` abgesichert
 
+--- 
+
+### T-010: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows — erledigt in `fix/sync-hardening2-v0.9.4`
+**Typ:** Testausbau / Sync-Hardening / Konfliktlogik  
+**Betrifft:**  
+`lib/services/pocketbase_sync_service.dart`,  
+`lib/services/conflict_resolution_utils.dart`,  
+`lib/main.dart`,  
+`test/services/pocketbase_sync_service_test.dart`,  
+`test/services/pocketbase_sync_service_conflict_test.dart`,  
+`test/services/conflict_resolution_utils_test.dart`,  
+`test/screens/conflict_resolution_screen_test.dart`,  
+`docs/LOGGER.md`,  
+PocketBase-Schema / Admin-Konfiguration (`uuid` als `required` + `unique`)
+
+Die PocketBase-Synchronisation und die Konfliktauflösung wurden in mehreren realen Fehler- und Randfällen gezielt gehärtet.
+
+**Abgedeckte fachliche Verbesserungen**
+- Unsichere Fälle ohne stabile Konfliktbasis (`last_synced_etag`) werden konservativ als Konflikt behandelt
+- Das gilt für Push-Update, Push-Delete und Pull
+- Bewusste Ausnahmen über `pendingResolution = force_local | force_merge` bleiben möglich
+- Duplicate-UUID-Race-Conditions beim Remote-Create werden erkannt und über Recovery-Lookup per `uuid` aufgelöst
+- Recovery-Erfolg und Recovery-Fehler sind im Log nachvollziehbar dokumentiert
+- Die useRemote-Baseline wurde in eine Utility ausgelagert und akzeptiert nur noch belastbare Remote-Baselines
+- Der PocketBase-Conflict-Adapter erfüllt das erwartete Interface explizit und analyzer-konform
+- UI-Fehlerpfade im `ConflictResolutionScreen` wurden abgesichert (Snackbar, kein versehentliches Schließen)
+- Übersprungene Konflikte erscheinen beim nächsten Sync erneut
+- Pull überschreibt Datensätze mit `force_local` oder `force_merge` nicht
+- Soft-Delete lokal + Remote-Edit wird als Konflikt behandelt
+- Remote-Delete-Cleanup ist gegen dirty/pending Datensätze abgesichert
+- Lokales Cleanup erfolgt nur für saubere Datensätze nach plausiblem/validem Pull
+- Erfolgreiche `force_local`-/`force_merge`-Pushes laufen korrekt über den `markSynced()`-Pfad und bereinigen `pendingResolution` auf Contract-Ebene
+
+**Qualitätsstatus**
+- `flutter analyze` grün
+- `flutter test` grün
+
+**Hinweis**
+Die Bereinigung von `pendingResolution` erfolgt nicht direkt im `PocketBaseSyncService`, sondern über den Contract von `markSynced()` in der DB-Schicht. Die Tests bilden dieses Zusammenspiel nun service-nah ab.
+
 ---
 
 ### T-009: Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade — erledigt in `v0.9.2+32`
@@ -494,6 +662,8 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-18 | v0.9.4+36 | B-013 abgeschlossen: image upload flow, `remoteBildPfad` |
+| 2026-04-27 | fix/sync-hardening2-v0.9.4 | T-010 abgeschlossen: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows konsolidiert. Konfliktfälle ohne `last_synced_etag` werden konservativ behandelt, Duplicate-UUID-Recovery inkl. Logging gehärtet, useRemote-Baseline ausgelagert und validiert, UI-Fehlerpfad im `ConflictResolutionScreen` abgesichert sowie service-nahe Tests für Skip-/Force-/Delete-Guards und `markSynced()`-basierte Bereinigung von `pendingResolution` ergänzt. Teststand: 691 Tests grün, 3 übersprungen. |
 | 2026-04-23 | v0.9.2+32 | T-009 und O-011 abgeschlossen: ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade nachgezogen; zugleich `AppLockService` testbarer gemacht, sodass App-Lock-nahe Lade-/Speicherpfade und fachliche Timeout-/State-Logik nun isolierter testbar sind. |
 | 2026-04-23 | v0.9.1+29 | O-010 abgeschlossen: `SettingsScreen` fachlich minimal-invasiv in `SettingsController` refactored, UI-/Logik-Trennung verbessert, zusätzliche Controller-Tests ergänzt. F-007 architektonisch bereinigt: `showLastSyncNotifier`, Prefs-Key und Default nach `settings_state.dart` verschoben, Default konsistent auf `true` vereinheitlicht. Teststand auf 626 bestanden, 3 übersprungen aktualisiert. |
 | 2026-04-22 | v0.9.1+26 | K-007: Flutter upgrade 3.41.4 → 3.41.7 + package major updates |

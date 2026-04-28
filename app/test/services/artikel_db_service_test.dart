@@ -54,6 +54,7 @@ Artikel _makeArtikel({
   String ort = 'Regal A',
   String fach = 'Fach 1',
   String beschreibung = 'Test',
+  String? kategorie = 'Elektronik',  
   String bildPfad = '',
   String? uuid,
   bool deleted = false,
@@ -70,6 +71,7 @@ Artikel _makeArtikel({
     ort: ort,
     fach: fach,
     beschreibung: beschreibung,
+    kategorie: kategorie,
     bildPfad: bildPfad,
     erstelltAm: DateTime.now().toUtc(),
     aktualisiertAm: DateTime.now().toUtc(),
@@ -194,7 +196,14 @@ void main() {
         );
         expect(result.first['pending_resolution'], isNull);
       });
+      test('persistiert kategorie beim Insert', () async {
+        final artikel = _makeArtikel(kategorie: 'Werkzeug');
+        await service.insertArtikel(artikel);
 
+        final alle = await service.getAlleArtikel();
+        expect(alle.length, equals(1));
+        expect(alle.first.kategorie, equals('Werkzeug'));
+      });
     });
 
 
@@ -369,7 +378,17 @@ void main() {
         );
         expect(result.first['last_synced_etag'], equals('remote-v1'));
       });
+      test('aktualisiert kategorie korrekt', () async {
+        final artikel = _makeArtikel(kategorie: 'Elektronik');
+        final id = await service.insertArtikel(artikel);
 
+        await service.updateArtikel(
+          artikel.copyWith(id: id, kategorie: 'Mechanik'),
+        );
+
+        final alle = await service.getAlleArtikel();
+        expect(alle.first.kategorie, equals('Mechanik'));
+      });
     });
 
     // =======================================================================
@@ -945,6 +964,27 @@ void main() {
         );
 
         expect(result.first['pending_resolution'], equals('force_local'));
+      });
+      test('upsertArtikel() übernimmt kategorie', () async {
+        final artikel = _makeArtikel(kategorie: 'Befestigung');
+        await service.upsertArtikel(artikel);
+
+        final alle = await service.getAlleArtikel();
+        expect(alle.first.kategorie, equals('Befestigung'));
+      });
+      test('upsertArtikel() aktualisiert kategorie bei bestehender UUID', () async {
+        final uuid = UuidGenerator.generate();
+        await service.upsertArtikel(
+          _makeArtikel(uuid: uuid, kategorie: 'Alt'),
+        );
+
+        await service.upsertArtikel(
+          _makeArtikel(uuid: uuid, kategorie: 'Neu'),
+        );
+
+        final alle = await service.getAlleArtikel();
+        expect(alle.length, equals(1));
+        expect(alle.first.kategorie, equals('Neu'));
       });
 
     });

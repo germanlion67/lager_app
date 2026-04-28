@@ -17,16 +17,24 @@ Dieses Dokument beschreibt das zentrale Logging-Framework der **Lager_app**, fü
 
 ## 🛠️ Verwendung im Code
 
-Zugriff global über den `AppLogService.logger`. Immer das passende Level verwenden.
+Zugriff global über den `AppLogService.logger`. In Dateien bevorzugt so verwenden:
+```dart
+import 'package:logger/logger.dart';
+import '../services/app_log_service.dart';
+
+final Logger _logger = AppLogService.logger;
+```
+Immer das passende Level verwenden.
+
 
 ### 1. Information (Normaler Ablauf)
 ```dart
-AppLogService.logger.info("Synchronisation erfolgreich abgeschlossen.");
+_logger.i("Synchronisation erfolgreich abgeschlossen.");
 ```
 
 ### 2. Warnung (Unerwartet, aber kein Crash)
 ```dart
-AppLogService.logger.warning("Keine Internetverbindung. Sync verschoben.");
+_logger.w("Keine Internetverbindung. Sync verschoben.");
 ```
 
 ### 3. Fehler (Kritische Probleme)
@@ -35,7 +43,7 @@ Immer `error`-Objekt und `stackTrace` übergeben.
 try {
   await api.fetchData();
 } catch (e, stack) {
-  AppLogService.logger.error(
+  _logger.e(
     "Fehler beim API-Abruf",
     error: e,
     stackTrace: stack,
@@ -47,13 +55,14 @@ try {
 
 ## 🖥️ Log-Level Definitionen
 
-| Level   | Verwendung                                   | Sichtbarkeit (Prod) |
-| :------ | :------------------------------------------- | :------------------ |
-| `trace` | Sehr detaillierte Ablauf-Schritte            | Ausgeblendet        |
-| `debug` | Variablen-Inhalte, SQL-Queries               | Ausgeblendet        |
-| `info`  | Meilensteine (App-Start, Login, Sync)        | Eingeschränkt       |
-| `warning` | Behebbare Fehler (Timeout, Validierung)      | Sichtbar            |
-| `error` | Exceptions, Abstürze, DB-Korruption          | Immer sichtbar      |
+| API-Methode | Level-Name | Verwendung | Sichtbarkeit (Prod) |
+| :---------- | :--------- | :--------- | :------------------ |
+| `t(...)` | `trace` | Sehr detaillierte Ablauf-Schritte | Ausgeblendet |
+| `d(...)` | `debug` | Variablen-Inhalte, SQL-Queries | Ausgeblendet |
+| `i(...)` | `info` | Meilensteine (App-Start, Login, Sync) | Eingeschränkt |
+| `w(...)` | `warning` | Behebbare Fehler (Timeout, Validierung) | Sichtbar |
+| `e(...)` | `error` | Exceptions, Abstürze, DB-Korruption | Immer sichtbar |
+| `f(...)` | `fatal` | Kritisch, App kann nicht weiterlaufen | Immer sichtbar |
 
 ## 📋 Definierte Log-Events (Referenz)
 | Logger          | Level   | Nachricht                                                                 | Kontext                                     |
@@ -66,6 +75,9 @@ try {
 | `PocketBaseSync` | `DEBUG` | `PocketBaseSync: Bild gespeichert für {uuid}: {path}`                     | Erfolgreicher Download                      |
 | `PocketBaseSync` | `WARN`  | `PocketBaseSync: Image download HTTP {code} für {uuid}`                   | HTTP-Fehler beim Download                   |
 | `PocketBaseSync` | `WARN`  | `PocketBaseSync: Image download failed for {uuid}: {error}`               | Allgemeiner Download-Fehler                 |
+| `PocketBaseSync` | `WARN`  | `PocketBaseSync: Duplicate-UUID beim Create erkannt; starte Recovery-Lookup (uuid={uuid})` | Create scheitert an unique uuid, Recovery startet |
+| `PocketBaseSync` | `INFO`  | `PocketBaseSync: Duplicate-UUID-Recovery erfolgreich (uuid={uuid}, remoteId={remoteId})` | Bestehender Remote-Record gefunden und lokal verknüpft |
+| `PocketBaseSync` | `ERROR` | `PocketBaseSync: Duplicate-UUID-Recovery fehlgeschlagen (uuid={uuid})` | Recovery-Lookup/Markierung fehlgeschlagen |
 | `ArtikelDbService` | `DEBUG` | `✅ Bildpfad für Artikel UUID {uuid} silent aktualisiert`                 | `setBildPfadByUuidSilent()`                 |
 | `Main`          | `INFO`  | `[Main] Starte initialen Sync nach Setup...`                              | Nach URL-Konfiguration                      |
 | `Main`          | `INFO`  | `[Main] Initialer Sync abgeschlossen`                                     | Sync fertig, UI-Wechsel                     |

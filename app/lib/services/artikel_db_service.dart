@@ -619,6 +619,7 @@ static const _createTableSql = '''
     }
   }
 
+ 
   // ==================== LOOKUP ====================
 
   @override
@@ -730,6 +731,7 @@ static const _createTableSql = '''
     String uuid,
     String etag, {
     String? remotePath,
+    String? remoteBildPfad,          // ➊ NEU
   }) async {
     try {
       final db = await database;
@@ -738,7 +740,8 @@ static const _createTableSql = '''
         'last_synced_etag': etag,
         'pending_resolution': null,
       };
-      if (remotePath != null) data['remote_path'] = remotePath;
+      if (remotePath != null)      data['remote_path']      = remotePath;
+      if (remoteBildPfad != null)  data['remote_bildPfad']  = remoteBildPfad;
 
       final rowsAffected = await db.update(
         'artikel',
@@ -896,7 +899,7 @@ static const _createTableSql = '''
     }
   }
 
-/// Öffnet die Datenbank falls sie geschlossen ist (idempotent).
+  /// Öffnet die Datenbank falls sie geschlossen ist (idempotent).
   ///
   /// Wird von main.dart in didChangeAppLifecycleState(resumed) aufgerufen,
   /// bevor _syncIfConnected() startet — da closeDatabase() bei paused
@@ -955,7 +958,7 @@ static const _createTableSql = '''
     }
   }
 
-Future<void> markForForceLocal(String uuid) async {
+  Future<void> markForForceLocal(String uuid) async {
     try {
       final db = await database;
       final rowsAffected = await db.update(
@@ -1316,9 +1319,34 @@ Future<void> markForForceLocal(String uuid) async {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Bildpfad-Hilfen
+  // -------------------------------------------------------------------------
+  @override
+  Future<void> clearBildInfoByUuidSilent(String uuid) async {
+    final db = await database;
+
+    try {
+      await db.update(
+        'artikel',
+        <String, Object?>{
+          'bildPfad': '',
+          'remoteBildPfad': null,
+        },
+        where: 'uuid = ?',
+        whereArgs: [uuid],
+      );
+      _logger.d('✅ Bildinfos von Artikel $uuid still gelöscht');
+    } catch (e, st) {
+      _logger.e('❌ clearBildInfoByUuidSilent fehlgeschlagen',
+                error: e, stackTrace: st,);
+      rethrow;
+    }
+  }
+
   /// Nur für Tests — injiziert eine externe DB-Instanz.
   /// Umgeht _initDb() und damit den plattformspezifischen Dateipfad.
-@visibleForTesting
+  @visibleForTesting
   Future<void> injectDatabase(Database db) async {
     if (!identical(_db, db)) {
       await _db?.close();

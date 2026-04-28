@@ -2,6 +2,55 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.9.4] — 2026-04-28
+
+### Feature (B-013): Vollständiger Bild-Upload & Bildpfad-Synchronisation im PocketBase-Sync
+
+**Ziel:**  
+Bilder sollen beim Anlegen / Aktualisieren eines Artikels zuverlässig an PocketBase übertragen und auf allen Geräten verfügbar sein. Gleichzeitig müssen schnelle Bildwechsel und Bild-Löschungen ohne Ghost-Files oder unnötige Konflikte funktionieren.
+
+**Root Cause:**  
+1. Beim Push wurde das lokale Bild nicht als Multipart hochgeladen.  
+2. `remoteBildPfad` wurde nach erfolgreichem Upload nicht sofort lokal gespeichert, da `markSynced()` dieses Feld ignorierte.  
+3. Beim Pull wurden gelöschte Bilder nicht sauber entfernt, sodass alte Dateien nach einem Sync wieder auftauchten.
+
+**Umsetzung:**  
+- Neuer Helper `_buildFiles()` in `PocketBaseSyncService`; übergibt Multipart-Dateien an `create()` / `update()` (ausgelassen bei Web, Zero-Byte oder identischer Datei).  
+- `ArtikelDbService.markSynced()` um optionalen Parameter `remoteBildPfad` erweitert (**BREAKING CHANGE**).  
+- Neue DB-Methode `clearBildInfoByUuidSilent()` entfernt `bildPfad` **und** `remoteBildPfad`, ohne den Datensatz dirty zu machen.  
+- Pull-Logik löscht lokale Bildinfos, wenn das Remote-Bildfeld leer ist.  
+- `_needsConflictBecauseMissingBase()` akzeptiert jetzt den Remote-Record; Aufrufstellen angepasst.  
+- Alle Produktiv- und Test-Mocks via `build_runner` regeneriert.
+
+**Ergebnis:**  
+- Bilder werden bei CREATE/UPDATE sofort hochgeladen; `remoteBildPfad` ist lokal aktuell.  
+- „Bild leeren“ entfernt Datei & Pfade sauber, Pull bringt keine Ghost-Files zurück.  
+- Schnelle Bildwechsel erzeugen keine unerwarteten Konflikte.  
+- Bestehende Konfliktlogik bleibt unverändert robust.
+
+### Fixes / Refactor
+- Ghost-Files & inkonsistente Bildpfade durch sofortige Aktualisierung von `remoteBildPfad` behoben.  
+- Tests & Hilfsklassen auf neue Signatur (`markSynced(uuid, etag, {remotePath, remoteBildPfad})`) umgestellt.  
+- Strengere Konfliktprüfung in `_needsConflictBecauseMissingBase()` greift nun auch im Test-Double.
+
+### Tests
+- `pocketbase_sync_service_upload_test.dart` verifiziert Multipart-Upload bei CREATE/UPDATE.  
+- ISO-Zeitstempel-Fixtures vereinheitlicht.  
+- Alle vorhandenen Tests angepasst; Mocks neu generiert.
+
+**Teststatus:**  
+- `flutter test`: **692 Tests bestanden**, **3 Tests übersprungen** ✅  
+- `flutter analyze`: **0 Findings** ✅
+
+### Breaking Change
+`markSynced()` besitzt jetzt den zusätzlichen optionalen Parameter `remoteBildPfad`.  
+Alle externen Implementierungen / Mocks müssen entsprechend aktualisiert oder neu generiert werden.
+
+### Dokumentation
+- Master-Prompt (Sync-Doku) um `remote_bild_pfad`, neue Signatur und `clearBildInfoByUuidSilent()` ergänzt.  
+- CHANGELOG-Eintrag *B-013* hinzugefügt.
+
+---
 
 ## [0.9.3] — 2026-04-26
 

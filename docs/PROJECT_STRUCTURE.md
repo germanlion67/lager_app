@@ -45,7 +45,7 @@ app/lib/
 │   ├── artikel_erfassen_io.dart      #     ↳ Native: Kamera + Dateisystem
 │   ├── artikel_erfassen_stub.dart    #     ↳ Web: File-Upload
 │   ├── artikel_list_screen.dart      #   Hauptliste mit Suche/Filter
-│   ├── conflict_resolution_screen.dart   # Sync-Konflikt-Auflösung
+│   ├── conflict_resolution_screen.dart   # Konfliktauflösungs-UI für Sync-Konflikte
 │   ├── detail_screen_io.dart         #   Detail: Native-Aktionen
 │   ├── detail_screen_stub.dart       #   Detail: Web-Aktionen
 │   ├── list_screen_cache_io.dart     #   Image-Cache-Evict (Native)
@@ -74,6 +74,7 @@ app/lib/
 │   ├── artikel_import_service.dart   #   CSV Import-Logik
 │   ├── attachment_service.dart       #   PocketBase Attachment CRUD
 │   ├── backup_status_service.dart    #   Backup-Status (last_backup.json)
+│   ├── conflict_resolution_utils.dart    #   Hilfslogik für Konfliktauflösung (z. B. Remote-Baseline-ETag)
 │   ├── connectivity_service.dart     #   Online/Offline-Erkennung
 │   ├── database_service.dart         #   DB-Initialisierung & Injection
 │   ├── export_io.dart                #   Export: Native (Dateisystem)
@@ -96,15 +97,15 @@ app/lib/
 │   ├── pdf_service_stub.dart         #     ↳ PDF: Stub
 │   ├── pdf_service_web.dart          #     ↳ PDF: Web (Browser-Download)
 │   ├── pocketbase_service.dart       #   PocketBase REST-Client
-│   ├── pocketbase_sync_service.dart  #   PocketBase Sync (Push/Pull)
+│   ├── pocketbase_sync_service.dart  #   PocketBase Sync (Push/Pull, Konflikt-Callback)
 │   ├── scan_result.dart              #   Scan-Ergebnis Modell
 │   ├── scan_service.dart             #   Scanner (Conditional Import)
 │   ├── scan_service_io.dart          #     ↳ Scanner: Native
 │   ├── scan_service_stub.dart        #     ↳ Scanner: Web-Stub
 │   ├── sync_error_recovery.dart      #   Sync-Fehlerbehandlung
-│   ├── sync_orchestrator.dart        #   Sync-Steuerung (Push→Pull→Images)
+│   ├── sync_orchestrator.dart        #   Sync-Steuerung / Konflikt-Weitergabe
 │   ├── sync_progress_service.dart    #   Sync-Fortschritt Stream
-│   ├── sync_service.dart             #   Sync-Kernlogik
+│   ├── sync_service.dart             #   Klassischer Sync-Service inkl. ConflictData/Resolution-Verträgen
 │   ├── sync_status_provider.dart     #   Interface: Sync-Status Stream
 │   └── tag_service.dart              #   Tag/Label-Verwaltung
 ├── utils/                            # Helfer
@@ -117,14 +118,14 @@ app/lib/
 │   ├── article_icons.dart            #   Artikel-Status-Icons
 │   ├── artikel_bild_widget.dart      #   Bild-Anzeige (4-stufige Fallback-Kette)
 │   ├── attachment_list_widget.dart   #   Attachment-Liste (Detail-Tab)
-│   ├── attachment_upload_widget.dart  #   Attachment-Upload Dialog
+│   ├── attachment_upload_widget.dart #   Attachment-Upload Dialog
 │   ├── backup_status_widget.dart     #   Backup-Status Anzeige
 │   ├── image_crop_dialog.dart        #   Bild-Zuschnitt Dialog
 │   ├── nextcloud_resync_dialog.dart  #   Nextcloud Re-Sync Dialog
 │   ├── sync_conflict_handler.dart    #   Sync-Konflikt UI-Handler
 │   ├── sync_error_widgets.dart       #   Sync-Fehler Anzeige-Widgets
 │   └── sync_progress_widgets.dart    #   Sync-Fortschritt Anzeige
-├── main.dart                         # App-Einstiegspunkt (gemeinsam)
+├── main.dart                         # App-Einstiegspunkt, Auth, Lifecycle, Sync-Orchestrierung, PocketBase-Konflikt-UI
 ├── main_io.dart                      # Einstiegspunkt: Native (dart:io)
 └── main_stub.dart                    # Einstiegspunkt: Web (kein dart:io)
 ```

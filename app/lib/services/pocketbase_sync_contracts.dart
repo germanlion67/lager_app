@@ -1,3 +1,5 @@
+//lib/services/pocketbase_sync_contracts.dart
+
 import 'package:pocketbase/pocketbase.dart';
 
 import '../models/artikel_model.dart';
@@ -13,10 +15,14 @@ abstract class SyncPocketBaseService {
 abstract class SyncArtikelDbService {
   Future<List<Artikel>> getPendingChanges();
 
+  /// Löscht bildPfad und remoteBildPfad ohne Dirty-Flag.
+  Future<void> clearBildInfoByUuidSilent(String uuid);
+
   Future<void> markSynced(
     String uuid,
     String etag, {
     String? remotePath,
+    String? remoteBildPfad,   // ➊ NEU – optional
   });
 
   Future<Artikel?> getArtikelByUUID(String uuid);

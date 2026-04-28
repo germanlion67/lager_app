@@ -1,5 +1,3 @@
-// lib/models/artikel_model.dart
-
 import 'dart:convert';
 import '../utils/uuid_generator.dart';
 import 'package:logger/logger.dart';
@@ -19,6 +17,7 @@ class Artikel {
   final String ort;
   final String fach;
   final String beschreibung;
+  final String? kategorie;
   final String bildPfad;
   final String? thumbnailPfad;
   final String? thumbnailEtag;
@@ -46,6 +45,7 @@ class Artikel {
     required this.ort,
     required this.fach,
     required this.beschreibung,
+    this.kategorie,
     required this.bildPfad,
     this.thumbnailPfad,
     this.thumbnailEtag,
@@ -75,6 +75,7 @@ class Artikel {
       'ort': ort,
       'fach': fach,
       'beschreibung': beschreibung,
+      'kategorie': kategorie,
       'bildPfad': bildPfad,
       'thumbnailPfad': thumbnailPfad,
       'thumbnailEtag': thumbnailEtag,
@@ -106,6 +107,7 @@ class Artikel {
       'ort': ort,
       'fach': fach,
       'beschreibung': beschreibung,
+      'kategorie': kategorie,
       'uuid': uuid,
       'updated_at': updatedAt,
       'deleted': deleted,
@@ -139,6 +141,7 @@ class Artikel {
       ort: map['ort']?.toString() ?? '',
       fach: map['fach']?.toString() ?? '',
       beschreibung: map['beschreibung']?.toString() ?? '',
+      kategorie: map['kategorie']?.toString(),
       bildPfad: map['bildPfad']?.toString() ?? '',
       thumbnailPfad: map['thumbnailPfad']?.toString(),
       thumbnailEtag: map['thumbnailEtag']?.toString(),
@@ -187,6 +190,7 @@ class Artikel {
       ort: data['ort']?.toString() ?? '',
       fach: data['fach']?.toString() ?? '',
       beschreibung: data['beschreibung']?.toString() ?? '',
+      kategorie: data['kategorie']?.toString(),
       bildPfad: '',
       erstelltAm: _parseDateTime(erstelltAmValue),
       aktualisiertAm: _parseDateTime(aktualisiertAmValue),
@@ -281,6 +285,7 @@ class Artikel {
     String? ort,
     String? fach,
     String? beschreibung,
+    Object? kategorie = _undefined,
     String? bildPfad,
     Object? thumbnailPfad = _undefined,
     Object? thumbnailEtag = _undefined,
@@ -306,6 +311,7 @@ class Artikel {
       ort: ort ?? this.ort,
       fach: fach ?? this.fach,
       beschreibung: beschreibung ?? this.beschreibung,
+      kategorie: kategorie is _Undefined ? this.kategorie : kategorie as String?,
       bildPfad: bildPfad ?? this.bildPfad,
       thumbnailPfad: thumbnailPfad is _Undefined
           ? this.thumbnailPfad
@@ -356,7 +362,7 @@ class Artikel {
   @override
   String toString() {
     return 'Artikel(uuid: $uuid, artikelnummer: $artikelnummer, name: $name, menge: $menge, '
-        'ort: $ort, fach: $fach, deleted: $deleted, etag: $etag, '
+        'ort: $ort, fach: $fach, kategorie: $kategorie, deleted: $deleted, etag: $etag, '
         'lastSyncedEtag: $lastSyncedEtag, pendingResolution: $pendingResolution)';
   }
 
