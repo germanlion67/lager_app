@@ -97,6 +97,80 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
 
 
+### B-014: PocketBase Sync – CREATE-Fehler (HTTP 400) + SyncOnce-Timeout + fehlende Sync-Basis (`last_synced_etag`)
+**Typ:** Bug / Befund / Analyse  
+**Betrifft:**  
+`app/lib/services/pocketbase_sync_service.dart`,  
+`app/lib/services/sync_orchestrator.dart`,  
+PocketBase Collection `artikel` (Schema + Rules)
+
+**Beobachtung (reale Logs / Geräte-Tests)**
+- Beim App-Start / Sync-Lauf treten wiederholt Fehler auf:
+  - `ClientException ... statusCode: 400 ... message: Failed to create record.`
+  - Quelle: `_pushToPocketBase()` im CREATE-Pfad (`collection(...).create(...)`)
+- Zusätzlich schlägt `SyncOrchestrator.runOnce()` gelegentlich mit
+  `TimeoutException after 0:01:00 ... Future not completed` fehl, da `syncOnce()`
+  im Push-Pfad keine eigenen Request-Timeouts hat und der Orchestrator nach 60 s abbricht.
+
+**Fachlicher Impact**
+- Lokale Pending-Datensätze (dirty via `etag IS NULL`) werden nicht remote angelegt → bleiben dauerhaft pending.
+- `markSynced()` wird nie erfolgreich erreicht → `etag`/`last_synced_etag` werden nicht gesetzt → keine stabile Konfliktbasis (vgl. `docs/prompt_Sync.txt`: `last_synced_etag` als Baseline, fehlende Basis → konservativer Konflikt-Fall).
+- Folgeeffekte: wiederholte Push-Retry-Spiralen und/oder konservative Konflikt-Cases („missing base") können Integrationstests wie **T-001.6** verfälschen oder blockieren.
+
+**Vermutete Ursachen (zu verifizieren)**
+1. PocketBase Schema / Create Rules blockieren das CREATE (fehlende Required-Felder, Typmismatch, fehlendes Auth-/Owner-Feld).
+2. Push-Requests (`getList` / `create` / `update` / `delete`) laufen ohne eigenen Timeout → der Orchestrator-Timeout (60 s) ist die einzige Bremse.
+
+**Tasks**
+- [ ] PocketBase Admin prüfen: `artikel`-Schema (Required-Felder, Typen) + Create/Update Rules; echten Validierungsgrund für 400 identifizieren (Server-Log / Admin UI).
+- [ ] In `PocketBaseSyncService._pushToPocketBase()` für `getList` / `create` / `update` / `delete` explizite Request-Timeouts ergänzen, damit Fehler deterministisch und schneller sichtbar werden.
+- [ ] Push-Logging um kurze, mobile-lesbare Summary-Lines ergänzen (siehe O-012), z. B. `SYNC|PUSH|CREATE fail uuid=... status=400`.
+- [ ] Nach Fix: **T-001.6** (und weitere manuelle Sync-Integrationsfälle) erneut durchführen und Konfliktbasis (`last_synced_etag`) verifizieren.
+
+
+### O-012: Logging – Sync-Logs mobiltauglich kürzen (Summary-Lines + optionale Details)
+**Typ:** Optimierung / Diagnose / UX  
+**Betrifft:**  
+`docs/LOGGER.md`,  
+`app/lib/services/pocketbase_sync_service.dart`,  
+`app/lib/services/sync_orchestrator.dart`,  
+`app/lib/services/artikel_db_service.dart`
+
+**Problem**
+- Fehlerlogs sind auf mobilen Displays schwer lesbar, da Exceptions (z. B. PocketBase `ClientException`) sehr lange Objekte ausgeben.
+- Stacktraces dominieren die Ausgabe und erschweren schnelles Scannen nach Status / Operation / UUID.
+- Für Analyse und Support ist die Ausgabe zwar vollständig, aber die Signalqualität (Was ist wirklich passiert?) ist zu niedrig.
+
+**Ziel**
+Kurze, strukturierte 1-Zeilen-Summaries pro Sync-Operation (Push/Pull/Images), die auf Mobile sofort erfassbar sind — **ohne** mit `docs/LOGGER.md` zu kollidieren.
+
+**Abgrenzung zu `docs/LOGGER.md`**
+- Dieser Punkt *ergänzt* `LOGGER.md`, ersetzt sie nicht.
+- `logger.e(…, error: e, stackTrace: st)` bei kritischen Fehlern bleibt erhalten (konform zu `LOGGER.md`).
+- Zusätzlich wird eine kurze Summary-Line (`logger.w` / `logger.i`) vorangestellt, damit das wichtigste Signal auf Mobile sofort sichtbar ist.
+- Neue Log-Events werden in `LOGGER.md` referenziert (Tabelle „Definierte Log-Events"), nicht ersetzt.
+
+**Vorgeschlagenes Summary-Format**
+```
+SYNC|PUSH|CREATE  fail  uuid=<uuid>  status=400  msg="Failed to create record"
+SYNC|PUSH|UPDATE  ok    uuid=<uuid>
+SYNC|PULL         fail  status=503   msg="..."
+SYNC|IMAGES       ok    downloaded=3  skipped=1  failed=0
+```
+Details (Exception + Stacktrace) folgen weiterhin als `logger.e`-Eintrag.
+
+**Tasks**
+- [ ] `docs/LOGGER.md`: Summary-Format / neue Events als eigenen Abschnitt ergänzen (nur Doku-Änderung, kein Code).
+- [ ] `PocketBaseSyncService`: bei Push/Pull/Images zentrale Summary-Logs ergänzen (z. B. `SYNC|PUSH|CREATE fail uuid=... status=400 msg=...`).
+- [ ] `SyncOrchestrator` / `ArtikelDbService`: Timeout- und DB-Fehler ebenfalls mit Summary-Line versehen.
+- [ ] Optional: „Verbose Logs"-Flag in den Settings prüfen, um Stacktraces nur bei Bedarf dauerhaft einzublenden (Release-freundlich).
+- [ ] Dokumentieren, dass Summary-Logs für mobile Lesbarkeit gedacht sind; Details bleiben für forensische Analyse erhalten.
+
+**Nicht-Ziel**
+- Keine Änderung am bestehenden Logger-Framework (`AppLogService`) notwendig.
+- Keine Entfernung von `error` / `stackTrace` bei kritischen Fehlern (konform zu `docs/LOGGER.md`).
+
+
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
 
@@ -179,10 +253,10 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 |---|---:|---:|---:|
 | ✅ Abgeschlossen | 57 | 51 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 2 | 0 | 2 |
+| 🟡 Mittel | 4 | 0 | 4 |
 | 🟢 Nice-to-Have | 1 | 0 | 1 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **63** | **49** | **5** |
+| **Gesamt** | **65** | **49** | **7** |
 
 ---
 
