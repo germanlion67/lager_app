@@ -1,5 +1,5 @@
 # Master-Prompt für temporäre Stabilisierung der Sync-Logik / Lager_app
-# Stand: fix/sync-hardening2-v0.9.4 / 2026-04-27
+# Stand: fix/sync-hardening2-v0.9.4 / 2026-04-29
 
 Wir arbeiten an der fachlichen Stabilisierung, Prüfung, Dokumentation und punktuellen Weiterentwicklung der gesamten PocketBase-basierten Sync-Logik der Lager_app.
 
@@ -179,6 +179,12 @@ Wenn nicht anders angegeben, prüfe bei Sync-bezogenen Änderungen in dieser Rei
 - `useRemote` darf keine unzuverlässigen Baselines wie `remotePath` oder leere Strings verwenden
 - `toPocketBaseMap()` darf keine lokalen Konflikt-Steuerfelder übertragen
 - Duplicate-UUID-Recovery darf nicht wieder in endlose Create-Fehler zurückfallen
+- `toPocketBaseMap()` muss `erstelltAm` und `aktualisiertAm` als
+  UTC-ISO-Strings übertragen ← NEU
+- `_extractBildName()` muss PocketBase `bild`-Feld als `List<String>`
+  korrekt auflösen ← NEU
+- Log-Viewer darf keine Box-Drawing-Zeichen (`│ ┌ └`) anzeigen
+  (`noBoxingByDefault: true`) ← NEU
 
 ---
 
@@ -193,12 +199,22 @@ Wenn nicht anders angegeben, prüfe bei Sync-bezogenen Änderungen in dieser Rei
 - Konflikt-UI ist gegen parallele Mehrfachöffnung abgesichert
 - `kategorie` ist im Modell-/Mapping-/Testpfad ergänzt
 - `toPocketBaseMap()` sendet keine lokalen Konflikt-Steuerfelder
+- `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als
+  UTC-ISO-Strings ← NEU
+- `_extractBildName()` normalisiert PocketBase `bild` von `List<String>`
+  zu `String?` ← NEU
+- `remoteBildPfad` wird nach CREATE und UPDATE korrekt über
+  `_extractBildName()` gesetzt ← NEU
+- Log-Viewer zeigt keine Box-Drawing-Zeichen mehr
+  (`noBoxingByDefault: true`) ← NEU
 
 ### Noch gezielt zu prüfen oder manuell zu verifizieren
 - reale End-to-End-Verifikation von Duplicate-UUID-Recovery
 - reale Geräte-/Server-Tests für `useLocal`, `useRemote`, `merge`, `skip`
 - Verhalten bei mehreren Konflikten in einem echten Sync-Lauf
 - verbleibende Doku-Altstände in `ARCHITECTURE.md` / `DATABASE.md`
+- B-003 Wiederholungstest nach eingespielten Fixes
+  (`remoteBildPfad` + Zeitstempel) ← NEU
 
 ### Optional / spätere Architekturverbesserung
 - dediziertes Interface statt `_PocketBaseConflictAdapter implements SyncService`
@@ -245,6 +261,9 @@ Datei:
 - `deviceId`
 - `kategorie`
 - zusätzlich fachliche Felder und Bildpfade
+- `erstelltAm`, `aktualisiertAm`
+- `bildPfad`, `remoteBildPfad`, `thumbnailPfad`, `thumbnailEtag`
+- `artikelnummer`
 
 ### Modell-Invarianten
 - Gleichheit basiert auf `uuid`
@@ -257,10 +276,38 @@ Datei:
   - aktueller Sync-Stand
   - letzte bestätigte Baseline
 
-### Wichtige Invariante für PocketBase-Mapping
-`toPocketBaseMap()` überträgt bewusst **nicht**:
-- `last_synced_etag`
-- `pending_resolution`
+### `toPocketBaseMap()` — was wird übertragen
+
+Wird übertragen:
+
+- `name`, `menge`, `ort`, `fach`, `beschreibung`, `kategorie`
+- `uuid`, `updated_at`, `deleted`, `device_id`
+- `erstelltAm` als UTC-ISO-String ← NEU
+- `aktualisiertAm` als UTC-ISO-String ← NEU
+- `artikelnummer` nur wenn `!= null && >= 1`
+
+Wird bewusst **nicht** übertragen:
+
+- `last_synced_etag`, `pending_resolution`
+- `bildPfad` (geht als `MultipartFile` mit Feldname `bild`)
+- `remoteBildPfad`
+
+### `_extractBildName()` ← NEU
+
+```dart
+String? _extractBildName(dynamic data) {
+  final raw = _asStringDynamicMap(data)['bild'];
+  if (raw == null) return null;
+  if (raw is List && raw.isNotEmpty) return raw.first.toString();
+  if (raw is String && raw.trim().isNotEmpty) return raw.trim();
+  return null;
+}
+```
+PocketBase gibt bild nach File-Upload als List<String> zurück, nicht
+als String. Diese Methode normalisiert beide Fälle. Wird nach CREATE und
+UPDATE zur Bestimmung von remoteBildPfad verwendet.
+
+--- 
 
 Diese Felder sind lokale Sync-Steuerinformationen und dürfen nicht an PocketBase gesendet werden.
 
@@ -435,6 +482,18 @@ Für Pending-Artikel:
     - `update()`
 - wenn kein Remote vorhanden:
   - `create()`
+
+### `remoteBildPfad` nach Push ← NEU
+
+Nach erfolgreichem CREATE oder UPDATE wird `remoteBildPfad` über
+`_extractBildName(created.data)` bzw. `_extractBildName(updated.data)`
+bestimmt und via `markSynced(..., remoteBildPfad: ...)` in SQLite
+persistiert.
+
+Hintergrund: PocketBase liefert `bild` nach File-Upload als
+`List<String>`. Der frühere Cast auf `String?` schlug still fehl →
+`remoteBildPfad` blieb `null`.
+
 
 ### Duplicate-UUID-Recovery beim Create
 Wenn `create()` an einer bereits vorhandenen `uuid` scheitert:
@@ -688,6 +747,31 @@ Zuletzt dokumentiert:
 
 ---
 
+
+## Logging
+
+Datei: `lib/services/app_log_service.dart`
+
+### Aktueller Stand
+
+- `PrettyPrinter` mit `noBoxingByDefault: true` ← NEU (Fix LOG-001)
+  entfernt Box-Drawing-Zeichen (`│ ┌ └ ─`); Emojis bleiben erhalten
+- `_CleanMemoryOutput` entfernt ANSI-Escape-Codes für den In-App-Viewer
+- `ConsoleOutput` bekommt weiterhin Farben
+- Default Log-Level im In-App-Viewer: `Level.error` (F-006)
+- Buffer: 500 Events im RAM
+
+### Strukturierte Sync-Logs (O-012)
+
+SYNC|PUSH|CREATE/UPDATE/DELETE ok/fail uuid=...
+SYNC|PUSH done created=N updated=N deleted=N conflicts=N errors=N
+SYNC|PULL done upserted=N skipped=N conflicts=N deleted=N errors=N
+SYNC|ORCHESTRATOR fail phase=... msg=...
+
+Details (Exception + Stacktrace) folgen weiterhin als `logger.e`.
+
+--- 
+
 ## Sync-Invarianten
 
 Diese Regeln möglichst nicht brechen:
@@ -705,6 +789,10 @@ Diese Regeln möglichst nicht brechen:
 - fehlende Konfliktbasis bei existierendem Remote-Pendant darf nicht still optimistisch überschrieben werden
 - `setBildPfadByUuidSilent()` und `clearBildInfoByUuidSilent()` dürfen
 keinen normalen Datensync auslösen (nur Bild-Caching)
+- `toPocketBaseMap()` muss `erstelltAm` und `aktualisiertAm` als
+  UTC-ISO-Strings übertragen ← NEU
+- `_extractBildName()` ist die einzige zulässige Stelle zur Normalisierung
+  von PocketBase `bild` → `remoteBildPfad` ← NEU
 
 > `remoteBildPfad` (SQLite-Spaltenname: `remoteBildPfad`) wird nur durch
 > `markSynced()` nach erfolgreichem Push oder durch `upsertArtikel()` nach
@@ -734,6 +822,12 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
 - [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
 - [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
   - `artikelnummer` wird nur gesendet wenn `>= 1` (PocketBase `min: 1`-Guard, B-014)
+- [x] `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als
+  UTC-ISO-Strings ← NEU
+- [x] `_extractBildName()` normalisiert `List<String>` → `String?` ← NEU
+- [x] `remoteBildPfad` nach CREATE/UPDATE korrekt gesetzt ← NEU
+- [x] Box-Drawing-Zeichen im Log-Viewer entfernt
+  (`noBoxingByDefault: true`) ← NEU  
 - [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
 - [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
 - [x] Summary-Logs pro Sync-Phase implementiert (O-012):
@@ -748,6 +842,12 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
 - [x] Orchestrator-Timeout auf 5 Minuten erhöht
 
 **Manuelle Integrations- und Feldtests**
+- [x] B-001 — Artikel erstellen + Push → kein HTTP 400, Daten korrekt
+  in PocketBase ← NEU
+- [x] B-002 — Gerät B pullt B-001 → Daten korrekt übertragen ← NEU
+- [ ] B-001/B-002 — `kategorie`-Übertragung (verschoben → F-010)
+- [ ] B-003 — Artikel mit Bild → `remoteBildPfad` + Zeitstempel korrekt
+  (Fix eingespielt, Wiederholungstest ausstehend) ← NEU
 - [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
 - [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
 - [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
@@ -763,6 +863,10 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
 - [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
 - [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
 - [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
+- [ ] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für
+  `erstelltAm`/`aktualisiertAm` ergänzen ← NEU
+- [ ] `test/services/pocketbase_sync_service_test.dart`:
+  `_extractBildName()` und `remoteBildPfad`-Persistenz testen ← NEU
 
 **Optional / spätere Verfeinerung**
 - [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
@@ -795,6 +899,14 @@ Besonders relevante Testdateien:
 - `test/services/sync_orchestrator_test.dart`
 - `test/services/artikel_db_service_test.dart`
 - `test/models/artikel_model_test.dart`
+
+Nach B-003-Fix gezielt zu prüfen/ergänzen:
+- `test/models/artikel_model_test.dart`:
+  `toPocketBaseMap()` enthält `erstelltAm` und `aktualisiertAm` als
+  UTC-ISO-Strings
+- `test/services/pocketbase_sync_service_test.dart`:
+  `_extractBildName()` mit `List<String>`, `String`, `null`;
+  `markSynced()` nach CREATE/UPDATE setzt `remoteBildPfad` korrekt
 
 Nach B-014 gezielt zu prüfen/ergänzen:
 - `test/models/artikel_model_test.dart`:
@@ -882,16 +994,28 @@ Diese Punkte bei Doku-Arbeit bereinigen oder explizit als historisch kennzeichne
 
 `docs/LOGGER.md` ist für den aktuellen Duplicate-Recovery-Pfad bereits bereinigt und ergänzt.
 
+Nach B-003-Fix bereinigt: ← NEU
+- `toPocketBaseMap()` überträgt jetzt `erstelltAm` und `aktualisiertAm`
+- `_extractBildName()` löst PocketBase `List<String>`-Format korrekt auf
+- `remoteBildPfad` wird nach CREATE/UPDATE zuverlässig gesetzt
+- Log-Viewer zeigt keine Box-Drawing-Zeichen mehr
+
 ---
 
 ## Priorisierte nächste sinnvolle Prüfungen
 
-1. `docs/ARCHITECTURE.md` auf Altstände zur Konfliktlogik und UI-Verkabelung konsolidieren
-2. `docs/DATABASE.md` gegen aktuellen Sync-/Konfliktstand prüfen
-3. optional expliziten End-to-End-Test für Duplicate-UUID-Recovery mit realem PocketBase ergänzen
-4. prüfen, ob Konflikte zusätzlich persistent markiert werden sollten
-5. `_PocketBaseConflictAdapter` nur dann bereinigen, wenn minimal-invasiv möglich
-6. optional Logging-Konventionen projektweit weiter vereinheitlichen
+1. B-003 Wiederholungstest nach eingespielten Fixes ← NEU
+   (höchste Priorität)
+2. Fehlende Tests für `_extractBildName()` und
+   `toPocketBaseMap()`-Zeitstempel ergänzen ← NEU
+3. Konflikt-Tests T-001.6 bis T-001.11 und M-001 bis M-004 manuell
+   durchführen
+4. `docs/ARCHITECTURE.md` auf Altstände konsolidieren
+5. `docs/DATABASE.md` gegen aktuellen Sync-Stand prüfen
+6. Optional: End-to-End-Test für Duplicate-UUID-Recovery ergänzen
+7. Optional: Konflikte zusätzlich persistent markieren
+8. Optional: `_PocketBaseConflictAdapter` bereinigen, wenn
+   minimal-invasiv möglich
 
 ---
 
