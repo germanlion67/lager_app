@@ -64,6 +64,7 @@ abstract final class AppLogService {
       colors: true,       // Terminal bekommt weiterhin Farben
       printEmojis: true,
       dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+      noBoxingByDefault: true, // ← Fix LOG-001
     ),
   );
 

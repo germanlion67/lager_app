@@ -111,6 +111,9 @@ Map<String, dynamic> toPocketBaseMap() {
     'updated_at': updatedAt,
     'deleted': deleted,
     'device_id': deviceId,
+    // FIX B-003: Zeitstempel-Felder ergänzt — fehlten im Payload → N/A in PocketBase
+    'erstelltAm': erstelltAm.toUtc().toIso8601String(),
+    'aktualisiertAm': aktualisiertAm.toUtc().toIso8601String(),
   };
   // artikelnummer nur senden wenn gesetzt und >= 1 (PB-Schema: min=1, required=false)
   // Null oder 0 würden PocketBase-Validierung (min: 1) verletzen

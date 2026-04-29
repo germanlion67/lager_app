@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-015`, `F-009`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-011`
+- `B-015`, `F-010`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-011`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -218,6 +218,27 @@ Ziel ist ein konsistenter „Bild leeren“-Workflow, der sowohl lokal als auch 
 - [ ] Optionales lokales File-Cleanup (Cache)
 
 ---
+
+## F-009 — Kategorie-Eingabe in der Artikel-UX
+
+**Priorität:** Niedrig
+**Branch:** fix/sync-hardening2-v0.9.4 (nach Merge: main)
+**Entdeckt bei:** B-001 / B-002
+
+### Problem
+Die `kategorie`-Eigenschaft des Artikel-Modells existiert im Backend (PocketBase)
+und im Datenmodell, ist aber in der Artikel-Erfassungs-UI nicht einggebbar.
+Nutzer können Kategorien weder setzen noch ändern.
+
+### Gewünschtes Verhalten
+- Artikel-Formular enthält ein Kategorie-Feld (Freitext oder Dropdown)
+- Wert wird beim Speichern in SQLite persistiert
+- Wert wird beim Sync korrekt an PocketBase übertragen
+
+### Akzeptanzkriterium
+B-001 / B-002 bestehen vollständig inkl. `kategorie`-Übertragung.
+
+--- 
 
 ## 🟢 Priorität: Nice-to-Have
 

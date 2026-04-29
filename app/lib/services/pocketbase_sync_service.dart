@@ -245,13 +245,7 @@ class PocketBaseSyncService {
             artikel.uuid,
             updatedEtag,
             remotePath: updated.id.toString(),
-            remoteBildPfad:
-                (_safeGet(updated.data, 'bild') as String?)
-                            ?.trim()
-                            .isNotEmpty ==
-                        true
-                    ? _safeGet(updated.data, 'bild')
-                    : null,
+            remoteBildPfad: _extractBildName(updated.data), // ← Fix B-003
           );
           pushUpdated++;
           _logger.i('SYNC|PUSH|UPDATE  ok  uuid=${artikel.uuid}');
@@ -281,13 +275,7 @@ class PocketBaseSyncService {
             artikel.uuid,
             createdEtag,
             remotePath: created.id.toString(),
-            remoteBildPfad:
-                (_safeGet(created.data, 'bild') as String?)
-                            ?.trim()
-                            .isNotEmpty ==
-                        true
-                    ? _safeGet(created.data, 'bild')
-                    : null,
+            remoteBildPfad: _extractBildName(created.data), // ← Fix B-003
           );
           pushCreated++;
           _logger.i('SYNC|PUSH|CREATE  ok  uuid=${artikel.uuid}');
@@ -605,4 +593,15 @@ class PocketBaseSyncService {
 
   String _safeGet(Map<String, dynamic> m, String k) =>
       (m[k] ?? '').toString();
+
+  /// PocketBase gibt `bild` nach File-Upload als List<`String`> zurück,
+  /// nicht als String. Diese Methode normalisiert beide Fälle.
+  String? _extractBildName(dynamic data) {
+    final raw = _asStringDynamicMap(data)['bild'];
+    if (raw == null) return null;
+    if (raw is List && raw.isNotEmpty) return raw.first.toString();
+    if (raw is String && raw.trim().isNotEmpty) return raw.trim();
+    return null;
+  }
+     
 }
