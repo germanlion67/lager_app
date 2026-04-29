@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+36 | **Zuletzt aktualisiert:** 29.04.2026
+**Version:** 0.9.4+38 | **Zuletzt aktualisiert:** 29.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -782,8 +782,9 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
-| 2026-04-19 | v0.9.4+36 | fix(B-014): HTTP 400 CREATE, Push-Timeouts, markSynced-Spaltenname, Summary-Logs |
-| 2026-04-18 | v0.9.4+36 | B-013 abgeschlossen: image upload flow, `remoteBildPfad` |
+| 2026-04-29 | v0.9.4+38 | fix/sync-hardening2-v0.9.4(T-001.6): fehlende PB-Felder + remoteBildPfad List-Cast + LOG-001 noBoxing |
+| 2026-04-29 | v0.9.4+37 | fix/sync-hardening2-v0.9.4(B-014): HTTP 400 CREATE, Push-Timeouts, markSynced-Spaltenname, Summary-Logs |
+| 2026-04-28 | v0.9.4+36 | fix/sync-hardening2-v0.9.4 B-013 abgeschlossen: image upload flow, `remoteBildPfad` |
 | 2026-04-27 | fix/sync-hardening2-v0.9.4 | T-010 abgeschlossen: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows konsolidiert. Konfliktfälle ohne `last_synced_etag` werden konservativ behandelt, Duplicate-UUID-Recovery inkl. Logging gehärtet, useRemote-Baseline ausgelagert und validiert, UI-Fehlerpfad im `ConflictResolutionScreen` abgesichert sowie service-nahe Tests für Skip-/Force-/Delete-Guards und `markSynced()`-basierte Bereinigung von `pendingResolution` ergänzt. Teststand: 691 Tests grün, 3 übersprungen. |
 | 2026-04-23 | v0.9.2+32 | T-009 und O-011 abgeschlossen: ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade nachgezogen; zugleich `AppLockService` testbarer gemacht, sodass App-Lock-nahe Lade-/Speicherpfade und fachliche Timeout-/State-Logik nun isolierter testbar sind. |
 | 2026-04-23 | v0.9.1+29 | O-010 abgeschlossen: `SettingsScreen` fachlich minimal-invasiv in `SettingsController` refactored, UI-/Logik-Trennung verbessert, zusätzliche Controller-Tests ergänzt. F-007 architektonisch bereinigt: `showLastSyncNotifier`, Prefs-Key und Default nach `settings_state.dart` verschoben, Default konsistent auf `true` vereinheitlicht. Teststand auf 626 bestanden, 3 übersprungen aktualisiert. |
