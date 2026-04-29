@@ -1,6 +1,9 @@
 // lib/main.dart
 //
-// CHANGES v0.8.5+2:
+// CHANGES v0.8.5+3:
+//   FIX — _registerConflictCallback(): Guard verhindert mehrfache
+//          Registrierung des Konflikt-Callbacks (war: 3x bei
+//          initState + Login + Server-Setup).
 //   F2  — _onConflictDetected(): ConflictData bauen + ConflictResolutionScreen
 //          mit korrekter Signatur (conflicts + syncService) aufrufen.
 //   F2  — PocketBaseConflictAdapter: minimaler SyncService-Wrapper der
@@ -261,6 +264,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _cleanupDone = false;
   bool _syncRunning = false;
   bool _isConflictScreenOpen = false;
+  bool _conflictCallbackRegistered = false; // NEU: Guard gegen Mehrfach-Registrierung
 
   bool _needsSetup = false;
   bool _isCheckingAuth = true;
@@ -315,7 +319,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   // ── F2: Konflikt-Callback ─────────────────────────────────────────────────
 
   void _registerConflictCallback() {
+    if (_conflictCallbackRegistered) {
+      _log.d('[Main] Konflikt-Callback bereits registriert — überspringe');
+      return;
+    }
     _orchestrator.setConflictCallback(_onConflictDetected);
+    _conflictCallbackRegistered = true;
     _log.d('[Main] Konflikt-Callback am Orchestrator registriert');
   }
 
@@ -539,6 +548,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       }
       _pocketSync = PocketBaseSyncService('artikel', _pbService, _db);
       _orchestrator = SyncOrchestrator(pocketBaseSync: _pocketSync);
+      _conflictCallbackRegistered = false; // NEU: Reset nach Neuinitialisierung
 
       // Konflikt-Callback nach Neuinitialisierung wieder registrieren
       WidgetsBinding.instance.addPostFrameCallback((_) {

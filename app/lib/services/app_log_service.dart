@@ -32,28 +32,44 @@ import '../config/app_theme.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 final MemoryOutput _memoryOutput = MemoryOutput(bufferSize: 500);
 
+// ANSI-Escape-Sequenzen entfernen (z.B. \x1B[38;5;12m → '')
+// Wird nur für den In-App-Viewer benötigt — ConsoleOutput bekommt
+// weiterhin den vollen PrettyPrinter-Output mit Farben.
+final _ansiEscape = RegExp(r'\x1B\[[0-9;]*m');
+
+/// Output-Adapter: schreibt in _memoryOutput, aber ohne ANSI-Codes.
+class _CleanMemoryOutput extends LogOutput {
+  @override
+  void output(OutputEvent event) {
+    final cleanLines = event.lines
+        .map((l) => l.replaceAll(_ansiEscape, ''))
+        .toList();
+    _memoryOutput.output(
+      OutputEvent(event.origin, cleanLines),  // ← LogEvent korrekt
+    );
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AppLogService
 // ─────────────────────────────────────────────────────────────────────────────
 abstract final class AppLogService {
-  /// Globale Logger-Instanz — in jeder Datei direkt verwenden.
   static final Logger logger = Logger(
     level: kReleaseMode ? Level.warning : Level.debug,
-    output: MultiOutput([ConsoleOutput(), _memoryOutput]),
+    output: MultiOutput([ConsoleOutput(), _CleanMemoryOutput()]),
     printer: PrettyPrinter(
       methodCount: 1,
       errorMethodCount: 8,
       lineLength: 80,
-      colors: true,
+      colors: true,       // Terminal bekommt weiterhin Farben
       printEmojis: true,
       dateTimeFormat: DateTimeFormat.onlyTimeAndSinceStart,
+      noBoxingByDefault: true, // ← Fix LOG-001
     ),
   );
 
-  // Öffentlicher Getter — ermöglicht externen Zugriff auf den Puffer.
   static MemoryOutput get memoryOutput => _memoryOutput;
 
-  /// Öffnet den In-App Log-Viewer als Dialog.
   static Future<void> showLogDialog(BuildContext context) {
     return showDialog<void>(
       context: context,

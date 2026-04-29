@@ -1,13 +1,4 @@
 // lib/services/sync_orchestrator.dart
-//
-// CHANGES v0.8.5:
-//   F2 — onConflictDetected-Callback an PocketBaseSyncService weitergeben.
-//         SyncOrchestrator ist die einzige Stelle die weiß ob ein
-//         NavigatorContext verfügbar ist.
-//   F3 — _syncRunning durch Orchestrator-eigenes Flag ersetzt.
-//         PocketBaseSyncService.syncOnce() wirft jetzt Exceptions weiter
-//         (rethrow) → _isSyncing wird zuverlässig im finally zurückgesetzt.
-//   NEU — conflictCallback-Parameter im Konstruktor (optional, testbar).
 
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -23,12 +14,11 @@ enum SyncStatus { idle, running, success, error }
 class SyncOrchestrator implements SyncStatusProvider {
   final PocketBaseSyncService _pocketBaseSync;
 
-  // _conflictCallback-Feld entfernt — der Callback lebt ausschließlich
-  // in _pocketBaseSync.onConflictDetected. Eine Kopie hier wäre
-  // redundant und würde den unused_field-Lint auslösen.
-
   bool _isSyncing = false;
   bool _isDisposed = false;
+
+  /// Letzte aktive Sync-Phase — wird bei Timeout/Fehler geloggt (O-012).
+  String _lastSyncPhase = 'init';
 
   Timer? _syncTimer;
 
@@ -41,7 +31,7 @@ class SyncOrchestrator implements SyncStatusProvider {
   bool get isSyncing => _isSyncing;
 
   DateTime? _lastSyncTime;
-@override
+  @override
   DateTime? get lastSyncTime => _lastSyncTime;
 
   static final _log = AppLogService.logger;
@@ -50,9 +40,6 @@ class SyncOrchestrator implements SyncStatusProvider {
       : _pocketBaseSync = pocketBaseSync;
 
   /// Registriert den Konflikt-Callback am PocketBaseSyncService.
-  ///
-  /// Wird von main.dart nach dem ersten Frame aufgerufen,
-  /// wenn der Navigator verfügbar ist.
   void setConflictCallback(ConflictCallback callback) {
     _pocketBaseSync.onConflictDetected = callback;
     _log.d('SyncOrchestrator: Konflikt-Callback registriert');
@@ -64,7 +51,7 @@ class SyncOrchestrator implements SyncStatusProvider {
     }
   }
 
-@override
+  @override
   Future<void> runOnce() async {
     if (kIsWeb) {
       _log.d('SyncOrchestrator: Skipping sync on Web platform');
@@ -76,37 +63,42 @@ class SyncOrchestrator implements SyncStatusProvider {
       return;
     }
 
-    // F3: Guard mit lokalem Flag — verhindert Race-Condition
     if (_isSyncing) {
       _log.w('SyncOrchestrator: Sync bereits aktiv – überspringe');
       return;
     }
 
     _isSyncing = true;
+    _lastSyncPhase = 'init';
     _emit(SyncStatus.running);
     _log.i('SyncOrchestrator: start');
 
     try {
-      // 1. Erst die Artikel-Daten (UUIDs, Texte) synchronisieren
-      await _pocketBaseSync.syncOnce().timeout(const Duration(seconds: 60));
+      _lastSyncPhase = 'push+pull';
+      await _pocketBaseSync.syncOnce().timeout(const Duration(minutes: 5));
 
-      // 2. Erst wenn die Daten in der DB stehen, die fehlenden Bilder laden
-      await _pocketBaseSync.downloadMissingImages().timeout(const Duration(minutes: 2));
+      _lastSyncPhase = 'images';
+      await _pocketBaseSync
+          .downloadMissingImages()
+          .timeout(const Duration(minutes: 2));
 
       _lastSyncTime = DateTime.now();
+      _lastSyncPhase = 'done';
       _emit(SyncStatus.success);
       _log.i('SyncOrchestrator: end (success) – $_lastSyncTime');
     } catch (e, st) {
       _emit(SyncStatus.error);
+      _log.w(                                                    // O-012
+        'SYNC|ORCHESTRATOR  fail  phase=$_lastSyncPhase  '
+        'msg="${e.toString().split('\n').first}"',
+      );
       _log.e('SyncOrchestrator: sync failed', error: e, stackTrace: st);
-      // Exception NICHT weiterwerfen — Orchestrator soll nie crashen.
-      // Der Fehler ist im Stream als SyncStatus.error sichtbar.
     } finally {
-      // F3: _isSyncing wird IMMER zurückgesetzt, auch bei Exception
       _isSyncing = false;
-      // Falls wir im Error-Zustand landen, emittieren wir nach kurzer Zeit idle,
-      // damit der Button wieder klickbar wird.
-      Future.delayed(const Duration(seconds: 3), () => _emit(SyncStatus.idle));
+      Future.delayed(
+        const Duration(seconds: 3),
+        () => _emit(SyncStatus.idle),
+      );
     }
   }
 
@@ -135,7 +127,6 @@ class SyncOrchestrator implements SyncStatusProvider {
   void dispose() {
     _isDisposed = true;
     _isSyncing = false;
-    // Callback am Service zurücksetzen, nicht am entfernten lokalen Feld
     _pocketBaseSync.onConflictDetected = null;
     stopPeriodicSync();
     _syncStatusController.close();
