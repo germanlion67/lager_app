@@ -18,8 +18,12 @@ typedef ConflictCallback = Future<void> Function(
   Artikel remoteArtikel,
 );
 
-// Individuelle Timeouts für Push-Requests (F1 / B-014)
+// JSON-only Requests (getList, delete, Recovery-Lookup)
 const _kPushRequestTimeout = Duration(seconds: 30);
+
+// Datei-Uploads (create/update mit Bild) — 878 KB braucht bei
+// schlechtem Mobilsignal deutlich mehr als 30s
+const _kPushUploadTimeout = Duration(seconds: 120);
 
 class PocketBaseSyncService {
   final String collectionName;
@@ -70,12 +74,10 @@ class PocketBaseSyncService {
 
     final remoteEtag = _extractRecordEtag(remote);
 
-    // Fall 1: Basis vorhanden → normaler Vergleich
     if ((a.lastSyncedEtag ?? '').trim().isNotEmpty) {
       return a.lastSyncedEtag != remoteEtag;
     }
 
-    // Fall 2: keine Basis (z. B. offline erstellt)
     if (a.etag != null && a.etag == remoteEtag) return false;
     return true;
   }
@@ -137,14 +139,13 @@ class PocketBaseSyncService {
     await _pbService.client
         .collection(collectionName)
         .delete(remoteRecord.id.toString())
-        .timeout(_kPushRequestTimeout);                          // F1
+        .timeout(_kPushRequestTimeout);
     await _db.markSynced(artikel.uuid, 'deleted');
   }
 
   Future<void> _pushToPocketBase() async {
     final pending = await _db.getPendingChanges();
 
-    // O-012: Push-Summary-Zähler
     int pushCreated = 0, pushUpdated = 0, pushDeleted = 0;
     int pushConflicts = 0, pushErrors = 0;
 
@@ -157,7 +158,7 @@ class PocketBaseSyncService {
         final list = await _pbService.client
             .collection(collectionName)
             .getList(filter: filter)
-            .timeout(_kPushRequestTimeout);                      // F1
+            .timeout(_kPushRequestTimeout);
 
         /* ---------- DELETE ---------- */
         if (artikel.deleted == true) {
@@ -184,13 +185,11 @@ class PocketBaseSyncService {
 
             await _findAndDeleteRemote(remoteRecord, artikel);
             pushDeleted++;
-            _logger.i(                                           // O-012
-              'SYNC|PUSH|DELETE  ok  uuid=${artikel.uuid}',
-            );
+            _logger.i('SYNC|PUSH|DELETE  ok  uuid=${artikel.uuid}');
           } else {
             await _db.markSynced(artikel.uuid, 'deleted');
             pushDeleted++;
-            _logger.i(                                           // O-012
+            _logger.i(
               'SYNC|PUSH|DELETE  ok(local-only)  uuid=${artikel.uuid}',
             );
           }
@@ -224,7 +223,6 @@ class PocketBaseSyncService {
             body['owner'] = _pbService.currentUserId;
           }
 
-          // Bild entfernen, falls lokal leer & remote vorhanden
           final remoteData = _asStringDynamicMap(remoteRecord.data);
           if (artikel.bildPfad.trim().isEmpty &&
               _safeGet(remoteData, 'bild').isNotEmpty) {
@@ -232,26 +230,31 @@ class PocketBaseSyncService {
           }
 
           final files = _buildFiles(artikel);
+
+          // Upload-Timeout nur wenn Dateien mitgesendet werden (Fix B)
+          final updateTimeout =
+              files.isEmpty ? _kPushRequestTimeout : _kPushUploadTimeout;
+
           final updated = await _pbService.client
               .collection(collectionName)
               .update(remoteRecord.id.toString(), body: body, files: files)
-              .timeout(_kPushRequestTimeout);                    // F1
+              .timeout(updateTimeout);
 
           final updatedEtag = _extractRecordEtag(updated);
           await _db.markSynced(
             artikel.uuid,
             updatedEtag,
             remotePath: updated.id.toString(),
-            remoteBildPfad: (_safeGet(updated.data, 'bild') as String?)
-                          ?.trim()
-                          .isNotEmpty == true
-                ? _safeGet(updated.data, 'bild')
-                : null,
+            remoteBildPfad:
+                (_safeGet(updated.data, 'bild') as String?)
+                            ?.trim()
+                            .isNotEmpty ==
+                        true
+                    ? _safeGet(updated.data, 'bild')
+                    : null,
           );
           pushUpdated++;
-          _logger.i(                                             // O-012
-            'SYNC|PUSH|UPDATE  ok  uuid=${artikel.uuid}',
-          );
+          _logger.i('SYNC|PUSH|UPDATE  ok  uuid=${artikel.uuid}');
           continue;
         }
 
@@ -262,49 +265,70 @@ class PocketBaseSyncService {
         }
 
         final files = _buildFiles(artikel);
+
+        // Upload-Timeout nur wenn Dateien mitgesendet werden (Fix B)
+        final createTimeout =
+            files.isEmpty ? _kPushRequestTimeout : _kPushUploadTimeout;
+
         try {
           final created = await _pbService.client
               .collection(collectionName)
               .create(body: body, files: files)
-              .timeout(_kPushRequestTimeout);                    // F1
+              .timeout(createTimeout);
 
           final createdEtag = _extractRecordEtag(created);
           await _db.markSynced(
             artikel.uuid,
             createdEtag,
             remotePath: created.id.toString(),
-            remoteBildPfad: (_safeGet(created.data, 'bild') as String?)
-                          ?.trim()
-                          .isNotEmpty == true
-                ? _safeGet(created.data, 'bild')
-                : null,
+            remoteBildPfad:
+                (_safeGet(created.data, 'bild') as String?)
+                            ?.trim()
+                            .isNotEmpty ==
+                        true
+                    ? _safeGet(created.data, 'bild')
+                    : null,
           );
           pushCreated++;
-          _logger.i(                                             // O-012
-            'SYNC|PUSH|CREATE  ok  uuid=${artikel.uuid}',
-          );
+          _logger.i('SYNC|PUSH|CREATE  ok  uuid=${artikel.uuid}');
         } catch (e) {
-          if (!_isDuplicateUuidError(e)) rethrow;
+          // Fix C — Timeout-after-success Recovery:
+          // Der Server hat den Record möglicherweise bereits erstellt,
+          // aber die Antwort kam nicht mehr rechtzeitig an.
+          // Dasselbe gilt für Duplicate-UUID-Fehler.
+          // In beiden Fällen: Recovery-Lookup statt direktem Rethrow.
+          final isTimeout = e is TimeoutException;
+          if (!_isDuplicateUuidError(e) && !isTimeout) rethrow;
 
-          // Duplicate-UUID Recovery
           _logger.w(
-            'PocketBaseSync: Duplicate-UUID beim Create erkannt; '
+            'PocketBaseSync: Create ohne Antwort '
+            '(${isTimeout ? "Timeout" : "Duplicate-UUID"}); '
             'starte Recovery-Lookup (uuid=${artikel.uuid})',
           );
+
           final existing = await _findRemoteRecordByUuid(artikel.uuid)
-              .timeout(_kPushRequestTimeout);                    // F1
-          if (existing == null) rethrow;
+              .timeout(_kPushRequestTimeout);
+
+          if (existing == null) {
+            // Timeout, aber Record existiert auch remote nicht →
+            // echter Fehler, kein stiller Recovery möglich
+            _logger.w(
+              'PocketBaseSync: Recovery-Lookup ohne Ergebnis '
+              '(uuid=${artikel.uuid}) — Create fehlgeschlagen',
+            );
+            rethrow;
+          }
 
           await _markLocalAsSyncedFromRemote(artikel, existing);
           pushCreated++;
           _logger.i(
-            'PocketBaseSync: Duplicate-UUID-Recovery erfolgreich '
+            'PocketBaseSync: Create-Recovery erfolgreich '
             '(uuid=${artikel.uuid}, remoteId=${existing.id})',
           );
         }
       } catch (err, st) {
         pushErrors++;
-        _logger.w(                                               // O-012 Summary zuerst
+        _logger.w(
           'SYNC|PUSH  fail  uuid=${artikel.uuid}  '
           'msg="${err.toString().split('\n').first}"',
         );
@@ -316,7 +340,6 @@ class PocketBaseSyncService {
       }
     }
 
-    // O-012: Push-Phase Summary
     _logger.i(
       'SYNC|PUSH  done  '
       'created=$pushCreated  updated=$pushUpdated  deleted=$pushDeleted  '
@@ -338,7 +361,9 @@ class PocketBaseSyncService {
     if (!file.existsSync() || file.lengthSync() == 0) return const [];
 
     final remoteName = (artikel.remoteBildPfad ?? '').trim();
-    if (remoteName.isNotEmpty && remoteName == p.basename(path)) return const [];
+    if (remoteName.isNotEmpty && remoteName == p.basename(path)) {
+      return const [];
+    }
 
     return [
       http.MultipartFile.fromBytes(
@@ -354,7 +379,6 @@ class PocketBaseSyncService {
      ─────────────────────────────────────────────────────────── */
 
   Future<void> _pullFromPocketBase() async {
-    // O-012: Pull-Summary-Zähler
     int pullUpserted = 0, pullSkipped = 0, pullConflicts = 0;
     int pullDeleted = 0, pullErrors = 0;
 
@@ -398,14 +422,12 @@ class PocketBaseSyncService {
             }
           }
 
-          /* ───── ➊ Bild wurde serverseitig gelöscht? ───── */
           final remoteBildName = _safeGet(r.data, 'bild');
           if (remoteBildName.isEmpty &&
               (localArtikel?.remoteBildPfad ?? '').isNotEmpty) {
             await _db.clearBildInfoByUuidSilent(artikel.uuid);
           }
 
-          /* ───── Datensatz speichern / aktualisieren ───── */
           await _db.upsertArtikel(artikel, etag: etag);
           pullUpserted++;
           remoteUuids.add(artikel.uuid);
@@ -427,7 +449,6 @@ class PocketBaseSyncService {
         }
       }
 
-      // O-012: Pull-Phase Summary
       _logger.i(
         'SYNC|PULL  done  '
         'upserted=$pullUpserted  skipped=$pullSkipped  '
@@ -436,7 +457,7 @@ class PocketBaseSyncService {
       );
     } catch (e, st) {
       _logger.e('PocketBase pull failed', error: e, stackTrace: st);
-      _logger.w(                                                 // O-012
+      _logger.w(
         'SYNC|PULL  fail  msg="${e.toString().split('\n').first}"',
       );
       rethrow;
@@ -564,7 +585,7 @@ class PocketBaseSyncService {
           perPage: 1,
           filter: 'uuid = "${uuid.replaceAll('"', '')}"',
         )
-        .timeout(_kPushRequestTimeout);                          // F1
+        .timeout(_kPushRequestTimeout);
     return list.items.isNotEmpty ? list.items.first : null;
   }
 

@@ -3,7 +3,7 @@ description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 
 publish_to: none
 
-version: 0.9.4+36
+version: 0.9.4+37
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -90,7 +90,7 @@ dependencies:
   # Breaking Changes: Initialisierung, Android-Manifest, Notification-Details
   flutter_local_notifications: ^21.0.0
 
-  logger: ^2.0.2
+  logger: ">=2.7.0 <3.0.0"
   google_fonts: ^8.0.2
   # GEÄNDERT: ^9.0.0 → ^9.0.1 (Patch, bereits durch pub upgrade erfasst)
   package_info_plus: ^9.0.1

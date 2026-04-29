@@ -264,6 +264,11 @@ Datei:
 
 Diese Felder sind lokale Sync-Steuerinformationen und dürfen nicht an PocketBase gesendet werden.
 
+Zusätzliche Validierungsregel (B-014):
+- `artikelnummer` wird nur gesendet wenn `!= null && >= 1`
+- Hintergrund: PocketBase-Schema definiert `min: 1` für dieses Feld;
+  `null` oder `0` würden HTTP 400 auslösen
+
 ### Zuletzt dokumentierte Modell-Ergänzung
 - `kategorie` ist im Artikel-Modell, im SQLite-/JSON-/PocketBase-Mapping und in `copyWith()` konsistent berücksichtigt
 - relevante Modell- und DB-Tests wurden dafür ergänzt bzw. grün verifiziert
@@ -284,8 +289,9 @@ Relevante SQLite-Spalten in `artikel`:
 - `last_synced_etag`
 - `pending_resolution`
 - zusätzlich Bildpfade und Fachdaten
-- remote_bild_pfad    ← NEU, Remote-URL des Bildes (PocketBase File)
+- remoteBildPfad    ← NEU, Remote-URL des Bildes (PocketBase File)
 - bild_pfad           (lokaler Cache-Pfad, bereits erwähnt)
+- zusätzlich weitere Fachdaten
 
 DB-Version:
 - `version: 5`
@@ -349,7 +355,7 @@ Die neue fachliche Basis trennt daher:
   - `last_synced_etag`
   - `pending_resolution = null`
   - optional `remote_path`
-  - `remote_bild_pfad` (wenn mitgeliefert)
+  - optional `remoteBildPfad` (wenn mitgeliefert) — Spaltenname camelCase
   - lässt vorhandenes `bildPfad` unverändert
 - `updateArtikel()`:
   - setzt `etag = null`
@@ -481,6 +487,23 @@ Getrennt vom Textsync:
 - lokale Speicherung im Cache-Verzeichnis
 - Verwendung von `setBildPfadByUuidSilent()`
 
+### Request-Timeouts im Push-Pfad (B-014 / B-015)
+Zwei Timeout-Konstanten:
+- `_kPushRequestTimeout = Duration(seconds: 30)` — JSON-only Requests
+  (getList, delete, Recovery-Lookup)
+- `_kPushUploadTimeout  = Duration(seconds: 120)` — Datei-Uploads
+  (create/update wenn `files` nicht leer)
+
+Orchestrator-Timeout: `Duration(minutes: 5)` für den gesamten syncOnce()-Lauf.
+
+Timeout-after-success Recovery (Fix C):
+Wenn `create()` mit Bild einen TimeoutException wirft, kann der Server
+den Record bereits erstellt haben. In diesem Fall greift dieselbe
+Recovery-Logik wie bei Duplicate-UUID-Fehlern:
+- Recovery-Lookup per uuid
+- wenn Record gefunden: markSynced() → kein falscher Konflikt im Pull
+- wenn Record nicht gefunden: echter Fehler, rethrow
+
 ---
 
 ## Zuletzt dokumentierter Ist-Stand der Konflikt-UI und Auflösung
@@ -595,14 +618,16 @@ Der Orchestrator ist die zentrale Brücke zwischen:
 
 ### Laufverhalten
 `runOnce()` macht:
-1. `PocketBaseSyncService.syncOnce()`
-2. `PocketBaseSyncService.downloadMissingImages()`
+1. `PocketBaseSyncService.syncOnce()` (Phase: `push+pull`)
+2. `PocketBaseSyncService.downloadMissingImages()` (Phase: `images`)
 
 ### Schutzmechanismen
 - `_isSyncing` verhindert parallele Sync-Läufe
 - Fehler werden geloggt und als `SyncStatus.error` emittiert
 - Fehler werden im Orchestrator nicht weitergeworfen
 - `dispose()` setzt Konfliktcallback zurück
+- `_lastSyncPhase` (String) hält die zuletzt aktive Phase fest;
+  wird bei Timeout/Fehler als `SYNC|ORCHESTRATOR fail phase=...` geloggt (O-012)
 
 ---
 
@@ -681,7 +706,10 @@ Diese Regeln möglichst nicht brechen:
 - `setBildPfadByUuidSilent()` und `clearBildInfoByUuidSilent()` dürfen
 keinen normalen Datensync auslösen (nur Bild-Caching)
 
-> remote_bild_pfad sollte nur serverseitig gesetzt/überschrieben werden und lokal nicht manuell verändert werden.
+> `remoteBildPfad` (SQLite-Spaltenname: `remoteBildPfad`) wird nur durch
+> `markSynced()` nach erfolgreichem Push oder durch `upsertArtikel()` nach
+> erfolgreichem Pull gesetzt. Lokale manuelle Änderungen an diesem Feld
+> sind nicht vorgesehen.
 
 ---
 
@@ -705,8 +733,19 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
 - [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
 - [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
 - [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
+  - `artikelnummer` wird nur gesendet wenn `>= 1` (PocketBase `min: 1`-Guard, B-014)
 - [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
 - [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
+- [x] Summary-Logs pro Sync-Phase implementiert (O-012):
+  - `SYNC|PUSH|CREATE/UPDATE/DELETE  ok/fail  uuid=...`
+  - `SYNC|PUSH  done  created=N  updated=N  deleted=N  conflicts=N  errors=N`
+  - `SYNC|PULL  done  upserted=N  skipped=N  conflicts=N  deleted=N  errors=N`
+  - `SYNC|ORCHESTRATOR  fail  phase=...  msg=...`
+  - Details (Exception + Stacktrace) folgen weiterhin als `logger.e`
+- [x] ANSI-Codes im In-App Log-Viewer bereinigt (_CleanMemoryOutput-Adapter)
+- [x] Upload-Timeout (120s) getrennt von JSON-Timeout (30s)
+- [x] Timeout-after-success Recovery für create() mit Bild
+- [x] Orchestrator-Timeout auf 5 Minuten erhöht
 
 **Manuelle Integrations- und Feldtests**
 - [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
@@ -756,6 +795,14 @@ Besonders relevante Testdateien:
 - `test/services/sync_orchestrator_test.dart`
 - `test/services/artikel_db_service_test.dart`
 - `test/models/artikel_model_test.dart`
+
+Nach B-014 gezielt zu prüfen/ergänzen:
+- `test/models/artikel_model_test.dart`:
+  `toPocketBaseMap()` — `artikelnummer: null` und `artikelnummer: 0`
+  dürfen nicht im Map erscheinen; `artikelnummer: 1` muss enthalten sein
+- `test/services/artikel_db_service_test.dart`:
+  `markSynced()` mit `remoteBildPfad` — Spalte `remoteBildPfad` muss
+  danach korrekt gesetzt sein (war bisher stiller Datenverlust)
 
 Wichtiger Test-Hinweis:
 Die Konfliktlogik ist nicht nur im UI-Flow, sondern zusätzlich im produktiven Sync-Kontext abgesichert.
@@ -825,6 +872,11 @@ Besonders in `docs/ARCHITECTURE.md` können alte Aussagen teilweise noch sichtba
 - alte Konfliktlogik nur gegen `etag`
 - alte Sonderbehandlung `etag == 'deleted'`
 - alte Beschreibung `useLocal -> markAsModified()`
+Nach B-014 bereinigt:
+- `remote_bild_pfad` (alter Prompt-Spaltenname) → korrekt: `remoteBildPfad`
+- `markSynced()` schrieb bisher in nicht existierende Spalte `remote_bildPfad`;
+  nach Fix: `remoteBildPfad` (camelCase, wie in `_createTableSql`)
+- `toPocketBaseMap()` sendet `artikelnummer` jetzt nur noch wenn `>= 1`
 
 Diese Punkte bei Doku-Arbeit bereinigen oder explizit als historisch kennzeichnen.
 

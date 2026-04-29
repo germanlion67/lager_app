@@ -75,7 +75,7 @@ class SyncOrchestrator implements SyncStatusProvider {
 
     try {
       _lastSyncPhase = 'push+pull';
-      await _pocketBaseSync.syncOnce().timeout(const Duration(seconds: 60));
+      await _pocketBaseSync.syncOnce().timeout(const Duration(minutes: 5));
 
       _lastSyncPhase = 'images';
       await _pocketBaseSync
