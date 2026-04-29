@@ -687,20 +687,58 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
 
 ## Zuletzt dokumentierte fachlich bestätigte Fähigkeiten
 
-Für den zuletzt dokumentierten Stand gelten fachlich als umgesetzt:
 
-- T-001.7 — Lokal behalten → gezielter Server-Override beim nächsten Sync
-- T-001.8 — Server übernehmen → Remote-Version ersetzt lokale Version sauber
-- T-001.9 — Zusammenführen → Merge-Ergebnis wird korrekt in den Auflösungsflow übergeben
-- T-001.10 — Überspringen → keine Persistenzänderung, Konflikt erscheint erneut
-- T-001.11 — mehrere Konflikte sequentiell mit Fortschrittsanzeige
-- T-001.12 — Soft-Delete lokal + Remote-Edit → Konflikt statt blindem Delete
-- fehlende `last_synced_etag`-Basis bei bestehendem Remote-Pendant → konservativer Konflikt statt stillem Fortschreiben
-- Duplicate-UUID beim Create → Recovery per erneutem Remote-Lookup und lokaler Re-Verknüpfung
-- strukturierte Logs für Duplicate-UUID-Recovery vorhanden
-- Konflikt-UI gegen doppelte parallele Öffnung gehärtet
-- `kategorie` im Modell-/Mapping-Pfad konsistent ergänzt
-- `useRemote` akzeptiert als neue lokale Baseline nur belastbare Remote-Versionsstände aus `etag` oder `lastSyncedEtag`
+**Technische Basis, Hardening und service-nahe Tests — weitgehend abgeschlossen ✅**
+- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling
+- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index
+- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
+- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien
+- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
+- [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
+- [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+- [x] Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version
+- [x] Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version
+- [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
+- [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
+- [x] Erfolgreicher `force_local`-/`force_merge`-Push bereinigt `pendingResolution` über `markSynced()`-Contract
+- [x] Produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
+- [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
+- [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
+- [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
+- [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
+- [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
+
+**Manuelle Integrations- und Feldtests**
+- [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
+- [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
+- [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
+- [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
+- [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
+- [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
+- [ ] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [ ] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung stabil
+- [ ] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
+- [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
+
+**Verbleibende technische Restpunkte**
+- [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
+- [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
+- [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
+
+**Optional / spätere Verfeinerung**
+- [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
+- [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
+- [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
+- [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
+- [ ] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
+- [ ] Optional gezielte Modelltests für Roundtrip- und `copyWith()`-Null-Semantik ergänzen
+- [ ] Optional Semantik von `aktualisiertAm` vs. `updatedAt` dokumentieren oder klarer benennen
+- [ ] Optional Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
+- [ ] Optional Restprüfung auf konsistente UTC-/Zeitstempel-Semantik in `artikel_db_service.dart`
+- [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
+
+**Hinweis**
+Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
 
 ---
 

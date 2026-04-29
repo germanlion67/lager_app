@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+36 | **Zuletzt aktualisiert:** 28.04.2026
+**Version:** 0.9.4+36 | **Zuletzt aktualisiert:** 29.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-014`, `F-009`, `H-004`, `K-008`, `M-014`, `N-007`, `O-012`, `P-006`, `T-011`
+- `B-015`, `F-009`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-011`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -97,6 +97,78 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
 
 
+### B-014: PocketBase-Push CREATE-Fehler (HTTP 400) & SyncOnce-Timeout blockieren Baseline-Setzen
+**Typ:** Bug  
+**Betrifft:** `lib/services/pocket_base_sync_service.dart`, `lib/services/sync_orchestrator.dart`, `lib/services/artikel_db_service.dart`
+
+**Problem**  
+Beim Push neuer Datensätze (CREATE) antwortet PocketBase mit HTTP 400 (`"Failed to create record."`).  
+Gleichzeitig besitzen die `_pushToPocketBase()`-Calls (`getList`, `create`, `update`, `delete`) kein individuelles Request-Timeout — hängt ein Request, bricht der `SyncOrchestrator` nach dem globalen 60-Sekunden-Timeout (`syncOnce().timeout(Duration(seconds: 60))`) mit `TimeoutException after 0:01:00` ab.
+
+Folge: Pending-Datensätze bleiben dauerhaft `pending`; `last_synced_etag` (Sync-Baseline, vgl. `etag`-Mechanik in `prompt_Sync.txt`) wird nie gesetzt. Der manuelle Integrationstest T-001.6 kann unter diesen Voraussetzungen nicht korrekt ausgeführt oder ausgewertet werden.
+
+**Beobachtung (reale Logs / Geräte-Tests)**
+- Beim App-Start / Sync-Lauf treten wiederholt Fehler auf:
+  - `ClientException ... statusCode: 400 ... message: Failed to create record.`
+  - Quelle: `_pushToPocketBase()` im CREATE-Pfad (`collection(...).create(...)`)
+- Zusätzlich schlägt `SyncOrchestrator.runOnce()` gelegentlich mit
+  `TimeoutException after 0:01:00 ... Future not completed` fehl, da `syncOnce()`
+  im Push-Pfad keine eigenen Request-Timeouts hat und der Orchestrator nach 60 s abbricht.
+
+**Fachlicher Impact**
+- Lokale Pending-Datensätze (dirty via `etag IS NULL`) werden nicht remote angelegt → bleiben dauerhaft pending.
+- `markSynced()` wird nie erfolgreich erreicht → `etag`/`last_synced_etag` werden nicht gesetzt → keine stabile Konfliktbasis (vgl. `docs/prompt_Sync.txt`: `last_synced_etag` als Baseline, fehlende Basis → konservativer Konflikt-Fall).
+- Folgeeffekte: wiederholte Push-Retry-Spiralen und/oder konservative Konflikt-Cases („missing base") können Integrationstests wie **T-001.6** verfälschen oder blockieren.
+
+**Tasks**
+- [ ] PocketBase-Schema und Collection-Rules für `artikel` prüfen (Pflichtfelder, `create`-Rule, Auth/Owner-Binding)
+- [ ] Push-Requests mit individuellem Timeout absichern: `getList(...)`, `create(...)`, `update(...)`, `delete(...)` — analog zu `getFullList().timeout(Duration(seconds: 30))` im Pull-Pfad
+- [ ] Logging-Summary bei Push-Fehlern ergänzen (Verweis auf O-012)
+- [ ] Sicherstellen, dass `last_synced_etag` nach erfolgreichem CREATE/UPDATE durch `markSynced()` korrekt gesetzt wird
+- [ ] T-001.6 nach Behebung wiederholen und verifizieren
+
+--- 
+
+### O-012: Sync-Logs mobil-lesbar machen (Summary-Lines pro Operation)
+**Typ:** Optimierung  
+**Betrifft:** `lib/services/pocket_base_sync_service.dart`, `lib/services/sync_orchestrator.dart`, `lib/services/artikel_db_service.dart`, `docs/LOGGER.md`
+
+**Problem / Motivation**  
+Aktuelle Sync-Logs bestehen aus vielen Einzelmeldungen ohne übergreifende Zusammenfassung. Auf mobilen Geräten (In-App Log-Viewer, 360 dp) ist schwer erkennbar, welche Sync-Phase (PUSH CREATE/UPDATE/DELETE, PULL, IMAGES) mit welchem Ergebnis abgeschlossen wurde.
+
+Dieses Ticket erweitert `docs/LOGGER.md` um ein **Summary-Format** und ergänzt die Implementierung um strukturierte 1-Zeilen-Summaries pro Sync-Phase — es *ersetzt nicht* die bestehenden Logging-Konventionen: Bei `logger.e` bleiben `error` und `stackTrace` weiterhin Pflicht gemäß `LOGGER.md`; Summary-Lines kommen zusätzlich hinzu. Neue Log-Events sollen in `LOGGER.md` als Referenz eingetragen werden (Tabelle „Definierte Log-Events").
+
+**Ziel**
+Kurze, strukturierte 1-Zeilen-Summaries pro Sync-Operation (Push/Pull/Images), die auf Mobile sofort erfassbar sind — **ohne** mit `docs/LOGGER.md` zu kollidieren.
+
+**Abgrenzung zu `docs/LOGGER.md`**
+- Dieser Punkt *ergänzt* `LOGGER.md`, ersetzt sie nicht.
+- `logger.e(…, error: e, stackTrace: st)` bei kritischen Fehlern bleibt erhalten (konform zu `LOGGER.md`).
+- Zusätzlich wird eine kurze Summary-Line (`logger.w` / `logger.i`) vorangestellt, damit das wichtigste Signal auf Mobile sofort sichtbar ist.
+- Neue Log-Events werden in `LOGGER.md` referenziert (Tabelle „Definierte Log-Events"), nicht ersetzt.
+
+**Vorgeschlagenes Summary-Format**
+```
+SYNC|PUSH|CREATE  fail  uuid=<uuid>  status=400  msg="Failed to create record"
+SYNC|PUSH|UPDATE  ok    uuid=<uuid>
+SYNC|PULL         fail  status=503   msg="..."
+SYNC|IMAGES       ok    downloaded=3  skipped=1  failed=0
+```
+Details (Exception + Stacktrace) folgen weiterhin als `logger.e`-Eintrag.
+
+**Tasks**
+- [ ] `docs/LOGGER.md` um Summary-Format und entsprechende Log-Events ergänzen (Nachrichtenformat definieren; keine Code-Änderung in diesem Schritt)
+- [ ] `PocketBaseSyncService`: strukturierte 1-Zeilen-Summary nach PUSH CREATE/UPDATE/DELETE, PULL und IMAGES-Phase ergänzen
+- [ ] `SyncOrchestrator`: Summary bei Timeout/Fehler mit letztem bekannten Schritt loggen
+- [ ] Optional: Verbose-Flag (`AppConfig.verboseSync`), um Detail-Logs auf Wunsch aktivierbar zu machen
+- [ ] Dokumentieren, dass Summary-Logs für mobile Lesbarkeit gedacht sind; Details bleiben für forensische Analyse erhalten.
+
+**Nicht-Ziel**
+- Keine Änderung am bestehenden Logger-Framework (`AppLogService`) notwendig.
+- Keine Entfernung von `error` / `stackTrace` bei kritischen Fehlern (konform zu `docs/LOGGER.md`).
+
+--- 
+
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
 
@@ -104,6 +176,8 @@ Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deut
 - [ ] Vollständige manuelle Tests der Kamerafunktionalität auf verschiedenen Android-Geräten
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
+
+
 
 
 ### M-013: Bild-Reset („Bild leeren“) ermöglichen
@@ -177,12 +251,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---:|---:|---:|
-| ✅ Abgeschlossen | 57 | 51 | 0 |
+| ✅ Abgeschlossen | 57 | 52 | 0 |
 | 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 2 | 0 | 2 |
+| 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 1 | 0 | 1 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **63** | **49** | **5** |
+| **Gesamt** | **65** | **50** | **6** |
 
 ---
 
@@ -191,8 +265,33 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
+### B-014 + O-012 (Anteil) abgeschlossen
+**Titel:** HTTP 400 CREATE-Fix, Push-Timeouts, markSynced-Spaltennamen-Fix, Summary-Logs
+**Ziel:** Neue Datensätze werden korrekt zu PocketBase gepusht; hängende Push-Requests brechen nach 30s ab statt erst nach 60s Orchestrator-Timeout; remoteBildPfad wird nach erfolgreichem Sync korrekt persistiert; Sync-Phasen sind auf Mobile in einer Zeile lesbar
+
+**Betroffene Dateien:**
+- `lib/models/artikel_model.dart` — `toPocketBaseMap()` artikelnummer-Guard
+- `lib/services/artikel_db_service.dart` — `markSynced()` Spaltennamen-Fix
+- `lib/services/pocketbase_sync_service.dart` — Timeouts + Summary-Logs
+- `lib/services/sync_orchestrator.dart` — Phase-Tracking + Summary-Log
+- `docs/LOGGER.md` — neue Log-Events in Tabelle
+- `PocketBase Admin` — `kategorie`-Feld in Collection `artikel` ergänzen
+
+**Fachlicher Effekt:**
+- HTTP 400 bei CREATE wird durch korrekten `artikelnummer`-Guard und vollständiges PocketBase-Schema behoben
+- Pending-Datensätze werden nach erfolgreichem Push korrekt über `markSynced()` als synchronisiert markiert — `last_synced_etag` wird gesetzt
+- `remoteBildPfad` wird nach CREATE/UPDATE erstmals korrekt in SQLite persistiert
+- Einzelne hängende Push-Requests blockieren den Sync-Lauf nicht mehr länger als 30s
+- T-001.6 kann nach diesen Fixes sinnvoll ausgeführt werden
+
+**Offene Punkte:**
+- T-001.6 bis T-001.11 — manuelle Gerätetests ausstehend (du übernimmst)
+- PocketBase Admin: `kategorie`-Feld manuell ergänzen
+- Bestehende Tests für `toPocketBaseMap()` und `markSynced()` auf neue Semantik prüfen
+
 
 ### B-013: image upload flow, remoteBildPfad support & ghost-file cleanup - erledigt in `v0.9.4+36`
+
 BREAKING: markSynced() signature extended (remoteBildPfad)
 
 #### ✨ Features
@@ -662,6 +761,7 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-19 | v0.9.4+36 | fix(B-014): HTTP 400 CREATE, Push-Timeouts, markSynced-Spaltenname, Summary-Logs |
 | 2026-04-18 | v0.9.4+36 | B-013 abgeschlossen: image upload flow, `remoteBildPfad` |
 | 2026-04-27 | fix/sync-hardening2-v0.9.4 | T-010 abgeschlossen: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows konsolidiert. Konfliktfälle ohne `last_synced_etag` werden konservativ behandelt, Duplicate-UUID-Recovery inkl. Logging gehärtet, useRemote-Baseline ausgelagert und validiert, UI-Fehlerpfad im `ConflictResolutionScreen` abgesichert sowie service-nahe Tests für Skip-/Force-/Delete-Guards und `markSynced()`-basierte Bereinigung von `pendingResolution` ergänzt. Teststand: 691 Tests grün, 3 übersprungen. |
 | 2026-04-23 | v0.9.2+32 | T-009 und O-011 abgeschlossen: ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade nachgezogen; zugleich `AppLockService` testbarer gemacht, sodass App-Lock-nahe Lade-/Speicherpfade und fachliche Timeout-/State-Logik nun isolierter testbar sind. |

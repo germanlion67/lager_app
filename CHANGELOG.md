@@ -2,6 +2,30 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.9.4] — 2026-04-29
+
+### B-014: PocketBase CREATE HTTP 400 & Push-Timeout-Fix — fix/sync-hardening2-v0.9.4
+
+#### Ursachen (im Code bestätigt)
+- `toPocketBaseMap()` sendete `artikelnummer` auch bei Wert `null`/`0`,
+  was PocketBase-Validierung (`min: 1`) verletzte
+- `markSynced()` schrieb `remote_bildPfad` statt `remoteBildPfad` →
+  stiller Datenverlust bei `remoteBildPfad`-Persistenz
+- Push-Requests hatten kein individuelles Timeout → Orchestrator-Timeout
+  (60s) war einziger Schutz
+
+#### Fixes
+- `artikelnummer`-Guard in `toPocketBaseMap()`: Wert wird nur gesendet wenn `>= 1`
+- Spaltennamen-Fix in `markSynced()`: `remoteBildPfad` korrekt
+- 30s-Timeout für alle Push-Requests (`getList`, `create`, `update`,
+  `delete`, `_findRemoteRecordByUuid`)
+- O-012: Summary-Logs pro Sync-Phase (PUSH/PULL/ORCHESTRATOR)
+- PocketBase Admin: `kategorie`-Feld in Collection `artikel` ergänzt
+
+#### Manuelle Schritte
+- PocketBase Admin → Collection `artikel` → Feld `kategorie` (text, optional) ergänzen
+
+
 ## [0.9.4] — 2026-04-28
 
 ### Feature (B-013): Vollständiger Bild-Upload & Bildpfad-Synchronisation im PocketBase-Sync

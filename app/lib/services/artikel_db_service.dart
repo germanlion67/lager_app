@@ -741,7 +741,7 @@ static const _createTableSql = '''
         'pending_resolution': null,
       };
       if (remotePath != null)      data['remote_path']      = remotePath;
-      if (remoteBildPfad != null)  data['remote_bildPfad']  = remoteBildPfad;
+      if (remoteBildPfad != null)  data['remoteBildPfad']  = remoteBildPfad;
 
       final rowsAffected = await db.update(
         'artikel',

@@ -87,6 +87,17 @@ try {
 | `ArtikelList`   | `ERROR` | `[ArtikelList] Sync fehlgeschlagen: {fehlertext}`                         | Nach `SyncStatus.error` mit Fehlertext      |
 | `AppLogService` | `DEBUG` | `[LogDialog] Level-Filter geändert: {level}`                              | F-006: Dropdown-Auswahl geändert            |
 | `Settings`      | `INFO`  | `[Settings] show_last_sync geändert: {true/false}`                        | F-007: Toggle-Änderung persistiert          |
+| Logger            | Level | Nachricht                                                           | Kontext                                                      |
+| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;CREATE  ok  uuid={uuid}                         | Erfolgreicher Remote-Create                                  |
+| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;UPDATE  ok  uuid={uuid}                         | Erfolgreicher Remote-Update                                  |
+| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;DELETE  ok  uuid={uuid}                         | Erfolgreicher Remote-Delete                                  |
+| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;DELETE  ok(local-only)  uuid={uuid}           | Lokal gelöscht, remote bereits nicht vorhanden               |
+| PocketBaseSync    | `WARN`  | SYNC&#124;PUSH  fail  uuid={uuid}  msg="{kurztext}"               | Push-Fehler, Details folgen als ERROR                        |
+| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH  done  created=N  updated=N  deleted=N  conflicts=N  errors=N  total=N | Abschluss Push-Phase                                         |
+| PocketBaseSync    | `INFO`  | SYNC&#124;PULL  done  upserted=N  skipped=N  conflicts=N  deleted=N  errors=N  total=N | Abschluss Pull-Phase                                         |
+| PocketBaseSync    | `WARN`  | SYNC&#124;PULL  fail  msg="{kurztext}"                             | Pull-Fehler, Details folgen als ERROR                        |
+| SyncOrchestrator  | `WARN`  | SYNC&#124;ORCHESTRATOR  fail  phase={phase}  msg="{kurztext}"     | Timeout oder Fehler im Orchestrator, Phase gibt Kontext      |
+
 
 💡 Neue Log-Events hier eintragen damit die Nachrichtenformate konsistent bleiben.
 

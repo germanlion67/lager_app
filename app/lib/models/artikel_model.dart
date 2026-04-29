@@ -99,21 +99,26 @@ class Artikel {
   /// PocketBase-Format: nur echte PB-Schema-Felder.
   /// Lokale Sync-Steuerfelder wie `last_synced_etag` und
   /// `pending_resolution` werden bewusst nicht übertragen.
-  Map<String, dynamic> toPocketBaseMap() {
-    return {
-      'name': name,
-      'artikelnummer': artikelnummer, // M-007
-      'menge': menge,
-      'ort': ort,
-      'fach': fach,
-      'beschreibung': beschreibung,
-      'kategorie': kategorie,
-      'uuid': uuid,
-      'updated_at': updatedAt,
-      'deleted': deleted,
-      'device_id': deviceId,
-    };
+Map<String, dynamic> toPocketBaseMap() {
+  final map = <String, dynamic>{
+    'name': name,
+    'menge': menge,
+    'ort': ort,
+    'fach': fach,
+    'beschreibung': beschreibung,
+    'kategorie': kategorie,
+    'uuid': uuid,
+    'updated_at': updatedAt,
+    'deleted': deleted,
+    'device_id': deviceId,
+  };
+  // artikelnummer nur senden wenn gesetzt und >= 1 (PB-Schema: min=1, required=false)
+  // Null oder 0 würden PocketBase-Validierung (min: 1) verletzen
+  if (artikelnummer != null && artikelnummer! >= 1) {
+    map['artikelnummer'] = artikelnummer;
   }
+  return map;
+}
 
   /// SQLite → Artikel.
   ///
