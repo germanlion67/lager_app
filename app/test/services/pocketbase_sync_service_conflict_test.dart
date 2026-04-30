@@ -49,7 +49,25 @@ class FakeArtikelDbService implements SyncArtikelDbService {
   bool setLastSyncTimeCalled = false;
 
   // ────────────────────────────────────────────────────────────────────────
-  //  Neue Methode (Pflicht seit Interface-Erweiterung)
+  //  Conflict-Snapshot (In-Memory für Tests)
+  // ────────────────────────────────────────────────────────────────────────
+  final Map<String, Artikel> _conflictSnapshots = {};
+
+  @override
+  Future<void> saveRemoteConflictSnapshot({
+    required String uuid,
+    required Artikel remoteArtikel,
+  }) async {
+    _conflictSnapshots[uuid] = remoteArtikel;
+  }
+
+  @override
+  Future<Artikel?> loadRemoteConflictSnapshot(String uuid) async {
+    return _conflictSnapshots[uuid];
+  }
+
+  // ────────────────────────────────────────────────────────────────────────
+  //  clearBildInfoByUuidSilent
   // ────────────────────────────────────────────────────────────────────────
   @override
   Future<void> clearBildInfoByUuidSilent(String uuid) async {
@@ -63,7 +81,7 @@ class FakeArtikelDbService implements SyncArtikelDbService {
   }
 
   // ────────────────────────────────────────────────────────────────────────
-  //  Bereits vorhandene Methoden (evtl. leicht angepasst)
+  //  Bereits vorhandene Methoden
   // ────────────────────────────────────────────────────────────────────────
   @override
   Future<List<Artikel>> getPendingChanges() async => pendingChanges;
@@ -80,7 +98,7 @@ class FakeArtikelDbService implements SyncArtikelDbService {
     String uuid,
     String etag, {
     String? remotePath,
-    String? remoteBildPfad,   // ➊ NEU – optional
+    String? remoteBildPfad,
   }) async {
     markSyncedCalls.add(MarkSyncedCall(uuid, etag, remotePath));
 
@@ -98,14 +116,10 @@ class FakeArtikelDbService implements SyncArtikelDbService {
     byUuid[uuid] = synced;
 
     final idxAlle = alleArtikel.indexWhere((a) => a.uuid == uuid);
-    if (idxAlle != -1) {
-      alleArtikel[idxAlle] = synced;
-    }
+    if (idxAlle != -1) alleArtikel[idxAlle] = synced;
 
     final idxPending = pendingChanges.indexWhere((a) => a.uuid == uuid);
-    if (idxPending != -1) {
-      pendingChanges[idxPending] = synced;
-    }
+    if (idxPending != -1) pendingChanges[idxPending] = synced;
   }
 
   @override

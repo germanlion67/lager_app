@@ -40,7 +40,7 @@ class ArtikelDbService implements SyncArtikelDbService {
   Future<Database> _initDb() async {
     try {
       return await platform.openArtikelDatabase(
-        version: 5,
+        version: 6,
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
       );
@@ -91,11 +91,20 @@ static const _createTableSql = '''
     )
   ''';
 
+  static const _createConflictSnapshotsTableSql = '''
+    CREATE TABLE IF NOT EXISTS conflict_snapshots (
+      uuid TEXT PRIMARY KEY,
+      snapshot_json TEXT NOT NULL,
+      saved_at INTEGER NOT NULL
+    )
+  ''';
+
   Future<void> _onCreate(Database db, int version) async {
     try {
       _logger.i("🛠️ Erstelle Tabelle 'artikel' (Version $version)");
       await db.execute(_createTableSql);
       await db.execute(_createSyncMetaTableSql);
+      await db.execute(_createConflictSnapshotsTableSql); // NEU
       await _createIndices(db);
       await _setInitialSequenceFromSettings(db);
     } catch (e, stack) {
@@ -160,6 +169,13 @@ static const _createTableSql = '''
         _logger.i(
           "✅ Migration v5: Spalten 'last_synced_etag' und "
           "'pending_resolution' hinzugefügt.",
+        );
+      }
+
+      if (oldVersion < 6) {
+        await db.execute(_createConflictSnapshotsTableSql);
+        _logger.i(
+          "✅ Migration v6: Tabelle 'conflict_snapshots' erstellt.",
         );
       }
 
@@ -724,6 +740,9 @@ static const _createTableSql = '''
     }
   }
 
+
+
+
   /// FIX Finding 3: remote_path wird zusammen mit etag gesetzt,
   /// damit getArtikelByRemotePath() nach einem Push funktioniert.
   @override
@@ -1048,7 +1067,109 @@ static const _createTableSql = '''
     }
   }
 
+// ==================== CONFLICT SNAPSHOTS ====================
 
+/// Speichert den Remote-Stand eines Artikels zum Zeitpunkt der
+/// Konflikt-Erkennung im Pull.
+///
+/// Zweck: Der Push-Callback kann später den vollständigen Remote-Stand
+/// (inkl. Bild-Info) aus dem Snapshot laden, statt nur den rohen
+/// PocketBase-Record zu verwenden — der zu diesem Zeitpunkt möglicherweise
+/// kein lokales Bild hat (Fix 3).
+///
+/// Der Snapshot wird nach Konflikt-Auflösung automatisch überschrieben
+/// (PRIMARY KEY = uuid → REPLACE).
+@override
+Future<void> saveRemoteConflictSnapshot({
+  required String uuid,
+  required Artikel remoteArtikel,
+}) async {
+  try {
+    final db = await database;
+    final now = DateTime.now().toUtc().millisecondsSinceEpoch;
+
+    await db.insert(
+      'conflict_snapshots',
+      {
+        'uuid': uuid,
+        'snapshot_json': json.encode(remoteArtikel.toMap()),
+        'saved_at': now,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    _logger.d(
+      '✅ Remote-Konflikt-Snapshot gespeichert für UUID $uuid '
+      '(remoteBildPfad=${remoteArtikel.remoteBildPfad ?? "–"}).',
+    );
+  } catch (e, stack) {
+    _logger.e(
+      '❌ Fehler beim Speichern des Konflikt-Snapshots '
+      'für UUID $uuid: $e',
+      error: e,
+      stackTrace: stack,
+    );
+    // Kein rethrow — Snapshot-Fehler darf Sync nicht unterbrechen.
+    // Der Push-Callback fällt auf remoteArtikel aus dem PB-Record zurück.
+  }
+}
+
+/// Lädt den gespeicherten Remote-Snapshot für eine UUID.
+///
+/// Gibt `null` zurück wenn kein Snapshot vorhanden ist — der Aufrufer
+/// fällt dann auf den direkt aus PocketBase gelesenen Remote-Artikel zurück.
+///
+/// Snapshots älter als 24 Stunden werden als veraltet betrachtet und
+/// ignoriert — in diesem Fall ist ein frischer Pull-Stand zuverlässiger.
+@override
+Future<Artikel?> loadRemoteConflictSnapshot(String uuid) async {
+  try {
+    final db = await database;
+    final result = await db.query(
+      'conflict_snapshots',
+      where: 'uuid = ?',
+      whereArgs: [uuid],
+      limit: 1,
+    );
+
+    if (result.isEmpty) {
+      _logger.d('ℹ️ Kein Konflikt-Snapshot für UUID $uuid vorhanden.');
+      return null;
+    }
+
+    // Snapshot älter als 24h → ignorieren
+    final savedAt = result.first['saved_at'] as int? ?? 0;
+    final age = DateTime.now().toUtc().millisecondsSinceEpoch - savedAt;
+    const maxAgeMs = 24 * 60 * 60 * 1000; // 24 Stunden
+    if (age > maxAgeMs) {
+      _logger.w(
+        '⚠️ Konflikt-Snapshot für UUID $uuid ist veraltet '
+        '(${(age / 3600000).toStringAsFixed(1)}h) — ignoriere.',
+      );
+      return null;
+    }
+
+    final snapshotJson = result.first['snapshot_json'] as String? ?? '';
+    if (snapshotJson.isEmpty) return null;
+
+    final map = json.decode(snapshotJson) as Map<String, dynamic>;
+    final artikel = Artikel.fromMap(map);
+
+    _logger.d(
+      '✅ Konflikt-Snapshot geladen für UUID $uuid '
+      '(remoteBildPfad=${artikel.remoteBildPfad ?? "–"}).',
+    );
+    return artikel;
+  } catch (e, stack) {
+    _logger.e(
+      '❌ Fehler beim Laden des Konflikt-Snapshots '
+      'für UUID $uuid: $e',
+      error: e,
+      stackTrace: stack,
+    );
+    return null;
+  }
+}
 
 
   // ==================== SEARCH ====================

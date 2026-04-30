@@ -1,5 +1,5 @@
 # Master-Prompt für temporäre Stabilisierung der Sync-Logik / Lager_app
-# Stand: fix/sync-hardening2-v0.9.4 / 2026-04-29
+# Stand: 0.9.4+39 / 2026-04-29
 
 Wir arbeiten an der fachlichen Stabilisierung, Prüfung, Dokumentation und punktuellen Weiterentwicklung der gesamten PocketBase-basierten Sync-Logik der Lager_app.
 
@@ -341,13 +341,15 @@ Relevante SQLite-Spalten in `artikel`:
 - zusätzlich weitere Fachdaten
 
 DB-Version:
-- `version: 5`
+- `version: 6`
 
 Migrationen:
 - v4: `artikelnummer`
 - v5:
   - `last_synced_etag`
   - `pending_resolution`
+- v6:
+  - `conflict_snapshots`-Tabelle (uuid, remote_artikel_json, saved_at)
 
 ### Bedeutung der Sync-Felder
 - `etag == null` oder leer → lokaler Datensatz ist dirty / pending
@@ -390,9 +392,10 @@ Die neue fachliche Basis trennt daher:
 - `clearPendingResolution(uuid)`
 - `deleteArtikel(artikel)`
 - `setBildPfadByUuidSilent(uuid, bildPfad)`
+- `saveRemoteConflictSnapshot({required String uuid, required Artikel remoteArtikel})` ← NEU
+- `loadRemoteConflictSnapshot(String uuid)` ← NEU
 - `openDatabase()`
 - `closeDatabase()`
-– `clearBildInfoByUuidSilent(uuid)`
 
 ### Zuletzt dokumentiertes fachliches Verhalten
 - `getPendingChanges()` nutzt:
@@ -501,6 +504,26 @@ Wenn `create()` an einer bereits vorhandenen `uuid` scheitert:
 - bestehender Remote-Record wird erneut per `uuid` gesucht
 - lokaler Datensatz wird mit dessen Remote-ID / ETag als synchronisiert markiert
 - dadurch scheitert derselbe Datensatz nicht bei jedem weiteren Sync erneut im Create-Pfad
+
+### Konflikt-Snapshot-Strategie ← NEU
+
+Der Konflikt-Callback wird ausschließlich im Push-Pfad ausgelöst —
+niemals direkt im Pull-Pfad.
+
+Ablauf:
+1. Pull erkennt einen potenziellen Konflikt (lokal dirty + Remote geändert)
+   → speichert den Remote-Stand via `saveRemoteConflictSnapshot()` in
+     `conflict_snapshots` (SQLite v6)
+   → löst keinen Callback aus
+2. Push verarbeitet denselben Datensatz
+   → lädt den gespeicherten Snapshot via `loadRemoteConflictSnapshot()`
+   → ruft `_emitConflictIfPossible(lokal, snapshot)` genau einmal auf
+   → UUID-Guard verhindert doppelten Callback im selben Sync-Zyklus
+
+Fachlicher Effekt:
+- Konflikt-Callback wird pro UUID maximal einmal pro `syncOnce()`-Lauf ausgelöst
+- Remote-Bildinformationen sind im Snapshot korrekt enthalten
+- Pull und Push sind fachlich sauber entkoppelt
 
 ### Logging im Duplicate-Recovery-Pfad
 Für den Duplicate-UUID-Sonderfall existieren strukturierte Logs:
@@ -698,6 +721,8 @@ Datei:
 Verwendete Interfaces:
 - `SyncPocketBaseService`
 - `SyncArtikelDbService`
+  - neu: `saveRemoteConflictSnapshot({required String uuid, required Artikel remoteArtikel})` ← NEU
+  - neu: `loadRemoteConflictSnapshot(String uuid)` ← NEU
 
 Ziel:
 - den produktiven `PocketBaseSyncService` näher am echten Code testbar machen
@@ -715,8 +740,13 @@ Dateien:
 Zuletzt dokumentiert:
 - T-001.10: übersprungener Konflikt erscheint beim nächsten Sync erneut
 - T-001.12: lokales Soft-Delete + Remote-Änderung erzeugt Konflikt statt Remote-Löschung
+- T-001.13: Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version ← NEU
+- T-001.14: Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version ← NEU
+- T-001.16: erfolgreicher `force_local`-Push bereinigt `pendingResolution` ← NEU
+- T-001.17: erfolgreicher `force_merge`-Push bereinigt `pendingResolution` ← NEU
 - fehlende Konfliktbasis bei bestehendem Remote-Datensatz wird konservativ als Konflikt behandelt
 - Duplicate-UUID-Recovery im Create-Pfad ist testseitig abgedeckt
+- Konflikt-Snapshot-Strategie: Pull speichert, Push löst aus — service-nah abgesichert ← NEU
 
 ### UI-/Resolution-Flow
 Dateien:
@@ -793,6 +823,10 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
   UTC-ISO-Strings übertragen ← NEU
 - `_extractBildName()` ist die einzige zulässige Stelle zur Normalisierung
   von PocketBase `bild` → `remoteBildPfad` ← NEU
+  - `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` sind die
+  einzigen zulässigen Stellen zum Lesen/Schreiben von `conflict_snapshots`
+- der Konflikt-Callback darf pro UUID maximal einmal pro `syncOnce()`-Lauf
+  ausgelöst werden (UUID-Guard im Push-Pfad) ← NEU
 
 > `remoteBildPfad` (SQLite-Spaltenname: `remoteBildPfad`) wird nur durch
 > `markSynced()` nach erfolgreichem Push oder durch `upsertArtikel()` nach
@@ -840,6 +874,17 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
 - [x] Upload-Timeout (120s) getrennt von JSON-Timeout (30s)
 - [x] Timeout-after-success Recovery für create() mit Bild
 - [x] Orchestrator-Timeout auf 5 Minuten erhöht
+- [x] Konflikt-Snapshot-Strategie implementiert: Pull speichert Remote-Stand via
+  `saveRemoteConflictSnapshot()`, Push löst Callback via `loadRemoteConflictSnapshot()`
+  aus — UUID-Guard verhindert doppelten Callback pro Sync-Zyklus ← NEU
+- [x] `SyncArtikelDbService`-Interface um `saveRemoteConflictSnapshot` /
+  `loadRemoteConflictSnapshot` erweitert ← NEU
+- [x] `FakeArtikelDbService` vollständig — alle Interface-Methoden implementiert,
+  `flutter analyze` + `flutter test` grün ← NEU
+- [x] T-001.13 — Pull überschreibt `force_local` nicht (Test grün) ← NEU
+- [x] T-001.14 — Pull überschreibt `force_merge` nicht (Test grün) ← NEU
+- [x] T-001.16 — `force_local`-Push bereinigt `pendingResolution` (Test grün) ← NEU
+- [x] T-001.17 — `force_merge`-Push bereinigt `pendingResolution` (Test grün) ← NEU
 
 **Manuelle Integrations- und Feldtests**
 - [x] B-001 — Artikel erstellen + Push → kein HTTP 400, Daten korrekt
@@ -854,10 +899,12 @@ keinen normalen Datensync auslösen (nur Bild-Caching)
 - [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
 - [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
 - [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
-- [ ] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
-- [ ] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung stabil
-- [ ] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
-- [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
+- [ ] **M-001** - `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [ ] **M-002** - `force_merge` bleibt nach bestätigter Auflösung stabil
+- [ ] **M-003** - übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
+- [ ] **M-004** - Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
+- [ ] **E-001** - End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall
+
 
 **Verbleibende technische Restpunkte**
 - [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
@@ -1004,17 +1051,19 @@ Nach B-003-Fix bereinigt: ← NEU
 
 ## Priorisierte nächste sinnvolle Prüfungen
 
-1. B-003 Wiederholungstest nach eingespielten Fixes ← NEU
+1. B-003 Wiederholungstest nach eingespielten Fixes
    (höchste Priorität)
 2. Fehlende Tests für `_extractBildName()` und
-   `toPocketBaseMap()`-Zeitstempel ergänzen ← NEU
-3. Konflikt-Tests T-001.6 bis T-001.11 und M-001 bis M-004 manuell
+   `toPocketBaseMap()`-Zeitstempel ergänzen
+3. Tests für `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()`
+   in `artikel_db_service_test.dart` ergänzen ← NEU
+4. Konflikt-Tests T-001.6 bis T-001.11 und M-001 bis M-004 manuell
    durchführen
-4. `docs/ARCHITECTURE.md` auf Altstände konsolidieren
-5. `docs/DATABASE.md` gegen aktuellen Sync-Stand prüfen
-6. Optional: End-to-End-Test für Duplicate-UUID-Recovery ergänzen
-7. Optional: Konflikte zusätzlich persistent markieren
-8. Optional: `_PocketBaseConflictAdapter` bereinigen, wenn
+5. `docs/ARCHITECTURE.md` auf Altstände konsolidieren
+6. `docs/DATABASE.md` gegen aktuellen Sync-Stand prüfen
+7. Optional: End-to-End-Test für Duplicate-UUID-Recovery ergänzen
+8. Optional: Konflikte zusätzlich persistent markieren
+9. Optional: `_PocketBaseConflictAdapter` bereinigen, wenn
    minimal-invasiv möglich
 
 ---

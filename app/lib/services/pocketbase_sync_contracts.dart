@@ -39,4 +39,12 @@ abstract class SyncArtikelDbService {
   Future<void> setBildPfadByUuidSilent(String uuid, String bildPfad);
 
   Future<void> setLastSyncTime();
+
+  Future<void> saveRemoteConflictSnapshot({
+  required String uuid,
+  required Artikel remoteArtikel,
+  });
+
+  Future<Artikel?> loadRemoteConflictSnapshot(String uuid);
+
 }

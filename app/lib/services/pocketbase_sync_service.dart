@@ -171,7 +171,8 @@ class PocketBaseSyncService {
                 _needsConflictBecauseMissingBase(artikel, remoteRecord);
             if (missingBase) {
               pushConflicts++;
-              await _emitConflictIfPossible(artikel, remoteArtikel);
+              final snapshot = await _db.loadRemoteConflictSnapshot(artikel.uuid);
+              await _emitConflictIfPossible(artikel, snapshot ?? remoteArtikel);
               continue;
             }
 
@@ -179,7 +180,8 @@ class PocketBaseSyncService {
                 _hasRemoteChangedSinceLastSync(artikel, remoteEtag);
             if (hasConflict) {
               pushConflicts++;
-              await _emitConflictIfPossible(artikel, remoteArtikel);
+              final snapshot = await _db.loadRemoteConflictSnapshot(artikel.uuid);
+              await _emitConflictIfPossible(artikel, snapshot ?? remoteArtikel);
               continue;
             }
 
@@ -206,7 +208,8 @@ class PocketBaseSyncService {
               _needsConflictBecauseMissingBase(artikel, remoteRecord);
           if (missingBase) {
             pushConflicts++;
-            await _emitConflictIfPossible(artikel, remoteArtikel);
+            final snapshot = await _db.loadRemoteConflictSnapshot(artikel.uuid);
+            await _emitConflictIfPossible(artikel, snapshot ?? remoteArtikel);
             continue;
           }
 
@@ -214,7 +217,8 @@ class PocketBaseSyncService {
               _hasRemoteChangedSinceLastSync(artikel, remoteEtag);
           if (hasConflict) {
             pushConflicts++;
-            await _emitConflictIfPossible(artikel, remoteArtikel);
+            final snapshot = await _db.loadRemoteConflictSnapshot(artikel.uuid);
+            await _emitConflictIfPossible(artikel, snapshot ?? remoteArtikel);
             continue;
           }
 
@@ -397,12 +401,39 @@ class PocketBaseSyncService {
               remoteUuids.add(artikel.uuid);
               continue;
             }
+
             if (localDirty && (missingBase || remoteChanged)) {
               pullConflicts++;
-              await _emitConflictIfPossible(localArtikel, artikel);
+
+              // FIX 2: Kein _emitConflictIfPossible hier.
+              // Der Pull erkennt den Konflikt nur intern und speichert
+              // den Remote-Stand für die Konflikt-UI.
+              // Der Callback wird ausschließlich vom Push ausgelöst —
+              // dort hat der User bereits die Konflikt-UI gesehen.
+              //
+              // Remote-Stand mit Bild-Info persistent speichern damit
+              // die Konflikt-UI (ausgelöst durch Push) die korrekte
+              // Remote-Version inkl. Bild anzeigen kann (Fix 3).
+              final remoteBildName = _extractBildName(r.data);
+              final artikelMitBild = remoteBildName != null
+                  ? artikel.copyWith(remoteBildPfad: remoteBildName)
+                  : artikel;
+
+              await _db.saveRemoteConflictSnapshot(
+                uuid: artikel.uuid,
+                remoteArtikel: artikelMitBild,
+              );
+
+              _logger.d(
+                'SYNC|PULL  conflict(local-dirty)  uuid=${artikel.uuid}  '
+                'remoteBild=${remoteBildName ?? "–"}  '
+                '→ snapshot gespeichert, kein Callback',
+              );
+
               remoteUuids.add(artikel.uuid);
               continue;
             }
+
             if (localDirty) {
               pullSkipped++;
               remoteUuids.add(artikel.uuid);

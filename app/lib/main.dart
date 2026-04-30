@@ -264,6 +264,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _cleanupDone = false;
   bool _syncRunning = false;
   bool _isConflictScreenOpen = false;
+  final Set<String> _activeConflictUuids = {}; // NEU: UUID-basierter Guard
   bool _conflictCallbackRegistered = false; // NEU: Guard gegen Mehrfach-Registrierung
 
   bool _needsSetup = false;
@@ -336,6 +337,32 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     Artikel lokalerArtikel,
     Artikel remoteArtikel,
   ) async {
+    // ── Guard 1: UUID bereits in Bearbeitung ──────────────────────────────
+    // Verhindert Doppel-Trigger durch Push UND Pull für dieselbe UUID.
+    if (_activeConflictUuids.contains(lokalerArtikel.uuid)) {
+      _log.d(
+        '[Main] Konflikt für ${lokalerArtikel.uuid} bereits aktiv — '
+        'überspringe (UUID-Guard)',
+      );
+      return;
+    }
+
+    // ── Guard 2: Screen bereits offen ─────────────────────────────────────
+    // Verhindert gleichzeitige Konflikt-Screens für verschiedene UUIDs.
+    if (_isConflictScreenOpen) {
+      _log.w(
+        '[Main] Konflikt-UI bereits offen — '
+        'weiterer Konflikt bleibt pending: ${lokalerArtikel.uuid}',
+      );
+      return;
+    }
+
+    // ── Ab hier: Konflikt wird verarbeitet ───────────────────────────────
+    _log.i(
+      '[Main] Konflikt-UI für ${lokalerArtikel.name} '
+      '(uuid: ${lokalerArtikel.uuid})',
+    );
+
     final navigator = _navigatorKey.currentState;
     if (navigator == null) {
       _log.w(
@@ -345,19 +372,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       return;
     }
 
-    if (_isConflictScreenOpen) {
-      _log.w(
-        '[Main] Konflikt-UI bereits offen — '
-        'weiterer Konflikt bleibt pending und wird bei erneutem Sync '
-        'erneut erkannt ${lokalerArtikel.uuid}',
-      );
-      return;
-    }
-
-    _log.i(
-      '[Main] Konflikt-UI für ${lokalerArtikel.name} '
-      '(uuid: ${lokalerArtikel.uuid})',
-    );
+    // UUID als aktiv markieren — ab jetzt wird kein zweiter Trigger
+    // für dieselbe UUID durchgelassen (Push + Pull + nächster Sync).
+    _activeConflictUuids.add(lokalerArtikel.uuid);
+    _isConflictScreenOpen = true;
 
     final conflictData = ConflictData(
       localVersion: lokalerArtikel,
@@ -365,8 +383,6 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       conflictReason: _buildConflictReason(lokalerArtikel, remoteArtikel),
       detectedAt: DateTime.now(),
     );
-
-    _isConflictScreenOpen = true;
 
     try {
       await navigator.push<void>(
@@ -385,7 +401,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         stackTrace: st,
       );
     } finally {
+      // UUID erst nach Auflösung freigeben —
+      // erst dann darf ein neuer Konflikt für dieselbe UUID erkannt werden.
+      _activeConflictUuids.remove(lokalerArtikel.uuid);
       _isConflictScreenOpen = false;
+      _log.d(
+        '[Main] Konflikt-UI geschlossen für ${lokalerArtikel.uuid}',
+      );
     }
   }
 

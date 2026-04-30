@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+38 | **Zuletzt aktualisiert:** 29.04.2026
+**Version:** 0.9.4+39 | **Zuletzt aktualisiert:** 30.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -52,11 +52,13 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
 - [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
 - [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
-- [x] Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version
-- [x] Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version
+- [x] **T-001.13** — Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version ✅
+- [x] **T-001.14** — Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version ✅
+- [x] **T-001.16** — Erfolgreicher `force_local`-Push bereinigt `pendingResolution` ✅
+- [x] **T-001.17** — Erfolgreicher `force_merge`-Push bereinigt `pendingResolution` ✅
+
 - [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
 - [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
-- [x] Erfolgreicher `force_local`-/`force_merge`-Push bereinigt `pendingResolution` über `markSynced()`-Contract
 - [x] Produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
 - [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
 - [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
@@ -65,7 +67,7 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
 
 **Manuelle Integrations- und Feldtests**
-- [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
+- [x] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
 - [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
 - [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
 - [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
@@ -86,7 +88,7 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
 - [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
 - [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
-- [ ] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
+- [x] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
 - [ ] Optional gezielte Modelltests für Roundtrip- und `copyWith()`-Null-Semantik ergänzen
 - [ ] Optional Semantik von `aktualisiertAm` vs. `updatedAt` dokumentieren oder klarer benennen
 - [ ] Optional Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
@@ -96,36 +98,7 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 **Hinweis**
 Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
 
-
-### B-014: PocketBase-Push CREATE-Fehler (HTTP 400) & SyncOnce-Timeout blockieren Baseline-Setzen
-**Typ:** Bug  
-**Betrifft:** `lib/services/pocket_base_sync_service.dart`, `lib/services/sync_orchestrator.dart`, `lib/services/artikel_db_service.dart`
-
-**Problem**  
-Beim Push neuer Datensätze (CREATE) antwortet PocketBase mit HTTP 400 (`"Failed to create record."`).  
-Gleichzeitig besitzen die `_pushToPocketBase()`-Calls (`getList`, `create`, `update`, `delete`) kein individuelles Request-Timeout — hängt ein Request, bricht der `SyncOrchestrator` nach dem globalen 60-Sekunden-Timeout (`syncOnce().timeout(Duration(seconds: 60))`) mit `TimeoutException after 0:01:00` ab.
-
-Folge: Pending-Datensätze bleiben dauerhaft `pending`; `last_synced_etag` (Sync-Baseline, vgl. `etag`-Mechanik in `prompt_Sync.txt`) wird nie gesetzt. Der manuelle Integrationstest T-001.6 kann unter diesen Voraussetzungen nicht korrekt ausgeführt oder ausgewertet werden.
-
-**Beobachtung (reale Logs / Geräte-Tests)**
-- Beim App-Start / Sync-Lauf treten wiederholt Fehler auf:
-  - `ClientException ... statusCode: 400 ... message: Failed to create record.`
-  - Quelle: `_pushToPocketBase()` im CREATE-Pfad (`collection(...).create(...)`)
-- Zusätzlich schlägt `SyncOrchestrator.runOnce()` gelegentlich mit
-  `TimeoutException after 0:01:00 ... Future not completed` fehl, da `syncOnce()`
-  im Push-Pfad keine eigenen Request-Timeouts hat und der Orchestrator nach 60 s abbricht.
-
-**Fachlicher Impact**
-- Lokale Pending-Datensätze (dirty via `etag IS NULL`) werden nicht remote angelegt → bleiben dauerhaft pending.
-- `markSynced()` wird nie erfolgreich erreicht → `etag`/`last_synced_etag` werden nicht gesetzt → keine stabile Konfliktbasis (vgl. `docs/prompt_Sync.txt`: `last_synced_etag` als Baseline, fehlende Basis → konservativer Konflikt-Fall).
-- Folgeeffekte: wiederholte Push-Retry-Spiralen und/oder konservative Konflikt-Cases („missing base") können Integrationstests wie **T-001.6** verfälschen oder blockieren.
-
-**Tasks**
-- [ ] PocketBase-Schema und Collection-Rules für `artikel` prüfen (Pflichtfelder, `create`-Rule, Auth/Owner-Binding)
-- [ ] Push-Requests mit individuellem Timeout absichern: `getList(...)`, `create(...)`, `update(...)`, `delete(...)` — analog zu `getFullList().timeout(Duration(seconds: 30))` im Pull-Pfad
-- [ ] Logging-Summary bei Push-Fehlern ergänzen (Verweis auf O-012)
-- [ ] Sicherstellen, dass `last_synced_etag` nach erfolgreichem CREATE/UPDATE durch `markSynced()` korrekt gesetzt wird
-- [ ] T-001.6 nach Behebung wiederholen und verifizieren
+→ FakeArtikelDbService wurde heute um saveRemoteConflictSnapshot / loadRemoteConflictSnapshot erweitert — die Fake-Infrastruktur ist jetzt vollständig für alle neuen Pfade.
 
 --- 
 
@@ -782,6 +755,11 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-30 | 0.9.4+39 | Fix 1+2: Doppelter Konflikt-Callback
+  durch UUID-Guard (Push) und Snapshot-Strategie (Pull) behoben.
+  saveRemoteConflictSnapshot / loadRemoteConflictSnapshot implementiert
+  (DB v6, neue Tabelle conflict_snapshots). FakeArtikelDbService
+  vollständig. T-001.13/14/16/17 grün. flutter analyze + flutter test grün. |
 | 2026-04-29 | v0.9.4+38 | fix/sync-hardening2-v0.9.4(T-001.6): fehlende PB-Felder + remoteBildPfad List-Cast + LOG-001 noBoxing |
 | 2026-04-29 | v0.9.4+37 | fix/sync-hardening2-v0.9.4(B-014): HTTP 400 CREATE, Push-Timeouts, markSynced-Spaltenname, Summary-Logs |
 | 2026-04-28 | v0.9.4+36 | fix/sync-hardening2-v0.9.4 B-013 abgeschlossen: image upload flow, `remoteBildPfad` |
