@@ -1,17 +1,17 @@
-# Master-Prompt für temporäre Stabilisierung der Sync-Logik / Lager_app
-# Stand: 0.9.4+39 / 2026-04-29
+# Master-Prompt zur temporären Stabilisierung der Sync-Logik / Lager_app
+**Stand:** 0.9.4+41 / 2026-04-30
 
-Wir arbeiten an der fachlichen Stabilisierung, Prüfung, Dokumentation und punktuellen Weiterentwicklung der gesamten PocketBase-basierten Sync-Logik der Lager_app.
+Wir arbeiten an der fachlichen Stabilisierung, Prüfung, Dokumentation und punktuellen Weiterentwicklung der PocketBase-basierten Sync-Logik der **Lager_app**.
 
-Dieser Prompt ist temporär und dient als durchgehende Arbeitsgrundlage, bis die Sync-Logik fachlich gefestigt, testbar und dokumentierbar abgeschlossen ist.
+Dieser Prompt ist als durchgehende Arbeitsgrundlage gedacht, bis die Sync-Logik fachlich gefestigt, testbar, dokumentiert und releasefähig abgeschlossen ist.
 
-Ziel ist, den aktuellen Ist-Stand, die Architektur, die Konfliktstrategie, bereits umgesetzte Änderungen, bekannte Rest-Risiken und die nächsten sinnvollen Schritte so festzuhalten, dass die Arbeit jederzeit ohne erneute Grundanalyse fortgesetzt werden kann.
+Ziel ist, den **aktuellen Ist-Stand**, die **Architektur**, die **Konfliktstrategie**, die **bereits bestätigten Änderungen**, die **bekannten Rest-Risiken** und die **nächsten sinnvollen Schritte** so festzuhalten, dass die Arbeit jederzeit ohne erneute Grundanalyse fortgesetzt werden kann.
 
 ---
 
-## Hauptziel
+# 1. Hauptziel
 
-Die native App (Mobile/Desktop) arbeitet offline-first mit lokaler SQLite-Datenbank und synchronisiert gegen PocketBase.
+Die native App auf **Mobile/Desktop** arbeitet **offline-first** mit lokaler SQLite-Datenbank und synchronisiert gegen PocketBase.
 
 Die Sync-Logik soll:
 
@@ -19,38 +19,45 @@ Die Sync-Logik soll:
 - Remote-Änderungen gegen eine stabile Baseline prüfen
 - Konflikte zuverlässig erkennen statt blind zu überschreiben
 - bewusste Nutzerentscheidungen korrekt persistieren und respektieren
-- Pull und Push für Dirty-Datensätze fachlich sauber behandeln
+- Pull und Push für dirty Datensätze fachlich sauber behandeln
 - Delete-vs-Remote-Edit korrekt als Konflikt behandeln
 - UI-seitige Konfliktauflösung stabil in den Sync-Flow integrieren
 - Duplicate-UUID-Race-Conditions robust behandeln
 - Logging für kritische Sync-Sonderfälle nachvollziehbar halten
 - dokumentierbar und releasefähig bleiben
 
-Die Web-Version nutzt diese lokale Sync-Logik nicht in gleicher Form.
+Die **Web-Version** nutzt diese lokale Sync-Logik nicht in gleicher Form.
 
 ---
 
-## Arbeitsmodus
+# 2. Arbeitsmodus
 
-Bitte arbeite immer nur auf Basis des tatsächlich eingefügten Codes und der tatsächlich gezeigten Dokumentation.
+Bitte immer nur auf Basis des **tatsächlich gezeigten Codes** und der **tatsächlich gezeigten Dokumentation** arbeiten.
 
-Regeln:
+## 2.1 Regeln
+
 1. Keine Annahmen über nicht gezeigten Code treffen, außer explizit als Annahme markiert.
 2. Kleine und gezielte Änderungen bevorzugen.
 3. Große Refactorings nur, wenn fachlich zwingend notwendig.
 4. Bei jedem Vorschlag Regressionsrisiko benennen.
 5. Bereits umgesetzte Sync-Fixes nicht versehentlich zurückdrehen.
-6. Kleinere Änderungen nur als Datei + Stelle + vorher/nachher zeigen.
+6. Kleinere Änderungen nur als **Datei + Stelle + vorher/nachher** zeigen.
 7. Größere oder viele Änderungen pro Datei als komplette Datei zeigen.
 8. Bei Konfliktauflösungen keine semantisch ungeeigneten Fallbacks für Remote-Baselines einführen.
-9. Wenn der Prompt einen zuletzt dokumentierten Stand beschreibt, dieser aber dem aktuell gezeigten Code widerspricht, hat immer der gezeigte Code Vorrang.
-10. Bereits als umgesetzt dokumentierte Punkte dürfen aktiv wieder in Frage gestellt werden, wenn der gezeigte Code, Tests oder die Doku etwas anderes zeigen.
-11. Bei jeder Prüfung explizit zwischen „im Code bestätigt“, „im Test bestätigt“, „nur dokumentiert“, „nicht sichtbar/offen“ und „optional/Architekturverbesserung“ unterscheiden.
+9. Wenn der Prompt einen dokumentierten Stand beschreibt, dieser aber dem aktuell gezeigten Code widerspricht, hat immer der gezeigte Code Vorrang.
+10. Bereits als umgesetzt dokumentierte Punkte dürfen aktiv wieder in Frage gestellt werden, wenn gezeigter Code, Tests oder Doku etwas anderes zeigen.
+11. Bei jeder Prüfung explizit zwischen folgenden Kategorien unterscheiden:
+    - **im Code bestätigt**
+    - **im Test bestätigt**
+    - **manuell / real bestätigt**
+    - **nur dokumentiert**
+    - **nicht sichtbar / offen**
+    - **optional / Architekturverbesserung**
 12. Wenn für eine belastbare Bewertung notwendige Dateien oder Dokumente fehlen, diese gezielt anfordern statt mit Annahmen weiterzuarbeiten.
 
 ---
 
-## Verlässlichkeit / Priorität von Quellen
+# 3. Verlässlichkeit / Priorität von Quellen
 
 Wenn Doku, Tests und Code nicht vollständig übereinstimmen, gilt diese Reihenfolge:
 
@@ -60,26 +67,26 @@ Wenn Doku, Tests und Code nicht vollständig übereinstimmen, gilt diese Reihenf
 4. aktueller Branch-/Release-Stand `fix/sync-hardening2-v0.9.4`
 5. ältere Doku nur als historische Referenz
 
-Wichtige Folge:
-Ältere ETag-only-Beschreibungen sind historisch zu interpretieren, wenn sie dem gezeigten aktuellen Code widersprechen.
+## 3.1 Wichtige Folge
+Ältere Beschreibungen einer reinen **ETag-only-Logik** sind historisch zu interpretieren, wenn sie dem aktuell gezeigten Code widersprechen.
 
 ---
 
-## Relevante Projektdokumente außerhalb des direkten Sync-Codes
+# 4. Relevante Projektdokumente außerhalb des direkten Sync-Codes
 
-Weitere wichtige Kontextquellen laut `PROJECT_STRUCTURE.md`:
+Laut `PROJECT_STRUCTURE.md` sind folgende Dateien als Kontextquellen besonders relevant:
 
 - `CHANGELOG.md`
   - Release- und Änderungsverlauf
   - hilfreich, um einzuordnen, wann Sync-Verhalten geändert wurde
 
 - `docs/LOGGER.md`
-  - Logging-Konventionen und relevante strukturierte Logpfade
+  - Logging-Konventionen und strukturierte Logpfade
   - besonders wichtig für Duplicate-UUID-Recovery und Fehleranalyse
 
 - `docs/TESTING.md`
   - Teststrategie, Testarten und Konventionen
-  - hilfreich bei neuen Sync-Tests oder der Einordnung bestehender Tests
+  - relevant für neue Sync-Tests oder die Einordnung bestehender Tests
 
 - `docs/THEMING.md`
   - für Sync fachlich meist nicht relevant
@@ -97,24 +104,27 @@ Weitere wichtige Kontextquellen laut `PROJECT_STRUCTURE.md`:
 
 ---
 
-## Startpunkt für neue Sessions ohne Vorwissen
+# 5. Startpunkt für neue Sessions ohne Vorwissen
 
-Wenn die konkrete Aufgabe noch unklar ist oder nur allgemein „am Sync weiterarbeiten“ lautet, bitte zuerst gezielt diese Quellen anfragen:
+Wenn die konkrete Aufgabe noch unklar ist oder nur allgemein „am Sync weiterarbeiten“ lautet, bitte zuerst gezielt diese Quellen anfragen.
 
-### Für produktive Sync-Logik
+## 5.1 Für produktive Sync-Logik
+
 1. `lib/services/pocketbase_sync_service.dart`
 2. `lib/services/artikel_db_service.dart`
 3. `lib/models/artikel_model.dart`
 4. `lib/services/sync_orchestrator.dart`
 5. `lib/main.dart` (nur der konfliktrelevante Teil)
 
-### Für fachliche Einordnung
+## 5.2 Für fachliche Einordnung
+
 6. `docs/OPTIMIZATIONS.md`
 7. `docs/DATABASE.md`
 8. `docs/ARCHITECTURE.md`
 9. `CHANGELOG.md`
 
-### Für Testbewertung
+## 5.3 Für Testbewertung
+
 10. `test/services/pocketbase_sync_service_test.dart`
 11. `test/services/pocketbase_sync_service_conflict_test.dart`
 12. `test/services/artikel_db_service_test.dart`
@@ -124,33 +134,38 @@ Wenn die konkrete Aufgabe noch unklar ist oder nur allgemein „am Sync weiterar
 
 ---
 
-## Welche Dateien bei welcher Fragestellung zuerst anfragen
+# 6. Welche Dateien bei welcher Fragestellung zuerst anfragen
 
-### Wenn es um Konflikterkennung / Push / Pull geht
+## 6.1 Konflikterkennung / Push / Pull
+
 - `lib/services/pocketbase_sync_service.dart`
 - `lib/models/artikel_model.dart`
 - `lib/services/artikel_db_service.dart`
 - passende Sync-Service-Tests
 
-### Wenn es um `pending_resolution`, `force_local`, `force_merge`, `useRemote` geht
+## 6.2 `pending_resolution`, `force_local`, `force_merge`, `useRemote`
+
 - `lib/services/pocketbase_sync_service.dart`
 - `lib/services/conflict_resolution_utils.dart`
 - `lib/services/artikel_db_service.dart`
 - `test/services/pocketbase_sync_service_conflict_test.dart`
 - `test/services/conflict_resolution_utils_test.dart`
 
-### Wenn es um Konflikt-UI oder Navigation geht
+## 6.3 Konflikt-UI oder Navigation
+
 - `lib/main.dart`
 - `lib/screens/conflict_resolution_screen.dart`
 - konfliktbezogene Screen-/UI-Tests
 
-### Wenn es um Modell-/Mapping-/Persistenzfragen geht
+## 6.4 Modell-/Mapping-/Persistenzfragen
+
 - `lib/models/artikel_model.dart`
 - `lib/services/artikel_db_service.dart`
 - `docs/DATABASE.md`
 - Modell-/DB-Tests
 
-### Wenn es um Dokumentationsabgleich geht
+## 6.5 Dokumentationsabgleich
+
 - `docs/ARCHITECTURE.md`
 - `docs/DATABASE.md`
 - `docs/OPTIMIZATIONS.md`
@@ -158,11 +173,12 @@ Wenn die konkrete Aufgabe noch unklar ist oder nur allgemein „am Sync weiterar
 
 ---
 
-## Prüffokus für Folge-Sessions
+# 7. Prüffokus für Folge-Sessions
 
-Wenn nicht anders angegeben, prüfe bei Sync-bezogenen Änderungen in dieser Reihenfolge:
+Wenn nicht anders angegeben, bei Sync-bezogenen Änderungen in dieser Reihenfolge prüfen:
 
-1. fachliche Korrektheit der Konfliktbasis (`last_synced_etag`, Dirty-Zustand, `pending_resolution`)
+1. fachliche Korrektheit der Konfliktbasis  
+   (`last_synced_etag`, Dirty-Zustand, `pending_resolution`)
 2. Schutz vor blindem Überschreiben bei Push/Pull/Delete
 3. korrekter Recovery-Pfad bei Duplicate-UUID und ähnlichen Race-/Retry-Fällen
 4. Stabilität des Konflikt-UI-Flows und der Callback-Verkabelung
@@ -171,7 +187,9 @@ Wenn nicht anders angegeben, prüfe bei Sync-bezogenen Änderungen in dieser Rei
 
 ---
 
-## Nicht unbeabsichtigt zurückbauen
+# 8. Nicht unbeabsichtigt zurückbauen
+
+Folgende Punkte dürfen nicht versehentlich zurückgebaut werden:
 
 - Konflikterkennung darf nicht wieder primär auf `etag` statt `last_synced_etag` basieren
 - fehlende Baseline bei dirty + vorhandenem Remote darf nicht optimistisch überschrieben werden
@@ -179,18 +197,19 @@ Wenn nicht anders angegeben, prüfe bei Sync-bezogenen Änderungen in dieser Rei
 - `useRemote` darf keine unzuverlässigen Baselines wie `remotePath` oder leere Strings verwenden
 - `toPocketBaseMap()` darf keine lokalen Konflikt-Steuerfelder übertragen
 - Duplicate-UUID-Recovery darf nicht wieder in endlose Create-Fehler zurückfallen
-- `toPocketBaseMap()` muss `erstelltAm` und `aktualisiertAm` als
-  UTC-ISO-Strings übertragen ← NEU
-- `_extractBildName()` muss PocketBase `bild`-Feld als `List<String>`
-  korrekt auflösen ← NEU
-- Log-Viewer darf keine Box-Drawing-Zeichen (`│ ┌ └`) anzeigen
-  (`noBoxingByDefault: true`) ← NEU
+- `toPocketBaseMap()` muss `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings übertragen
+- `_extractBildName()` muss das PocketBase-Feld `bild` als `List<String>` oder `String` korrekt auflösen
+- der Log-Viewer darf keine Box-Drawing-Zeichen (`│`, `┌`, `└`) anzeigen
+- `remoteBildPfad` muss nach CREATE/UPDATE korrekt gesetzt und persistiert bleiben
+- Konflikt-Snapshots dürfen nur über die dafür vorgesehenen Methoden gelesen/geschrieben werden
+- der Konflikt-Callback darf pro UUID maximal einmal pro `syncOnce()`-Lauf ausgelöst werden
 
 ---
 
-## Arbeitsstatus für Folge-Sessions
+# 9. Arbeitsstatus für Folge-Sessions
 
-### Als umgesetzt dokumentiert, aber bei Code-Änderungen gegenprüfen
+## 9.1 Als umgesetzt dokumentiert, aber bei Code-Änderungen immer gegenprüfen
+
 - Konfliktvergleich nutzt `last_synced_etag` als stabile Baseline
 - fehlende Baseline bei dirty + vorhandenem Remote führt konservativ zum Konflikt
 - `pending_resolution = force_local | force_merge` wird im produktiven Sync respektiert
@@ -199,41 +218,52 @@ Wenn nicht anders angegeben, prüfe bei Sync-bezogenen Änderungen in dieser Rei
 - Konflikt-UI ist gegen parallele Mehrfachöffnung abgesichert
 - `kategorie` ist im Modell-/Mapping-/Testpfad ergänzt
 - `toPocketBaseMap()` sendet keine lokalen Konflikt-Steuerfelder
-- `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als
-  UTC-ISO-Strings ← NEU
-- `_extractBildName()` normalisiert PocketBase `bild` von `List<String>`
-  zu `String?` ← NEU
-- `remoteBildPfad` wird nach CREATE und UPDATE korrekt über
-  `_extractBildName()` gesetzt ← NEU
-- Log-Viewer zeigt keine Box-Drawing-Zeichen mehr
-  (`noBoxingByDefault: true`) ← NEU
+- `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
+- `_extractBildName()` normalisiert PocketBase `bild` von `List<String>` zu `String?`
+- `remoteBildPfad` wird nach CREATE und UPDATE korrekt über `_extractBildName()` gesetzt
+- `remoteBildPfad` wird via Follow-up-PATCH in PocketBase persistiert
+- der Log-Viewer zeigt keine Box-Drawing-Zeichen mehr (`noBoxingByDefault: true`)
+- Konflikt-Snapshot-Strategie Pull→Snapshot, Push→Callback ist implementiert
 
-### Noch gezielt zu prüfen oder manuell zu verifizieren
+## 9.2 Noch gezielt zu prüfen oder manuell zu verifizieren
+
 - reale End-to-End-Verifikation von Duplicate-UUID-Recovery
-- reale Geräte-/Server-Tests für `useLocal`, `useRemote`, `merge`, `skip`
-- Verhalten bei mehreren Konflikten in einem echten Sync-Lauf
-- verbleibende Doku-Altstände in `ARCHITECTURE.md` / `DATABASE.md`
-- B-003 Wiederholungstest nach eingespielten Fixes
-  (`remoteBildPfad` + Zeitstempel) ← NEU
+- verbleibende Doku-Altstände in `docs/ARCHITECTURE.md` und `docs/DATABASE.md`
+- Wiederholungstest B-003 ist abgeschlossen und bestätigt
+- manueller Wiederholungstest für Soft-Delete lokal + Remote-Edit (`M-004`)
 
-### Optional / spätere Architekturverbesserung
+## 9.3 Bereits manuell / real bestätigt
+
+- Konflikt-UI erscheint bei realem Offline/Online-Konflikt
+- `useLocal` überschreibt den Remote-Stand im Folgesync korrekt
+- `useRemote` übernimmt den Remote-Stand lokal und bereinigt den Pending-State
+- `skip` lässt den Konflikt offen und zeigt ihn beim nächsten Sync erneut
+- mehrere Konflikte in einem echten Sync-Lauf werden sequentiell und stabil verarbeitet
+- gemischte Auflösungen in einem Mehrfachkonflikt-Lauf funktionieren korrekt (`skip`, `useRemote`, `useLocal`)
+- `merge` funktioniert fachlich, speichert die zusammengeführte Version und pusht sie im Folgesync erfolgreich
+- beim manuellen Merge existiert ein Timeout-Befund im laufenden Orchestrator-Flow
+
+## 9.4 Optional / spätere Architekturverbesserung
+
 - dediziertes Interface statt `_PocketBaseConflictAdapter implements SyncService`
 - `ConflictCallback` mit Rückgabewert statt `Future<void>`
 - zusätzliche Persistenzmarkierung für offene Konflikte
 
 ---
 
-## Architektur-Kontext
+# 10. Architektur-Kontext
 
-### Plattformmodell
+## 10.1 Plattformmodell
+
 - Mobile/Desktop: SQLite + PocketBase-Sync
 - Web: kein lokaler SQLite-Sync, direkter Backend-Zugriff
 
-### PocketBaseService
-Datei:
-- `lib/services/pocketbase_service.dart`
+## 10.2 PocketBaseService
+
+**Datei:** `lib/services/pocketbase_service.dart`
 
 Wichtige Eigenschaften:
+
 - URL-Prioritätskette über SharedPreferences + AppConfig + Web-Fallback
 - `initialize()` ist race-sicher via `_initCompleter`
 - `needsSetup` statt Crash bei fehlender URL
@@ -245,12 +275,12 @@ Wichtige Eigenschaften:
 
 ---
 
-## Artikel-Modell / Sync-Metadaten
+# 11. Artikel-Modell / Sync-Metadaten
 
-Datei:
-- `lib/models/artikel_model.dart`
+**Datei:** `lib/models/artikel_model.dart`
 
-### Zuletzt dokumentierte relevante Felder
+## 11.1 Relevante Felder
+
 - `uuid`
 - `updatedAt`
 - `deleted`
@@ -260,39 +290,57 @@ Datei:
 - `remotePath`
 - `deviceId`
 - `kategorie`
-- zusätzlich fachliche Felder und Bildpfade
-- `erstelltAm`, `aktualisiertAm`
-- `bildPfad`, `remoteBildPfad`, `thumbnailPfad`, `thumbnailEtag`
+- `erstelltAm`
+- `aktualisiertAm`
+- `bildPfad`
+- `remoteBildPfad`
+- `thumbnailPfad`
+- `thumbnailEtag`
 - `artikelnummer`
+- weitere fachliche Felder
 
-### Modell-Invarianten
+## 11.2 Modell-Invarianten
+
 - Gleichheit basiert auf `uuid`
 - Date-Felder werden UTC-normalisiert
 - `fromPocketBase()` setzt bei Remote-Daten:
   - `etag`
   - `lastSyncedEtag`
   - `remotePath`
-- frisch geladene Remote-Daten gelten damit zugleich als:
-  - aktueller Sync-Stand
-  - letzte bestätigte Baseline
 
-### `toPocketBaseMap()` — was wird übertragen
+Frisch geladene Remote-Daten gelten damit zugleich als:
+
+- aktueller Sync-Stand
+- letzte bestätigte Baseline
+
+## 11.3 `toPocketBaseMap()` — übertragene Felder
 
 Wird übertragen:
 
-- `name`, `menge`, `ort`, `fach`, `beschreibung`, `kategorie`
-- `uuid`, `updated_at`, `deleted`, `device_id`
-- `erstelltAm` als UTC-ISO-String ← NEU
-- `aktualisiertAm` als UTC-ISO-String ← NEU
+- `name`
+- `menge`
+- `ort`
+- `fach`
+- `beschreibung`
+- `kategorie`
+- `uuid`
+- `updated_at`
+- `deleted`
+- `device_id`
+- `erstelltAm` als UTC-ISO-String
+- `aktualisiertAm` als UTC-ISO-String
 - `artikelnummer` nur wenn `!= null && >= 1`
 
 Wird bewusst **nicht** übertragen:
 
-- `last_synced_etag`, `pending_resolution`
-- `bildPfad` (geht als `MultipartFile` mit Feldname `bild`)
+- `last_synced_etag`
+- `pending_resolution`
+- `bildPfad`
 - `remoteBildPfad`
 
-### `_extractBildName()` ← NEU
+`bildPfad` geht separat als `MultipartFile` über das Feld `bild`.
+
+## 11.4 `_extractBildName()`
 
 ```dart
 String? _extractBildName(dynamic data) {
@@ -303,31 +351,31 @@ String? _extractBildName(dynamic data) {
   return null;
 }
 ```
-PocketBase gibt bild nach File-Upload als List<String> zurück, nicht
-als String. Diese Methode normalisiert beide Fälle. Wird nach CREATE und
-UPDATE zur Bestimmung von remoteBildPfad verwendet.
 
---- 
+PocketBase gibt `bild` nach File-Upload als `List<String>` zurück, nicht zwingend als String.  
+Diese Methode normalisiert beide Fälle und wird nach CREATE und UPDATE zur Bestimmung von `remoteBildPfad` verwendet.
 
-Diese Felder sind lokale Sync-Steuerinformationen und dürfen nicht an PocketBase gesendet werden.
+## 11.5 Zusätzliche Validierungsregel
 
-Zusätzliche Validierungsregel (B-014):
-- `artikelnummer` wird nur gesendet wenn `!= null && >= 1`
-- Hintergrund: PocketBase-Schema definiert `min: 1` für dieses Feld;
-  `null` oder `0` würden HTTP 400 auslösen
+- `artikelnummer` wird nur gesendet, wenn `!= null && >= 1`
 
-### Zuletzt dokumentierte Modell-Ergänzung
+Hintergrund:
+PocketBase definiert für dieses Feld `min: 1`.  
+`null` oder `0` würden HTTP 400 auslösen.
+
+## 11.6 Zuletzt dokumentierte Modell-Ergänzung
+
 - `kategorie` ist im Artikel-Modell, im SQLite-/JSON-/PocketBase-Mapping und in `copyWith()` konsistent berücksichtigt
 - relevante Modell- und DB-Tests wurden dafür ergänzt bzw. grün verifiziert
 
 ---
 
-## Lokales Datenmodell / DB-Stand
+# 12. Lokales Datenmodell / DB-Stand
 
-Datei:
-- `lib/services/artikel_db_service.dart`
+**Datei:** `lib/services/artikel_db_service.dart`
 
-Relevante SQLite-Spalten in `artikel`:
+## 12.1 Relevante SQLite-Spalten in `artikel`
+
 - `uuid`
 - `remote_path`
 - `updated_at`
@@ -335,53 +383,61 @@ Relevante SQLite-Spalten in `artikel`:
 - `etag`
 - `last_synced_etag`
 - `pending_resolution`
-- zusätzlich Bildpfade und Fachdaten
-- remoteBildPfad    ← NEU, Remote-URL des Bildes (PocketBase File)
-- bild_pfad           (lokaler Cache-Pfad, bereits erwähnt)
-- zusätzlich weitere Fachdaten
+- `remoteBildPfad`
+- `bild_pfad`
+- weitere Bildpfade und Fachdaten
 
-DB-Version:
+## 12.2 DB-Version
+
 - `version: 6`
 
-Migrationen:
-- v4: `artikelnummer`
+## 12.3 Migrationen
+
+- v4:
+  - `artikelnummer`
 - v5:
   - `last_synced_etag`
   - `pending_resolution`
 - v6:
-  - `conflict_snapshots`-Tabelle (uuid, remote_artikel_json, saved_at)
+  - `conflict_snapshots`-Tabelle  
+    (`uuid`, `remote_artikel_json`, `saved_at`)
 
-### Bedeutung der Sync-Felder
+## 12.4 Bedeutung der Sync-Felder
+
 - `etag == null` oder leer → lokaler Datensatz ist dirty / pending
 - `last_synced_etag` → letzter erfolgreich bestätigter gemeinsamer Remote-Stand
 - `pending_resolution` → bewusste Nutzerentscheidung für den nächsten Sync
 
-### `pending_resolution`-Werte
+## 12.5 `pending_resolution`-Werte
+
 - `NULL` → keine offene Sonderbehandlung
 - `force_local` → lokaler Stand soll beim nächsten Push bewusst gewinnen
 - `force_merge` → lokal erzeugte Merge-Version soll beim nächsten Push bewusst gewinnen
 
 ---
 
-## Zuletzt dokumentierter Root Cause der alten Logik
+# 13. Root Cause der alten Logik
 
 Die frühere Konfliktlogik nutzte `etag` gleichzeitig als:
+
 1. Dirty-Marker
 2. letzten bekannten Remote-Stand
 
-Lokale Änderungen setzten `etag = null`, wodurch die Vergleichsbasis verloren ging.
-Dadurch entstand in Konfliktfällen faktisch Last-Write-Wins statt belastbarer Konflikterkennung.
+Lokale Änderungen setzten `etag = null`, wodurch die Vergleichsbasis verloren ging.  
+Dadurch entstand in Konfliktfällen faktisch **Last-Write-Wins** statt belastbarer Konflikterkennung.
 
 Die neue fachliche Basis trennt daher:
+
 - Dirty-Zustand über `etag`
 - Vergleichsbasis über `last_synced_etag`
 - bewusste Nutzerentscheidung über `pending_resolution`
 
 ---
 
-## Zuletzt dokumentierter Ist-Stand der DB-Logik
+# 14. DB-Logik — dokumentierter Ist-Stand
 
-### Relevante Methoden
+## 14.1 Relevante Methoden
+
 - `getPendingChanges()`
 - `markSynced(uuid, etag, {remotePath, remoteBildPfad})`
 - `clearBildInfoByUuidSilent(uuid)`
@@ -392,48 +448,55 @@ Die neue fachliche Basis trennt daher:
 - `clearPendingResolution(uuid)`
 - `deleteArtikel(artikel)`
 - `setBildPfadByUuidSilent(uuid, bildPfad)`
-- `saveRemoteConflictSnapshot({required String uuid, required Artikel remoteArtikel})` ← NEU
-- `loadRemoteConflictSnapshot(String uuid)` ← NEU
+- `saveRemoteConflictSnapshot({required String uuid, required Artikel remoteArtikel})`
+- `loadRemoteConflictSnapshot(String uuid)`
 - `openDatabase()`
 - `closeDatabase()`
 
-### Zuletzt dokumentiertes fachliches Verhalten
+## 14.2 Fachliches Verhalten
+
 - `getPendingChanges()` nutzt:
   - `etag IS NULL OR etag = ''`
+
 - `markSynced()` setzt:
   - `etag`
   - `last_synced_etag`
   - `pending_resolution = null`
   - optional `remote_path`
-  - optional `remoteBildPfad` (wenn mitgeliefert) — Spaltenname camelCase
-  - lässt vorhandenes `bildPfad` unverändert
+  - optional `remoteBildPfad`
+  - vorhandenes `bildPfad` bleibt unverändert
+
 - `updateArtikel()`:
   - setzt `etag = null`
   - setzt `pending_resolution = null`
   - überschreibt `last_synced_etag` bewusst nicht
+
 - `deleteArtikel()`:
   - Soft-Delete lokal
   - setzt `deleted = 1`
   - setzt `etag = null`
   - setzt `pending_resolution = null`
+
 - `markForForceLocal()`:
   - `etag = null`
   - `pending_resolution = force_local`
+
 - `markForForceMerge()`:
   - `etag = null`
   - `pending_resolution = force_merge`
+
 - `setBildPfadByUuidSilent()`:
   - setzt nur `bildPfad`
   - kein normaler Text-Sync-Trigger
 
 ---
 
-## Zuletzt dokumentierter Ist-Stand der produktiven Sync-Logik
+# 15. Produktive Sync-Logik — dokumentierter Ist-Stand
 
-Datei:
-- `lib/services/pocketbase_sync_service.dart`
+**Datei:** `lib/services/pocketbase_sync_service.dart`
 
-### Zentrale Hilfslogik
+## 15.1 Zentrale Hilfslogik
+
 - `_isDirty(Artikel)`
 - `_hasPendingResolution(Artikel)`
 - `_isForceResolution(Artikel)`
@@ -444,105 +507,130 @@ Datei:
 - `_markLocalAsSyncedFromRemote(Artikel, dynamic remoteRecord)`
 - `_emitConflictIfPossible(Artikel lokal, Artikel remote)`
 
-### Konfliktbasis
+## 15.2 Konfliktbasis
+
 Konflikterkennung basiert produktiv auf:
+
 - `lastSyncedEtag`
 
 Nicht mehr nur auf:
+
 - `etag`
 
-### Zusätzliche konservative Konfliktregel
+## 15.3 Zusätzliche konservative Konfliktregel
+
 Wenn lokal Änderungen oder ein lokales Soft-Delete vorliegen, remote bereits ein passender Datensatz existiert und zugleich keine stabile Vergleichsbasis in `last_synced_etag` vorhanden ist, wird der Fall konservativ als Konflikt behandelt.
 
 Das gilt konsistent für:
+
 - Push-Update
 - Push-Delete
 - Pull bei lokal dirty + existierendem Remote-Record
 
 Bewusste Ausnahmen über:
+
 - `pending_resolution = force_local`
 - `pending_resolution = force_merge`
 
 bleiben erlaubt.
 
-### Push-Verhalten
+## 15.4 Push-Verhalten
+
 Für Pending-Artikel:
+
 - Remote-Record wird über `uuid` gesucht
-- bei lokalem Soft-Delete:
-  - wenn `last_synced_etag` fehlt und keine Force-Resolution gesetzt ist:
-    - Konflikt
-  - wenn Remote seit `last_synced_etag` geändert wurde und keine Force-Resolution gesetzt ist:
-    - Konflikt
-  - sonst:
-    - Remote-Delete
-    - lokal `markSynced(uuid, 'deleted')`
-- bei normalem Update:
-  - wenn `last_synced_etag` fehlt und keine Force-Resolution gesetzt ist:
-    - Konflikt
-  - wenn Remote seit `last_synced_etag` geändert wurde und keine Force-Resolution gesetzt ist:
-    - Konflikt
-  - sonst:
-    - `update()`
-- wenn kein Remote vorhanden:
-  - `create()`
 
-### `remoteBildPfad` nach Push ← NEU
+Bei lokalem Soft-Delete:
 
-Nach erfolgreichem CREATE oder UPDATE wird `remoteBildPfad` über
-`_extractBildName(created.data)` bzw. `_extractBildName(updated.data)`
-bestimmt und via `markSynced(..., remoteBildPfad: ...)` in SQLite
-persistiert.
+- wenn `last_synced_etag` fehlt und keine Force-Resolution gesetzt ist:
+  - Konflikt
+- wenn Remote seit `last_synced_etag` geändert wurde und keine Force-Resolution gesetzt ist:
+  - Konflikt
+- sonst:
+  - Remote-Delete
+  - lokal `markSynced(uuid, 'deleted')`
 
-Hintergrund: PocketBase liefert `bild` nach File-Upload als
-`List<String>`. Der frühere Cast auf `String?` schlug still fehl →
-`remoteBildPfad` blieb `null`.
+Bei normalem Update:
 
+- wenn `last_synced_etag` fehlt und keine Force-Resolution gesetzt ist:
+  - Konflikt
+- wenn Remote seit `last_synced_etag` geändert wurde und keine Force-Resolution gesetzt ist:
+  - Konflikt
+- sonst:
+  - `update()`
 
-### Duplicate-UUID-Recovery beim Create
+Wenn kein Remote vorhanden:
+
+- `create()`
+
+## 15.5 `remoteBildPfad` nach Push
+
+Nach erfolgreichem CREATE oder UPDATE wird `remoteBildPfad` über:
+
+- `_extractBildName(created.data)`
+- `_extractBildName(updated.data)`
+
+bestimmt und via `markSynced(..., remoteBildPfad: ...)` in SQLite persistiert.
+
+Hintergrund:
+PocketBase liefert `bild` nach File-Upload als `List<String>`.  
+Der frühere Cast auf `String?` schlug still fehl, dadurch blieb `remoteBildPfad` `null`.
+
+## 15.6 Duplicate-UUID-Recovery beim Create
+
 Wenn `create()` an einer bereits vorhandenen `uuid` scheitert:
+
 - Duplicate-Fall wird erkannt
 - bestehender Remote-Record wird erneut per `uuid` gesucht
 - lokaler Datensatz wird mit dessen Remote-ID / ETag als synchronisiert markiert
-- dadurch scheitert derselbe Datensatz nicht bei jedem weiteren Sync erneut im Create-Pfad
+- derselbe Datensatz scheitert dadurch nicht bei jedem weiteren Sync erneut im Create-Pfad
 
-### Konflikt-Snapshot-Strategie ← NEU
+## 15.7 Konflikt-Snapshot-Strategie
 
-Der Konflikt-Callback wird ausschließlich im Push-Pfad ausgelöst —
-niemals direkt im Pull-Pfad.
+Der Konflikt-Callback wird ausschließlich im **Push-Pfad** ausgelöst, niemals direkt im Pull-Pfad.
 
 Ablauf:
-1. Pull erkennt einen potenziellen Konflikt (lokal dirty + Remote geändert)
-   → speichert den Remote-Stand via `saveRemoteConflictSnapshot()` in
-     `conflict_snapshots` (SQLite v6)
-   → löst keinen Callback aus
+
+1. Pull erkennt einen potenziellen Konflikt  
+   (lokal dirty + Remote geändert)
+   - speichert den Remote-Stand via `saveRemoteConflictSnapshot()` in `conflict_snapshots`
+   - löst keinen Callback aus
+
 2. Push verarbeitet denselben Datensatz
-   → lädt den gespeicherten Snapshot via `loadRemoteConflictSnapshot()`
-   → ruft `_emitConflictIfPossible(lokal, snapshot)` genau einmal auf
-   → UUID-Guard verhindert doppelten Callback im selben Sync-Zyklus
+   - lädt den Snapshot via `loadRemoteConflictSnapshot()`
+   - ruft `_emitConflictIfPossible(lokal, snapshot)` genau einmal auf
+   - UUID-Guard verhindert doppelten Callback im selben Sync-Zyklus
 
 Fachlicher Effekt:
+
 - Konflikt-Callback wird pro UUID maximal einmal pro `syncOnce()`-Lauf ausgelöst
 - Remote-Bildinformationen sind im Snapshot korrekt enthalten
 - Pull und Push sind fachlich sauber entkoppelt
 
-### Logging im Duplicate-Recovery-Pfad
-Für den Duplicate-UUID-Sonderfall existieren strukturierte Logs:
-- `WARN`:
-  - Duplicate erkannt, Recovery-Lookup startet
-- `INFO`:
-  - Recovery erfolgreich, lokaler Datensatz an bestehenden Remote-Record angehängt
-- `ERROR`:
-  - Recovery fehlgeschlagen, Fehler wird mit `error` + `stackTrace` geloggt
+## 15.8 Logging im Duplicate-Recovery-Pfad
 
-### Force-Resolution
+Für den Duplicate-UUID-Sonderfall existieren strukturierte Logs:
+
+- `WARN`
+  - Duplicate erkannt, Recovery-Lookup startet
+- `INFO`
+  - Recovery erfolgreich, lokaler Datensatz an bestehenden Remote-Record angehängt
+- `ERROR`
+  - Recovery fehlgeschlagen, Fehler wird mit `error` und `stackTrace` geloggt
+
+## 15.9 Force-Resolution
+
 `_isForceResolution()` behandelt aktuell:
+
 - `force_local`
 - `force_merge`
 
 als bewussten Override-Push beim nächsten Sync.
 
-### Pull-Verhalten
+## 15.10 Pull-Verhalten
+
 Für Remote-Records:
+
 - wenn lokal `pending_resolution` gesetzt:
   - Pull skip
 - wenn lokal dirty und keine stabile Vergleichsbasis in `last_synced_etag` vorhanden:
@@ -554,123 +642,161 @@ Für Remote-Records:
 - sonst:
   - `upsertArtikel(..., etag: remoteEtag)`
 
-### Remote-Löschungen beim Pull
+## 15.11 Remote-Löschungen beim Pull
+
 Wenn ein lokal bekannter Datensatz remote fehlt:
+
 - lokale Löschung erfolgt nur, wenn:
   - `remote_path` gesetzt
   - lokal weder dirty noch pending
 - sonst:
   - lokale Löschung wird übersprungen
 
-### Bild-Sync
+## 15.12 Bild-Sync
+
 Getrennt vom Textsync:
+
 - `downloadMissingImages()`
 - Bilddownload über PocketBase File API
 - lokale Speicherung im Cache-Verzeichnis
 - Verwendung von `setBildPfadByUuidSilent()`
 
-### Request-Timeouts im Push-Pfad (B-014 / B-015)
-Zwei Timeout-Konstanten:
-- `_kPushRequestTimeout = Duration(seconds: 30)` — JSON-only Requests
-  (getList, delete, Recovery-Lookup)
-- `_kPushUploadTimeout  = Duration(seconds: 120)` — Datei-Uploads
-  (create/update wenn `files` nicht leer)
+## 15.13 Request-Timeouts im Push-Pfad
 
-Orchestrator-Timeout: `Duration(minutes: 5)` für den gesamten syncOnce()-Lauf.
+Timeout-Konstanten:
 
-Timeout-after-success Recovery (Fix C):
-Wenn `create()` mit Bild einen TimeoutException wirft, kann der Server
-den Record bereits erstellt haben. In diesem Fall greift dieselbe
-Recovery-Logik wie bei Duplicate-UUID-Fehlern:
-- Recovery-Lookup per uuid
-- wenn Record gefunden: markSynced() → kein falscher Konflikt im Pull
-- wenn Record nicht gefunden: echter Fehler, rethrow
+- `_kPushRequestTimeout = Duration(seconds: 30)`
+  - JSON-only Requests
+  - z. B. `getList`, `delete`, Recovery-Lookup
+
+- `_kPushUploadTimeout = Duration(seconds: 120)`
+  - Datei-Uploads
+  - `create/update`, wenn `files` nicht leer ist
+
+Zusätzlich:
+
+- Orchestrator-Timeout: `Duration(minutes: 5)` für den gesamten `syncOnce()`-Lauf
+
+## 15.14 Timeout-after-success Recovery
+
+Wenn `create()` mit Bild eine `TimeoutException` wirft, kann der Server den Record bereits erstellt haben.
+
+Dann greift dieselbe Recovery-Logik wie beim Duplicate-UUID-Fall:
+
+- Recovery-Lookup per `uuid`
+- wenn Record gefunden:
+  - `markSynced()`
+  - kein falscher Konflikt im Pull
+- wenn Record nicht gefunden:
+  - echter Fehler
+  - rethrow
 
 ---
 
-## Zuletzt dokumentierter Ist-Stand der Konflikt-UI und Auflösung
+# 16. Konflikt-UI und Auflösung — dokumentierter Ist-Stand
 
-Dateien:
+**Dateien:**
+
 - `lib/main.dart`
 - `lib/screens/conflict_resolution_screen.dart`
 
-### Konfliktobjekt
+## 16.1 Konfliktobjekt
+
 `ConflictData` enthält:
+
 - `localVersion`
 - `remoteVersion`
 - `conflictReason`
 - `detectedAt`
 
-### Auflösungsoptionen
+## 16.2 Auflösungsoptionen
+
 `ConflictResolution`:
+
 - `useLocal`
 - `useRemote`
 - `merge`
 - `skip`
 
-### Konflikt-Callback-Verkabelung
+## 16.3 Konflikt-Callback-Verkabelung
+
 - `SyncOrchestrator.setConflictCallback(_onConflictDetected)`
 - Registrierung erfolgt nach erstem Frame via `addPostFrameCallback`
 - Navigation über `GlobalKey<NavigatorState>`
 
-### Konflikt-UI
+## 16.4 Konflikt-UI
+
 Konflikte werden geöffnet über:
+
 - `ConflictResolutionScreen(conflicts: [conflictData], syncService: _PocketBaseConflictAdapter(_db))`
 
-### Konflikt-Hilfslogik
-Datei:
-- `lib/services/conflict_resolution_utils.dart`
+## 16.5 Konflikt-Hilfslogik
+
+**Datei:** `lib/services/conflict_resolution_utils.dart`
 
 Rolle:
+
 - kleine isolierte Hilfslogik für Konfliktauflösungsdetails
 - aktuell insbesondere Validierung einer belastbaren Remote-Baseline für `useRemote`
 
-### Adapter
+## 16.6 Adapter
+
 `_PocketBaseConflictAdapter implements SyncService`
 
 Fachliche Rolle:
+
 - Minimaladapter für die Konfliktauflösungs-UI im PocketBase-Flow
 
 Produktiv relevant implementiert:
+
 - `applyConflictResolution(...)`
 
-Weitere vom `SyncService` erwartete Member sind aktuell nur als explizite Stub-Implementierungen vorhanden und werfen `UnimplementedError`, falls sie versehentlich genutzt werden.
+Weitere vom `SyncService` erwartete Member sind aktuell nur als explizite Stubs implementiert und werfen `UnimplementedError`, falls sie versehentlich genutzt werden.
 
 Wichtige Einordnung:
-- der Adapter ist bewusst eine kleine Übergangslösung für den ConflictResolutionScreen
-- er ist kein vollwertiger allgemeiner SyncService
 
-### Reales Verhalten der Konfliktauflösung
+- bewusst kleine Übergangslösung
+- kein vollwertiger allgemeiner SyncService
 
-#### useLocal
+## 16.7 Reales Verhalten der Konfliktauflösung
+
+### `useLocal`
+
 - `_db.markForForceLocal(conflict.localVersion.uuid)`
 
-#### useRemote
+### `useRemote`
+
 - `_db.upsertArtikel(conflict.remoteVersion, etag: remoteEtag)`
 - `_db.clearPendingResolution(conflict.remoteVersion.uuid)`
 
-`remoteEtag` wird über eine eigene Hilfslogik bestimmt:
+`remoteEtag` wird über folgende Hilfslogik bestimmt:
+
 - `requireRemoteBaselineEtag(conflict.remoteVersion)`
 
 Zulässige Baseline-Quellen:
+
 - `remoteVersion.etag`
 - sonst `remoteVersion.lastSyncedEtag`
 
-Nicht mehr zulässig:
+Nicht zulässig:
+
 - `remoteVersion.remotePath`
 - leerer String als Fallback
 
-Wenn keine belastbare Remote-Baseline vorhanden ist, wird die Auflösung mit `StateError` abgebrochen (fail-fast statt semantisch unsauberer Persistenz).
+Wenn keine belastbare Remote-Baseline vorhanden ist, wird mit `StateError` abgebrochen.
 
-#### merge
+### `merge`
+
 - `_db.updateArtikel(mergedVersion)`
 - `_db.markForForceMerge(mergedVersion.uuid)`
 
-#### skip
+### `skip`
+
 - keine Persistenzänderung
 - Konflikt soll beim nächsten Sync erneut erscheinen
 
-### UI-Verhalten
+## 16.8 UI-Verhalten
+
 - sequentielle Bearbeitung mehrerer Konflikte
 - Fortschritt `(x/n)`
 - Merge-Dialog mit manuell wählbaren Feldwerten
@@ -678,82 +804,105 @@ Wenn keine belastbare Remote-Baseline vorhanden ist, wird die Auflösung mit `St
   - `resolved`
   - `skipped`
 
-### Guard gegen doppelte Konflikt-UI
-Zuletzt dokumentiert:
+## 16.9 Guard gegen doppelte Konflikt-UI
+
 In `main.dart` wurde ein Guard-State ergänzt, damit der Konflikt-Screen nicht mehrfach parallel geöffnet wird, wenn Konflikte schnell nacheinander eintreffen.
 
-Bei Folgeprüfungen bitte im gezeigten Code verifizieren.
+Bei Folgeprüfungen bitte im gezeigten Code erneut verifizieren.
 
 ---
 
-## Zuletzt dokumentierter Ist-Stand des Orchestrators
+# 17. Orchestrator — dokumentierter Ist-Stand
 
-Datei:
-- `lib/services/sync_orchestrator.dart`
+**Datei:** `lib/services/sync_orchestrator.dart`
 
-### Rolle
+## 17.1 Rolle
+
 Der Orchestrator ist die zentrale Brücke zwischen:
+
 - `PocketBaseSyncService`
 - Konflikt-Callback
 - Sync-Status-Stream
 - Bild-Nachdownload
 
-### Laufverhalten
-`runOnce()` macht:
-1. `PocketBaseSyncService.syncOnce()` (Phase: `push+pull`)
-2. `PocketBaseSyncService.downloadMissingImages()` (Phase: `images`)
+## 17.2 Laufverhalten
 
-### Schutzmechanismen
+`runOnce()` macht:
+
+1. `PocketBaseSyncService.syncOnce()`  
+   Phase: `push+pull`
+2. `PocketBaseSyncService.downloadMissingImages()`  
+   Phase: `images`
+
+## 17.3 Schutzmechanismen
+
 - `_isSyncing` verhindert parallele Sync-Läufe
 - Fehler werden geloggt und als `SyncStatus.error` emittiert
 - Fehler werden im Orchestrator nicht weitergeworfen
 - `dispose()` setzt Konfliktcallback zurück
-- `_lastSyncPhase` (String) hält die zuletzt aktive Phase fest;
-  wird bei Timeout/Fehler als `SYNC|ORCHESTRATOR fail phase=...` geloggt (O-012)
+- `_lastSyncPhase` hält die zuletzt aktive Phase fest und wird bei Timeout/Fehler als  
+  `SYNC|ORCHESTRATOR fail phase=...` geloggt
+
+## 17.4 Relevanter realer Befund
+
+Bei manuell länger offener Konflikt-UI, insbesondere im Merge-Fall, kann der globale Orchestrator-Timeout von 5 Minuten auslösen, obwohl der Benutzer die Konfliktauflösung kurz danach erfolgreich abschließt.
+
+Fachliche Auswirkung:
+
+- kein offensichtlicher Datenverlust im gezeigten Lauf
+- aber unsauberer UX-/Ablauffehler
+- Merge-Ergebnis wird erst im Folgesync sauber gepusht
 
 ---
 
-## Testbarkeit über Contracts
+# 18. Testbarkeit über Contracts
 
-Datei:
-- `lib/services/pocketbase_sync_contracts.dart`
+**Datei:** `lib/services/pocketbase_sync_contracts.dart`
 
 Verwendete Interfaces:
+
 - `SyncPocketBaseService`
 - `SyncArtikelDbService`
-  - neu: `saveRemoteConflictSnapshot({required String uuid, required Artikel remoteArtikel})` ← NEU
-  - neu: `loadRemoteConflictSnapshot(String uuid)` ← NEU
+  - `saveRemoteConflictSnapshot({required String uuid, required Artikel remoteArtikel})`
+  - `loadRemoteConflictSnapshot(String uuid)`
 
 Ziel:
+
 - den produktiven `PocketBaseSyncService` näher am echten Code testbar machen
 - ohne vollständige harte Kopplung an konkrete Singleton-Implementierungen
 
 ---
 
-## Zuletzt dokumentierte Testabdeckung
+# 19. Testabdeckung — dokumentierter Stand
 
-### Produktive Konfliktfälle
-Dateien:
+## 19.1 Produktive Konfliktfälle
+
+**Dateien:**
+
 - `test/services/pocketbase_sync_service_test.dart`
 - `test/services/pocketbase_sync_service_conflict_test.dart`
 
-Zuletzt dokumentiert:
+Dokumentiert bzw. bestätigt:
+
 - T-001.10: übersprungener Konflikt erscheint beim nächsten Sync erneut
 - T-001.12: lokales Soft-Delete + Remote-Änderung erzeugt Konflikt statt Remote-Löschung
-- T-001.13: Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version ← NEU
-- T-001.14: Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version ← NEU
-- T-001.16: erfolgreicher `force_local`-Push bereinigt `pendingResolution` ← NEU
-- T-001.17: erfolgreicher `force_merge`-Push bereinigt `pendingResolution` ← NEU
+- T-001.13: Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version
+- T-001.14: Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version
+- T-001.16: erfolgreicher `force_local`-Push bereinigt `pendingResolution`
+- T-001.17: erfolgreicher `force_merge`-Push bereinigt `pendingResolution`
 - fehlende Konfliktbasis bei bestehendem Remote-Datensatz wird konservativ als Konflikt behandelt
 - Duplicate-UUID-Recovery im Create-Pfad ist testseitig abgedeckt
-- Konflikt-Snapshot-Strategie: Pull speichert, Push löst aus — service-nah abgesichert ← NEU
+- Konflikt-Snapshot-Strategie Pull speichert, Push löst aus — service-nah abgesichert
 
-### UI-/Resolution-Flow
-Dateien:
+## 19.2 UI-/Resolution-Flow
+
+**Dateien:**
+
 - `test/conflict_resolution_test.dart`
 - `test/services/conflict_resolution_utils_test.dart`
 
-Zuletzt dokumentiert:
+Dokumentiert bzw. bestätigt:
+
 - `ConflictData`
 - `ConflictResolution`
 - leere Konfliktliste
@@ -766,43 +915,48 @@ Zuletzt dokumentiert:
 - `requireRemoteBaselineEtag()` akzeptiert nur belastbare Baselines aus `etag` oder `lastSyncedEtag`
 - fehlende / leere / whitespace-only Baselines führen zu `StateError`
 
-### Modell-/Mapping-Ergänzung
-Dateien:
+## 19.3 Modell-/Mapping-Ergänzung
+
+**Dateien:**
+
 - `test/models/artikel_model_test.dart`
 - `test/services/artikel_db_service_test.dart`
 
-Zuletzt dokumentiert:
+Dokumentiert bzw. bestätigt:
+
 - `kategorie` bleibt bei SQLite-, JSON- und PocketBase-Roundtrip erhalten
 - `kategorie` ist in `copyWith()` und relevanten DB-/Modelltests abgedeckt
 
 ---
 
+# 20. Logging
 
-## Logging
+**Datei:** `lib/services/app_log_service.dart`
 
-Datei: `lib/services/app_log_service.dart`
+## 20.1 Aktueller Stand
 
-### Aktueller Stand
-
-- `PrettyPrinter` mit `noBoxingByDefault: true` ← NEU (Fix LOG-001)
-  entfernt Box-Drawing-Zeichen (`│ ┌ └ ─`); Emojis bleiben erhalten
+- `PrettyPrinter` mit `noBoxingByDefault: true`
+  - entfernt Box-Drawing-Zeichen
+  - Emojis bleiben erhalten
 - `_CleanMemoryOutput` entfernt ANSI-Escape-Codes für den In-App-Viewer
 - `ConsoleOutput` bekommt weiterhin Farben
-- Default Log-Level im In-App-Viewer: `Level.error` (F-006)
+- Default Log-Level im In-App-Viewer: `Level.error`
 - Buffer: 500 Events im RAM
 
-### Strukturierte Sync-Logs (O-012)
+## 20.2 Strukturierte Sync-Logs
 
+```text
 SYNC|PUSH|CREATE/UPDATE/DELETE ok/fail uuid=...
 SYNC|PUSH done created=N updated=N deleted=N conflicts=N errors=N
 SYNC|PULL done upserted=N skipped=N conflicts=N deleted=N errors=N
 SYNC|ORCHESTRATOR fail phase=... msg=...
+```
 
-Details (Exception + Stacktrace) folgen weiterhin als `logger.e`.
+Details wie Exception und Stacktrace folgen weiterhin separat als `logger.e`.
 
---- 
+---
 
-## Sync-Invarianten
+# 21. Sync-Invarianten
 
 Diese Regeln möglichst nicht brechen:
 
@@ -814,131 +968,105 @@ Diese Regeln möglichst nicht brechen:
 - `pending_resolution = force_merge` erlaubt bewussten Merge-Push
 - `deleted = 1` ist lokales Soft-Delete
 - `setBildPfadByUuidSilent()` darf keinen normalen Datensync-Trigger auslösen
+- `clearBildInfoByUuidSilent()` darf keinen normalen Datensync auslösen
 - `toPocketBaseMap()` darf keine lokalen Konflikt-Steuerfelder übertragen
+- `toPocketBaseMap()` muss `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings übertragen
 - Duplicate-UUID beim Create darf nicht zu endlosen Wiederholungsfehlern führen
 - fehlende Konfliktbasis bei existierendem Remote-Pendant darf nicht still optimistisch überschrieben werden
-- `setBildPfadByUuidSilent()` und `clearBildInfoByUuidSilent()` dürfen
-keinen normalen Datensync auslösen (nur Bild-Caching)
-- `toPocketBaseMap()` muss `erstelltAm` und `aktualisiertAm` als
-  UTC-ISO-Strings übertragen ← NEU
-- `_extractBildName()` ist die einzige zulässige Stelle zur Normalisierung
-  von PocketBase `bild` → `remoteBildPfad` ← NEU
-  - `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` sind die
-  einzigen zulässigen Stellen zum Lesen/Schreiben von `conflict_snapshots`
-- der Konflikt-Callback darf pro UUID maximal einmal pro `syncOnce()`-Lauf
-  ausgelöst werden (UUID-Guard im Push-Pfad) ← NEU
+- `_extractBildName()` ist die einzige zulässige Stelle zur Normalisierung von PocketBase `bild` zu `remoteBildPfad`
+- `saveRemoteConflictSnapshot()` und `loadRemoteConflictSnapshot()` sind die einzigen zulässigen Stellen zum Lesen/Schreiben von `conflict_snapshots`
+- der Konflikt-Callback darf pro UUID maximal einmal pro `syncOnce()`-Lauf ausgelöst werden
 
-> `remoteBildPfad` (SQLite-Spaltenname: `remoteBildPfad`) wird nur durch
-> `markSynced()` nach erfolgreichem Push oder durch `upsertArtikel()` nach
-> erfolgreichem Pull gesetzt. Lokale manuelle Änderungen an diesem Feld
-> sind nicht vorgesehen.
+> `remoteBildPfad` (SQLite-Spaltenname: `remoteBildPfad`) wird nur durch `markSynced()` nach erfolgreichem Push oder durch `upsertArtikel()` nach erfolgreichem Pull gesetzt. Lokale manuelle Änderungen an diesem Feld sind nicht vorgesehen.
 
 ---
 
-## Zuletzt dokumentierte fachlich bestätigte Fähigkeiten
+# 22. Fachlich bestätigte Fähigkeiten
 
+## 22.1 Technische Basis, Hardening und service-nahe Tests
 
-**Technische Basis, Hardening und service-nahe Tests — weitgehend abgeschlossen ✅**
-- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling
-- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index
-- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
-- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien
-- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
-- [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
-- [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+- [x] T-001.1 — `ConflictData`: Konstruktor, Felder, Null-Handling
+- [x] T-001.2 — `ConflictResolution` Enum: alle Werte, `byName`, Index
+- [x] T-001.3 — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
+- [x] T-001.4 — `SyncService._determineConflictReason()`: Zeitstempel-Szenarien
+- [x] T-001.5 — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
+- [x] T-001.10 — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
+- [x] T-001.12 — Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
 - [x] Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version
 - [x] Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version
-- [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
+- [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil
 - [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
-- [x] Erfolgreicher `force_local`-/`force_merge`-Push bereinigt `pendingResolution` über `markSynced()`-Contract
-- [x] Produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
+- [x] erfolgreicher `force_local`-/`force_merge`-Push bereinigt `pendingResolution`
+- [x] produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
 - [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
-- [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
-- [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
-  - `artikelnummer` wird nur gesendet wenn `>= 1` (PocketBase `min: 1`-Guard, B-014)
-- [x] `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als
-  UTC-ISO-Strings ← NEU
-- [x] `_extractBildName()` normalisiert `List<String>` → `String?` ← NEU
-- [x] `remoteBildPfad` nach CREATE/UPDATE korrekt gesetzt ← NEU
+- [x] `_PocketBaseConflictAdapter` analyzer-konform vervollständigt
+- [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten
+- [x] `artikelnummer` wird nur gesendet, wenn `>= 1`
+- [x] `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
+- [x] `_extractBildName()` normalisiert `List<String>` zu `String?`
+- [x] `remoteBildPfad` nach CREATE/UPDATE korrekt gesetzt
 - [x] Box-Drawing-Zeichen im Log-Viewer entfernt
-  (`noBoxingByDefault: true`) ← NEU  
-- [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
+- [x] Modelltests für relevante Sync-Felder weitgehend vorhanden
 - [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
-- [x] Summary-Logs pro Sync-Phase implementiert (O-012):
-  - `SYNC|PUSH|CREATE/UPDATE/DELETE  ok/fail  uuid=...`
-  - `SYNC|PUSH  done  created=N  updated=N  deleted=N  conflicts=N  errors=N`
-  - `SYNC|PULL  done  upserted=N  skipped=N  conflicts=N  deleted=N  errors=N`
-  - `SYNC|ORCHESTRATOR  fail  phase=...  msg=...`
-  - Details (Exception + Stacktrace) folgen weiterhin als `logger.e`
-- [x] ANSI-Codes im In-App Log-Viewer bereinigt (_CleanMemoryOutput-Adapter)
+- [x] Summary-Logs pro Sync-Phase implementiert
+- [x] ANSI-Codes im In-App-Log-Viewer bereinigt
 - [x] Upload-Timeout (120s) getrennt von JSON-Timeout (30s)
-- [x] Timeout-after-success Recovery für create() mit Bild
+- [x] Timeout-after-success Recovery für `create()` mit Bild
 - [x] Orchestrator-Timeout auf 5 Minuten erhöht
-- [x] Konflikt-Snapshot-Strategie implementiert: Pull speichert Remote-Stand via
-  `saveRemoteConflictSnapshot()`, Push löst Callback via `loadRemoteConflictSnapshot()`
-  aus — UUID-Guard verhindert doppelten Callback pro Sync-Zyklus ← NEU
-- [x] `SyncArtikelDbService`-Interface um `saveRemoteConflictSnapshot` /
-  `loadRemoteConflictSnapshot` erweitert ← NEU
-- [x] `FakeArtikelDbService` vollständig — alle Interface-Methoden implementiert,
-  `flutter analyze` + `flutter test` grün ← NEU
-- [x] T-001.13 — Pull überschreibt `force_local` nicht (Test grün) ← NEU
-- [x] T-001.14 — Pull überschreibt `force_merge` nicht (Test grün) ← NEU
-- [x] T-001.16 — `force_local`-Push bereinigt `pendingResolution` (Test grün) ← NEU
-- [x] T-001.17 — `force_merge`-Push bereinigt `pendingResolution` (Test grün) ← NEU
+- [x] Konflikt-Snapshot-Strategie implementiert
+- [x] `SyncArtikelDbService`-Interface um Snapshot-Methoden erweitert
+- [x] `FakeArtikelDbService` vollständig, `flutter analyze` und `flutter test` grün
 
-**Manuelle Integrations- und Feldtests**
-- [x] B-001 — Artikel erstellen + Push → kein HTTP 400, Daten korrekt
-  in PocketBase ← NEU
-- [x] B-002 — Gerät B pullt B-001 → Daten korrekt übertragen ← NEU
-- [ ] B-001/B-002 — `kategorie`-Übertragung (verschoben → F-010)
-- [ ] B-003 — Artikel mit Bild → `remoteBildPfad` + Zeitstempel korrekt
-  (Fix eingespielt, Wiederholungstest ausstehend) ← NEU
-- [ ] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
-- [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
-- [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
-- [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
-- [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
-- [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
-- [ ] **M-001** - `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
-- [ ] **M-002** - `force_merge` bleibt nach bestätigter Auflösung stabil
-- [ ] **M-003** - übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
-- [ ] **M-004** - Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
-- [ ] **E-001** - End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall
+## 22.2 Manuell / real bestätigt
 
+- [x] B-001 — Artikel erstellen + Push → kein HTTP 400, Daten korrekt in PocketBase
+- [x] B-002 — Gerät B pullt B-001 → Daten korrekt übertragen
+- [ ] B-001/B-002 — `kategorie`-Übertragung noch separat offen
+- [x] B-003 — Artikel mit Bild → `remoteBildPfad` + Zeitstempel korrekt
+- [x] T-001.6 — Konflikt-UI erscheint bei Offline/Online-Konflikt
+- [x] T-001.7 — „Lokal behalten“ → Server wird im Folgesync überschrieben
+- [x] T-001.8 — „Server übernehmen“ → lokale Daten werden ersetzt
+- [~] T-001.9 — „Zusammenführen“ → fachlich bestätigt; Merge-Dialog und Persistenz funktionieren, Merge-Version wird im Folgesync korrekt gepusht; laufender Sync kann aber während offener UI in den Orchestrator-Timeout laufen
+- [x] T-001.10 / M-003 — `skip` lässt Konflikt offen und zeigt ihn beim nächsten Sync erneut; auch im Mehrfachkonflikt-Lauf bestätigt
+- [x] T-001.11 — mehrere Konflikte gleichzeitig → sequentielle Bearbeitung im echten Sync-Lauf mit gemischten Entscheidungen (`skip`, `useRemote`, `useLocal`) erfolgreich bestätigt
+- [x] M-001 — `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [~] M-002 — `force_merge` funktioniert fachlich und bleibt über den Folgesync stabil, aber mit Timeout-Befund im laufenden Sync
+- [ ] M-004 — Soft-Delete lokal + Remote-Edit erneut manuell verifizieren
+- [ ] E-001 — End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall
 
-**Verbleibende technische Restpunkte**
-- [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
-- [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
-- [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
-- [ ] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für
-  `erstelltAm`/`aktualisiertAm` ergänzen ← NEU
-- [ ] `test/services/pocketbase_sync_service_test.dart`:
-  `_extractBildName()` und `remoteBildPfad`-Persistenz testen ← NEU
+## 22.3 Verbleibende technische Restpunkte
 
-**Optional / spätere Verfeinerung**
+- [x] Artikel-Modell und Persistenz für `kategorie` vervollständigt
+- [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung abgesichert
+- [ ] Index-Namen in `docs/DATABASE.md` und `docs/ARCHITECTURE.md` gegen echten SQLite-Code abgleichen
+- [ ] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für `erstelltAm` / `aktualisiertAm` ergänzen
+- [ ] `test/services/pocketbase_sync_service_test.dart`: `_extractBildName()` und `remoteBildPfad`-Persistenz testen
+- [ ] `test/services/artikel_db_service_test.dart`: Snapshot-Methoden gezielt ergänzen
+
+## 22.4 Optional / spätere Verfeinerung
+
 - [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
-- [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
-- [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
-- [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
-- [ ] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
-- [ ] Optional gezielte Modelltests für Roundtrip- und `copyWith()`-Null-Semantik ergänzen
-- [ ] Optional Semantik von `aktualisiertAm` vs. `updatedAt` dokumentieren oder klarer benennen
-- [ ] Optional Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
-- [ ] Optional Restprüfung auf konsistente UTC-/Zeitstempel-Semantik in `artikel_db_service.dart`
-- [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
-
-**Hinweis**
-Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
+- [ ] UUID-Format serverseitig zusätzlich per Pattern validieren
+- [ ] Konfliktvergleichsbasis langfristig noch klarer auf `last_synced_etag` vereinheitlichen oder dokumentieren
+- [ ] `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
+- [ ] service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
+- [ ] gezielte Modelltests für Roundtrip- und `copyWith()`-Null-Semantik ergänzen
+- [ ] Semantik von `aktualisiertAm` vs. `updatedAt` klarer dokumentieren
+- [ ] Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
+- [ ] Restprüfung auf konsistente UTC-/Zeitstempel-Semantik in `artikel_db_service.dart`
+- [ ] Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
 
 ---
 
-## Teststatus
+# 23. Teststatus
 
-Bekannter zuletzt dokumentierter Stand:
+Bekannter dokumentierter Stand:
+
 - `flutter analyze` grün
 - `flutter test` grün
 
-Besonders relevante Testdateien:
+## 23.1 Besonders relevante Testdateien
+
 - `test/conflict_resolution_test.dart`
 - `test/services/conflict_resolution_utils_test.dart`
 - `test/services/pocketbase_sync_service_test.dart`
@@ -947,130 +1075,145 @@ Besonders relevante Testdateien:
 - `test/services/artikel_db_service_test.dart`
 - `test/models/artikel_model_test.dart`
 
-Nach B-003-Fix gezielt zu prüfen/ergänzen:
-- `test/models/artikel_model_test.dart`:
-  `toPocketBaseMap()` enthält `erstelltAm` und `aktualisiertAm` als
-  UTC-ISO-Strings
-- `test/services/pocketbase_sync_service_test.dart`:
-  `_extractBildName()` mit `List<String>`, `String`, `null`;
-  `markSynced()` nach CREATE/UPDATE setzt `remoteBildPfad` korrekt
+## 23.2 Nach B-003-Fix gezielt zu prüfen / ergänzen
 
-Nach B-014 gezielt zu prüfen/ergänzen:
-- `test/models/artikel_model_test.dart`:
-  `toPocketBaseMap()` — `artikelnummer: null` und `artikelnummer: 0`
-  dürfen nicht im Map erscheinen; `artikelnummer: 1` muss enthalten sein
-- `test/services/artikel_db_service_test.dart`:
-  `markSynced()` mit `remoteBildPfad` — Spalte `remoteBildPfad` muss
-  danach korrekt gesetzt sein (war bisher stiller Datenverlust)
+- `test/models/artikel_model_test.dart`
+  - `toPocketBaseMap()` enthält `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
 
-Wichtiger Test-Hinweis:
+- `test/services/pocketbase_sync_service_test.dart`
+  - `_extractBildName()` mit `List<String>`, `String`, `null`
+  - `markSynced()` nach CREATE/UPDATE setzt `remoteBildPfad` korrekt
+
+## 23.3 Nach B-014 gezielt zu prüfen / ergänzen
+
+- `test/models/artikel_model_test.dart`
+  - `toPocketBaseMap()`:
+    - `artikelnummer: null` darf nicht im Map erscheinen
+    - `artikelnummer: 0` darf nicht im Map erscheinen
+    - `artikelnummer: 1` muss enthalten sein
+
+- `test/services/artikel_db_service_test.dart`
+  - `markSynced()` mit `remoteBildPfad`
+  - Spalte `remoteBildPfad` muss korrekt gesetzt sein
+
+## 23.4 Wichtiger Test-Hinweis
+
 Die Konfliktlogik ist nicht nur im UI-Flow, sondern zusätzlich im produktiven Sync-Kontext abgesichert.
 
 ---
 
-## Konsolidierter Maßnahmenblock T-010
+# 24. Konsolidierter Maßnahmenblock T-010
 
-Dieser Block dient nur als komprimierte Referenz auf den zuletzt dokumentierten Hardening-Stand.
+Dieser Block dient nur als komprimierte Referenz auf den zuletzt dokumentierten Hardening-Stand.  
 Die Priorisierung offener Arbeiten erfolgt primär über `docs/OPTIMIZATIONS.md`.
 
-### T-010 abgeschlossen
-Titel: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery und Recovery-Logging konsolidiert
+## 24.1 T-010 abgeschlossen
 
-Ziel:
+**Titel:** Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery und Recovery-Logging konsolidiert
+
+**Ziel:**  
 Die PocketBase-Synchronisation gegen fehlende Konfliktbasis, Duplicate-UUID-Race-Conditions und unklare Recovery-Nachvollziehbarkeit robust absichern.
 
-Betroffene Dateien/Bereiche:
+**Betroffene Dateien/Bereiche:**
+
 - `lib/services/pocketbase_sync_service.dart`
 - `test/services/pocketbase_sync_service_test.dart`
 - `docs/LOGGER.md`
 - PocketBase-Schema / Admin-Konfiguration
 
-Fachlicher Effekt:
+**Fachlicher Effekt:**
+
 - fehlende Konfliktbasis bei existierendem Remote-Datensatz wird konservativ als Konflikt behandelt
 - Duplicate-UUID beim Create wird durch Lookup-Recovery abgefangen
 - `uuid` ist serverseitig als `required` und `unique` abgesichert
 - Recovery-Ablauf ist über strukturierte Logs nachvollziehbar
 
-Offene Punkte:
+**Offene Punkte:**
+
 - keine kritischen technischen Blocker innerhalb dieses Maßnahmenblocks
 - optional später End-to-End-Test mit realem PocketBase-Duplicate-Fall
 - optional Monitoring/Zähler für Recovery-Häufigkeit
 
 ---
 
-## Bekannte Rest-Risiken / offene Prüfungen
+# 25. Bekannte Rest-Risiken / offene Prüfungen
 
-### Fachlich / produktiv relevant
+## 25.1 Fachlich / produktiv relevant
+
 1. `force_merge` wird aktuell technisch weitgehend wie `force_local` behandelt; fachliche Differenzierung bei Bedarf weiter prüfen
 2. Race Condition zwischen Remote-Lesen und anschließendem `update()` / `delete()` bleibt prinzipiell möglich
 3. `pending_resolution` kann ohne sauberen UI-/Workflow-Pfad hängen bleiben
 4. `useRemote` bricht bewusst fail-fast ab, wenn weder `etag` noch `lastSyncedEtag` vorhanden sind; offen bleibt die fachliche Sicherstellung, dass reale Konfliktdaten diese Baseline zuverlässig liefern
 
-### Technisch / Robustheit
+## 25.2 Technisch / Robustheit
+
 5. Pull-Cleanup nutzt `getAlleArtikel(limit: 10000)` konservativ/grob
 6. Leere Remote-Liste löscht lokal bewusst nicht aggressiv alles
 7. Bildsync nutzt fachlich `aktualisiertAm` als Näherung
+8. Während offener Konflikt-UI, insbesondere beim manuellen Merge, kann `SyncOrchestrator.runOnce()` nach 5 Minuten mit Timeout fehlschlagen, obwohl die Konfliktauflösung danach noch erfolgreich abgeschlossen und im Folgesync korrekt angewendet wird
+9. Der globale Orchestrator-Timeout ist aktuell nicht sauber an längere Benutzerinteraktion in der Konflikt-UI gekoppelt
+10. Mehrfachkonflikte wurden real mit gemischten Entscheidungen erfolgreich verifiziert; der verbleibende UI-/Ablauffehler betrifft nach aktuellem Stand primär längere manuelle Merge-Interaktion, nicht den generellen Mehrfachkonflikt-Flow
 
-### Architektur / optional
-8. `_PocketBaseConflictAdapter` ist weiterhin eine Minimal-/Übergangslösung
-9. Konflikte könnten künftig zusätzlich persistent markiert werden
-10. `ConflictCallback` mit direkter Rückgabe einer Entscheidung kann langfristig semantisch klarer sein
+## 25.3 Architektur / optional
 
-### Doku / Konsolidierung
-11. `docs/ARCHITECTURE.md` und `docs/DATABASE.md` weiter gegen historische Altstände prüfen
-12. ältere Beschreibungen der ETag-only-Logik konsequent entfernen oder als historisch markieren
+10. `_PocketBaseConflictAdapter` ist weiterhin eine Minimal-/Übergangslösung
+11. Konflikte könnten künftig zusätzlich persistent markiert werden
+12. `ConflictCallback` mit direkter Rückgabe einer Entscheidung kann langfristig semantisch klarer sein
+
+## 25.4 Doku / Konsolidierung
+
+13. `docs/ARCHITECTURE.md` und `docs/DATABASE.md` weiter gegen historische Altstände prüfen
+14. ältere Beschreibungen der ETag-only-Logik konsequent entfernen oder als historisch markieren
 
 ---
 
-## Doku-Konsolidierung nötig
+# 26. Doku-Konsolidierung nötig
 
 Die Dokumentation ist fachlich weit fortgeschritten, enthält aber möglicherweise noch historisch überholte Abschnitte älterer ETag-only-Logik.
 
-Besonders in `docs/ARCHITECTURE.md` können alte Aussagen teilweise noch sichtbar sein, z. B.:
+Besonders in `docs/ARCHITECTURE.md` können noch alte Aussagen sichtbar sein, zum Beispiel:
+
 - alter `ConflictCallback`-Typ mit `ConflictData`
 - alte Konfliktlogik nur gegen `etag`
 - alte Sonderbehandlung `etag == 'deleted'`
 - alte Beschreibung `useLocal -> markAsModified()`
-Nach B-014 bereinigt:
-- `remote_bild_pfad` (alter Prompt-Spaltenname) → korrekt: `remoteBildPfad`
-- `markSynced()` schrieb bisher in nicht existierende Spalte `remote_bildPfad`;
-  nach Fix: `remoteBildPfad` (camelCase, wie in `_createTableSql`)
-- `toPocketBaseMap()` sendet `artikelnummer` jetzt nur noch wenn `>= 1`
 
-Diese Punkte bei Doku-Arbeit bereinigen oder explizit als historisch kennzeichnen.
+Bereits bereinigt bzw. zu beachten:
+
+- `remote_bild_pfad` als alter Spaltenname ist falsch  
+  korrekt ist: `remoteBildPfad`
+- `markSynced()` schrieb historisch in eine nicht existierende Spalte `remote_bildPfad`; korrekt ist `remoteBildPfad`
+- `toPocketBaseMap()` sendet `artikelnummer` nur noch, wenn `>= 1`
+- `toPocketBaseMap()` überträgt `erstelltAm` und `aktualisiertAm`
+- `_extractBildName()` löst das PocketBase-`List<String>`-Format korrekt auf
+- `remoteBildPfad` wird nach CREATE/UPDATE zuverlässig gesetzt
+- der Log-Viewer zeigt keine Box-Drawing-Zeichen mehr
+- B-003 ist vollständig verifiziert:
+  - PocketBase-Record-Inspektion bestätigt `bild == remoteBildPfad`
+  - Δ created→updated = 147ms durch Follow-up-PATCH
 
 `docs/LOGGER.md` ist für den aktuellen Duplicate-Recovery-Pfad bereits bereinigt und ergänzt.
 
-Nach B-003-Fix bereinigt: ← NEU
-- `toPocketBaseMap()` überträgt jetzt `erstelltAm` und `aktualisiertAm`
-- `_extractBildName()` löst PocketBase `List<String>`-Format korrekt auf
-- `remoteBildPfad` wird nach CREATE/UPDATE zuverlässig gesetzt
-- Log-Viewer zeigt keine Box-Drawing-Zeichen mehr
+---
+
+# 27. Priorisierte nächste sinnvolle Prüfungen
+
+1. Tests für `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` in `artikel_db_service_test.dart` ergänzen
+2. fehlende Tests für `_extractBildName()` und `toPocketBaseMap()`-Zeitstempel ergänzen
+3. Merge-Timeout-Befund im Orchestrator/UI-Flow analysieren und minimal-invasiv beheben
+4. `docs/ARCHITECTURE.md` auf Altstände konsolidieren
+5. `docs/DATABASE.md` gegen aktuellen Sync-Stand prüfen
+6. manuellen Wiederholungstest für Soft-Delete lokal + Remote-Edit (`M-004`) durchführen
+7. optional End-to-End-Test für Duplicate-UUID-Recovery ergänzen
+8. optional Konflikte zusätzlich persistent markieren
+9. optional `_PocketBaseConflictAdapter` bereinigen, wenn minimal-invasiv möglich
 
 ---
 
-## Priorisierte nächste sinnvolle Prüfungen
+# 28. Relevante Dateien
 
-1. B-003 Wiederholungstest nach eingespielten Fixes
-   (höchste Priorität)
-2. Fehlende Tests für `_extractBildName()` und
-   `toPocketBaseMap()`-Zeitstempel ergänzen
-3. Tests für `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()`
-   in `artikel_db_service_test.dart` ergänzen ← NEU
-4. Konflikt-Tests T-001.6 bis T-001.11 und M-001 bis M-004 manuell
-   durchführen
-5. `docs/ARCHITECTURE.md` auf Altstände konsolidieren
-6. `docs/DATABASE.md` gegen aktuellen Sync-Stand prüfen
-7. Optional: End-to-End-Test für Duplicate-UUID-Recovery ergänzen
-8. Optional: Konflikte zusätzlich persistent markieren
-9. Optional: `_PocketBaseConflictAdapter` bereinigen, wenn
-   minimal-invasiv möglich
+## 28.1 Produktivcode
 
----
-
-## Relevante Dateien
-
-### Produktivcode
 - `lib/models/artikel_model.dart`
 - `lib/services/pocketbase_service.dart`
 - `lib/services/artikel_db_service.dart`
@@ -1082,7 +1225,8 @@ Nach B-003-Fix bereinigt: ← NEU
 - `lib/main.dart`
 - `lib/screens/conflict_resolution_screen.dart`
 
-### Tests
+## 28.2 Tests
+
 - `test/services/pocketbase_sync_service_test.dart`
 - `test/services/pocketbase_sync_service_conflict_test.dart`
 - `test/services/artikel_db_service_test.dart`
@@ -1091,7 +1235,8 @@ Nach B-003-Fix bereinigt: ← NEU
 - `test/services/conflict_resolution_utils_test.dart`
 - `test/services/sync_orchestrator_test.dart`
 
-### Doku
+## 28.3 Doku
+
 - `docs/ARCHITECTURE.md`
 - `docs/DATABASE.md`
 - `docs/LOGGER.md`
@@ -1100,26 +1245,27 @@ Nach B-003-Fix bereinigt: ← NEU
 
 ---
 
-## Arbeitsauftrag für jede weitere Session
+# 29. Arbeitsauftrag für jede weitere Session
 
-Wenn ich dir eine Datei, einen Fehler, einen Test oder einen Teilbereich der Sync-Logik zeige, dann möchte ich immer:
+Wenn eine Datei, ein Fehler, ein Test oder ein Teilbereich der Sync-Logik gezeigt wird, dann immer:
 
-1. Prüfung, ob der gezeigte Stand fachlich zur Zielarchitektur passt
-2. Benennung konkreter Abweichungen oder Risiken
-3. Vorschlag der minimal-invasiven nächsten Änderung
-4. Hinweis, welche Tests betroffen sind oder ergänzt werden sollten
-5. kurze Bewertung des Regressionsrisikos
-6. kurze Abschlussdokumentation für diesen Schritt
-7. passenden Commit-Text
-8. optional passenden Doku-/Changelog-Baustein
+1. prüfen, ob der gezeigte Stand fachlich zur Zielarchitektur passt
+2. konkrete Abweichungen oder Risiken benennen
+3. die minimal-invasive nächste Änderung vorschlagen
+4. benennen, welche Tests betroffen sind oder ergänzt werden sollten
+5. das Regressionsrisiko kurz bewerten
+6. eine kurze Abschlussdokumentation für den Schritt liefern
+7. einen passenden Commit-Text liefern
+8. optional einen passenden Doku-/Changelog-Baustein liefern
 
-Wenn die gezeigten Informationen dafür nicht ausreichen, fordere bitte zuerst gezielt die fehlenden Dateien, Teststellen oder Doku-Ausschnitte an.
+Wenn die gezeigten Informationen dafür nicht ausreichen, zuerst gezielt die fehlenden Dateien, Teststellen oder Doku-Ausschnitte anfordern.
 
 ---
 
-## Format für Abschluss jedes Schritts
+# 30. Format für den Abschluss jedes Schritts
 
-### Abarbeitungsstand mit Status
+## 30.1 Abarbeitungsstand mit Status
+
 Schritt <Nr.> abgeschlossen  
 Titel: <kurzer Titel>  
 Ziel: <fachliches Ziel>  
@@ -1127,7 +1273,8 @@ Betroffene Dateien: <Dateien>
 Fachlicher Effekt: <Nutzen für die Sync-Logik>  
 Offene Punkte: <noch offen>
 
-### Commit-Text
+## 30.2 Commit-Text
+
 ```text
 <passender Commit-Text>
 ```

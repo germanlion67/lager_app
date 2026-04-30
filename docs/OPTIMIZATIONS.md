@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+39 | **Zuletzt aktualisiert:** 30.04.2026
+**Version:** 0.9.4+41 | **Zuletzt aktualisiert:** 30.04.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-015`, `F-010`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-011`
+- `B-016`, `F-010`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-011`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -35,7 +35,15 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 
 ## 🔴 Priorität: Hoch
 
-*(Keine offenen Punkte)*
+### B-015: Orchestrator-Timeout während offener Konflikt-UI / Merge
+**Beschreibung:**  
+Bei längerer Benutzerinteraktion in der Konflikt-UI, insbesondere im Merge-Fall, kann `SyncOrchestrator.runOnce()` nach 5 Minuten in einen Timeout laufen, obwohl die Konfliktauflösung kurz danach erfolgreich abgeschlossen wird. Das ist kein bestätigter Datenverlust, aber ein reproduzierter UX-/Ablauffehler.
+
+**Tasks**
+- [ ] Timeout-Pfad im Zusammenspiel von `SyncOrchestrator`, Konflikt-Callback und UI-Wartezeit analysieren
+- [ ] minimal-invasive Lösung umsetzen, sodass Benutzerinteraktion nicht als hängender Sync-Lauf gewertet wird
+- [ ] Folge-Logs und Verhalten nach manueller Merge-Auflösung erneut real verifizieren
+- [ ] ggf. Testabdeckung in `test/services/sync_orchestrator_test.dart` ergänzen
 
 ---
 
@@ -68,14 +76,14 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 
 **Manuelle Integrations- und Feldtests**
 - [x] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
-- [ ] **T-001.7** — „Lokal behalten“ → Server wird überschrieben
-- [ ] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
-- [ ] **T-001.9** — „Zusammenführen“ → Merge-Dialog, Felder manuell wählen, Ergebnis korrekt
-- [ ] **T-001.11** — Mehrere Konflikte gleichzeitig → Navigation Weiter/Zurück, Fortschrittsanzeige
+- [x] **T-001.7** — „Lokal behalten“ → Server wird im Folgesync überschrieben
+- [x] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
+- [~] **T-001.9** — „Zusammenführen“ → fachlich bestätigt; Merge-Dialog und Feldauswahl funktionieren, Merge-Version wird im Folgesync korrekt gepusht; laufender Sync kann aber während offener UI in den Orchestrator-Timeout laufen
+- [x] **T-001.11** — Mehrere Konflikte gleichzeitig → sequentielle Bearbeitung im echten Sync-Lauf mit gemischten Entscheidungen (`skip`, `useRemote`, `useLocal`) erfolgreich bestätigt
 - [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
-- [ ] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
-- [ ] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung stabil
-- [ ] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
+- [x] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [~] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung fachlich stabil; Timeout-Befund im laufenden Sync bleibt offen
+- [x] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
 - [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
 
 **Verbleibende technische Restpunkte**
@@ -96,9 +104,9 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
 
 **Hinweis**
-Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` bereits deutlich gehärtet. Offen sind vor allem noch echte Geräte-/Server-Integrationsläufe, einige manuelle Verifikationen sowie wenige verbleibende Modell-/Dokumentationspunkte.
+Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und inzwischen in mehreren realen Geräte-/Server-Läufen bestätigt. Offen sind vor allem noch der End-to-End-Test für Duplicate-UUID-Recovery, die erneute manuelle Verifikation von Soft-Delete lokal + Remote-Edit sowie der bekannte Merge-/Orchestrator-Timeout-Befund.
 
-→ FakeArtikelDbService wurde heute um saveRemoteConflictSnapshot / loadRemoteConflictSnapshot erweitert — die Fake-Infrastruktur ist jetzt vollständig für alle neuen Pfade.
+→ FakeArtikelDbService wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.
 
 --- 
 
@@ -258,6 +266,31 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+### B-003 — remoteBildPfad nach CREATE/UPDATE in PocketBase schreiben — abgeschlossen 30.04.2026
+**Titel:** `remoteBildPfad` wird nach erfolgreichem Bild-Upload nicht in PocketBase zurückgeschrieben  
+**Ziel:** Nach CREATE oder UPDATE mit Bild-Upload wird `remoteBildPfad` via Follow-up-PATCH korrekt in PocketBase persistiert, sodass andere Geräte das Bild via `downloadMissingImages()` abrufen können.
+
+**Fachlicher Effekt:**
+- `bild`-Feld in PocketBase enthält nach CREATE den von PocketBase generierten Dateinamen (z. B. `1016_g_c003_va6tqzgkk1.jpg`)
+- `remoteBildPfad` wird unmittelbar nach dem Upload via Follow-up-PATCH in PocketBase gesetzt
+- `downloadMissingImages()` erkennt das Bild auf anderen Geräten korrekt (`downloaded=1` statt `downloaded=0`)
+- `setBildPfadByUuidSilent()` wird nach dem Pull korrekt aufgerufen — kein erneutes Dirty-Flag
+- Das `updated`-Delta von 147ms zwischen `created` und `updated` im PocketBase-Record belegt den korrekten Follow-up-PATCH
+
+**Verifikation (30.04.2026):**
+- Log: `SYNC|PUSH|CREATE remoteBildPfad gesetzt uuid=1cdcc559 bild=1016_g_c003_va6tqzgkk1.jpg` ✅
+- Log: `SYNC|PUSH|CREATE ok uuid=1cdcc559` ✅
+- Log: `downloadMissingImages end downloaded=1, skipped=16, failed=0` ✅
+- PocketBase-Record: `bild` = `remoteBildPfad` = `1016_g_c003_va6tqzgkk1.jpg` ✅
+- `created: 11:34:14.380Z` / `updated: 11:34:14.527Z` → Δ = 147ms (Follow-up-PATCH) ✅
+
+**Betroffene Dateien:**
+- `lib/services/pocketbase_sync_service.dart` — Follow-up-PATCH nach CREATE/UPDATE mit `remoteBildPfad`
+- `lib/services/artikel_db_service.dart` — `setBildPfadByUuidSilent()` im Pull-Pfad
+
+---
+
 
 ### B-014 + O-012 (Anteil) abgeschlossen
 **Titel:** HTTP 400 CREATE-Fix, Push-Timeouts, markSynced-Spaltennamen-Fix, Summary-Logs
@@ -755,6 +788,8 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-04-30 | 0.9.4+41 | T-001 manuell weiter bestätigt: `useLocal`, `useRemote`, `skip` und Mehrfachkonflikte im echten Geräte-/Server-Lauf verifiziert. Gemischte Auflösungen (`skip`, `useRemote`, `useLocal`) funktionieren sequentiell; nur übersprungene Konflikte erscheinen im Folgesync erneut. Merge fachlich bestätigt, aber mit bekanntem Orchestrator-Timeout-Befund bei längerer UI-Interaktion. |
+| 2026-04-30 | 0.9.4+39 | B-003 abgeschlossen: `remoteBildPfad` wird nach CREATE/UPDATE via Follow-up-PATCH korrekt in PocketBase geschrieben. Verifikation via Flutter-Logs (SYNC\|PUSH\|CREATE ok, downloaded=1) und PocketBase-Record-Inspektion (Δ created→updated = 147ms). |
 | 2026-04-30 | 0.9.4+39 | Fix 1+2: Doppelter Konflikt-Callback
   durch UUID-Guard (Push) und Snapshot-Strategie (Pull) behoben.
   saveRemoteConflictSnapshot / loadRemoteConflictSnapshot implementiert
