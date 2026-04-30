@@ -1,3 +1,5 @@
+// lib/services/pocketbase_sync_service.dart
+
 import 'dart:async';
 import 'dart:io';
 
@@ -198,7 +200,7 @@ class PocketBaseSyncService {
           continue;
         }
 
-        /* ---------- UPDATE ---------- */
+/* ---------- UPDATE ---------- */
         if (list.items.isNotEmpty) {
           final remoteRecord = list.items.first;
           final remoteArtikel = _recordToArtikel(remoteRecord);
@@ -245,18 +247,43 @@ class PocketBaseSyncService {
               .timeout(updateTimeout);
 
           final updatedEtag = _extractRecordEtag(updated);
+          final updatedBildName = _extractBildName(updated.data);
+
           await _db.markSynced(
             artikel.uuid,
             updatedEtag,
             remotePath: updated.id.toString(),
-            remoteBildPfad: _extractBildName(updated.data), // ← Fix B-003
+            remoteBildPfad: updatedBildName,
           );
+
+          // remoteBildPfad in PocketBase zurückschreiben (Fix B-003)
+          if (updatedBildName != null && updatedBildName.isNotEmpty) {
+            try {
+              await _pbService.client
+                  .collection(collectionName)
+                  .update(
+                    updated.id.toString(),
+                    body: {'remoteBildPfad': updatedBildName},
+                  )
+                  .timeout(_kPushRequestTimeout);
+              _logger.d(
+                'SYNC|PUSH|UPDATE  remoteBildPfad gesetzt  '
+                'uuid=${artikel.uuid}  bild=$updatedBildName',
+              );
+            } catch (e) {
+              _logger.w(
+                'SYNC|PUSH|UPDATE  remoteBildPfad-Update fehlgeschlagen  '
+                'uuid=${artikel.uuid}  err=$e',
+              );
+            }
+          }
+
           pushUpdated++;
           _logger.i('SYNC|PUSH|UPDATE  ok  uuid=${artikel.uuid}');
           continue;
         }
 
-        /* ---------- CREATE ---------- */
+/* ---------- CREATE ---------- */
         final body = <String, dynamic>{...artikel.toPocketBaseMap()};
         if (_pbService.isAuthenticated && _pbService.currentUserId != null) {
           body['owner'] = _pbService.currentUserId;
@@ -275,12 +302,37 @@ class PocketBaseSyncService {
               .timeout(createTimeout);
 
           final createdEtag = _extractRecordEtag(created);
+          final createdBildName = _extractBildName(created.data);
+
           await _db.markSynced(
             artikel.uuid,
             createdEtag,
             remotePath: created.id.toString(),
-            remoteBildPfad: _extractBildName(created.data), // ← Fix B-003
+            remoteBildPfad: createdBildName,
           );
+
+          // remoteBildPfad in PocketBase zurückschreiben (Fix B-003)
+          if (createdBildName != null && createdBildName.isNotEmpty) {
+            try {
+              await _pbService.client
+                  .collection(collectionName)
+                  .update(
+                    created.id.toString(),
+                    body: {'remoteBildPfad': createdBildName},
+                  )
+                  .timeout(_kPushRequestTimeout);
+              _logger.d(
+                'SYNC|PUSH|CREATE  remoteBildPfad gesetzt  '
+                'uuid=${artikel.uuid}  bild=$createdBildName',
+              );
+            } catch (e) {
+              _logger.w(
+                'SYNC|PUSH|CREATE  remoteBildPfad-Update fehlgeschlagen  '
+                'uuid=${artikel.uuid}  err=$e',
+              );
+            }
+          }
+
           pushCreated++;
           _logger.i('SYNC|PUSH|CREATE  ok  uuid=${artikel.uuid}');
         } catch (e) {

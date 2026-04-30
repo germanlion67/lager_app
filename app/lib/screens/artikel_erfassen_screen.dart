@@ -4,7 +4,7 @@
 //         Punkt 4 — FocusNode für Menge: Vorauswahl beim Fokus
 //         Punkt 6 — Bild-Buttons als IconButton statt FilledButton.tonalIcon
 
-import 'dart:async' show unawaited;
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -485,8 +485,18 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   }
 
   Future<void> _saveMobile(Artikel artikel) async {
-    final artikelId = await _db.insertArtikel(artikel);
+    _logger.d('_saveMobile() gestartet.');
 
+    // ── Schritt 1: Artikel ohne Bild einfügen → echte artikelId bekommen ──
+    // bildPfad ist hier bewusst leer. Der Artikel ist sofort pending (etag=null).
+    // Der Sync-Push liest bildPfad erst beim nächsten Zyklus — bis dahin
+    // ist Schritt 3 abgeschlossen.
+    final artikelId = await _db.insertArtikel(artikel);
+    _logger.d('_saveMobile() insertArtikel abgeschlossen. artikelId=$artikelId');
+
+    // ── Schritt 2: Bild lokal kopieren — MIT echter artikelId ──────────────
+    // Dateiname = '${artikelId}_$nameSlug.jpg' → ID muss bekannt sein.
+    // copyImageToLocalDirectory() gibt null zurück wenn kein Bild vorhanden.
     final String? quellPfad =
         _bildPfad != null && _isExternalPath(_bildPfad!) ? _bildPfad : null;
 
@@ -498,23 +508,19 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         artikelId: artikelId,
         artikelName: _nameCtrl.text.trim(),
       );
-
-      if (localImagePath != null) {
-        await _db.updateBildPfad(artikelId, localImagePath);
-      }
+      _logger.d('_saveMobile() Bild lokal kopiert: $localImagePath');
     }
 
-    if (localImagePath != null || _bildBytes != null) {
-      unawaited(
-        _uploadImageToPocketBase(
-          artikel: artikel,
-          bildBytes: _bildBytes,
-          bildDateiname: _bildDateiname,
-          localImagePath: localImagePath,
-        ),
-      );
+    // ── Schritt 3: bildPfad in DB setzen — awaited ─────────────────────────
+    // updateBildPfad() setzt updated_at neu → Artikel bleibt pending.
+    // _buildFiles() liest bildPfad beim Sync-Push — der Pfad ist jetzt gesetzt.
+    // KEIN unawaited — der Sync darf erst nach diesem Schritt laufen.
+    if (localImagePath != null) {
+      await _db.updateBildPfad(artikelId, localImagePath);
+      _logger.d('_saveMobile() updateBildPfad abgeschlossen.');
     }
 
+    // ── Schritt 4: UI aufräumen und zurücknavigieren ────────────────────────
     _resetBildState();
 
     if (mounted) {
@@ -527,52 +533,11 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         ),
       );
     }
+
+    _logger.d('_saveMobile() abgeschlossen. bildPfad=$localImagePath');
   }
 
-  Future<void> _uploadImageToPocketBase({
-    required Artikel artikel,
-    Uint8List? bildBytes,
-    String? bildDateiname,
-    String? localImagePath,
-  }) async {
-    try {
-      final pb = _pbService.client;
-      final filter = 'uuid = "${artikel.uuid}"';
-      final list = await pb.collection('artikel').getList(filter: filter);
-      if (list.items.isEmpty) return;
 
-      final recordId = list.items.first.id;
-
-      final Uint8List bytes;
-      final String filename;
-
-      if (bildBytes != null) {
-        bytes = bildBytes;
-        filename = bildDateiname ?? 'bild.jpg';
-      } else if (localImagePath != null) {
-        bytes = await platform.readFileBytes(localImagePath);
-        filename = platform.getBasename(localImagePath);
-      } else {
-        return;
-      }
-
-      await pb.collection('artikel').update(
-        recordId,
-        files: [
-          http.MultipartFile.fromBytes('bild', bytes, filename: filename),
-        ],
-      );
-
-      await _db.markSynced(artikel.uuid, recordId);
-      _logger.i('Bild zu PocketBase hochgeladen: $filename');
-    } catch (e, st) {
-      _logger.e(
-        'PocketBase Bild-Upload fehlgeschlagen:',
-        error: e,
-        stackTrace: st,
-      );
-    }
-  }
 
   // ==================== UI ====================
 
