@@ -7,12 +7,19 @@ import '../services/app_log_service.dart';
 import 'pocketbase_sync_service.dart';
 import 'sync_status_provider.dart';
 
+import 'orchestrator_sync_backend.dart';
+
 export 'pocketbase_sync_service.dart' show ConflictCallback;
+
+
 
 enum SyncStatus { idle, running, success, error }
 
 class SyncOrchestrator implements SyncStatusProvider {
-  final PocketBaseSyncService _pocketBaseSync;
+  final OrchestratorSyncBackend _pocketBaseSync;
+  final Duration _syncTimeout;
+  final Duration _imageTimeout;
+  final Duration _timeoutPollInterval;
 
   bool _isSyncing = false;
   bool _isDisposed = false;
@@ -36,8 +43,15 @@ class SyncOrchestrator implements SyncStatusProvider {
 
   static final _log = AppLogService.logger;
 
-  SyncOrchestrator({required PocketBaseSyncService pocketBaseSync})
-      : _pocketBaseSync = pocketBaseSync;
+  SyncOrchestrator({
+    required OrchestratorSyncBackend pocketBaseSync,
+    Duration syncTimeout = const Duration(minutes: 5),
+    Duration imageTimeout = const Duration(minutes: 2),
+    Duration timeoutPollInterval = const Duration(seconds: 5),
+  })  : _pocketBaseSync = pocketBaseSync,
+        _syncTimeout = syncTimeout,
+        _imageTimeout = imageTimeout,
+        _timeoutPollInterval = timeoutPollInterval;
 
   /// Registriert den Konflikt-Callback am PocketBaseSyncService.
   void setConflictCallback(ConflictCallback callback) {
@@ -75,12 +89,12 @@ class SyncOrchestrator implements SyncStatusProvider {
 
     try {
       _lastSyncPhase = 'push+pull';
-      await _pocketBaseSync.syncOnce().timeout(const Duration(minutes: 5));
+      await _awaitSyncOnceWithConflictAwareTimeout();
 
       _lastSyncPhase = 'images';
       await _pocketBaseSync
           .downloadMissingImages()
-          .timeout(const Duration(minutes: 2));
+          .timeout(_imageTimeout);
 
       _lastSyncTime = DateTime.now();
       _lastSyncPhase = 'done';
@@ -99,6 +113,33 @@ class SyncOrchestrator implements SyncStatusProvider {
         const Duration(seconds: 3),
         () => _emit(SyncStatus.idle),
       );
+    }
+  }
+
+  Future<void> _awaitSyncOnceWithConflictAwareTimeout() async {
+    final syncFuture = _pocketBaseSync.syncOnce();
+    final stopwatch = Stopwatch()..start();
+
+    while (true) {
+      try {
+        await syncFuture.timeout(_timeoutPollInterval);
+        return;
+      } on TimeoutException {
+        if (_pocketBaseSync.isWaitingForConflictResolution) {
+          _log.i(
+            'SYNC|ORCHESTRATOR  wait  phase=$_lastSyncPhase  '
+            'state=conflict_ui  elapsed=${stopwatch.elapsed.inSeconds}s',
+          );
+          continue;
+        }
+
+        if (stopwatch.elapsed >= _syncTimeout) {
+          throw TimeoutException(
+            'Sync timed out after ${stopwatch.elapsed.inMinutes} minutes '
+            '(phase=$_lastSyncPhase)',
+          );
+        }
+      }
     }
   }
 

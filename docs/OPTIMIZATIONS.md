@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+41 | **Zuletzt aktualisiert:** 30.04.2026
+**Version:** 0.9.4+41 | **Zuletzt aktualisiert:** 02.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -25,7 +25,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-016`, `F-010`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-011`
+- `B-016`, `F-010`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-012`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -39,11 +39,14 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 **Beschreibung:**  
 Bei längerer Benutzerinteraktion in der Konflikt-UI, insbesondere im Merge-Fall, kann `SyncOrchestrator.runOnce()` nach 5 Minuten in einen Timeout laufen, obwohl die Konfliktauflösung kurz danach erfolgreich abgeschlossen wird. Das ist kein bestätigter Datenverlust, aber ein reproduzierter UX-/Ablauffehler.
 
+**Status:**  
+Die konfliktbewusste Timeout-Semantik des Orchestrators wurde bereits per Verhaltenstests abgesichert. Offen ist weiterhin die produktive / UX-seitige Behandlung längerer Benutzerinteraktion im laufenden Sync.
+
 **Tasks**
-- [ ] Timeout-Pfad im Zusammenspiel von `SyncOrchestrator`, Konflikt-Callback und UI-Wartezeit analysieren
+- [x] Timeout-Pfad im Zusammenspiel von `SyncOrchestrator`, Konflikt-Callback und UI-Wartezeit analysieren
 - [ ] minimal-invasive Lösung umsetzen, sodass Benutzerinteraktion nicht als hängender Sync-Lauf gewertet wird
 - [ ] Folge-Logs und Verhalten nach manueller Merge-Auflösung erneut real verifizieren
-- [ ] ggf. Testabdeckung in `test/services/sync_orchestrator_test.dart` ergänzen
+- [x] Testabdeckung in `test/services/sync_orchestrator_test.dart` ergänzen
 
 ---
 
@@ -71,6 +74,9 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
 - [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
 - [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
+- [x] `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
+- [x] `artikelnummer` wird im PocketBase-Payload nur bei `>= 1` gesendet
+- [x] Konflikt-Snapshot-Persistenz (`saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()`) service-nah abgesichert
 - [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
 - [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
 
@@ -89,6 +95,9 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 **Verbleibende technische Restpunkte**
 - [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
 - [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
+- [x] `test/services/artikel_db_service_test.dart`: Snapshot-Methoden gezielt ergänzt
+- [x] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für Zeitstempel- und `artikelnummer`-Regeln ergänzt
+- [ ] `test/services/pocketbase_sync_service_test.dart`: `_extractBildName()` und `remoteBildPfad`-Persistenz gezielt ergänzen
 - [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
 
 **Optional / spätere Verfeinerung**
@@ -97,7 +106,7 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
 - [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
 - [x] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
-- [ ] Optional gezielte Modelltests für Roundtrip- und `copyWith()`-Null-Semantik ergänzen
+- [ ] Optional verbleibende Modelltests nur noch für zusätzliche Randfälle ergänzen; Roundtrip- und `copyWith()`-Null-Semantik sind bereits weitgehend abgedeckt
 - [ ] Optional Semantik von `aktualisiertAm` vs. `updatedAt` dokumentieren oder klarer benennen
 - [ ] Optional Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
 - [ ] Optional Restprüfung auf konsistente UTC-/Zeitstempel-Semantik in `artikel_db_service.dart`
@@ -106,8 +115,8 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 **Hinweis**
 Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und inzwischen in mehreren realen Geräte-/Server-Läufen bestätigt. Offen sind vor allem noch der End-to-End-Test für Duplicate-UUID-Recovery, die erneute manuelle Verifikation von Soft-Delete lokal + Remote-Edit sowie der bekannte Merge-/Orchestrator-Timeout-Befund.
 
-→ FakeArtikelDbService wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.
-
+→ FakeArtikelDbService wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.  
+→ Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService` sowie Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` jetzt explizit testseitig abgesichert.
 --- 
 
 ### O-012: Sync-Logs mobil-lesbar machen (Summary-Lines pro Operation)
@@ -254,11 +263,11 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---:|---:|---:|
 | ✅ Abgeschlossen | 57 | 52 | 0 |
-| 🔴 Hoch | 0 | 0 | 0 |
+| 🔴 Hoch | 1 | 0 | 1 |
 | 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 1 | 0 | 1 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **65** | **50** | **6** |
+| **Gesamt** | **64** | **52** | **7** |
 
 ---
 
@@ -312,9 +321,8 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 - T-001.6 kann nach diesen Fixes sinnvoll ausgeführt werden
 
 **Offene Punkte:**
-- T-001.6 bis T-001.11 — manuelle Gerätetests ausstehend (du übernimmst)
 - PocketBase Admin: `kategorie`-Feld manuell ergänzen
-- Bestehende Tests für `toPocketBaseMap()` und `markSynced()` auf neue Semantik prüfen
+- `_extractBildName()` und `remoteBildPfad`-Persistenz im Sync-Service testseitig noch gezielt ergänzen
 
 
 ### B-013: image upload flow, remoteBildPfad support & ghost-file cleanup - erledigt in `v0.9.4+36`
@@ -639,6 +647,32 @@ wurden in einen neuen `SettingsController` ausgelagert.
 
 --- 
 
+### T-011: Snapshot-Persistenz und PocketBase-Modell-Mapping regressionssicher ergänzt — erledigt in `fix/sync-hardening2-v0.9.4`
+**Typ:** Testausbau / DB-Tests / Modell-Mapping  
+**Betrifft:**  
+`test/services/artikel_db_service_test.dart`,  
+`test/services/artikel_db_service_test_helper.dart`,  
+`test/models/artikel_model_test.dart`
+
+Die testseitige Absicherung der neueren Sync-Hardening-Pfade wurde gezielt erweitert.
+
+**Abgedeckte Bereiche**
+- `saveRemoteConflictSnapshot()` und `loadRemoteConflictSnapshot()` in `ArtikelDbService`
+- REPLACE-Verhalten bei erneutem Snapshot-Speichern
+- Expiry-Verhalten älterer Snapshots
+- stabile DB-Testisolation über reset-basierte In-Memory-Testumgebung
+- `Artikel.toPocketBaseMap()` enthält `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
+- `Artikel.toPocketBaseMap()` enthält `artikelnummer` nur bei `>= 1`
+- lokale Sync-/Konflikt-Steuerfelder werden weiterhin nicht an PocketBase übertragen
+
+**Ergebnis**
+- `flutter test test/services/artikel_db_service_test.dart` grün
+- `flutter test test/models/artikel_model_test.dart` grün
+- `flutter test` grün
+- `flutter analyze` grün
+
+--- 
+
 ### T-010: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows — erledigt in `fix/sync-hardening2-v0.9.4`
 **Typ:** Testausbau / Sync-Hardening / Konfliktlogik  
 **Betrifft:**  
@@ -788,6 +822,8 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-02 | 0.9.4+41 | T-011 abgeschlossen: Snapshot-Persistenz in `ArtikelDbService` sowie Zeitstempel- und `artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` testseitig regressionssicher ergänzt. DB-Testisolation für Singleton/In-Memory-Setup stabilisiert. Teststand: 707 Tests grün, 3 übersprungen. |
+| 2026-05-02 | 0.9.4+41 | B-015 weiter eingegrenzt: konfliktbewusste Timeout-Semantik des Orchestrators ist jetzt per Verhaltenstests abgesichert; offen bleibt die produktive UX-/Ablaufbehandlung längerer Merge-Interaktion. |
 | 2026-04-30 | 0.9.4+41 | T-001 manuell weiter bestätigt: `useLocal`, `useRemote`, `skip` und Mehrfachkonflikte im echten Geräte-/Server-Lauf verifiziert. Gemischte Auflösungen (`skip`, `useRemote`, `useLocal`) funktionieren sequentiell; nur übersprungene Konflikte erscheinen im Folgesync erneut. Merge fachlich bestätigt, aber mit bekanntem Orchestrator-Timeout-Befund bei längerer UI-Interaktion. |
 | 2026-04-30 | 0.9.4+39 | B-003 abgeschlossen: `remoteBildPfad` wird nach CREATE/UPDATE via Follow-up-PATCH korrekt in PocketBase geschrieben. Verifikation via Flutter-Logs (SYNC\|PUSH\|CREATE ok, downloaded=1) und PocketBase-Record-Inspektion (Δ created→updated = 147ms). |
 | 2026-04-30 | 0.9.4+39 | Fix 1+2: Doppelter Konflikt-Callback

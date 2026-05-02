@@ -1,3 +1,5 @@
+// lib/models/artikel_model.dart
+
 import 'dart:convert';
 import '../utils/uuid_generator.dart';
 import 'package:logger/logger.dart';
