@@ -72,8 +72,11 @@ class FakeArtikelDbService {
     String uuid,
     String etag, {
     String? remotePath,
+    String? remoteBildPfad,
   }) async {
-    markSyncedCalls.add(MarkSyncedCall(uuid, etag, remotePath));
+    markSyncedCalls.add(
+      MarkSyncedCall(uuid, etag, remotePath, remoteBildPfad),
+      );
   }
 
   Future<void> upsertArtikel(Artikel artikel, {String? etag}) async {
@@ -109,8 +112,14 @@ class MarkSyncedCall {
   final String uuid;
   final String etag;
   final String? remotePath;
+  final String? remoteBildPfad;
 
-  MarkSyncedCall(this.uuid, this.etag, this.remotePath);
+  MarkSyncedCall(
+    this.uuid, 
+    this.etag, 
+    this.remotePath,
+    this.remoteBildPfad,
+    );
 }
 
 class SetBildPfadCall {
@@ -506,11 +515,13 @@ class TestableSyncService {
           final updatedEtag = _safeGet(updated.data, 'updated').isNotEmpty
               ? _safeGet(updated.data, 'updated')
               : updated.id;
+          final updatedBildName = _extractBildName(updated.data);
 
           await _db.markSynced(
             artikel.uuid,
             updatedEtag,
             remotePath: updated.id,
+            remoteBildPfad: updatedBildName,
           );
         } else {
           // ---------- CREATE ----------
@@ -530,11 +541,13 @@ class TestableSyncService {
             final createdEtag = _safeGet(created.data, 'updated').isNotEmpty
                 ? _safeGet(created.data, 'updated')
                 : created.id;
+            final createdBildName = _extractBildName(created.data);
 
             await _db.markSynced(
               artikel.uuid,
               createdEtag,
               remotePath: created.id,
+              remoteBildPfad: createdBildName,
             );
           } catch (e) {
             if (!_isDuplicateUuidError(e)) {
@@ -678,6 +691,14 @@ class TestableSyncService {
         filename: p.basename(path),
       ),
     ];
+  }
+
+  String? _extractBildName(dynamic data) {
+    final raw = _asStringDynamicMap(data)['bild'];
+    if (raw == null) return null;
+    if (raw is List && raw.isNotEmpty) return raw.first.toString();
+    if (raw is String && raw.trim().isNotEmpty) return raw.trim();
+    return null;
   }
 
   String _safeGet(Map<String, dynamic> data, String key) {
@@ -1834,6 +1855,223 @@ test(
       );
       expect(fakeDb.markSyncedCalls, hasLength(1));
     });
+
+    test(
+      'create() persistiert remoteBildPfad wenn PocketBase bild als List<String> zurückgibt',
+      () async {
+        final artikel = makeArtikel(
+          uuid: 'uuid-img-create-list',
+          etag: null,
+          bildPfad: tempPath,
+        );
+        fakeDb.pendingChanges = [artikel];
+
+        fakeRecordService.onGetList = (_) async => makeResultList([]);
+        fakeRecordService.onCreate = (body, files) async => makeRecord(
+              id: 'pb-img-list',
+              data: {
+                ...body,
+                'uuid': artikel.uuid,
+                'bild': ['server-file-list.jpg'],
+              },
+              updated: ts2,
+            );
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(fakeDb.markSyncedCalls.first.remotePath, equals('pb-img-list'));
+        expect(
+          fakeDb.markSyncedCalls.first.remoteBildPfad,
+          equals('server-file-list.jpg'),
+        );
+      },
+    );
+
+    test(
+      'create() persistiert remoteBildPfad wenn PocketBase bild als String zurückgibt',
+      () async {
+        final artikel = makeArtikel(
+          uuid: 'uuid-img-create-string',
+          etag: null,
+          bildPfad: tempPath,
+        );
+        fakeDb.pendingChanges = [artikel];
+
+        fakeRecordService.onGetList = (_) async => makeResultList([]);
+        fakeRecordService.onCreate = (body, files) async => makeRecord(
+              id: 'pb-img-string',
+              data: {
+                ...body,
+                'uuid': artikel.uuid,
+                'bild': 'server-file-string.jpg',
+              },
+              updated: ts2,
+            );
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(
+          fakeDb.markSyncedCalls.first.remoteBildPfad,
+          equals('server-file-string.jpg'),
+        );
+      },
+    );
+
+    test(
+      'create() persistiert keinen remoteBildPfad wenn bild null ist',
+      () async {
+        final artikel = makeArtikel(
+          uuid: 'uuid-img-create-null',
+          etag: null,
+          bildPfad: tempPath,
+        );
+        fakeDb.pendingChanges = [artikel];
+
+        fakeRecordService.onGetList = (_) async => makeResultList([]);
+        fakeRecordService.onCreate = (body, files) async => makeRecord(
+              id: 'pb-img-null',
+              data: {
+                ...body,
+                'uuid': artikel.uuid,
+                'bild': null,
+              },
+              updated: ts2,
+            );
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(fakeDb.markSyncedCalls.first.remoteBildPfad, isNull);
+      },
+    );
+
+    test(
+      'update() persistiert remoteBildPfad wenn PocketBase bild als List<String> zurückgibt',
+      () async {
+        final artikel = makeArtikel(
+          uuid: 'uuid-img-update-list',
+          etag: null,
+          remotePath: 'pb-update-list',
+          lastSyncedEtag: ts1,
+          bildPfad: tempPath,
+        );
+        fakeDb.pendingChanges = [artikel];
+
+        final existingRecord = makeRecord(
+          id: 'pb-update-list',
+          data: {
+            'uuid': artikel.uuid,
+            'name': artikel.name,
+            'menge': artikel.menge,
+            'ort': artikel.ort,
+            'fach': artikel.fach,
+            'beschreibung': artikel.beschreibung,
+          },
+          updated: ts1,
+        );
+
+        fakeRecordService.onGetList =
+            (_) async => makeResultList([existingRecord]);
+        fakeRecordService.onUpdate = (id, body, files) async => makeRecord(
+              id: id,
+              data: {
+                ...body,
+                'uuid': artikel.uuid,
+                'bild': ['server-update-file.jpg'],
+              },
+              updated: ts2,
+            );
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(fakeDb.markSyncedCalls.first.remotePath, equals('pb-update-list'));
+        expect(
+          fakeDb.markSyncedCalls.first.remoteBildPfad,
+          equals('server-update-file.jpg'),
+        );
+      },
+    );
+
+    test(
+      'update() persistiert keinen remoteBildPfad bei whitespace bild',
+      () async {
+        final artikel = makeArtikel(
+          uuid: 'uuid-img-update-blank',
+          etag: null,
+          remotePath: 'pb-update-blank',
+          lastSyncedEtag: ts1,
+          bildPfad: tempPath,
+        );
+        fakeDb.pendingChanges = [artikel];
+
+        final existingRecord = makeRecord(
+          id: 'pb-update-blank',
+          data: {
+            'uuid': artikel.uuid,
+            'name': artikel.name,
+            'menge': artikel.menge,
+            'ort': artikel.ort,
+            'fach': artikel.fach,
+            'beschreibung': artikel.beschreibung,
+          },
+          updated: ts1,
+        );
+
+        fakeRecordService.onGetList =
+            (_) async => makeResultList([existingRecord]);
+        fakeRecordService.onUpdate = (id, body, files) async => makeRecord(
+              id: id,
+              data: {
+                ...body,
+                'uuid': artikel.uuid,
+                'bild': '   ',
+              },
+              updated: ts2,
+            );
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(fakeDb.markSyncedCalls.first.remoteBildPfad, isNull);
+      },
+    );
+    test(
+      'create() nimmt bei bild als leere Liste keinen remoteBildPfad an',
+      () async {
+        final artikel = makeArtikel(
+          uuid: 'uuid-img-create-empty-list',
+          etag: null,
+          bildPfad: tempPath,
+        );
+        fakeDb.pendingChanges = [artikel];
+
+        fakeRecordService.onGetList = (_) async => makeResultList([]);
+        fakeRecordService.onCreate = (body, files) async => makeRecord(
+              id: 'pb-img-empty-list',
+              data: {
+                ...body,
+                'uuid': artikel.uuid,
+                'bild': <String>[],
+              },
+              updated: ts2,
+            );
+        fakeRecordService.onGetFullList = () async => [];
+
+        await syncService.syncOnce();
+
+        expect(fakeDb.markSyncedCalls, hasLength(1));
+        expect(fakeDb.markSyncedCalls.first.remoteBildPfad, isNull);
+      },
+    );
+
   });
 
 }

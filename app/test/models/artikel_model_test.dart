@@ -50,6 +50,8 @@ Artikel _makeArtikel({
   String bildPfad = '/images/r10k.jpg',
   String? thumbnailPfad = '/images/r10k_thumb.jpg',
   String? thumbnailEtag,
+  DateTime? erstelltAm,
+  DateTime? aktualisiertAm,
   String? remoteBildPfad,
   String? uuid = _fixedUuid,
   int? updatedAt = -1,
@@ -74,8 +76,8 @@ Artikel _makeArtikel({
     bildPfad: bildPfad,
     thumbnailPfad: thumbnailPfad,
     thumbnailEtag: thumbnailEtag,
-    erstelltAm: _fixedDate,
-    aktualisiertAm: _fixedDate,
+    erstelltAm: erstelltAm ?? _fixedDate,
+    aktualisiertAm: aktualisiertAm ?? _fixedDate,
     remoteBildPfad: remoteBildPfad,
     uuid: uuid,
     updatedAt: resolvedUpdatedAt,
@@ -418,7 +420,81 @@ void main() {
         expect(map['kategorie'], equals('Werkzeug'));
       });
 
+      test('enthält erstelltAm und aktualisiertAm als UTC ISO-8601 Strings', () {
+        final map = _makeArtikel(
+          erstelltAm: DateTime.parse('2025-02-10T12:34:56+02:00').toUtc(),
+          aktualisiertAm: DateTime.parse('2025-02-11T08:15:30+02:00').toUtc(),
+        ).toPocketBaseMap();
+
+        expect(map['erstelltAm'], isA<String>());
+        expect(map['aktualisiertAm'], isA<String>());
+
+        final erstelltAm = DateTime.parse(map['erstelltAm'] as String);
+        final aktualisiertAm = DateTime.parse(map['aktualisiertAm'] as String);
+
+        expect(erstelltAm.isUtc, isTrue);
+        expect(aktualisiertAm.isUtc, isTrue);
+        expect(
+          erstelltAm,
+          equals(DateTime.parse('2025-02-10T10:34:56.000Z')),
+        );
+        expect(
+          aktualisiertAm,
+          equals(DateTime.parse('2025-02-11T06:15:30.000Z')),
+        );
+      });
+
+      test('enthält artikelnummer wenn sie gesetzt und >= 1 ist', () {
+        final map = _makeArtikel(artikelnummer: 1234).toPocketBaseMap();
+
+        expect(map.containsKey('artikelnummer'), isTrue);
+        expect(map['artikelnummer'], equals(1234));
+      });
+
+      test('enthält artikelnummer nicht wenn sie null ist', () {
+        final map = _makeArtikel(artikelnummer: null).toPocketBaseMap();
+
+        expect(map.containsKey('artikelnummer'), isFalse);
+      });
+
+      test('enthält artikelnummer nicht wenn sie 0 ist', () {
+        final map = _makeArtikel(artikelnummer: 0).toPocketBaseMap();
+
+        expect(map.containsKey('artikelnummer'), isFalse);
+      });
+
+      test('enthält artikelnummer nicht wenn sie negativ ist', () {
+        final map = _makeArtikel(artikelnummer: -5).toPocketBaseMap();
+
+        expect(map.containsKey('artikelnummer'), isFalse);
+      });
+
+      test('enthält keine lokalen Sync-Steuerfelder im PB-Payload', () {
+        final map = _makeArtikel(
+          etag: 'etag-local',
+          lastSyncedEtag: 'etag-base',
+          pendingResolution: 'force_merge',
+          remotePath: 'rec_123',
+          remoteBildPfad: 'remote/image.jpg',
+          bildPfad: '/local/image.jpg',
+          thumbnailPfad: '/local/thumb.jpg',
+          thumbnailEtag: 'thumb-etag',
+        ).toPocketBaseMap();
+
+        expect(map.containsKey('etag'), isFalse);
+        expect(map.containsKey('last_synced_etag'), isFalse);
+        expect(map.containsKey('pending_resolution'), isFalse);
+        expect(map.containsKey('remote_path'), isFalse);
+
+        expect(map.containsKey('bildPfad'), isFalse);
+        expect(map.containsKey('thumbnailPfad'), isFalse);
+        expect(map.containsKey('thumbnailEtag'), isFalse);
+        expect(map.containsKey('remoteBildPfad'), isFalse);
+      });
+
     });
+
+
 
     // =======================================================================
     // fromMap()

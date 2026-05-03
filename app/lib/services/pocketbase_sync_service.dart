@@ -15,6 +15,8 @@ import 'pocketbase_sync_contracts.dart';
 
 import 'package:path/path.dart' as p;
 
+import 'orchestrator_sync_backend.dart';
+
 typedef ConflictCallback = Future<void> Function(
   Artikel lokalerArtikel,
   Artikel remoteArtikel,
@@ -27,18 +29,24 @@ const _kPushRequestTimeout = Duration(seconds: 30);
 // schlechtem Mobilsignal deutlich mehr als 30s
 const _kPushUploadTimeout = Duration(seconds: 120);
 
-class PocketBaseSyncService {
+class PocketBaseSyncService implements OrchestratorSyncBackend {
   final String collectionName;
   final SyncPocketBaseService _pbService;
   final SyncArtikelDbService _db;
   final Logger _logger = AppLogService.logger;
 
+  @override
   ConflictCallback? onConflictDetected;
+
+  bool _isWaitingForConflictResolution = false;
+  @override
+  bool get isWaitingForConflictResolution => _isWaitingForConflictResolution;
 
   PocketBaseSyncService(this.collectionName, this._pbService, this._db);
 
   /* ─────────────────────────────────────────────────────────── */
 
+  @override
   Future<void> syncOnce() async {
     if (kIsWeb) {
       _logger.d('PocketBaseSync: Skipping sync on Web platform');
@@ -539,6 +547,7 @@ class PocketBaseSyncService {
      Bilder nachladen
      ─────────────────────────────────────────────────────────── */
 
+  @override
   Future<void> downloadMissingImages() async {
     if (kIsWeb) return;
 
@@ -671,7 +680,14 @@ class PocketBaseSyncService {
       );
 
   Future<void> _emitConflictIfPossible(Artikel l, Artikel r) async {
-    if (onConflictDetected != null) await onConflictDetected!(l, r);
+    if (onConflictDetected == null) return;
+
+    _isWaitingForConflictResolution = true;
+    try {
+      await onConflictDetected!(l, r);
+    } finally {
+      _isWaitingForConflictResolution = false;
+    }
   }
 
   String _safeGet(Map<String, dynamic> m, String k) =>

@@ -1273,14 +1273,20 @@ Future<Artikel?> loadRemoteConflictSnapshot(String uuid) async {
       final db = await database;
       await db.execute('DROP TABLE IF EXISTS artikel');
       await db.execute('DROP TABLE IF EXISTS sync_meta');
+      await db.execute('DROP TABLE IF EXISTS conflict_snapshots');
       _logger.w(
-        "🗑️ Vorhandene Tabellen 'artikel' und 'sync_meta' gelöscht.",
+        "🗑️ Vorhandene Tabellen 'artikel', 'sync_meta' und "
+        "'conflict_snapshots' gelöscht.",
       );
+
       await db.execute(_createTableSql);
       await db.execute(_createSyncMetaTableSql);
+      await db.execute(_createConflictSnapshotsTableSql);
       _logger.w(
-        "🗑️ Tabellen 'artikel' und 'sync_meta' neu erstellt.",
+        "🗑️ Tabellen 'artikel', 'sync_meta' und "
+        "'conflict_snapshots' neu erstellt.",
       );
+
       await _createIndices(db);
       await db.insert('artikel', {
         'uuid': '__init__',

@@ -17,15 +17,13 @@ abstract final class ArtikelDbServiceTestHelper {
   /// Nutzt sqflite_common_ffi direkt — umgeht openArtikelDatabase()
   /// und damit den plattformspezifischen Dateipfad.
   static Future<void> setupInMemory(ArtikelDbService service) async {
-    // ✅ FFI einmalig initialisieren
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
+    // FFI/Factory werden zentral im Testfile initialisiert.
+    // Hier nur die In-Memory-DB öffnen und injizieren.
 
-    // ✅ In-Memory-DB öffnen mit demselben Schema wie der Produktionscode
     final db = await databaseFactoryFfi.openDatabase(
       inMemoryDatabasePath,
       options: OpenDatabaseOptions(
-        version: 5,
+        version: 6,
         onCreate: (db, version) async {
           await db.execute('''
             CREATE TABLE artikel (
@@ -53,6 +51,7 @@ abstract final class ArtikelDbServiceTestHelper {
               kategorie TEXT
             )
           ''');
+
           await db.execute('''
             CREATE TABLE IF NOT EXISTS sync_meta (
               key TEXT PRIMARY KEY,
@@ -61,7 +60,14 @@ abstract final class ArtikelDbServiceTestHelper {
             )
           ''');
 
-          // ✅ Indizes — identisch mit _createIndices()
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS conflict_snapshots (
+              uuid TEXT PRIMARY KEY,
+              snapshot_json TEXT NOT NULL,
+              saved_at INTEGER NOT NULL
+            )
+          ''');
+
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_artikel_updated_at '
             'ON artikel(updated_at)',
@@ -70,10 +76,12 @@ abstract final class ArtikelDbServiceTestHelper {
             'CREATE INDEX IF NOT EXISTS idx_artikel_uuid ON artikel(uuid)',
           );
           await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_artikel_deleted ON artikel(deleted)',
+            'CREATE INDEX IF NOT EXISTS idx_artikel_deleted '
+            'ON artikel(deleted)',
           );
           await db.execute(
-            'CREATE INDEX IF NOT EXISTS idx_artikel_name ON artikel(name)',
+            'CREATE INDEX IF NOT EXISTS idx_artikel_name '
+            'ON artikel(name)',
           );
           await db.execute(
             'CREATE INDEX IF NOT EXISTS idx_artikel_name_ort_fach '
@@ -87,7 +95,6 @@ abstract final class ArtikelDbServiceTestHelper {
       ),
     );
 
-    // ✅ In-Memory-DB in den Service injizieren
     await service.injectDatabase(db);
   }
 }

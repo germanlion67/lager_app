@@ -92,22 +92,27 @@ Artikel _makeArtikel({
 
 void main() {
   // ✅ FFI für sqflite auf Desktop/Test-Umgebung
-  setUpAll(() {
-    sqfliteFfiInit();
-    databaseFactory = databaseFactoryFfi;
-    SharedPreferences.setMockInitialValues({});
-  });
+
 
   late ArtikelDbService service;
 
-  setUp(() async {
+  setUpAll(() async {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+    SharedPreferences.setMockInitialValues({});
+
     service = ArtikelDbService();
-    // ✅ Frische In-Memory-DB vor jedem Test
     await ArtikelDbServiceTestHelper.setupInMemory(service);
   });
 
-  tearDown(() async {
-    await service.closeDatabase();
+  setUp(() async {
+    await service.resetDatabase();
+  });
+
+  tearDownAll(() async {
+    try {
+      await service.closeDatabase();
+    } catch (_) {}
   });
 
   group('ArtikelDbService', () {
@@ -987,6 +992,159 @@ void main() {
         expect(alle.first.kategorie, equals('Neu'));
       });
 
+    });
+
+    // =======================================================================
+    // Conflict Snapshots
+    // =======================================================================
+    group('Conflict Snapshots', () {
+      test('saveRemoteConflictSnapshot() speichert Snapshot und '
+          'loadRemoteConflictSnapshot() lädt ihn zurück', () async {
+        final uuid = UuidGenerator.generate();
+        final remote = _makeArtikel(
+          uuid: uuid,
+          name: 'Remote Artikel',
+          remotePath: 'rec_snapshot_1',
+          remoteBildPfad: 'remote/file.jpg',
+          etag: 'etag-remote-1',
+          lastSyncedEtag: 'etag-remote-1',
+          pendingResolution: null,
+        );
+
+        await service.saveRemoteConflictSnapshot(
+          uuid: uuid,
+          remoteArtikel: remote,
+        );
+
+        final loaded = await service.loadRemoteConflictSnapshot(uuid);
+
+        expect(loaded, isNotNull);
+        expect(loaded!.uuid, equals(uuid));
+        expect(loaded.name, equals('Remote Artikel'));
+        expect(loaded.remotePath, equals('rec_snapshot_1'));
+        expect(loaded.remoteBildPfad, equals('remote/file.jpg'));
+        expect(loaded.etag, equals('etag-remote-1'));
+        expect(loaded.lastSyncedEtag, equals('etag-remote-1'));
+      });
+
+      test('loadRemoteConflictSnapshot() gibt null zurück wenn '
+          'kein Snapshot vorhanden ist', () async {
+        final loaded = await service.loadRemoteConflictSnapshot(
+          'nicht-vorhanden',
+        );
+
+        expect(loaded, isNull);
+      });
+
+      test('saveRemoteConflictSnapshot() überschreibt bestehenden Snapshot '
+          'für dieselbe UUID', () async {
+        final uuid = UuidGenerator.generate();
+
+        final erster = _makeArtikel(
+          uuid: uuid,
+          name: 'Remote Alt',
+          remoteBildPfad: 'alt.jpg',
+          etag: 'etag-alt',
+          lastSyncedEtag: 'etag-alt',
+        );
+
+        final zweiter = _makeArtikel(
+          uuid: uuid,
+          name: 'Remote Neu',
+          remoteBildPfad: 'neu.jpg',
+          etag: 'etag-neu',
+          lastSyncedEtag: 'etag-neu',
+        );
+
+        await service.saveRemoteConflictSnapshot(
+          uuid: uuid,
+          remoteArtikel: erster,
+        );
+        await service.saveRemoteConflictSnapshot(
+          uuid: uuid,
+          remoteArtikel: zweiter,
+        );
+
+        final loaded = await service.loadRemoteConflictSnapshot(uuid);
+
+        expect(loaded, isNotNull);
+        expect(loaded!.name, equals('Remote Neu'));
+        expect(loaded.remoteBildPfad, equals('neu.jpg'));
+        expect(loaded.etag, equals('etag-neu'));
+        expect(loaded.lastSyncedEtag, equals('etag-neu'));
+
+        final db = await service.database;
+        final rows = await db.query(
+          'conflict_snapshots',
+          where: 'uuid = ?',
+          whereArgs: [uuid],
+        );
+        expect(rows.length, equals(1));
+      });
+
+      test('loadRemoteConflictSnapshot() ignoriert Snapshot älter als 24h',
+          () async {
+        final uuid = UuidGenerator.generate();
+        final remote = _makeArtikel(
+          uuid: uuid,
+          name: 'Veraltet',
+          etag: 'etag-old',
+          lastSyncedEtag: 'etag-old',
+        );
+
+        await service.saveRemoteConflictSnapshot(
+          uuid: uuid,
+          remoteArtikel: remote,
+        );
+
+        final db = await service.database;
+        final oldSavedAt = DateTime.now()
+            .toUtc()
+            .subtract(const Duration(hours: 25))
+            .millisecondsSinceEpoch;
+
+        await db.update(
+          'conflict_snapshots',
+          {'saved_at': oldSavedAt},
+          where: 'uuid = ?',
+          whereArgs: [uuid],
+        );
+
+        final loaded = await service.loadRemoteConflictSnapshot(uuid);
+
+        expect(loaded, isNull);
+      });
+
+      test('Snapshot-JSON enthält serialisierte Remote-Daten', () async {
+        final uuid = UuidGenerator.generate();
+        final remote = _makeArtikel(
+          uuid: uuid,
+          name: 'Snapshot JSON Test',
+          remotePath: 'rec_json_1',
+          remoteBildPfad: 'bild_json.jpg',
+          etag: 'etag-json',
+          lastSyncedEtag: 'etag-json',
+          pendingResolution: 'force_merge',
+        );
+
+        await service.saveRemoteConflictSnapshot(
+          uuid: uuid,
+          remoteArtikel: remote,
+        );
+
+        final db = await service.database;
+        final rows = await db.query(
+          'conflict_snapshots',
+          where: 'uuid = ?',
+          whereArgs: [uuid],
+          limit: 1,
+        );
+
+        expect(rows.length, equals(1));
+        expect(rows.first['snapshot_json'], isA<String>());
+        expect((rows.first['snapshot_json'] as String), contains('Snapshot JSON Test'));
+        expect((rows.first['snapshot_json'] as String), contains('bild_json.jpg'));
+      });
     });
 
     // =======================================================================
