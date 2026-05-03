@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+41 | **Zuletzt aktualisiert:** 02.05.2026
+**Version:** 0.9.4+41 | **Zuletzt aktualisiert:** 03.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -35,18 +35,6 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 
 ## 🔴 Priorität: Hoch
 
-### B-015: Orchestrator-Timeout während offener Konflikt-UI / Merge
-**Beschreibung:**  
-Bei längerer Benutzerinteraktion in der Konflikt-UI, insbesondere im Merge-Fall, kann `SyncOrchestrator.runOnce()` nach 5 Minuten in einen Timeout laufen, obwohl die Konfliktauflösung kurz danach erfolgreich abgeschlossen wird. Das ist kein bestätigter Datenverlust, aber ein reproduzierter UX-/Ablauffehler.
-
-**Status:**  
-Die konfliktbewusste Timeout-Semantik des Orchestrators wurde bereits per Verhaltenstests abgesichert. Offen ist weiterhin die produktive / UX-seitige Behandlung längerer Benutzerinteraktion im laufenden Sync.
-
-**Tasks**
-- [x] Timeout-Pfad im Zusammenspiel von `SyncOrchestrator`, Konflikt-Callback und UI-Wartezeit analysieren
-- [ ] minimal-invasive Lösung umsetzen, sodass Benutzerinteraktion nicht als hängender Sync-Lauf gewertet wird
-- [ ] Folge-Logs und Verhalten nach manueller Merge-Auflösung erneut real verifizieren
-- [x] Testabdeckung in `test/services/sync_orchestrator_test.dart` ergänzen
 
 ---
 
@@ -84,24 +72,28 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [x] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
 - [x] **T-001.7** — „Lokal behalten“ → Server wird im Folgesync überschrieben
 - [x] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
-- [~] **T-001.9** — „Zusammenführen“ → fachlich bestätigt; Merge-Dialog und Feldauswahl funktionieren, Merge-Version wird im Folgesync korrekt gepusht; laufender Sync kann aber während offener UI in den Orchestrator-Timeout laufen
+- [x] **T-001.9** — „Zusammenführen“ → fachlich bestätigt; Merge-Dialog und Feldauswahl funktionieren, Merge-Version wird im Folgesync korrekt gepusht; längere offene Konflikt-UI wird konfliktbewusst als Wartephase behandelt und führt nicht mehr zu einem falschen Orchestrator-Timeout
 - [x] **T-001.11** — Mehrere Konflikte gleichzeitig → sequentielle Bearbeitung im echten Sync-Lauf mit gemischten Entscheidungen (`skip`, `useRemote`, `useLocal`) erfolgreich bestätigt
-- [ ] End-to-End-Test mit echtem PocketBase-Duplicate-UUID-Fall durchführen
+- [x] **T-001.18** - Reale UUID-Kollision „lokal offline neu erzeugt, vor erstem Sync gleicher Remote-Datensatz bereits vorhanden“ als konservativen Konfliktfall verifiziert
+- [ ] Optional: engeren technischen Duplicate-UUID-Recovery-Fallback im echten `create()`-Race separat real prüfen
 - [x] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
-- [~] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung fachlich stabil; Timeout-Befund im laufenden Sync bleibt offen
+- [x] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung fachlich stabil; die frühere Timeout-Auffälligkeit während offener Konflikt-UI ist real nicht mehr reproduzierbar
 - [x] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
-- [ ] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI
+- [x] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI; Gegenprobe ohne Remote-Änderung löscht regulär ohne unnötigen Konflikt
+
+**Einordnung zu T-001.18**
+Die reale UUID-Kollision „lokal offline neu erzeugt, vor dem ersten Sync gleicher Remote-Datensatz bereits vorhanden“ wird im aktuellen Projekt nicht als stiller Auto-Recovery-Fall bewertet, sondern bewusst als konservativer Konfliktfall. Nach manueller Auflösung (`useLocal`) läuft der Folgesync erfolgreich weiter; es entstehen keine Dubletten und kein Retry-Loop. Der engere Duplicate-UUID-Recovery im `create()`-Catch bleibt davon als technischer Fallback unberührt.
 
 **Verbleibende technische Restpunkte**
 - [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
 - [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
 - [x] `test/services/artikel_db_service_test.dart`: Snapshot-Methoden gezielt ergänzt
 - [x] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für Zeitstempel- und `artikelnummer`-Regeln ergänzt
-- [ ] `test/services/pocketbase_sync_service_test.dart`: `_extractBildName()` und `remoteBildPfad`-Persistenz gezielt ergänzen
+- [x] `test/services/pocketbase_sync_service_test.dart`: `_extractBildName()` und `remoteBildPfad`-Persistenz service-nah ergänzt
 - [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
 
 **Optional / spätere Verfeinerung**
-- [ ] Monitoring/Zähler für Duplicate-UUID-Recovery-Häufigkeit prüfen oder ergänzen
+- [ ] Monitoring/Zähler für technische Duplicate-UUID-Recovery-Fallbacks im `create()`-Pfad prüfen oder ergänzen
 - [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
 - [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
 - [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
@@ -113,10 +105,12 @@ Manuelle Integrationstests und Restverifikation für die inzwischen deutlich geh
 - [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
 
 **Hinweis**
-Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und inzwischen in mehreren realen Geräte-/Server-Läufen bestätigt. Offen sind vor allem noch der End-to-End-Test für Duplicate-UUID-Recovery, die erneute manuelle Verifikation von Soft-Delete lokal + Remote-Edit sowie der bekannte Merge-/Orchestrator-Timeout-Befund.
+Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und inzwischen in mehreren realen Geräte-/Server-Läufen bestätigt. Zusätzlich sind die Bildpfad-bezogenen Response-/Persistenzpfade im service-nahen Sync-Test ergänzt, der Konfliktfall Soft-Delete lokal + Remote-Edit erneut manuell erfolgreich verifiziert und E-001 fachlich neu eingeordnet:
+
+Die real geprüfte Konstellation „lokal offline neu erzeugt, vor dem ersten Sync gleicher Remote-Datensatz bereits vorhanden“ wird im Projekt bewusst konservativ als Konflikt behandelt. Dieses Verhalten ist gewünscht und gilt damit als bestätigt. Offen ist nur noch optional ein separater Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback im tatsächlichen `create()`-Race sowie die Doku-Konsolidierung in `DATABASE.md` und `ARCHITECTURE.md`.
 
 → FakeArtikelDbService wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.  
-→ Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService` sowie Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` jetzt explizit testseitig abgesichert.
+→ Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService`, Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` sowie `_extractBildName()` / `remoteBildPfad` im service-nahen Sync-Test explizit regressionssicher abgesichert.
 --- 
 
 ### O-012: Sync-Logs mobil-lesbar machen (Summary-Lines pro Operation)
@@ -262,12 +256,12 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 | Priorität | Gesamt | Erledigt | Offen |
 |---|---:|---:|---:|
-| ✅ Abgeschlossen | 57 | 52 | 0 |
-| 🔴 Hoch | 1 | 0 | 1 |
+| ✅ Abgeschlossen | 57 | 53 | 0 |
+| 🔴 Hoch | 0 | 0 | 0 |
 | 🟡 Mittel | 3 | 0 | 3 |
 | 🟢 Nice-to-Have | 1 | 0 | 1 |
 | ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **64** | **52** | **7** |
+| **Gesamt** | **64** | **53** | **6** |
 
 ---
 
@@ -275,6 +269,20 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+### B-015: Orchestrator-Timeout während offener Konflikt-UI / Merge — abgeschlossen
+**Beschreibung:**  
+Bei längerer Benutzerinteraktion in der Konflikt-UI, insbesondere im Merge-Fall, lief `SyncOrchestrator.runOnce()` zuvor nach 5 Minuten in einen Timeout, obwohl die Konfliktauflösung kurz danach erfolgreich abgeschlossen wurde. Die Timeout-Behandlung ist jetzt konfliktbewusst umgesetzt: Solange aktiv auf Benutzerauflösung gewartet wird, wird die Phase nicht als hängender Sync-Lauf gewertet.
+
+**Abschlussstand:**  
+Die Lösung ist produktiv umgesetzt und per Verhaltenstests sowie realem Gerätelauf verifiziert. Während offener Konflikt-UI werden regelmäßige Wait-Logs geschrieben; nach Benutzerentscheidung läuft der Sync regulär weiter und endet erfolgreich. Echte technische Fehler (z. B. Netzwerk-/DNS-Fehler) werden weiterhin korrekt als Fehler behandelt.
+
+**Tasks**
+- [x] Timeout-Pfad im Zusammenspiel von `SyncOrchestrator`, Konflikt-Callback und UI-Wartezeit analysieren
+- [x] minimal-invasive Lösung umsetzen, sodass Benutzerinteraktion nicht als hängender Sync-Lauf gewertet wird
+- [x] Folge-Logs und Verhalten nach manueller Merge-Auflösung erneut real verifizieren
+- [x] Testabdeckung in `test/services/sync_orchestrator_test.dart` ergänzen
+
 
 ### B-003 — remoteBildPfad nach CREATE/UPDATE in PocketBase schreiben — abgeschlossen 30.04.2026
 **Titel:** `remoteBildPfad` wird nach erfolgreichem Bild-Upload nicht in PocketBase zurückgeschrieben  
@@ -322,7 +330,6 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 **Offene Punkte:**
 - PocketBase Admin: `kategorie`-Feld manuell ergänzen
-- `_extractBildName()` und `remoteBildPfad`-Persistenz im Sync-Service testseitig noch gezielt ergänzen
 
 
 ### B-013: image upload flow, remoteBildPfad support & ghost-file cleanup - erledigt in `v0.9.4+36`
@@ -647,6 +654,45 @@ wurden in einen neuen `SettingsController` ausgelagert.
 
 --- 
 
+### T-001.18: Reale UUID-Kollision als konservativer Konfliktfall verifiziert — abgeschlossen 03.05.2026
+**Beschreibung:**  
+Die Konstellation „lokal offline neu erzeugter Artikel, vor dem ersten Sync gleicher Datensatz bereits remote mit identischer `uuid` vorhanden“ wurde real gegen PocketBase geprüft. Im produktiven Lauf wurde dieser Fall nicht als stiller Duplicate-UUID-Recovery-Create-Fall behandelt, sondern bewusst konservativ in die Konflikt-UI überführt.
+
+**Abschlussstand:**  
+Dieses Verhalten ist für das Projekt gewünscht und wird daher als fachlich korrekt bewertet. Nach manueller Auflösung mit `useLocal` wurde der bestehende Remote-Datensatz im Folgesync erfolgreich fortgeführt. Es entstanden keine Dubletten und kein Retry-Loop.
+
+**Fachlicher Effekt:**
+- bereits vor dem Push erkennbare UUID-Kollisionen mit lokaler fachlicher Neuanlage werden konservativ als Konflikt behandelt
+- Konflikt-UI und manuelle Auflösung funktionieren in dieser Konstellation stabil
+- der bestehende Remote-Datensatz wird im Folgesync korrekt aktualisiert
+- kein Endlos-Retry, keine Dublette
+- der engere technische Duplicate-UUID-Recovery-Fallback im `create()`-Pfad bleibt davon unberührt
+
+**Tasks**
+- [x] reale UUID-Kollision gegen echtes PocketBase reproduzieren
+- [x] Laufverhalten per Logs und Remote-Record-Verlauf auswerten
+- [x] gegen den aktuellen Produktivcode prüfen, ob Konflikt oder Auto-Recovery beabsichtigt ist
+- [x] als gewünschtes konservatives Projektverhalten bewerten
+- [x] Doku- und Statusbewertung entsprechend anpassen
+
+
+### T-001 (Ergänzung 03.05.2026): Bildpfad-Testlücke geschlossen und Delete-Konfliktfall erneut verifiziert
+**Beschreibung:**  
+Die service-nahe Testabdeckung für den PocketBase-Bildrückgabepfad wurde ergänzt. `_extractBildName()` und die Persistenz von `remoteBildPfad` nach CREATE/UPDATE sind nun für `List<String>`, `String`, `null` und leere Werte regressionssicher abgesichert. Zusätzlich wurde der Konfliktfall „lokaler Soft-Delete bei zwischenzeitlicher Remote-Änderung“ erneut manuell erfolgreich verifiziert; die Gegenprobe ohne Remote-Änderung löscht regulär ohne unnötigen Konflikt.
+
+**Abschlussstand:**  
+- `flutter test test/services/pocketbase_sync_service_test.dart` grün  
+- `_extractBildName()` / `remoteBildPfad` service-nah ergänzt  
+- M-004 manuell bestanden  
+- Gegenprobe ebenfalls bestanden
+
+**Tasks**
+- [x] service-nahe Tests für `_extractBildName()` und `remoteBildPfad` ergänzen
+- [x] CREATE-/UPDATE-Pfad im Test-Nachbau an produktiven Bildpfad angleichen
+- [x] Soft-Delete lokal + Remote-Edit erneut manuell verifizieren
+- [x] Gegenprobe ohne Remote-Änderung durchführen
+
+
 ### T-011: Snapshot-Persistenz und PocketBase-Modell-Mapping regressionssicher ergänzt — erledigt in `fix/sync-hardening2-v0.9.4`
 **Typ:** Testausbau / DB-Tests / Modell-Mapping  
 **Betrifft:**  
@@ -806,6 +852,8 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 ---
 
+
+
 ### T-008: ETag-Konflikt-Logik und `downloadMissingImages`-Check-Logik — abgeschlossen in `v0.8.5+19`
 - `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
 - `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
@@ -822,6 +870,8 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-03 | 0.9.4+42 | E-001 real eingeordnet: Die Konstellation „lokal offline neu erzeugt, vor erstem Sync gleicher Remote-Datensatz bereits vorhanden“ wird nun fachlich als gewünschter konservativer Konfliktfall bewertet. Nach manueller Auflösung (`useLocal`) erfolgreicher Folgesync ohne Dublette oder Retry-Loop. |
+| 2026-05-03 | 0.9.4+41 | T-001 weiter konsolidiert: `_extractBildName()` / `remoteBildPfad` service-nah testseitig ergänzt; M-004 erneut manuell verifiziert inklusive erfolgreicher Gegenprobe ohne Remote-Änderung. |
 | 2026-05-02 | 0.9.4+41 | T-011 abgeschlossen: Snapshot-Persistenz in `ArtikelDbService` sowie Zeitstempel- und `artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` testseitig regressionssicher ergänzt. DB-Testisolation für Singleton/In-Memory-Setup stabilisiert. Teststand: 707 Tests grün, 3 übersprungen. |
 | 2026-05-02 | 0.9.4+41 | B-015 weiter eingegrenzt: konfliktbewusste Timeout-Semantik des Orchestrators ist jetzt per Verhaltenstests abgesichert; offen bleibt die produktive UX-/Ablaufbehandlung längerer Merge-Interaktion. |
 | 2026-04-30 | 0.9.4+41 | T-001 manuell weiter bestätigt: `useLocal`, `useRemote`, `skip` und Mehrfachkonflikte im echten Geräte-/Server-Lauf verifiziert. Gemischte Auflösungen (`skip`, `useRemote`, `useLocal`) funktionieren sequentiell; nur übersprungene Konflikte erscheinen im Folgesync erneut. Merge fachlich bestätigt, aber mit bekanntem Orchestrator-Timeout-Befund bei längerer UI-Interaktion. |
