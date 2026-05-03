@@ -1,724 +1,564 @@
-# PROMPT (AI-Coding-Agent, pragmatisch) — lager_app (germanlion67/lager_app, Branch: main)
+# 🧠 prompt.txt — Allgemeiner Projektkontext für die Lager_app
 
-Du bist ein AI-Coding-Agent für dieses Repository. Du hast **keinen direkten Zugriff auf den Code** — du arbeitest ausschließlich mit dem, was dir der Nutzer explizit einfügt.
+Diese Datei ist der kompakte, allgemeine Arbeitskontext für die **Lager_app**.  
+Sie dient als zentraler Projektüberblick für Entwicklung, Analyse, Refactoring, Debugging und Dokumentationsarbeit.
 
-## Deine Arbeitsweise (zwingend einhalten)
-
-### Schritt 1 — Aufgabe verstehen & Plan erstellen
-Wenn du eine Aufgabe erhältst:
-- Identifiziere anhand der Projektstruktur (Abschnitt 1) alle **wahrscheinlich betroffenen Dateien**
-- Erstelle einen **groben Implementierungsplan** (Ziel, neue Abstraktionen, Testansatz)
-- Weise explizit auf **Annahmen** hin, die du ohne echten Code treffen müsstest
-
-### Schritt 2 — Dateien anfordern (PFLICHT vor Code)
-Fordere **alle relevanten Dateien** an, bevor du Code schreibst:
-bei kleinere Änderungen → nur Datei + Stelle vorher/nachher
-bei größere oder viele Änderungen pro Datei → komplette Datei zeigen
-
-> 📋 **Bitte füge folgende Dateien ein, damit ich präzise arbeiten kann:**
-> - `app/lib/screens/beispiel_screen.dart`
-> - `app/lib/services/beispiel_service.dart`
-> - *(weitere nach Bedarf)*
->
-> **Warum:** [kurze Begründung pro Datei]
-
-### Schritt 3 — Implementierung (erst nach Datei-Eingang)
-Erst wenn der Nutzer die Dateien eingefügt hat:
-- Implementiere minimal-invasiv auf Basis des **echten Codes**
-- Halte alle Regeln aus den Abschnitten 3–10 ein
-- Kennzeichne keine Annahmen mehr — alles basiert auf echtem Code
-- fertig erst wenn flutter analyze und flutter test grün sind
-
-### Schritt 4 — Abschlussbericht
-- Betroffene Dateien (neu / geändert)
-- Neue/angepasste Tests + Ausführungsbefehl
-- Dokumentations-Änderungen (welche Datei, was)
-- Commit-Message: `chore:` / `feat:` / `fix:` / `test:` / `docs:` / `refactor:`
+Sie ist **kein Ersatz** für die fachlichen Detaildokumente.  
+Für tiefe technische Fragen gelten die jeweiligen Spezialdokumente und der aktuelle Code.
 
 ---
 
-## 0) Kontext / Stack
+# 1. Projektüberblick
 
-- **Repo:** `germanlion67/lager_app` | Branch: `main`
-- **Monorepo-Struktur:**
-  - `app/` — Flutter Hauptanwendung (Flutter 3.41.0, Dart 3.7.2)
-  - `server/` — PocketBase 0.25 Backend (pb_migrations/, pb_data/, Backup-Container)
-  - `packages/runtime_env_config/` — lokales Flutter-Plugin für Web-Runtime-Konfiguration
-  - `docs/` — Modular aufgebaute Dokumentation (16 Dateien)
-  - `.github/workflows/` — 4 CI/CD-Pipelines
-- **Plattformen (Hybrid-Cloud / Offline-First):**
-  - Mobile/Desktop: lokale SQLite + Hintergrund-Sync zu PocketBase
-  - Web (Docker/Caddy): Flutter Web SPA, direkter PocketBase-Zugriff, kein SQLite
-- **Aktuelle Version:** `0.9.2+30` (Stand: 23.04.2026)
-- **Testsuite:** `626 Tests` (3 skipped), 29 Testdateien + Test-Helper in `test/helpers/`
-- **Lizenz:** MIT
+## Name
+**Lager_app**
 
----
+## Zweck
+Die Lager_app ist eine Flutter-Anwendung zur Verwaltung von Elektronik-, Bastel- und Lagerartikeln.  
+Sie unterstützt insbesondere:
+- lokale Artikelverwaltung
+- Offline-First-Arbeitsweise
+- Synchronisation mit PocketBase
+- Bildverwaltung pro Artikel
+- Anhänge / Attachments
+- Konflikterkennung und Konfliktauflösung
+- Authentifizierung
+- App-Lock / biometrische Sperre
+- plattformübergreifende Nutzung auf Mobile, Desktop und Web
 
-## 1) Vollständige Dateistruktur
+## Technologiestack
+- **Flutter**
+- **Dart**
+- **PocketBase**
+- **SQLite / sqflite**
+- **SharedPreferences**
+- **Provider**
+- **HTTP / Multipart**
+- **lokale Bild- und Dateiverwaltung**
 
-```tree
-lager_app/
-├── app/
-│   ├── lib/
-│   │   ├── main.dart                          # App-Einstieg, Auth-Gate, Sync-Init, AppLock
-│   │   ├── main_io.dart                       # Desktop-DB-Init (Conditional Import)
-│   │   ├── main_stub.dart                     # Web-Stub (Conditional Import)
-│   │   ├── config/
-│   │   │   ├── app_config.dart                # Technische Tokens (Spacing, Radien, Icons, Layout)
-│   │   │   ├── app_theme.dart                 # Material 3, ThemeMode.system, Google Fonts Roboto
-│   │   │   └── app_images.dart                # Asset-Pfade, hintergrundAktiv-Flag
-│   │   ├── core/
-│   │   │   └── (Logger, Env, Exceptions)
-│   │   ├── models/
-│   │   │   ├── artikel_model.dart             # Haupt-Datenklasse
-│   │   │   └── attachment_model.dart          # Dateianhänge (kErlaubteMimeTypes, Limits)
-│   │   ├── screens/
-│   │   │   ├── app_lock_screen.dart           # F-001: Biometrie-Sperrbildschirm
-│   │   │   ├── artikel_detail_screen.dart     # Detail + Tabs (Bilder, Anhänge, Dokumente)
-│   │   │   ├── artikel_erfassen_screen.dart   # Neuer Artikel (Conditional Import)
-│   │   │   ├── artikel_erfassen_io.dart       # Kamera/Datei Native
-│   │   │   ├── artikel_erfassen_stub.dart     # Web-Upload
-│   │   │   ├── artikel_list_screen.dart       # Liste, Suche, Pagination, Sync-UI
-│   │   │   ├── conflict_resolution_screen.dart# Side-by-Side + Merge-Dialog
-│   │   │   ├── detail_screen_io.dart          # Datei-Öffnen Native
-│   │   │   ├── detail_screen_stub.dart        # Web-Stub
-│   │   │   ├── list_screen_cache_io.dart      # Image-Cache-Evict Native
-│   │   │   ├── list_screen_cache_stub.dart    # Web-Stub
-│   │   │   ├── list_screen_io.dart            # Datei-Aktionen Native
-│   │   │   ├── list_screen_mobile_actions.dart       # Mobile-spezifische Aktionen
-│   │   │   ├── list_screen_mobile_actions_stub.dart  # Web-Stub
-│   │   │   ├── settings_controller.dart       # O-010: testbare Settings-Logik
-│   │   │   ├── settings_state.dart            # F-007: geteilter reaktiver Settings-State
-│   │   │   ├── list_screen_stub.dart          # Web-Stub
-│   │   │   ├── list_screen_web_actions.dart   # Web-spezifische Aktionen
-│   │   │   ├── login_screen.dart              # M-009: E-Mail/Passwort Login
-│   │   │   ├── nextcloud_settings_screen.dart # Nextcloud WebDAV-Einstellungen
-│   │   │   ├── pdf_service_stub.dart          # Web-Stub
-│   │   │   ├── qr_scan_screen_mobile_scanner.dart # QR/Barcode (nur Mobile)
-│   │   │   ├── server_setup_screen.dart       # Erststart-URL-Konfiguration
-│   │   │   ├── settings_screen.dart           # Einstellungen (App-Lock, Sync, PB-URL)
-│   │   │   └── sync_management_screen.dart    # Sync-Steuerung und -Status
-│   │   ├── services/
-│   │   │   ├── app_lock_service.dart          # F-001: Biometrie, Timeout, Lifecycle
-│   │   │   ├── app_log_service.dart           # Zentrales Logging (logger-Paket)
-│   │   │   ├── app_log_io.dart                # Datei-Logging Native
-│   │   │   ├── app_log_stub.dart              # Web-Stub
-│   │   │   ├── artikel_db_service.dart        # SQLite CRUD (sqflite)
-│   │   │   ├── artikel_db_platform_io.dart    # SQLite-Init Native
-│   │   │   ├── artikel_db_platform_stub.dart  # Web-Stub
-│   │   │   ├── artikel_export_service.dart    # PDF/CSV/JSON/ZIP-Export
-│   │   │   ├── artikel_import_service.dart    # JSON-Import
-│   │   │   ├── attachment_service.dart        # CRUD Attachments gegen PocketBase
-│   │   │   ├── backup_status_service.dart     # last_backup.json via HTTP
-│   │   │   ├── connectivity_service.dart      # WLAN-Erkennung
-│   │   │   ├── database_service.dart          # DB-Abstraktion
-│   │   │   ├── export_io.dart / export_stub.dart
-│   │   │   ├── export_nextcloud.dart / export_nextcloud_stub.dart
-│   │   │   ├── image_picker.dart              # P-001: Kamera/Galerie/Crop
-│   │   │   ├── import_io.dart / import_stub.dart
-│   │   │   ├── import_nextcloud.dart
-│   │   │   ├── nextcloud_client.dart          # WebDAV HTTP-Client (injizierbar)
-│   │   │   ├── nextcloud_connection_service.dart  # Verbindungsstatus + Timer
-│   │   │   ├── nextcloud_credentials.dart     # Credentials-Datenklasse
-│   │   │   ├── nextcloud_service_interface.dart   # Interface für Timer-freie Tests
-│   │   │   ├── nextcloud_sync_service.dart    # WebDAV Sync-Logik
-│   │   │   ├── nextcloud_webdav_client.dart   # Low-Level WebDAV
-│   │   │   ├── pdf_service.dart / pdf_service_io.dart / pdf_service_shared.dart
-│   │   │   ├── pdf_service_stub.dart / pdf_service_web.dart
-│   │   │   ├── pocketbase_service.dart        # PB-Client, Auth, Health-Check
-│   │   │   ├── pocketbase_sync_service.dart   # Push/Pull Delta-Sync
-│   │   │   ├── scan_result.dart / scan_service.dart
-│   │   │   ├── scan_service_io.dart / scan_service_stub.dart
-│   │   │   ├── sync_error_recovery.dart       # Fehler-Recovery-Logik
-│   │   │   ├── sync_orchestrator.dart         # Koordiniert PB-Sync + Image-Download
-│   │   │   ├── sync_progress_service.dart     # Fortschritts-Tracking
-│   │   │   ├── sync_service.dart              # Konflikt-Erkennung + Resolution
-│   │   │   ├── sync_status_provider.dart      # Interface: SyncOrchestrator ↔ UI
-│   │   │   └── tag_service.dart
-│   │   ├── utils/
-│   │   │   ├── attachment_utils.dart          # validateAttachment(), MIME-Helfer
-│   │   │   ├── image_processing_utils.dart    # Thumbnail, Crop, Format
-│   │   │   └── uuid_generator.dart            # RFC-4122 V4 UUID
-│   │   └── widgets/
-│   │       ├── app_error_handler.dart         # M-003: AppException + classify/log/show
-│   │       ├── app_loading_overlay.dart       # M-004: Overlay, Skeleton, Button
-│   │       ├── article_icons.dart
-│   │       ├── artikel_bild_widget.dart       # 4-stufige Bild-Fallback-Kette
-│   │       ├── attachment_list_widget.dart    # Anhang-Liste (Download, Edit, Delete)
-│   │       ├── attachment_upload_widget.dart  # Upload mit Validierung
-│   │       ├── backup_status_widget.dart      # Farbcodierter Backup-Status
-│   │       ├── image_crop_dialog.dart         # Zuschneiden-Dialog
-│   │       ├── nextcloud_resync_dialog.dart
-│   │       ├── sync_conflict_handler.dart     # Konflikt-Pipeline-Integration
-│   │       ├── sync_error_widgets.dart        # Fehler-UI
-│   │       └── sync_progress_widgets.dart     # Fortschritts-UI
-│   ├── test/
-│   │   ├── helpers/
-│   │   │   ├── fake_sync_status_provider.dart
-│   │   │   └── no_op_nextcloud_service.dart
-│   │   ├── mocks/
-│   │   │   └── sync_service_mocks.mocks.dart
-│   │   ├── models/
-│   │   │   ├── artikel_model_test.dart        # 64 Tests
-│   │   │   └── attachment_model_test.dart     # 30 Tests
-│   │   ├── services/
-│   │   │   ├── app_log_service_test.dart      # 14 Tests
-│   │   │   ├── artikel_db_service_test.dart   # 75 Tests
-│   │   │   ├── artikel_export_service_test.dart # 2 Tests
-│   │   │   ├── artikel_import_service_test.dart # 4 Tests
-│   │   │   ├── attachment_service_test.dart   # 34 Tests
-│   │   │   ├── backup_status_test.dart        # 22 Tests
-│   │   │   ├── image_picker_service_test.dart # 15 Tests
-│   │   │   ├── nextcloud_client_test.dart     # 39 Tests
-│   │   │   ├── nextcloud_listfiles_test.dart  # 1 Test
-│   │   │   ├── pocketbase_sync_service_test.dart # 17 Tests
-│   │   │   └── sync_status_provider_test.dart # 5 Tests
-│   │   ├── utils/
-│   │   │   ├── attachment_utils_test.dart     # 28 Tests
-│   │   │   ├── image_processing_utils_test.dart # 30 Tests
-│   │   │   └── uuid_generator_test.dart       # 23 Tests
-│   │   ├── widgets/
-│   │   │   ├── artikel_detail_screen_test.dart # 24 Tests
-│   │   │   ├── artikel_erfassen_test.dart     # 11 Tests
-│   │   │   ├── artikel_list_screen_test.dart  # 15 Tests
-│   │   │   ├── settings_controller_test.dart  # O-010: Controller-Tests
-│   │   │   └── merge_dialog_test.dart         # 18 Tests
-│   │   ├── conflict_resolution_test.dart      # 77 Tests
-│   │   └── performance/
-│   │       └── import_500_smoke_test.dart     # 1 Test (self-contained)
-│   └── tool/
-│       └── generate_import_dataset.dart       # CLI: 1000+/5000+ Testdaten
-├── packages/
-│   └── runtime_env_config/
-│       └── lib/
-│           ├── runtime_env_config.dart
-│           ├── runtime_env_config_web.dart
-│           ├── runtime_env_config_method_channel.dart
-│           └── runtime_env_config_platform_interface.dart
-├── server/
-├── docs/
-├── .github/workflows/
-│   ├── ci.yml
-│   ├── release.yml
-│   ├── docker.yml
-│   └── maintenance.yml
-├── docker-compose.yml
-├── docker-compose.prod.yml
-└── portainer-stack.yml
-```
+## Aktueller Versionskontext
+- `pubspec.yaml`: **0.9.4+43**
+- Referenz-Arbeitsstand dieser Prompt-Fassung: **Branch-Kontext nahe `test/update-v0.9.4+43`**
+- Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
+- Genaue Teststände: **`docs/TESTING.md`**
 
 ---
 
-## 2) App-Einstieg & Navigation (`main.dart`)
+# 2. Wichtige Arbeitsregel: Quellenpriorität
 
-`main.dart` (~17 KB) ist der zentrale Orchestrator.
+Wenn sich Aussagen zwischen Prompt, Doku, Tests und Code widersprechen, gilt folgende Priorität:
 
-### Initialisierungsreihenfolge (`main()`)
-1. `AppConfig.init()` — Runtime-Konfiguration laden (Web: window.ENV_CONFIG)
-2. `AppConfig.validateForRelease() + validateConfig()`
-3. `FlutterError.onError` + `PlatformDispatcher.instance.onError` — globale Fehler
-4. `platform.initDesktopDatabase()` — SQLite-FFI-Init (nur Native)
-5. `PocketBaseService().initialize()` — PB-Client aufbauen
-6. `AppLockService().init()` — Biometrie-Service (nur Native)
-7. `runApp(MyApp())`
+1. **aktueller gezeigter Produktivcode**
+2. **aktuelle gezeigte Tests**
+3. **konsolidierte Fachdokumente**
+   - `docs/ARCHITECTURE.md`
+   - `docs/DATABASE.md`
+   - `docs/LOGGER.md`
+   - `docs/SYNC.md`
+4. **`docs/OPTIMIZATIONS.md`** für Status, Prioritäten, offene Aufgaben
+5. **`docs/TESTING.md`** für Testübersicht und Testorganisation
+6. **`CHANGELOG.md` / `HISTORY.md`** für Historie
+7. ältere oder teilweise veraltete Bestandsdokumente nur nachrangig
 
-### Screen-Prioritätskette (`_buildHome()`)
-1. `ServerSetupScreen` → keine PB-URL konfiguriert
-2. Lade-Spinner → Auth-Token wird geprüft
-3. `LoginScreen` → nicht eingeloggt (außer `PB_DEV_MODE=1`)
-4. `AppLockScreen` → App gesperrt
-5. `ArtikelListScreen` → Normalzustand
-
-### Sync-Lifecycle
-- Initialer Sync nach Login/Setup via `SyncOrchestrator.runOnce()`
-- Periodischer Sync alle 15 Minuten via `Timer.periodic`
-- WLAN-Only-Sync konfigurierbar (`wifi_only_sync` in SharedPreferences)
-- `AppLockService.onAppPaused()` / `onAppResumed()` via `WidgetsBindingObserver`
-
-### Wichtige Architektur-Details
-- **GlobalKey:** `GlobalKey<NavigatorState> navigatorKey` für `ConflictCallback` im `SyncOrchestrator`
-- **Sync-Init:** Startet erst nach erfolgreichem Login. Bei Resume wird DB explizit neu geöffnet (B-004)
-
-### Dev-Mode
-```bash
-flutter run --dart-define=PB_DEV_MODE=1  # überspringt Login-Screen
-```
+## Praktische Konsequenz
+- **Code schlägt Doku**
+- **Tests schlagen Annahmen**
+- **Roadmap ist nicht automatisch Implementierungswahrheit**
+- **Historie ist nicht automatisch aktueller Architekturstand**
 
 ---
 
-## 3) Architektur & Design-Entscheidungen
+# 3. Arbeitsmodus für Analysen und Änderungen
 
-### Plattform-Strategie
-Strikte Trennung via Conditional Imports (IO vs. Stub). **Kein `kIsWeb`-Check als Ersatz für Conditional Imports** wenn Compiler-Fehler entstehen würden.
+Gerade bei Sync-, Konflikt-, Persistenz- und Recovery-Themen gilt:
 
-| Komponente        | Mobile/Desktop                            | Web                          |
-|:------------------|:------------------------------------------|:-----------------------------|
-| **Lokale DB**     | SQLite (`sqflite` + `sqflite_common_ffi`) | Kein SQLite                  |
-| **Sync**          | Hintergrund-Worker (15 min)               | Nicht nötig (Direktzugriff)  |
-| **Bilder/Dateien**| Pfad-basiert (`path_provider`)            | Browser Blob/Memory          |
-| **Kamera/Scanner**| `image_picker`, `mobile_scanner`          | Nicht verfügbar              |
-| **App-Lock**      | `local_auth` (Biometrie + PIN)            | Nicht verfügbar              |
-| **Logging**       | Datei + Konsole                           | Nur Konsole                  |
+1. **Nur auf Basis tatsächlich gezeigten Codes und tatsächlich gezeigter Doku arbeiten.**
+2. **Keine stillen Annahmen über nicht gezeigte Dateien treffen.**
+3. Wenn wichtige Grundlage fehlt:
+   - **gezielt Datei, Test oder Doku anfordern**
+   - nicht mit Spekulation weiterarbeiten
+4. **Kleine, gezielte Änderungen** bevorzugen.
+5. **Große Refactorings** nur bei klarer fachlicher Notwendigkeit.
+6. Bereits gehärtete Sync-Fixes, Guards und Konfliktregeln **nicht versehentlich zurückbauen**.
+7. Bei jedem Änderungsvorschlag nach Möglichkeit mitdenken:
+   - fachlicher Effekt
+   - betroffene Tests
+   - Regressionsrisiko
+   - betroffene Doku
 
-### Conditional Imports — Vollständige Liste
-| Screen/Service               | `_io.dart` (Native)                          | `_stub.dart` (Web)                                |
-|:-----------------------------|:---------------------------------------------|:--------------------------------------------------|
-| `main.dart`                  | `main_io.dart`                               | `main_stub.dart`                                  |
-| `artikel_erfassen_screen.dart` | `artikel_erfassen_io.dart`                 | `artikel_erfassen_stub.dart`                      |
-| `artikel_detail_screen.dart` | `detail_screen_io.dart`                      | `detail_screen_stub.dart`                         |
-| `artikel_list_screen.dart`   | `list_screen_io.dart`, `list_screen_cache_io.dart` | `list_screen_stub.dart`, `list_screen_cache_stub.dart` |
-| `list_screen_mobile_actions` | `list_screen_mobile_actions.dart`            | `list_screen_mobile_actions_stub.dart`            |
-| `app_log_service.dart`       | `app_log_io.dart`                            | `app_log_stub.dart`                               |
-| `artikel_db_service.dart`    | `artikel_db_platform_io.dart`                | `artikel_db_platform_stub.dart`                   |
-| `export_*.dart`              | `export_io.dart`, `export_nextcloud.dart`    | `export_stub.dart`, `export_nextcloud_stub.dart`  |
-| `import_*.dart`              | `import_io.dart`                             | `import_stub.dart`                                |
-| `scan_service.dart`          | `scan_service_io.dart`                       | `scan_service_stub.dart`                          |
-| `pdf_service.dart`           | `pdf_service_io.dart`                        | `pdf_service_stub.dart`, `pdf_service_web.dart`   |
-
-### Bestehende Interfaces & Abstraktionen
-| Interface                  | Implementierungen                                                   | Zweck                    |
-|:---------------------------|:--------------------------------------------------------------------|:-------------------------|
-| `SyncStatusProvider`       | `SyncOrchestrator` (Prod), `FakeSyncStatusProvider` (Tests)         | Lose Kopplung Sync ↔ UI  |
-| `NextcloudServiceInterface`| `NextcloudConnectionService` (Prod), `NoOpNextcloudService` (Tests) | Timer-freie Widget-Tests |
-
-### State Management
-- Kein Riverpod/Bloc/GetIt
-- `setState()` + `ChangeNotifier`
-- `StreamBuilder` für Sync-Status-Events
-- `provider: ^6.0.3` ist als Dependency vorhanden
-
-### Settings-State / O-010 / F-007
-- `SettingsScreen` ist seit O-010 in UI und testbare Logik getrennt:
-  - `settings_screen.dart` → Rendering, Dialoge, Navigation, SnackBars
-  - `settings_controller.dart` → Laden/Speichern, Dirty-Tracking, URL-Prüfung, Settings-nahe Fachlogik
-- `settings_state.dart` enthält kleinen UI-neutralen geteilten State für F-007
-- `showLastSyncNotifier` liegt zentral in `settings_state.dart`
-- Ziel ist bewusst **kein** neues großes State-Management, sondern eine minimal-invasive, lokal testbare Lösung
-
-### F-007: Sync-Zeitstempel-Toggle
-- SharedPreferences-Key: `show_last_sync`
-- Default: `true`
-- Reaktiver UI-State über `showLastSyncNotifier` in `settings_state.dart`
-- `ArtikelListScreen` liest den Wert reaktiv, `SettingsController` lädt/speichert ihn
-- Keine direkte Rückverlagerung dieses States in `ArtikelListScreen`
+## Bewertungsstatus bei Prüfungen
+Bei Befunden möglichst sauber unterscheiden zwischen:
+- **im Code bestätigt**
+- **im Test bestätigt**
+- **manuell / real bestätigt**
+- **nur dokumentiert**
+- **nicht sichtbar / offen**
+- **optional / Architekturverbesserung**
 
 ---
 
-## 4) PocketBase URL — Prioritätskette
-1. `SharedPreferences('pocketbase_url')` ← persistiert vom Setup-Screen
-2. `RuntimeEnvConfig.pocketBaseUrl()` ← Web: `window.ENV_CONFIG.POCKETBASE_URL`
-3. `--dart-define=POCKETBASE_URL=...` ← Build-Argument
-4. `ServerSetupScreen` ← Erststart-Eingabe
+# 4. Plattform- und Laufzeitmodell
+
+## Zielplattformen
+- Android
+- Web
+- Desktop/Linux
+- grundsätzlich mobile-first gedacht, aber plattformübergreifend entwickelt
+
+## Grundsätzliche Plattformbesonderheiten
+- **Web** nutzt keinen produktiven PocketBase-Sync-Lauf wie Mobile/Desktop
+- **Mobile/Desktop** nutzen lokale DB, Sync-Orchestrierung, Bilddownload und App-Lock
+- Desktop-spezifische Initialisierung erfolgt über plattformspezifische `main_*`-Dateien
+- bestimmte Bild-/Datei-/Kamera-Flows sind plattformabhängig
 
 ---
 
-## 5) Datenbank & Synchronisation
+# 5. Start- und App-Lifecycle
 
-### Lokales SQLite-Schema (Mobile/Desktop)
+## `main()`
+Die App initialisiert in der aktuellen Produktivstruktur u. a.:
+- `WidgetsFlutterBinding.ensureInitialized()`
+- `AppConfig.init()`
+- `AppConfig.validateForRelease()`
+- `AppConfig.validateConfig()`
+- globale Flutter-/Dart-Fehlerbehandlung
+- Desktop-DB-Initialisierung außerhalb von Web
+- `PocketBaseService().initialize()`
+- optionalen PocketBase-Health-Check
+- `AppLockService().init()` außerhalb von Web
+- anschließend `runApp(MyApp())`
 
-#### Tabelle `artikel`
-| Spalte          | Typ       | Beschreibung                                          |
-|:----------------|:----------|:------------------------------------------------------|
-| `id`            | `INTEGER` | Lokaler Auto-Increment PK                             |
-| `uuid`          | `TEXT`    | Globaler Identifier (v4), geräteübergreifend eindeutig|
-| `artikelnummer` | `INTEGER` | Fachliche ID (≥ 1000)                                 |
-| `name`          | `TEXT`    | Pflichtfeld (2–100 Zeichen)                           |
-| `menge`         | `INTEGER` | Lagerbestand (≥ 0, max 999.999)                       |
-| `ort / fach`    | `TEXT`    | Lagerhierarchie (Pflichtfelder)                       |
-| `beschreibung`  | `TEXT`    | Freitext                                              |
-| `kategorie`     | `TEXT`    | Kategorie                                             |
-| `remote_path`   | `TEXT`    | PocketBase Record-ID                                  |
-| `updated_at`    | `INTEGER` | Unix-Timestamp ms (Delta-Sync)                        |
-| `deleted`       | `INTEGER` | Soft-Delete (0=aktiv, 1=gelöscht)                     |
-| `etag`          | `TEXT`    | `NULL` = lokale Änderung ausstehend ("Pending")       |
-| `bildPfad`      | `TEXT`    | Lokaler Pfad Originalbild                             |
-| `thumbnailPfad` | `TEXT`    | Lokaler Pfad Vorschaubild                             |
-| `remoteBildPfad`| `TEXT`    | Dateiname auf PocketBase                              |
-| `erstelltAm`    | `TEXT`    | ISO 8601                                              |
+## Home-/App-Gate-Logik
+Die App entscheidet im Startfluss zwischen:
+1. **Server-Setup**
+2. **Authentifizierungsprüfung**
+3. **Login**
+4. **App-Lock**
+5. **eigentliche App / Artikelliste**
 
-#### Tabelle `artikel_dokumente`
-| Spalte               | Typ       | Beschreibung                    |
-|:---------------------|:----------|:--------------------------------|
-| `artikel_uuid`       | `TEXT`    | FK → `artikel.uuid`             |
-| `uuid`               | `TEXT`    | Globaler Identifier             |
-| `remote_path`        | `TEXT`    | PocketBase Record-ID            |
-| `dateiname`          | `TEXT`    | Originaler Dateiname            |
-| `dateityp`           | `TEXT`    | MIME-Type                       |
-| `dateipfad`          | `TEXT`    | Lokaler Pfad                    |
-| `remoteDokumentPfad` | `TEXT`    | Dateiname auf PocketBase        |
-| `beschreibung`       | `TEXT`    | Optional                        |
-| `erstelltAm`         | `TEXT`    | ISO 8601                        |
-| `updated_at`         | `INTEGER` | Unix-Timestamp ms               |
-| `deleted`            | `INTEGER` | Soft-Delete                     |
-| `etag`               | `TEXT`    | `NULL` = Pending                |
+Die Home-Weiche ist damit mehrstufig und bewusst zustandsabhängig.
 
-#### Tabelle `sync_meta`
-- `last_sync`: Unix-Timestamp ms des letzten erfolgreichen Syncs
-
-### Sync-Invarianten (niemals brechen)
-- **`uuid`** → stabil, geräteübergreifend eindeutig, nie ändern
-- **`remote_path`** → Bindung an PocketBase Record-ID
-- **`etag`** → entspricht `updated`-Zeitstempel (ISO 8601) von PocketBase. `NULL` = Pending
-- **Konflikt-Erkennung:** Vor jedem `PATCH` Remote-Status prüfen. Abweichung → `onConflictDetected`-Callback (B-005)
-- `deleted = 1` → Soft-Delete lokal → Hard-Delete beim nächsten Push
-
-### Sync-Ablauf
-```
-Push (LOCAL → REMOTE):
-  etag IS NULL AND deleted = 0:
-    remote_path leer    → POST (create)
-    remote_path gesetzt → PATCH (update)
-  etag IS NULL AND deleted = 1:
-    → DELETE auf PocketBase → lokal entfernen
-
-Pull (REMOTE → LOCAL):
-  updated_at > last_sync → upsert lokal
-  lokal vorhanden, remote nicht → deleteArtikel()
-
-Nach Record-Sync:
-  downloadMissingImages()      → nur wenn lokal fehlt ODER 0 Byte (B-003)
-  setBildPfadByUuidSilent()    → setzt Pfad ohne updated_at zu ändern
-```
-
-### PocketBase Collections
-| Collection          | Beschreibung              | Lokales Pendant           |
-|:--------------------|:--------------------------|:--------------------------|
-| `artikel`           | Haupt-Artikeldaten        | ✅ SQLite `artikel`       |
-| `artikel_dokumente` | Dokumente                 | ✅ SQLite `artikel_dokumente` |
-| `attachments`       | Dateianhänge (ab v0.7.2)  | ❌ Nur PocketBase         |
-
-### Bild-Fallback-Kette (Mobile/Desktop)
-| Priorität | Quelle                              | Widget               |
-|:----------|:------------------------------------|:---------------------|
-| 1         | Lokales Thumbnail (`thumbnailPfad`) | `_LocalThumbnail`    |
-| 2         | Lokales Vollbild (`bildPfad`)       | `_LocalThumbnail`    |
-| 3         | PocketBase-URL (HTTP)               | `_buildPbFallback()` |
-| 4         | Placeholder-Icon                    | `_BildPlaceholder`   |
+## `main.dart` bestätigt aktuell
+- `GlobalKey<NavigatorState>` für konfliktbezogene Navigation ohne direkten `BuildContext`
+- Konflikt-Callback-Registrierung per `addPostFrameCallback`
+- Guard gegen mehrfache Callback-Registrierung
+- App-Lock-Overlay im Vordergrund
+- DB-Reopen bei Resume
+- periodischer Sync per `Timer.periodic`
+- WLAN-only-Sync-Einstellung vor periodischem Sync
 
 ---
 
-## 6) Authentifizierung & App-Lock
+# 6. Authentifizierung und Setup
 
-### Login-Flow (M-009)
-- `LoginScreen`: E-Mail/Passwort, Validierung, Loading-State
-- Auto-Login: Token-Refresh via `PocketBaseService.refreshAuthToken()`
-- Logout: `PocketBaseService.logout()` + Sync-Timer stoppen
-- Dev-Mode: `--dart-define=PB_DEV_MODE=1` überspringt Login
+## PocketBase-Setup
+Wenn noch keine gültige PocketBase-URL konfiguriert ist:
+- zeigt die App den `ServerSetupScreen`
+- nach erfolgreicher Konfiguration wird der Sync-/Auth-Flow neu aufgebaut
 
-### App-Lock (F-001/F-002, ab v0.8.2)
-- Paket: `local_auth: ^3.0.1`
-- Service: `AppLockService` (Singleton, SharedPreferences-Persistenz)
-- Screen: `AppLockScreen` — automatischer Biometrie-Start via `addPostFrameCallback`
-- Fallback: Geräte-PIN/Pattern wenn Biometrie nicht verfügbar
-- Timeout: Konfigurierbar in Minuten (Slider im Settings-Screen, Standard: 5 Min)
-- Lifecycle: `WidgetsBindingObserver` → `onAppPaused()` / `onAppResumed()`
-- Probe-Auth: Bei Toggle-Aktivierung wird einmalig `authenticate()` aufgerufen
-- Nur Native: `kIsWeb`-Guard in `main.dart`
+## Auth-Logik
+Wenn ein PocketBase-Client vorhanden ist:
+- wird geprüft, ob ein gespeicherter Token existiert
+- bei vorhandenem Token wird ein Refresh versucht
+- bei Erfolg erfolgt Auto-Login
+- sonst wird der Login-Screen angezeigt
 
-### App-Lock — aktueller Status
-- `AppLockService` ist funktional etabliert, aber testseitig noch stärker an Singleton-, Persistenz- und Plattformlogik gekoppelt
-- Bei späteren Änderungen an App-Lock bevorzugt:
-  - testbare Abhängigkeitsgrenzen
-  - Fake/Stub-fähige Service-Injektion
-  - keine zusätzliche Verhärtung direkter Plattformkopplung
-- Optionaler Folgepunkt: `O-011`
+## Dev-Mode
+Ein Dev-Mode kann Login-Verhalten gezielt lockern.  
+Produktiv ist der reguläre Auth-Flow maßgeblich.
 
 ---
 
-## 7) Theming / UI-Regeln (Material 3)
+# 7. App-Lock
 
-### Dreistufige Konfiguration in `app/lib/config/`
-- **`AppConfig`** — Technische Tokens (alle Werte zentral, keine Magic Numbers):
-  - Spacing: `spacingXSmall(4)` … `spacingXXLarge(32)`, `spacingSectionGap(20)`
-  - Border-Radien: `borderRadiusXXSmall(2)` … `borderRadiusXLarge(16)`
-  - Icon-Sizes: `iconSizeXSmall(14)` … `iconSizeXXLarge(64)`
-  - Stroke-Breiten: `strokeWidthThin(1)` … `strokeWidthThick(3)`
-  - Opacity: `opacitySubtle(0.1)`, `opacityLight(0.2)`, `opacityMedium(0.3)`
-  - Layout: `loginFormMaxWidth(400)`, `setupFormMaxWidth(480)`, `buttonHeight(48)`
-  - Pagination: `paginationPageSize`, `paginationScrollThreshold`
-  - Suche: `searchDebounceDuration(300ms)`, `searchResultLimit`
-  - Bilder: `pbThumbGroesse`, `maxWidth(800px)`, `imageQuality(85)`
-- **`AppTheme`** — Material 3, `ThemeMode.system`, Google Fonts Roboto, `ColorScheme.fromSeed`
-- **`AppImages`** — Asset-Pfade, `hintergrundAktiv`-Flag
+Außerhalb von Web existiert ein `AppLockService`, der:
+- App-Lifecycle beobachtet
+- beim Resume ggf. sperrt
+- mit `AppLockScreen` entsperrt wird
+- biometrische Nutzung unterstützt
 
-### Pflichtregeln
-```dart
-// ✅ Richtig
-color: Theme.of(context).colorScheme.surface
-padding: EdgeInsets.all(AppConfig.spacingLarge)
-borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusLarge)
-color.withValues(alpha: AppConfig.opacitySubtle)  // withOpacity() ist deprecated
-
-// ❌ Falsch
-color: Colors.white          // bricht Dark Mode
-padding: EdgeInsets.all(16)  // Magic Number
-color.withOpacity(0.1)       // deprecated API
-```
-
-### Farb-Semantik
-| Bedeutung   | colorScheme-Token                                        |
-|:------------|:---------------------------------------------------------|
-| Oberfläche  | `surface` / `onSurface`                                 |
-| Sekundärtext| `onSurfaceVariant`                                      |
-| Fehler      | `error` / `errorContainer` / `onErrorContainer`         |
-| Erfolg      | `tertiary` / `tertiaryContainer` / `onTertiaryContainer`|
-| Warnung     | `secondary` / `secondaryContainer` / `onSecondaryContainer` |
-| Info/Primär | `primary` / `primaryContainer` / `onPrimaryContainer`   |
+Die Sperre liegt als Overlay über der eigentlichen App.
 
 ---
 
-## 8) Testing-Strategie
+# 8. Zentrale Architekturbausteine
 
-### Ausführen
-```bash
-cd app && flutter test                        # Alle Tests
-flutter test --exclude-tags performance       # Ohne Performance-Test
-flutter test --reporter expanded              # Verbose
-```
+## Kernservices
+Wichtige Services sind insbesondere:
+- `PocketBaseService`
+- `ArtikelDbService`
+- `PocketBaseSyncService`
+- `SyncOrchestrator`
+- `AppLockService`
+- `ConnectivityService`
+- `AppLogService`
 
-### Aktuelle Testzahlen (v0.9.1+26)
-| Datei                                        | Typ           | Tests |
-|:---------------------------------------------|:--------------|:------|
-| `conflict_resolution_test.dart`              | Unit + Widget | 77    |
-| `models/artikel_model_test.dart`             | Unit          | 64    |
-| `models/attachment_model_test.dart`          | Unit          | 30    |
-| `services/artikel_db_service_test.dart`      | Integration   | 75    |
-| `services/backup_status_test.dart`           | Unit          | 22    |
-| `services/attachment_service_test.dart`      | Unit          | 34    |
-| `services/image_picker_service_test.dart`    | Unit + Widget | 15    |
-| `services/pocketbase_sync_service_test.dart` | Unit          | 17    |
-| `services/nextcloud_client_test.dart`        | Unit          | 39    |
-| `utils/attachment_utils_test.dart`           | Unit          | 28    |
-| `utils/image_processing_utils_test.dart`     | Unit          | 30    |
-| `utils/uuid_generator_test.dart`             | Unit          | 23    |
-| `services/app_log_service_test.dart`         | Unit          | 14    |
-| `services/nextcloud_listfiles_test.dart`     | Unit          | 1     |
-| `models/nextcloud_credentials_test.dart`     | Unit          | 4     |
-| `services/artikel_import_service_test.dart`  | Unit          | 4     |
-| `services/artikel_export_service_test.dart`  | Unit + Widget | 2     |
-| `services/sync_status_provider_test.dart`    | Unit          | 5     |
-| `widgets/artikel_erfassen_test.dart`         | Widget        | 11    |
-| `widgets/artikel_detail_screen_test.dart`    | Widget        | 24    |
-| `widgets/artikel_list_screen_test.dart`      | Widget        | 15    |
-| `widgets/merge_dialog_test.dart`             | Widget        | 18    |
-| `performance/import_500_smoke_test.dart`     | Performance   | 1     |
-| **Gesamt**                                   |               | **610** |
+## Zentrale UI-Bildschirme
+- `ArtikelListScreen`
+- `LoginScreen`
+- `SettingsScreen`
+- `ServerSetupScreen`
+- `ConflictResolutionScreen`
+- `AppLockScreen`
 
-### Test-Patterns (zwingend einhalten)
+## Datenmodell
+Zentral ist das Artikelmodell (`Artikel`), ergänzt u. a. um:
+- fachliche Felder
+- lokale Sync-Metadaten
+- Bildpfade
+- Remote-Referenzen
+- Konfliktauflösungszustände
 
-#### DB-Integration
-```dart
-sqflite_common_ffi + inMemoryDatabasePath
-injectDatabase() (@visibleForTesting)
-ArtikelDbServiceTestHelper für wiederverwendbaren Setup
-```
-
-#### Widget-Tests — Timer/Singleton-Probleme vermeiden
-```dart
-ArtikelListScreen(syncStatusProvider: FakeSyncStatusProvider())
-NextcloudServiceInterface → NoOpNextcloudService (kein Timer)
-initialArtikel: []         // überspringt async DB-Load
-pump(Duration)             // statt pumpAndSettle() bei laufenden Timern
-setSurfaceSize(1024×900) + addTearDown
-```
-
-#### Reine Modell/Utility-Tests
-```dart
-// Immer abdecken:
-// Konstruktor + Factory-Methoden (fromMap/fromPocketBase/fromJson)
-// copyWith() — identische Kopie + Teilüberschreibung
-// Gleichheit (==, hashCode, toString)
-// Typ-Koercion: String→int, double→int, null-Handling
-// Grenzwerte: 0, 1, exakt am Limit, knapp drüber
-// Konstanten/Whitelists
-```
-
-#### PocketBase-Service-Tests (Fakes statt Mocks)
-```dart
-FakeRecordService extends RecordService
-FakePocketBase extends PocketBase
-PocketBaseService.overrideForTesting()
-fakeClientException(originalError: ...)  // SDK v0.23.2: kein message:-Parameter
-RecordModel.fromJson()                   // statt Konstruktor
-```
-
-#### Test-Helper
-```dart
-// test/helpers/fake_sync_status_provider.dart
-fake.emitRunning() / emitSuccess() / emitError() / emitIdle()
-fake.dispose()
-```
+Für genaue Felder und Persistenz gilt:
+- **`docs/DATABASE.md`**
+- aktueller Produktivcode in Modell- und DB-Dateien
 
 ---
 
-## 9) Logging (AppLogService) — Pflicht
+# 9. Sync-Architektur — kompakte Zusammenfassung
 
-```dart
-final _log = AppLogService.logger;
+## Grundidee
+Die App verwendet eine **Offline-First-Synchronisation mit PocketBase**.
 
-_log.t('trace')
-_log.d('debug')
-_log.i('info')
-_log.w('warning')
-_log.e('error', error: e, stackTrace: st)
-_log.f('fatal', error: e, stackTrace: st)
-```
+Die Synchronisation läuft aktuell grob in dieser Reihenfolge:
+1. **Push lokaler Änderungen**
+2. **Pull von Remote-Daten**
+3. **Nachladen fehlender Bilder**
+4. Status-/Zeitstempelaktualisierung
 
-**Regeln:**
-- Keine neuen `print()` / `debugPrint()` einführen
-- Fehler immer mit `error:` + optional `stackTrace:`
-- `AppErrorHandler.classify()` für automatische Exception-Klassifizierung
-- 8 verbleibende `debugPrint` in `app_log_io.dart` sind absichtlich (zirkuläre Abhängigkeit)
+## Steuerung
+Die zentrale Steuerung übernimmt der **`SyncOrchestrator`**.
 
----
+Er:
+- implementiert `SyncStatusProvider`
+- verwaltet Status-Events (`idle`, `running`, `success`, `error`)
+- führt Sync-Läufe seriell aus
+- schützt vor parallelen `runOnce()`-Aufrufen
+- überwacht Timeouts
+- behandelt offene Konflikt-UI als legitime Wartephase statt als Fehl-Timeout
 
-## 10) Fehlerbehandlung (M-003)
+## Wichtige Sync-Beteiligte
+- `SyncOrchestrator`
+- `PocketBaseSyncService`
+- `ArtikelDbService`
+- Konflikt-UI in `main.dart` / `ConflictResolutionScreen`
 
-```dart
-// AppException-Hierarchie (sealed class):
-NetworkException | ServerException | AuthException |
-SyncException | StorageException | ValidationException | UnknownException
+## Wichtige Sync-Metadaten
+Im aktuellen System sind insbesondere relevant:
+- `etag`
+- `lastSyncedEtag`
+- `pendingResolution`
+- `remotePath`
+- `remoteBildPfad`
+- Soft-Delete-Zustände
+- Konflikt-Snapshots
 
-// AppErrorHandler:
-AppErrorHandler.classify(e)
-AppErrorHandler.log(e, context)
-AppErrorHandler.showSnackBar(...)
-AppErrorHandler.showSnackBarWithDetails(...)
-AppErrorHandler.showErrorDialog(...)
-```
+## Konfliktlogik — fachliche Kurzfassung
+Konflikte entstehen insbesondere dann, wenn:
+- lokal dirty gearbeitet wurde
+- gleichzeitig Remote-Änderungen vorliegen
+- keine belastbare Baseline vorhanden ist
+- lokale Löschung auf Remote-Änderung trifft
+- bewusste Nutzerentscheidungen noch pending sind
 
----
+## Bewusste Auflösungszustände
+Im aktuellen Sync-Modell existieren u. a.:
+- `force_local`
+- `force_merge`
+- `skip` als bewusst nicht persistierte Entscheidung in der UI-Logik
 
-## 11) CI/CD-Pipelines
+## Bild-Sync
+Der Bild-Sync umfasst aktuell u. a.:
+- Multipart-Upload bei CREATE/UPDATE
+- `remoteBildPfad`-Pflege
+- Follow-up-Persistenz des Remote-Bildnamens
+- Pull-basierten Bildabgleich
+- Nachladen fehlender Bilder
+- Cleanup lokaler Bildpfade bei entferntem Remote-Bild
 
-| Workflow         | Trigger               | Was                                                    |
-|:-----------------|:----------------------|:-------------------------------------------------------|
-| `ci.yml`         | Push/PR auf `main`    | `flutter analyze` + `flutter test`                     |
-| `release.yml`    | Manual                | Tag → Test → APK + AAB + Win + Linux + GitHub Release  |
-| `docker.yml`     | Manual                | Flutter Web + PocketBase → `ghcr.io`                   |
-| `maintenance.yml`| Wöchentlich Mo 04:00  | `outdated` + `analyze` + `test` + Builds               |
-
-Flutter-Version: `3.41.7` (stable) — in allen Workflows fixiert
-
----
-
-## 12) Nextcloud-Integration (Future)
-
-- Status: Implementiert, aber als Future deklariert — absichtlich zurückgestellt
-- `NextcloudSettingsScreen` im Settings-Screen zugänglich (kein Feature-Flag)
-- Relevante Dateien: `nextcloud_client.dart`, `nextcloud_sync_service.dart`, `nextcloud_webdav_client.dart`, `nextcloud_connection_service.dart`, `nextcloud_credentials.dart`, `nextcloud_service_interface.dart`
-- Tests: 39 Unit-Tests für `NextcloudClient` (T-003)
-
----
-
-## 13) Offene Aufgaben (Stand: v0.9.3+34)
-
-🔴 **Hoch** — Keine aktuell
-
-🟡 **Mittel**
-
-| ID      | Aufgabe                                                  | Details |
-|:--------|:---------------------------------------------------------|:--------|
-| `P-004` | Android Kamera-Test                                      | Vollständiger Test auf echten Geräten (S20, A51) |
-
-
-⏭️ **Future**
-
-- H-001: iOS/macOS (erfordert Apple Developer Account)
-- N-006: Nextcloud-Workflow finalisieren (WebDAV mit Nextcloud 28+)
+## Wichtig
+Diese Datei hält die Sync-Logik **bewusst nur kompakt**.  
+Für tiefe Sync-Analyse sollen primär verwendet werden:
+- aktueller Code
+- Sync-bezogene Tests
+- `docs/SYNC.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DATABASE.md`
+- `docs/LOGGER.md`
 
 ---
 
-## 14) Implementierungs-Regeln (Kurzreferenz)
+# 10. Konfliktauflösung
 
-| Regel | Detail |
-|:------|:-------|
-| **Minimal-invasiv** | Struktur/Layering beibehalten |
-| **DB-Invarianten** | uuid, remote_path, etag nie brechen (Abschnitt 5) |
-| **Theming** | Nur AppConfig-Tokens, colorScheme-Tokens (Abschnitt 7) |
-| **Logging** | AppLogService.logger, kein print() (Abschnitt 9) |
-| **Plattform** | Conditional Imports statt kIsWeb-Checks (Abschnitt 3) |
-| **Abstraktionen** | Nur wenn Testbarkeit/Wartbarkeit/Plattform-Trennung gewinnt |
-| **Neue Abstraktion** | 1–3 Sätze Begründung + minimal halten |
+## Aktueller UI-Flow
+Konflikte werden über `ConflictResolutionScreen` behandelt.
 
-### Dokumentation aktualisieren (nach jeder Änderung)
-- `docs/ARCHITECTURE.md` — Struktur/Flows
-- `docs/PROJECT_STRUCTURE.md` — Gesamtstruktur
-- `docs/DATABASE.md` — Schema, Sync, Indizes
-- `docs/THEMING.md` — neue Tokens
-- `docs/LOGGER.md` — neue Log-Events
-- `docs/TESTING.md` — Testzahl, neue Tests
-- `docs/OPTIMIZATIONS.md` — Wartungs-Historie
-- `CHANGELOG.md` — unter aktuellem Release-Block
+`main.dart` registriert dafür einen Konflikt-Callback am `SyncOrchestrator`.  
+Die Konflikt-UI wird über einen `NavigatorState`-Zugriff geöffnet.
 
----
+## Guards gegen doppelte Konfliktbehandlung
+Im aktuellen Code sind Guards vorhanden gegen:
+- mehrfache Callback-Registrierung
+- parallele Konflikt-Screens
+- doppelte Konfliktbehandlung derselben UUID
 
-## 15) Key Dependencies (pubspec.yaml)
+## `useRemote`-Baseline
+Für `useRemote` wird eine belastbare Remote-Baseline benötigt.  
+Die Hilfsfunktion `requireRemoteBaselineEtag()` erlaubt aktuell:
+1. `etag`
+2. `lastSyncedEtag`
 
-```yaml
-# Core
-pocketbase: ^0.23.2
-sqflite: ^2.3.0
-sqflite_common_ffi: ^2.3.6
-shared_preferences: ^2.5.5
-flutter_secure_storage: ^10.0.0
-uuid: ^4.5.1
+Nicht zulässig sind semantisch ungeeignete Ersatzwerte wie:
+- leerer String
+- `remotePath`
 
-# UI
-provider: ^6.0.3
-intl: ^0.20.2
-cached_network_image: ^3.2.3
-url_launcher: ^6.3.1
-cupertino_icons: ^1.0.9
+Fehlt eine belastbare Baseline, wird ein `StateError` geworfen.
 
-# Bilder & Kamera
-image_picker: ^1.2.0
-image: ^4.2.0
-crop_your_image: ^2.0.0
-
-# Dateien
-file_picker: ^11.0.2
-file_selector: ^1.0.4
-path_provider: ^2.0.11
-open_file: ^3.2.1
-path: ^1.9.0
-mime: ^2.0.0
-share_plus: ^12.0.2
-web: ^1.1.0
-
-# Scanner (nur Mobile)
-mobile_scanner: ^7.0.1
-
-# Export/Import
-pdf: ^3.8.1
-printing: ^5.9.0
-csv: ^8.0.0
-archive: ^4.0.7
-xml: ^6.6.1
-
-# Netzwerk & Sync
-http: ^1.2.2
-connectivity_plus: ^7.1.1
-webdav_client: ^1.0.0
-crypto: ^3.0.3
-
-# System
-local_auth: ^3.0.1
-device_info_plus: ^12.4.0
-package_info_plus: ^9.0.1
-logger: ^2.0.2
-flutter_local_notifications: ^21.0.0
-runtime_env_config: {path: ../packages/runtime_env_config}
-google_fonts: ^8.0.2
-
-# Dev
-mockito: ^5.6.4
-build_runner: ^2.14.0
-flutter_lints: ^6.0.0
-flutter_native_splash: ^2.3.10
-```
+## Verbindliche Sync-Detailregeln
+Für technische Regeln, Edge Cases, rote Linien und Änderungsverbote gilt:
+- **`docs/SYNC.md`**
 
 ---
 
-## Ende des Prompts
+# 11. Logging
+
+## Grundsatz
+Das Projekt nutzt ein zentrales Logging über `AppLogService`.
+
+## Regeln
+- Log-Level sinnvoll wählen (`trace`, `debug`, `info`, `warning`, `error`, `fatal`)
+- bei `logger.e(...)` immer, wenn möglich, `error` und `stackTrace` übergeben
+- strukturierte Summary-Logs ergänzen Detail-Logs, ersetzen sie aber nicht
+
+## Wichtige aktuelle Logging-Konventionen
+Im Sync-Kontext existieren strukturierte Summary-Lines wie z. B.:
+- `SYNC|PUSH|CREATE ...`
+- `SYNC|PUSH|UPDATE ...`
+- `SYNC|PUSH|DELETE ...`
+- `SYNC|PULL ...`
+- `SYNC|ORCHESTRATOR ...`
+
+Diese dienen besonders der mobilen Lesbarkeit im In-App-Logviewer.
+
+## Referenz
+Für Logging-Regeln und definierte Log-Events gilt:
+- **`docs/LOGGER.md`**
+
+---
+
+# 12. Datenbank und Persistenz
+
+## Lokal
+Die App nutzt lokal SQLite über `sqflite` bzw. `sqflite_common_ffi`.
+
+## Relevante Themen
+Die lokale Persistenz enthält nicht nur fachliche Artikeldaten, sondern auch:
+- Sync-Metadaten
+- Bildpfade
+- Remote-Referenzen
+- Konflikt-Snapshot-Daten
+- Soft-Delete-/Statusfelder
+
+## Wichtig
+Für genaue Spalten, Tabellen, Migrationsstand und Invarianten ist maßgeblich:
+- **`docs/DATABASE.md`**
+- aktueller DB-Code
+
+---
+
+# 13. Tests
+
+## Grundsatz
+Die App ist inzwischen deutlich testgestützter als frühe Projektstände.  
+Gerade im Sync-/Konfliktbereich existieren sowohl service-nahe als auch orchestrator-nahe Tests.
+
+## Für genaue Testzahlen und Testübersicht gilt
+- **`docs/TESTING.md`**
+
+## Durch die vorliegenden Dateien besonders bestätigt
+- `SyncOrchestrator`-Status- und Timeout-Verhalten
+- Guard gegen parallele Sync-Läufe
+- konfliktbewusste Timeout-Semantik
+- produktive Konfliktpfade im PocketBase-Sync
+- Delete-vs-Edit
+- `force_local` / `force_merge`
+- Duplicate-UUID-Recovery
+- Bildpfad-/`remoteBildPfad`-Verhalten
+- `requireRemoteBaselineEtag()`
+
+## Wichtige Regel
+Wenn Tests und ältere Doku auseinanderlaufen, sind:
+1. aktuelle Tests
+2. aktueller Code  
+maßgeblich.
+
+---
+
+# 14. Offene Punkte und Prioritäten
+
+Für offene Aufgaben, Prioritäten, Roadmap, Restpunkte und Status gilt:
+- **`docs/OPTIMIZATIONS.md`**
+
+Typische dort geführte Themen sind aktuell u. a.:
+- verbleibende Sync-Hardening-Restpunkte
+- Logging-/Summary-Verbesserungen
+- Kamera-/Android-Verifikation
+- Bild-Reset-Workflow
+- UX-/Kategorie-Themen
+- Nice-to-have-Features
+
+Diese Datei soll offene Punkte **nicht duplizieren**, sondern nur auf die führende Quelle verweisen.
+
+---
+
+# 15. Versionen, Historie, Releases
+
+Für Release-Historie und historische Einordnung gilt:
+- **`CHANGELOG.md`**
+- **`HISTORY.md`**
+
+Für aktuelle Wahrheit gilt jedoch immer zuerst:
+- aktueller Code
+- aktuelle Tests
+- aktuelle Fachdokumente
+
+---
+
+# 16. Arbeitsregeln für künftige Änderungen
+
+## Bei Codeänderungen
+- bestehende Architektur respektieren
+- plattformspezifische Unterschiede beachten
+- Sync-/Konfliktlogik nur vorsichtig ändern
+- lokale Sync-Metadaten nicht versehentlich an PocketBase übertragen
+- bestehende Log-Konventionen beibehalten
+- bestehende Guards gegen Race Conditions nicht unbedacht entfernen
+
+## Bei Sync-bezogenen Änderungen
+immer prüfen:
+- Push-Pfade
+- Pull-Pfade
+- Konfliktfälle
+- `pendingResolution`
+- `lastSyncedEtag`
+- Bildpfade / `remoteBildPfad`
+- Delete-Verhalten
+- Snapshot-/Recovery-Verhalten
+- Logging
+- vorhandene Tests
+- Regeln, Edge Cases und rote Linien aus `docs/SYNC.md`
+
+## Bei Dokumentationsänderungen
+nicht nur den Prompt aktualisieren, sondern je nach Thema auch:
+- `docs/ARCHITECTURE.md`
+- `docs/DATABASE.md`
+- `docs/SYNC.md`
+- `docs/LOGGER.md`
+- `docs/TESTING.md`
+- `docs/OPTIMIZATIONS.md`
+- `CHANGELOG.md`
+
+---
+
+# 17. Welche Dateien bei welcher Fragestellung zuerst prüfen
+
+## Allgemeiner Sync-Einstieg
+1. `lib/services/pocketbase_sync_service.dart`
+2. `lib/services/artikel_db_service.dart`
+3. `lib/models/artikel_model.dart`
+4. `lib/services/sync_orchestrator.dart`
+5. `lib/main.dart`
+6. `docs/SYNC.md`
+7. `docs/DATABASE.md`
+8. `docs/ARCHITECTURE.md`
+9. `docs/OPTIMIZATIONS.md`
+10. `docs/TESTING.md`
+
+## Konflikterkennung / Push / Pull
+- `lib/services/pocketbase_sync_service.dart`
+- `lib/models/artikel_model.dart`
+- `lib/services/artikel_db_service.dart`
+- passende Sync-Service-Tests
+- `docs/SYNC.md`
+
+## `pendingResolution`, `force_local`, `force_merge`, `useRemote`
+- `lib/services/pocketbase_sync_service.dart`
+- `lib/services/conflict_resolution_utils.dart`
+- `lib/services/artikel_db_service.dart`
+- `test/services/pocketbase_sync_service_conflict_test.dart`
+- `test/services/conflict_resolution_utils_test.dart`
+- `docs/SYNC.md`
+
+## Konflikt-UI oder Navigation
+- `lib/main.dart`
+- `lib/screens/conflict_resolution_screen.dart`
+- konfliktbezogene Screen-/UI-Tests
+- `docs/SYNC.md`
+
+## Modell-/Mapping-/Persistenzfragen
+- `lib/models/artikel_model.dart`
+- `lib/services/artikel_db_service.dart`
+- `docs/DATABASE.md`
+- Modell-/DB-Tests
+
+## Dokumentationsabgleich
+- `docs/SYNC.md`
+- `docs/ARCHITECTURE.md`
+- `docs/DATABASE.md`
+- `docs/TESTING.md`
+- `docs/OPTIMIZATIONS.md`
+- relevante Produktivdateien
+
+---
+
+# 18. Empfohlene Vorgehensweise pro Session
+
+Wenn eine Datei, ein Fehler, ein Test oder ein Teilbereich gezeigt wird, dann möglichst immer:
+
+1. prüfen, ob der gezeigte Stand zur Zielarchitektur passt
+2. konkrete Abweichungen, Risiken oder offene Stellen benennen
+3. die **minimal-invasive nächste Änderung** vorschlagen
+4. benennen, welche Tests betroffen sind oder ergänzt werden sollten
+5. das Regressionsrisiko kurz bewerten
+6. bei Bedarf eine kurze Abschlussdokumentation für den Schritt liefern
+7. einen passenden Commit-Text liefern
+8. optional einen Doku-/Changelog-Baustein liefern
+
+Wenn die gezeigten Informationen dafür nicht ausreichen:
+- zuerst gezielt fehlende Dateien, Teststellen oder Doku-Ausschnitte anfordern
+
+---
+
+# 19. Empfohlene zukünftige Dokumentationsstruktur
+
+Die Dokumentationsstruktur ist inzwischen klarer getrennt:
+
+- `prompt.txt` = allgemeiner Arbeitskontext
+- `docs/SYNC.md` = technische Wahrheit für Sync-Details, Invarianten, Edge Cases und Änderungsverbote
+- `docs/TESTING.md` = Testübersicht und Testorganisation
+- `docs/OPTIMIZATIONS.md` = offene Punkte und Prioritäten
+
+Spezialisierte Arbeits-Prompts sollten nur noch abgeleitete Hilfsmittel sein, nicht die führende technische Wahrheit.
+
+---
+
+# 20. Kurzfazit
+
+Die Lager_app ist aktuell eine Flutter-basierte Offline-First-Lagerverwaltung mit:
+- lokaler SQLite-Persistenz
+- PocketBase-Synchronisation
+- konfliktbewusster Sync-Architektur
+- Bild- und Attachment-Unterstützung
+- Auth-/Setup-/App-Lock-Flow
+- deutlich gehärteter Sync- und Konfliktlogik
+
+Diese `prompt.txt` soll vor allem:
+- den allgemeinen Projektkontext sichern
+- Quellenprioritäten klar machen
+- einen belastbaren Arbeitsmodus für Folge-Sessions festhalten
+- Fehlschlüsse aus veralteter Doku vermeiden
+- auf die führenden Spezialdokumente verweisen
+
+---
+
+[Zur README](README.md) · [Architektur](docs/ARCHITECTURE.md) · [Datenbank](docs/DATABASE.md) · [Sync](docs/SYNC.md) · [Testing](docs/TESTING.md) · [Optimizations](docs/OPTIMIZATIONS.md) · [Logger](docs/LOGGER.md) · [Changelog](CHANGELOG.md)

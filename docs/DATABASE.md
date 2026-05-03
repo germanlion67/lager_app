@@ -23,23 +23,106 @@ Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Syn
 | Spalte | Typ | Beschreibung |
 |---|---|---|
 | `id` | INTEGER | Lokaler Auto-Increment Primärschlüssel |
-| `artikelnummer` | INTEGER | Fachliche Artikelnummer (1000+) |
+| `artikelnummer` | INTEGER | Fachliche Artikelnummer (≥ 1); PocketBase-Schema: `min: 1` |
 | `name` | TEXT | Artikelname |
 | `menge` | INTEGER | Aktueller Lagerbestand |
 | `ort` / `fach` | TEXT | Lagerhierarchie |
 | `beschreibung` | TEXT | Freitextbeschreibung |
 | `kategorie` | TEXT | Artikelkategorie |
-| `uuid` | TEXT | **Globaler Identifier** (v4), geräteübergreifend eindeutig |
+| `uuid` | TEXT | **Globaler Identifier** (v4), geräteübergreifend eindeutig; serverseitig als `required` + `unique` abgesichert |
 | `remote_path` | TEXT | **PocketBase Record-ID** des zugehörigen Server-Datensatzes |
 | `updated_at` | INTEGER | Letzter lokaler Änderungszeitpunkt (Unix ms) |
 | `deleted` | INTEGER | Soft-Delete Flag (0 = aktiv, 1 = gelöscht) |
-| `etag` | TEXT | Aktueller bestätigter Sync-Zustand; `NULL` bedeutet: lokale Änderung pending |
-| `last_synced_etag` | TEXT | Letzter erfolgreich bestätigter Remote-Stand als stabile Vergleichsbasis für Konflikterkennung |
+| `etag` | TEXT | Aktueller Sync-Zustand; `NULL` oder leer bedeutet: lokale Änderung pending |
+| `last_synced_etag` | TEXT | Letzter erfolgreich bestätigter Remote-Stand — stabile Vergleichsbasis für Konflikterkennung |
 | `pending_resolution` | TEXT | Offene Konfliktentscheidung für den nächsten Sync (`force_local`, `force_merge`) |
 | `bildPfad` | TEXT | Lokaler Pfad zum Originalbild |
 | `thumbnailPfad` | TEXT | Lokaler Pfad zum Vorschaubild |
-| `remoteBildPfad` | TEXT | Dateiname des Bildes auf dem Server |
-| `erstelltAm` | TEXT | ISO 8601 Erstellungsdatum |
+| `thumbnailEtag` | TEXT | ETag des zuletzt heruntergeladenen Thumbnails |
+| `remoteBildPfad` | TEXT | Dateiname des Bildes auf PocketBase — wird ausschließlich durch `markSynced()` nach Push oder `upsertArtikel()` nach Pull gesetzt |
+| `erstelltAm` | TEXT | ISO 8601 UTC-Erstellungsdatum |
+| `aktualisiertAm` | TEXT | ISO 8601 UTC-Änderungsdatum |
+| `device_id` | TEXT | Gerätekennung (optional, für Multi-Device-Tracking) |
+
+
+### 1.1a DB-Version und Migrationen
+
+**Aktuelle DB-Version:** `6`
+
+| Version | Ergänzungen |
+|---|---|
+| v1–v3 | Grundstruktur `artikel`, `sync_meta` |
+| v4 | `artikelnummer` |
+| v5 | `last_synced_etag`, `pending_resolution` |
+| v6 | `conflict_snapshots`-Tabelle |
+
+### 1.1b Tabelle: `conflict_snapshots`
+
+Speichert Remote-Stände, die beim Pull als potenzieller Konflikt erkannt wurden,
+damit der Push-Pfad denselben Remote-Stand für den Konflikt-Callback verwenden kann.
+
+| Spalte | Typ | Beschreibung |
+|---|---|---|
+| `uuid` | TEXT | UUID des betroffenen Artikels (PRIMARY KEY) |
+| `snapshot_json` | TEXT | Serialisierter Remote-Artikel-Stand (`toMap()`) |
+| `saved_at` | INTEGER | Unix-Timestamp in ms (UTC) der Speicherung |
+
+**Zugriff ausschließlich über:**
+- `saveRemoteConflictSnapshot({required String uuid, required Artikel remoteArtikel})`
+- `loadRemoteConflictSnapshot(String uuid)`
+
+Snapshots älter als 24 Stunden werden von `loadRemoteConflictSnapshot()` ignoriert.
+
+**Fachlicher Hintergrund:**  
+Der Konflikt-Callback wird ausschließlich im Push-Pfad ausgelöst.
+Pull speichert den Remote-Stand als Snapshot — Push lädt ihn und löst den Callback genau einmal aus.
+Ein UUID-Guard verhindert doppelte Callback-Auslösungen pro `syncOnce()`-Lauf.
+
+
+### 1.1c `toPocketBaseMap()` — PocketBase-Payload
+
+Nur diese Felder werden an PocketBase übertragen:
+
+| Feld | Bemerkung |
+|---|---|
+| `name`, `menge`, `ort`, `fach`, `beschreibung`, `kategorie` | Pflichtfelder |
+| `uuid` | Pflicht |
+| `updated_at` | Unix-Timestamp |
+| `deleted` | `bool` (nicht `int`) |
+| `device_id` | Optional |
+| `erstelltAm` | UTC-ISO-8601-String |
+| `aktualisiertAm` | UTC-ISO-8601-String |
+| `artikelnummer` | Nur wenn `!= null && >= 1` |
+
+Bewusst **nicht** übertragen:
+
+| Feld | Grund |
+|---|---|
+| `last_synced_etag` | Lokales Sync-Steuerfeld |
+| `pending_resolution` | Lokales Konflikt-Steuerfeld |
+| `bildPfad` | Geht separat als `MultipartFile` über Feld `bild` |
+| `remoteBildPfad` | Nur lokale Referenz auf PocketBase-Dateiname |
+
+### 1.1d `_extractBildName()` — PocketBase-Bild-Normalisierung
+
+PocketBase liefert das Feld `bild` nach File-Upload als `List<String>`,
+nicht zwingend als `String`. Die Hilfsmethode normalisiert beide Fälle:
+
+```dart
+String? _extractBildName(dynamic data) {
+  final raw = _asStringDynamicMap(data)['bild'];
+  if (raw == null) return null;
+  if (raw is List && raw.isNotEmpty) return raw.first.toString();
+  if (raw is String && raw.trim().isNotEmpty) return raw.trim();
+  return null;
+}
+```
+`_extractBildName()` ist die einzige zulässige Stelle zur Normalisierung
+von PocketBase `bild` zu `remoteBildPfad`. Sie wird nach CREATE und UPDATE
+aufgerufen; das Ergebnis wird via `markSynced(..., remoteBildPfad: ...)` persistiert.
+
+---
+
 
 ### Bedeutung der Sync-Metadaten
 
@@ -248,11 +331,20 @@ Die Konflikterkennung basiert jetzt auf:
 |---|---|
 | `uuid` ist stabil | Nie ändern — geräteübergreifender Identifier |
 | `remote_path` = PocketBase Record-ID | Verbindung zum Server |
-| `etag = NULL` | Lokaler Datensatz ist dirty / pending |
+| `etag = NULL` oder leer | Lokaler Datensatz ist dirty / pending |
 | `last_synced_etag` bleibt bei normalen lokalen Änderungen erhalten | Vergleichsbasis für spätere Konflikterkennung |
 | `pending_resolution` wird nur für den nächsten Sync verwendet | Kein dauerhafter Zustand |
 | `deleted = 1` | Soft-Delete lokal, nicht automatisch konfliktfrei |
 | Duplicate-UUID beim Create führt nicht zu Endlosschleifen | Recovery per erneutem Remote-Lookup |
+| `setBildPfadByUuidSilent()` löst keinen normalen Datensync aus | Verhindert Endlosschleifen durch reine Bildpfad-Updates |
+| `clearBildInfoByUuidSilent()` löst keinen normalen Datensync aus | Löscht Bildinformationen lokal ohne Sync-Trigger |
+| `toPocketBaseMap()` überträgt keine lokalen Konflikt-Steuerfelder | `last_synced_etag` und `pending_resolution` bleiben lokal |
+| `toPocketBaseMap()` überträgt `erstelltAm`/`aktualisiertAm` als UTC-ISO-Strings | Zeitstempel-Konsistenz mit PocketBase |
+| `_extractBildName()` ist die einzige Normalisierungsstelle für PocketBase `bild` | Verhindert stille Fehler bei `List<String>` vs. `String` |
+| `remoteBildPfad` wird nur durch `markSynced()` oder `upsertArtikel()` gesetzt | Keine manuellen lokalen Schreibzugriffe |
+| `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` sind die einzigen Stellen für `conflict_snapshots` | Kapselt Snapshot-Persistenz vollständig |
+| Konflikt-Callback pro UUID maximal einmal pro `syncOnce()`-Lauf | UUID-Guard im Push-Pfad verhindert Doppelauslösung |
+| Pull-Delete-Block nur wenn `remoteUuids` nicht leer | Schützt vor versehentlichem Massendelete bei leerer Remote-Liste |
 
 ---
 
@@ -293,6 +385,7 @@ Diese Methode verhindert, dass ein reiner Bild-Download versehentlich als normal
 |---|---|---|---|---|
 | `setBildPfadByUuid()` | ✅ | ✅ | ❌ | ✅ Ja |
 | `setBildPfadByUuidSilent()` | ✅ | ❌ | ❌ | ❌ Nein |
+| `clearBildInfoByUuidSilent()` | ✅ → `null` | ❌ | ❌ | ❌ Nein |
 | `markSynced(...)` | ❌ | ❌ | ✅ | ❌ Nein |
 | `markAsModified(...)` | ❌ | ✅ | ✅ → `NULL` | ✅ Ja |
 
@@ -339,18 +432,32 @@ Anhänge werden **fachlich getrennt** von der SQLite-basierten Artikel-Synchroni
 
 ## 🚀 5. Performance & Indizes
 
-Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes aktiv:
+### Lokale SQLite-Indizes (`artikel`-Tabelle)
 
-| Index | Tabelle | Ziel |
+| Index | Spalte(n) | Zweck |
 |---|---|---|
-| `idx_unique_artikelnummer` | `artikel` | Schneller Zugriff via Fach-ID |
-| `idx_sync_delta` | `artikel` | Optimiert Abfragen auf `updated_at` und `deleted` |
-| `idx_search_name` | `artikel` | Schnelle Suche im Artikelnamen |
-| `idx_uuid_lookup` | `artikel` | Schneller Abgleich bei Push/Pull |
-| `idx_attachments_artikel_uuid` | `attachments` (PB) | Zugriff auf Anhänge eines Artikels |
-| `idx_attachments_uuid` | `attachments` (PB) | UUID-basierter Abgleich |
-| `idx_attachments_sort` | `attachments` (PB) | Sortierreihenfolge |
-| `idx_attachments_deleted` | `attachments` (PB) | Soft-Delete-Filterung |
+| `idx_artikel_uuid` | `uuid` | Schneller Abgleich bei Push/Pull |
+| `idx_artikel_updated_at` | `updated_at` | Delta-Sync-Abfragen |
+| `idx_artikel_deleted` | `deleted` | Soft-Delete-Filterung |
+| `idx_artikel_name` | `name` | Schnelle Suche im Artikelnamen |
+| `idx_artikel_name_ort_fach` | `name`, `ort`, `fach` | Duplikat-Check (Kombination) |
+| `idx_artikel_artikelnummer` | `artikelnummer` | Duplikat-Check (Artikelnummer) |
+
+> **Hinweis:** `idx_artikel_artikelnummer` ist kein UNIQUE-Index.
+> Die Eindeutigkeit von `artikelnummer` wird fachlich über `existsArtikelnummer()`
+> geprüft, nicht über einen DB-Constraint.
+
+> **Hinweis:** `updated_at` und `deleted` haben getrennte Indizes —
+> es gibt keinen kombinierten `idx_sync`-Index.
+
+### PocketBase-Indizes (`attachments`-Collection)
+
+| Index | Zweck |
+|---|---|
+| `idx_attachments_artikel_uuid` | Zugriff auf Anhänge eines Artikels |
+| `idx_attachments_uuid` | UUID-basierter Abgleich |
+| `idx_attachments_sort` | Sortierreihenfolge |
+| `idx_attachments_deleted` | Soft-Delete-Filterung |
 
 ---
 
@@ -376,15 +483,23 @@ Um Abfragen bei großen Datenbeständen zu beschleunigen, sind folgende Indizes 
 
 ---
 
-## Wartungsnotiz
-
-> **Zuletzt aktualisiert:** fix/sync-hardening2-v0.9.4 (2026-04-27)  
+> **Zuletzt aktualisiert:** fix/sync-hardening2-v0.9.4 / 0.9.4+43 (2026-05-03)  
 > Sync-Metadaten `last_synced_etag` und `pending_resolution` konsolidiert dokumentiert  
 > Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  
 > Duplicate-UUID-Recovery im Create-Pfad dokumentiert  
 > Serverseitige UUID-Absicherung (`required` + `unique`) ergänzt  
 > Bild-Nachlade-Logik auf aktuellen produktiven Stand präzisiert  
-> Historische `artikel_dokumente`-Sicht als Legacy-Hinweis eingeordnet, aktuelle Attachment-Realität nachgezogen
+> Historische `artikel_dokumente`-Sicht als Legacy-Hinweis eingeordnet  
+> `conflict_snapshots`-Tabelle (DB v6) ergänzt  
+> DB-Version und Migrationsübersicht ergänzt  
+> `thumbnailEtag`, `aktualisiertAm`, `device_id` in Artikel-Tabelle ergänzt  
+> `artikelnummer`-Regel auf `>= 1` korrigiert (war: 1000+)  
+> `toPocketBaseMap()` — übertragene und ausgeschlossene Felder dokumentiert  
+> `_extractBildName()` als einzige Normalisierungsstelle für PocketBase `bild` dokumentiert  
+> `clearBildInfoByUuidSilent()` in Methoden-Vergleichstabelle ergänzt  
+> Sync-Invarianten um Snapshot-Methoden, `remoteBildPfad`, Callback-Guard und Pull-Delete-Guard erweitert  
+> Indexnamen-Abweichung zwischen Prompt und Altdoku als offene Prüfung markiert  
+> Teststand: +754 / ~3 Tests, `flutter analyze` + `flutter test` grün
 
 --- 
 

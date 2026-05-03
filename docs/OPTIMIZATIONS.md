@@ -2,12 +2,15 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+41 | **Zuletzt aktualisiert:** 03.05.2026
+**Version:** 0.9.4+43 | **Zuletzt aktualisiert:** 03.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
 > Wenn eine Maßnahme **abgeschlossen, historisch relevant und versioniert** ist, wird sie in `HISTORY.md` überführt.  
 > Dadurch bleiben Status-Dokument und Historie sauber getrennt und vermeiden unnötige Dopplungen.
+
+> **Technische Referenz für Sync-Details:**  
+> Für Push/Pull, Konflikterkennung, Bild-Sync, Invarianten, Edge Cases und Änderungsverbote gilt primär **`docs/SYNC.md`**.
 
 ---
 
@@ -90,12 +93,12 @@ Die reale UUID-Kollision „lokal offline neu erzeugt, vor dem ersten Sync gleic
 - [x] `test/services/artikel_db_service_test.dart`: Snapshot-Methoden gezielt ergänzt
 - [x] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für Zeitstempel- und `artikelnummer`-Regeln ergänzt
 - [x] `test/services/pocketbase_sync_service_test.dart`: `_extractBildName()` und `remoteBildPfad`-Persistenz service-nah ergänzt
-- [ ] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgleichen und vereinheitlichen
+- [x] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgeglichen und vereinheitlicht
 
 **Optional / spätere Verfeinerung**
 - [ ] Monitoring/Zähler für technische Duplicate-UUID-Recovery-Fallbacks im `create()`-Pfad prüfen oder ergänzen
 - [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
-- [ ] Optional prüfen, ob die Konfliktvergleichsbasis langfristig klarer auf `last_synced_etag` vereinheitlicht oder dokumentiert werden sollte
+- [ ] Optional fachlich prüfen, ob die technische Nutzung von `etag` und `last_synced_etag` langfristig noch weiter vereinfacht oder im Code stärker vereinheitlicht werden sollte; die aktuelle Dokumentation ist in `docs/SYNC.md` bereits konsolidiert
 - [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
 - [x] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
 - [ ] Optional verbleibende Modelltests nur noch für zusätzliche Randfälle ergänzen; Roundtrip- und `copyWith()`-Null-Semantik sind bereits weitgehend abgedeckt
@@ -105,51 +108,36 @@ Die reale UUID-Kollision „lokal offline neu erzeugt, vor dem ersten Sync gleic
 - [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
 
 **Hinweis**
-Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und inzwischen in mehreren realen Geräte-/Server-Läufen bestätigt. Zusätzlich sind die Bildpfad-bezogenen Response-/Persistenzpfade im service-nahen Sync-Test ergänzt, der Konfliktfall Soft-Delete lokal + Remote-Edit erneut manuell erfolgreich verifiziert und E-001 fachlich neu eingeordnet:
+Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und inzwischen in mehreren realen Geräte-/Server-Läufen bestätigt. Zusätzlich sind die Bildpfad-bezogenen Response-/Persistenzpfade im service-nahen Sync-Test ergänzt, der Konfliktfall Soft-Delete lokal + Remote-Edit erneut manuell erfolgreich verifiziert und E-001 fachlich neu eingeordnet.
 
-Die real geprüfte Konstellation „lokal offline neu erzeugt, vor dem ersten Sync gleicher Remote-Datensatz bereits vorhanden“ wird im Projekt bewusst konservativ als Konflikt behandelt. Dieses Verhalten ist gewünscht und gilt damit als bestätigt. Offen ist nur noch optional ein separater Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback im tatsächlichen `create()`-Race sowie die Doku-Konsolidierung in `DATABASE.md` und `ARCHITECTURE.md`.
+Die real geprüfte Konstellation „lokal offline neu erzeugt, vor dem ersten Sync gleicher Remote-Datensatz bereits vorhanden“ wird im Projekt bewusst konservativ als Konflikt behandelt. Dieses Verhalten ist gewünscht und gilt damit als bestätigt. Offen ist nur noch optional ein separater Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback im tatsächlichen `create()`-Race.
 
-→ FakeArtikelDbService wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.  
+Die technische Referenz für Sync-Regeln, Invarianten, Edge Cases und Änderungsverbote ist jetzt:
+- `docs/SYNC.md`
+
+→ `FakeArtikelDbService` wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.  
 → Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService`, Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` sowie `_extractBildName()` / `remoteBildPfad` im service-nahen Sync-Test explizit regressionssicher abgesichert.
 --- 
 
 ### O-012: Sync-Logs mobil-lesbar machen (Summary-Lines pro Operation)
-**Typ:** Optimierung  
-**Betrifft:** `lib/services/pocket_base_sync_service.dart`, `lib/services/sync_orchestrator.dart`, `lib/services/artikel_db_service.dart`, `docs/LOGGER.md`
+**Status:** weitgehend abgeschlossen
 
-**Problem / Motivation**  
-Aktuelle Sync-Logs bestehen aus vielen Einzelmeldungen ohne übergreifende Zusammenfassung. Auf mobilen Geräten (In-App Log-Viewer, 360 dp) ist schwer erkennbar, welche Sync-Phase (PUSH CREATE/UPDATE/DELETE, PULL, IMAGES) mit welchem Ergebnis abgeschlossen wurde.
+Die Summary-Logs für Push/Pull/Orchestrator wurden bereits produktiv eingeführt und in `docs/LOGGER.md` dokumentiert. Die mobilen 1-Zeilen-Zusammenfassungen gehören inzwischen zum produktiven Diagnosepfad.
 
-Dieses Ticket erweitert `docs/LOGGER.md` um ein **Summary-Format** und ergänzt die Implementierung um strukturierte 1-Zeilen-Summaries pro Sync-Phase — es *ersetzt nicht* die bestehenden Logging-Konventionen: Bei `logger.e` bleiben `error` und `stackTrace` weiterhin Pflicht gemäß `LOGGER.md`; Summary-Lines kommen zusätzlich hinzu. Neue Log-Events sollen in `LOGGER.md` als Referenz eingetragen werden (Tabelle „Definierte Log-Events").
+**Bereits umgesetzt**
+- [x] strukturierte Summary-Lines für zentrale Sync-Phasen eingeführt
+- [x] `docs/LOGGER.md` um relevante Sync-Log-Events ergänzt
+- [x] Orchestrator-Fehler/Timeouts mit Phasenbezug geloggt
+- [x] Detail-Logs mit `error` und `stackTrace` bleiben erhalten
 
-**Ziel**
-Kurze, strukturierte 1-Zeilen-Summaries pro Sync-Operation (Push/Pull/Images), die auf Mobile sofort erfassbar sind — **ohne** mit `docs/LOGGER.md` zu kollidieren.
+**Optionaler Rest**
+- [ ] Optional: Verbose-Flag (`AppConfig.verboseSync`) prüfen, falls künftig zwischen Summary- und sehr detaillierten Sync-Logs unterschieden werden soll
 
-**Abgrenzung zu `docs/LOGGER.md`**
-- Dieser Punkt *ergänzt* `LOGGER.md`, ersetzt sie nicht.
-- `logger.e(…, error: e, stackTrace: st)` bei kritischen Fehlern bleibt erhalten (konform zu `LOGGER.md`).
-- Zusätzlich wird eine kurze Summary-Line (`logger.w` / `logger.i`) vorangestellt, damit das wichtigste Signal auf Mobile sofort sichtbar ist.
-- Neue Log-Events werden in `LOGGER.md` referenziert (Tabelle „Definierte Log-Events"), nicht ersetzt.
+**Hinweis**
+Die technische Referenz für aktuelle Sync-Logs und Summary-Konventionen ist:
+- `docs/LOGGER.md`
+- `docs/SYNC.md`
 
-**Vorgeschlagenes Summary-Format**
-```
-SYNC|PUSH|CREATE  fail  uuid=<uuid>  status=400  msg="Failed to create record"
-SYNC|PUSH|UPDATE  ok    uuid=<uuid>
-SYNC|PULL         fail  status=503   msg="..."
-SYNC|IMAGES       ok    downloaded=3  skipped=1  failed=0
-```
-Details (Exception + Stacktrace) folgen weiterhin als `logger.e`-Eintrag.
-
-**Tasks**
-- [ ] `docs/LOGGER.md` um Summary-Format und entsprechende Log-Events ergänzen (Nachrichtenformat definieren; keine Code-Änderung in diesem Schritt)
-- [ ] `PocketBaseSyncService`: strukturierte 1-Zeilen-Summary nach PUSH CREATE/UPDATE/DELETE, PULL und IMAGES-Phase ergänzen
-- [ ] `SyncOrchestrator`: Summary bei Timeout/Fehler mit letztem bekannten Schritt loggen
-- [ ] Optional: Verbose-Flag (`AppConfig.verboseSync`), um Detail-Logs auf Wunsch aktivierbar zu machen
-- [ ] Dokumentieren, dass Summary-Logs für mobile Lesbarkeit gedacht sind; Details bleiben für forensische Analyse erhalten.
-
-**Nicht-Ziel**
-- Keine Änderung am bestehenden Logger-Framework (`AppLogService`) notwendig.
-- Keine Entfernung von `error` / `stackTrace` bei kritischen Fehlern (konform zu `docs/LOGGER.md`).
 
 --- 
 
@@ -210,17 +198,16 @@ Ziel ist ein konsistenter „Bild leeren“-Workflow, der sowohl lokal als auch 
 **Entdeckt bei:** B-001 / B-002
 
 ### Problem
-Die `kategorie`-Eigenschaft des Artikel-Modells existiert im Backend (PocketBase)
-und im Datenmodell, ist aber in der Artikel-Erfassungs-UI nicht einggebbar.
-Nutzer können Kategorien weder setzen noch ändern.
+Die technische Basis für `kategorie` ist inzwischen im Modell, Mapping, Persistenz- und Sync-Pfad vorhanden.  
+Offen ist — falls im aktuellen UI-Stand noch nicht umgesetzt — die vollständige und nutzerfreundliche Eingabe bzw. Bearbeitung in der Artikel-UX.
 
 ### Gewünschtes Verhalten
-- Artikel-Formular enthält ein Kategorie-Feld (Freitext oder Dropdown)
-- Wert wird beim Speichern in SQLite persistiert
-- Wert wird beim Sync korrekt an PocketBase übertragen
+- Artikel-Formular enthält ein klar sichtbares Kategorie-Feld (Freitext oder Dropdown)
+- Wert lässt sich beim Erstellen und Bearbeiten eines Artikels setzen
+- Wert wird lokal persistiert und im Sync korrekt an PocketBase übertragen
 
 ### Akzeptanzkriterium
-B-001 / B-002 bestehen vollständig inkl. `kategorie`-Übertragung.
+Die Kategorie ist im relevanten Artikel-UI-Flow vollständig nutzbar und die reale End-to-End-Übertragung ist bestätigt.
 
 --- 
 
@@ -254,14 +241,15 @@ WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 ## 📊 Fortschritts-Übersicht
 
-| Priorität | Gesamt | Erledigt | Offen |
-|---|---:|---:|---:|
-| ✅ Abgeschlossen | 57 | 53 | 0 |
-| 🔴 Hoch | 0 | 0 | 0 |
-| 🟡 Mittel | 3 | 0 | 3 |
-| 🟢 Nice-to-Have | 1 | 0 | 1 |
-| ⏭️ Future | 2 | 0 | 2 |
-| **Gesamt** | **64** | **53** | **6** |
+Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch nur dann belastbar, wenn sie aktiv mitgepflegt werden.  
+Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
+
+**Aktuell besonders relevante offene Themen**
+- optionaler Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback
+- Android-Kamera-Verifikation
+- UI/UX für „Bild entfernen“
+- ggf. verbleibende UX-Ergänzung für `kategorie`
+- konfigurierbares Sync-Intervall
 
 ---
 
@@ -852,8 +840,6 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 ---
 
-
-
 ### T-008: ETag-Konflikt-Logik und `downloadMissingImages`-Check-Logik — abgeschlossen in `v0.8.5+19`
 - `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
 - `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
@@ -870,6 +856,8 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-03 | 0.9.4+43 | Sync-Dokumentation konsolidiert: `docs/SYNC.md` als technische Referenz für Push/Pull, Konflikterkennung, Edge Cases, Invarianten und Änderungsverbote ergänzt; `prompt.txt` als allgemeiner Arbeitskontext erweitert. |
+| 2026-05-03 | 0.9.4+43 | `ARCHITECTURE.md` und `DATABASE.md` gegen den aktuellen SQLite-/Sync-Stand konsolidiert; Indexnamen gegen den echten Code verifiziert und vereinheitlicht. |
 | 2026-05-03 | 0.9.4+42 | E-001 real eingeordnet: Die Konstellation „lokal offline neu erzeugt, vor erstem Sync gleicher Remote-Datensatz bereits vorhanden“ wird nun fachlich als gewünschter konservativer Konfliktfall bewertet. Nach manueller Auflösung (`useLocal`) erfolgreicher Folgesync ohne Dublette oder Retry-Loop. |
 | 2026-05-03 | 0.9.4+41 | T-001 weiter konsolidiert: `_extractBildName()` / `remoteBildPfad` service-nah testseitig ergänzt; M-004 erneut manuell verifiziert inklusive erfolgreicher Gegenprobe ohne Remote-Änderung. |
 | 2026-05-02 | 0.9.4+41 | T-011 abgeschlossen: Snapshot-Persistenz in `ArtikelDbService` sowie Zeitstempel- und `artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` testseitig regressionssicher ergänzt. DB-Testisolation für Singleton/In-Memory-Setup stabilisiert. Teststand: 707 Tests grün, 3 übersprungen. |

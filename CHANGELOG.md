@@ -2,6 +2,162 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [0.9.4+43] — 2026-05-03
+
+### Dokumentation
+
+- Sync-Arbeitskontext aus `prompt_Sync.txt` nach `prompt.txt` und `docs/SYNC.md` konsolidiert; `prompt_Sync.txt` entfällt als führende Arbeitsgrundlage
+- `docs/SYNC.md` als technische Referenz für Push/Pull, Konflikterkennung, Bild-Sync, Edge Cases, Invarianten und Änderungsverbote ergänzt
+- `prompt.txt` um Arbeitsmodus, Session-Checkliste und Datei-Einstiegspfade für künftige Analysen/Änderungen erweitert
+- `README.md` um eine menschenfreundliche Kurzfassung der Offline-First-Sync-Architektur ergänzt und `docs/SYNC.md` als technische Referenz verlinkt
+
+### Dokumentation: ARCHITECTURE.md & DATABASE.md auf Stand 0.9.4+43 konsolidiert (Schritte 22–24)
+---
+
+## [0.9.4+42] — 2026-05-03
+
+### Tests (Schritt 21): Testlücken Pull-Delete-Schutz, `markSynced`-`remoteBildPfad` und `toPocketBaseMap` geschlossen
+
+#### Pull-Delete-Schutz — Anker-Pattern (`pocketbase_sync_service_test.dart`)
+
+**Problem:** Bisherige Tests für den Pull-Soft-Delete-Schutz lieferten keine
+Remote-Records (leere `remoteUuids`). Dadurch wurde nur der
+`remoteUuids.isNotEmpty`-Guard getestet, nicht der eigentliche
+Schutz-Mechanismus für dirty/pending-Artikel.
+
+**Lösung:** Anker-Pattern eingeführt — alle drei Schutz-Tests liefern mindestens
+einen Remote-Record (Anker), damit `remoteUuids` nicht leer bleibt und der
+Delete-Block tatsächlich betreten wird.
+
+**Abgedeckte Fälle:**
+- dirty Artikel wird nicht gelöscht, auch wenn er remote fehlt
+- `force_local`-Artikel wird nicht gelöscht, auch wenn er remote fehlt
+- `force_merge`-Artikel wird nicht gelöscht, auch wenn er remote fehlt
+
+#### `markSynced()` mit `remoteBildPfad` (`artikel_db_service_test.dart`)
+
+**5 neue Tests:**
+
+| Test | Szenario |
+|:-----|:---------|
+| 1 | `remoteBildPfad` wird korrekt gesetzt |
+| 2 | `remoteBildPfad = null` lässt bestehenden Wert unverändert |
+| 3 | Kombination mit `etag`, `remote_path` und `last_synced_etag` korrekt |
+| 4 | `remoteBildPfad` wird bei erneutem `markSynced()` überschrieben |
+| 5 | `remoteBildPfad` bleibt nach `updateArtikel()` erhalten (kein Dirty-Trigger) |
+
+#### `toPocketBaseMap()` (`artikel_model_test.dart`)
+
+**12 neue Tests:**
+
+| Test | Szenario |
+|:-----|:---------|
+| 1–3 | Pflichtfelder (`name`, `menge`, `ort`, `fach`, `uuid`, `updated_at`) vorhanden |
+| 4 | `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings übertragen |
+| 5–6 | `artikelnummer` nur gesendet wenn `>= 1`; `null` und `0` werden ausgelassen |
+| 7 | `deleted` als `bool` übertragen (nicht `int`) |
+| 8 | `device_id` korrekt übertragen |
+| 9–10 | `last_synced_etag` und `pending_resolution` nicht übertragen |
+| 11 | `bildPfad` und `remoteBildPfad` nicht übertragen |
+| 12 | `kategorie` korrekt übertragen |
+
+**Teststatus:**
+- `flutter test`: **+754 / ~3 Tests übersprungen** ✅
+- `flutter analyze`: **0 Findings** ✅
+
+---
+
+## [0.9.4+41] — 2026-05-03
+
+### Tests & Verifikation (T-001 Konsolidierung)
+
+- `_extractBildName()` und `remoteBildPfad`-Persistenz nach CREATE/UPDATE
+  service-nah regressionssicher ergänzt
+  (Fälle: `List<String>`, `String`, `null`, leer)
+- M-004 (Soft-Delete lokal + Remote-Edit) erneut manuell verifiziert:
+  Konflikt-UI erscheint korrekt
+- Gegenprobe ohne Remote-Änderung bestätigt: reguläres Löschen
+  ohne unnötigen Konflikt
+
+### Dokumentation
+
+- damaligen Sync-Arbeitskontext konsolidiert und für die spätere Überführung nach `prompt.txt` / `docs/SYNC.md` vorbereitet
+- Teststatus von `182 Tests` auf `+754 / ~3 Tests` korrigiert
+- Arbeitsstatus-Abschnitte nachgezogen
+- interne Arbeitsschritte 21–24 im damaligen Arbeitskontext konsolidiert
+
+---
+
+## [0.9.4+40] — 2026-05-02
+
+### Tests (T-011): Snapshot-Persistenz und Modell-Mapping regressionssicher ergänzt
+
+- `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` in
+  `ArtikelDbService` testseitig abgesichert
+- REPLACE-Verhalten bei erneutem Snapshot-Speichern verifiziert
+- Expiry-Verhalten älterer Snapshots abgedeckt
+- DB-Testisolation für Singleton/In-Memory-Setup stabilisiert
+- `Artikel.toPocketBaseMap()`: `erstelltAm` / `aktualisiertAm` als
+  UTC-ISO-Strings geprüft
+- `Artikel.toPocketBaseMap()`: `artikelnummer` nur bei `>= 1` geprüft
+- Lokale Sync-/Konflikt-Steuerfelder werden nicht an PocketBase
+  übertragen — regressionssicher bestätigt
+- Teststand: **707 Tests grün, 3 übersprungen** ✅
+
+### Fix (B-015): Konfliktbewusste Timeout-Semantik abgesichert
+
+- Orchestrator-Timeout während offener Konflikt-UI per
+  Verhaltenstests abgesichert
+- Während aktiver Benutzerauflösung wird die Phase nicht als
+  hängender Sync-Lauf gewertet
+- Echte technische Fehler (Netzwerk/DNS) werden weiterhin korrekt
+  als Fehler behandelt
+
+### Dokumentation
+
+- CHANGELOG.md: fehlende Einträge für 0.9.4+38–0.9.4+40 nachgezogen
+
+---
+
+## [0.9.4+38] — 2026-04-30
+
+### Fix / Dokumentation: Indexnamen-Diskrepanz identifiziert
+
+**Befund:**
+`docs/ARCHITECTURE.md` und `docs/DATABASE.md` enthielten historisch gewachsene
+Fantasie-Indexnamen, die nicht mit den tatsächlichen Indexnamen in
+`artikel_db_service.dart` übereinstimmten.
+
+**Beispiele:**
+
+| Doku (alt) | Code (tatsächlich) |
+|:-----------|:-------------------|
+| `idx_sync` | `idx_artikel_updated_at` + `idx_artikel_deleted` (getrennt) |
+| `idx_unique_artikelnummer` | `idx_artikel_artikelnummer` (kein UNIQUE-Index) |
+| `idx_search_name` | `idx_artikel_name` |
+
+**Maßnahme:**
+Als offene Prüfung in `DATABASE.md` explizit markiert — Korrektur folgt
+in Schritt 24.
+
+---
+
+## [0.9.4+37] — 2026-04-30
+
+### Fix: `conflict_snapshots.saved_at` Typ-Korrektur in Dokumentation
+
+**Problem:**
+`docs/DATABASE.md` dokumentierte `saved_at` in der `conflict_snapshots`-Tabelle
+fälschlicherweise als `INTEGER` (Unix-Timestamp).
+
+**Tatsächlicher Typ:**
+`TEXT` (ISO 8601 UTC-String) — konsistent mit anderen Zeitstempelfeldern
+im Projekt.
+
+**Auswirkung:**
+Nur Dokumentation betroffen — kein Produktivcode-Fix erforderlich.
+
+
 ## [0.9.4] — 2026-04-29
 
 ### B-014: PocketBase CREATE HTTP 400 & Push-Timeout-Fix — fix/sync-hardening2-v0.9.4

@@ -34,11 +34,34 @@ Sie bietet die Geschwindigkeit einer lokalen App mit der Sicherheit einer zentra
 - 📦 **Artikelverwaltung:** Erfassung mit Name, Beschreibung, Ort, Fach und automatischer Artikelnummer
 - 📷 **Scanner & Bilder:** QR-/Barcode-Scanner (Mobile) und Bildanhänge (Kamera/Galerie)
 - 📎 **Dokumentenverwaltung:** Dokumente (PDF, DOCX, XLSX u. a.) direkt zum Artikel hochladen, synchronisieren und öffnen
-- 🔄 **Smart-Sync (B-007):** Intelligente Synchronisation mit Konfliktlösung und ETag-basiertem Bild-Abgleich — spart Bandbreite und Zeit.
+- 🔄 **Smart-Sync:** Offline-First-Synchronisation mit Konflikterkennung, bewusster Konfliktauflösung, Bild-Abgleich und robustem Recovery bei Netzwerk-/Create-Rennen.
 - 🔐 **App-Lock:** Biometrische Authentifizierung (Fingerabdruck/Face) mit Fallback auf Geräte-PIN — konfigurierbare Sperrzeit bei Inaktivität
 - 🔧 **Flexible Server-Konfiguration:** PocketBase-URL zur Laufzeit konfigurierbar — per Setup-Screen, Einstellungen oder Build-Default
 - 📄 **Reporting:** PDF-Berichte, CSV-/JSON-Export und ZIP-Backups
 - 🛡️ **Enterprise Security:** Gehärtetes Deployment mit Security-Headern und automatischer Initialisierung
+
+--- 
+
+## 🔄 Sync in Kürze
+
+Die Lager_app arbeitet nach dem **Offline-First-Prinzip**:
+
+- Artikel werden lokal gespeichert und bleiben auch ohne Netzwerk verfügbar
+- Änderungen werden später mit PocketBase synchronisiert
+- Konflikte werden erkannt statt still überschrieben
+- bewusste Entscheidungen wie „lokal behalten“ oder „Remote übernehmen“ bleiben geschützt
+- Bilder werden separat und bandbreitenschonend abgeglichen
+
+### Was das in der Praxis bedeutet
+- **schnelle lokale Nutzung** auf Mobile und Desktop
+- **robustes Verhalten bei instabiler Verbindung**
+- **kein blindes Überschreiben** von Änderungen
+- **Recovery bei typischen Sync-Rennen**, z. B. wenn ein Create serverseitig erfolgreich war, die Antwort lokal aber fehlschlug
+
+### Für Entwickler
+Die technische Referenz zur Synchronisationslogik ist:
+
+- 📘 **[SYNC.md](docs/SYNC.md):** Push/Pull, Konflikterkennung, Bild-Sync, Edge Cases, Regeln und Invarianten
 
 ---
 
@@ -120,6 +143,7 @@ Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 - 🎨 **[THEMING.md](docs/THEMING.md):** Infos zu AppConfig, AppTheme und Design-Tokens
 - 📝 **[LOGGING.md](docs/LOGGER.md):** Details zum integrierten Logging-System
 - 🧪 **[TESTING.md](docs/TESTING.md):** Alle Tests beschrieben — Ziele, Abdeckung und lokaler Aufruf
+- 🔄 **[SYNC.md](docs/SYNC.md):** Technische Referenz für Push/Pull, Konflikterkennung, Bild-Sync, Edge Cases und Änderungsregeln
 
 ### 📈 Projektstatus
 - ✅ **[CHECKLIST.md](docs/CHECKLIST.md):** Aktueller Stand der Implementierung
