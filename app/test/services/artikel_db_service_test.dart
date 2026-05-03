@@ -1147,6 +1147,301 @@ void main() {
       });
     });
 
+// ══════════════════════════════════════════════════════════════════
+// EINFÜGEN: nach group('Conflict Snapshots') und vor group('searchArtikel()')
+// ══════════════════════════════════════════════════════════════════
+
+// =======================================================================
+// markSynced() — remoteBildPfad
+// =======================================================================
+group('markSynced() — remoteBildPfad', () {
+  test('setzt remoteBildPfad wenn angegeben', () async {
+    final artikel = _makeArtikel();
+    await service.insertArtikel(artikel);
+
+    await service.markSynced(
+      artikel.uuid,
+      'etag-bild-1',
+      remoteBildPfad: 'foto.jpg',
+    );
+
+    final db = await service.database;
+    final result = await db.query(
+      'artikel',
+      where: 'uuid = ?',
+      whereArgs: [artikel.uuid],
+    );
+    expect(result.first['remoteBildPfad'], equals('foto.jpg'));
+  });
+
+  test('lässt remoteBildPfad unverändert wenn null übergeben wird', () async {
+    final artikel = _makeArtikel(remoteBildPfad: 'bestehendes-bild.jpg');
+    await service.insertArtikel(artikel);
+
+    // remoteBildPfad direkt setzen (insertArtikel löscht etag)
+    final db = await service.database;
+    await db.update(
+      'artikel',
+      {'remoteBildPfad': 'bestehendes-bild.jpg'},
+      where: 'uuid = ?',
+      whereArgs: [artikel.uuid],
+    );
+
+    await service.markSynced(
+      artikel.uuid,
+      'etag-xyz',
+      // remoteBildPfad nicht übergeben → bleibt unverändert
+    );
+
+    final result = await db.query(
+      'artikel',
+      where: 'uuid = ?',
+      whereArgs: [artikel.uuid],
+    );
+    expect(result.first['remoteBildPfad'], equals('bestehendes-bild.jpg'));
+  });
+
+  test('setzt etag und remoteBildPfad gleichzeitig korrekt', () async {
+    final artikel = _makeArtikel();
+    await service.insertArtikel(artikel);
+
+    await service.markSynced(
+      artikel.uuid,
+      'etag-kombi',
+      remotePath: 'rec_kombi',
+      remoteBildPfad: 'kombi-foto.jpg',
+    );
+
+    final db = await service.database;
+    final result = await db.query(
+      'artikel',
+      where: 'uuid = ?',
+      whereArgs: [artikel.uuid],
+    );
+    expect(result.first['etag'], equals('etag-kombi'));
+    expect(result.first['remote_path'], equals('rec_kombi'));
+    expect(result.first['remoteBildPfad'], equals('kombi-foto.jpg'));
+  });
+
+  test('Artikel mit remoteBildPfad erscheint nicht mehr in '
+      'getPendingChanges()', () async {
+    final artikel = _makeArtikel();
+    await service.insertArtikel(artikel);
+
+    await service.markSynced(
+      artikel.uuid,
+      'etag-final',
+      remoteBildPfad: 'final-foto.jpg',
+    );
+
+    final pending = await service.getPendingChanges();
+    expect(pending, isEmpty);
+  });
+
+  test('überschreibt bestehenden remoteBildPfad mit neuem Wert', () async {
+    final artikel = _makeArtikel();
+    await service.insertArtikel(artikel);
+
+    final db = await service.database;
+    await db.update(
+      'artikel',
+      {'remoteBildPfad': 'alt.jpg'},
+      where: 'uuid = ?',
+      whereArgs: [artikel.uuid],
+    );
+
+    await service.markSynced(
+      artikel.uuid,
+      'etag-neu',
+      remoteBildPfad: 'neu.jpg',
+    );
+
+    final result = await db.query(
+      'artikel',
+      where: 'uuid = ?',
+      whereArgs: [artikel.uuid],
+    );
+    expect(result.first['remoteBildPfad'], equals('neu.jpg'));
+  });
+});
+
+// =======================================================================
+// toPocketBaseMap()
+// =======================================================================
+group('toPocketBaseMap()', () {
+  // ── Pflichtfelder ────────────────────────────────────────────────────
+
+  test('enthält alle Pflichtfelder', () async {
+    final artikel = _makeArtikel(
+      name: 'PB-Test',
+      menge: 7,
+      ort: 'Regal B',
+      fach: 'Fach 3',
+      beschreibung: 'PB Beschreibung',
+      kategorie: 'Elektronik',
+    );
+    final map = artikel.toPocketBaseMap();
+
+    expect(map['name'], equals('PB-Test'));
+    expect(map['menge'], equals(7));
+    expect(map['ort'], equals('Regal B'));
+    expect(map['fach'], equals('Fach 3'));
+    expect(map['beschreibung'], equals('PB Beschreibung'));
+    expect(map['kategorie'], equals('Elektronik'));
+    expect(map['uuid'], equals(artikel.uuid));
+    expect(map['updated_at'], equals(artikel.updatedAt));
+    expect(map['deleted'], equals(false));
+  });
+
+  // ── UTC-Zeitstempel ──────────────────────────────────────────────────
+
+  test('erstelltAm ist UTC ISO-8601-String', () async {
+    final artikel = _makeArtikel();
+    final map = artikel.toPocketBaseMap();
+
+    expect(map['erstelltAm'], isA<String>());
+    final parsed = DateTime.parse(map['erstelltAm'] as String);
+    expect(parsed.isUtc, isTrue);
+  });
+
+  test('aktualisiertAm ist UTC ISO-8601-String', () async {
+    final artikel = _makeArtikel();
+    final map = artikel.toPocketBaseMap();
+
+    expect(map['aktualisiertAm'], isA<String>());
+    final parsed = DateTime.parse(map['aktualisiertAm'] as String);
+    expect(parsed.isUtc, isTrue);
+  });
+
+  test('erstelltAm-Wert stimmt mit Artikel-Datum überein', () async {
+    final now = DateTime.now().toUtc();
+    final artikel = Artikel(
+      name: 'Zeitstempel-Test',
+      menge: 1,
+      ort: 'A',
+      fach: 'B',
+      beschreibung: '',
+      bildPfad: '',
+      erstelltAm: now,
+      aktualisiertAm: now,
+    );
+    final map = artikel.toPocketBaseMap();
+
+    final parsed = DateTime.parse(map['erstelltAm'] as String);
+    // Millisekunden-Genauigkeit
+    expect(
+      parsed.millisecondsSinceEpoch,
+      equals(now.millisecondsSinceEpoch),
+    );
+  });
+
+  // ── artikelnummer-Validierung ────────────────────────────────────────
+
+  test('artikelnummer fehlt im Map wenn null', () async {
+    final artikel = _makeArtikel(artikelnummer: null);
+    final map = artikel.toPocketBaseMap();
+
+    expect(map.containsKey('artikelnummer'), isFalse);
+  });
+
+  test('artikelnummer fehlt im Map wenn 0', () async {
+    final artikel = Artikel(
+      name: 'Test',
+      menge: 1,
+      ort: 'A',
+      fach: 'B',
+      beschreibung: '',
+      bildPfad: '',
+      erstelltAm: DateTime.now().toUtc(),
+      aktualisiertAm: DateTime.now().toUtc(),
+      artikelnummer: 0,
+    );
+    final map = artikel.toPocketBaseMap();
+
+    expect(map.containsKey('artikelnummer'), isFalse);
+  });
+
+  test('artikelnummer ist enthalten wenn >= 1', () async {
+    final artikel = _makeArtikel(artikelnummer: 42);
+    final map = artikel.toPocketBaseMap();
+
+    expect(map.containsKey('artikelnummer'), isTrue);
+    expect(map['artikelnummer'], equals(42));
+  });
+
+  test('artikelnummer ist enthalten wenn genau 1 (Grenzwert)', () async {
+    final artikel = _makeArtikel(artikelnummer: 1);
+    final map = artikel.toPocketBaseMap();
+
+    expect(map.containsKey('artikelnummer'), isTrue);
+    expect(map['artikelnummer'], equals(1));
+  });
+
+  // ── Bewusst ausgeschlossene Felder ───────────────────────────────────
+
+  test('enthält NICHT: etag, last_synced_etag, pending_resolution, '
+      'remote_path, remoteBildPfad, bildPfad', () async {
+    final artikel = _makeArtikel(
+      etag: 'etag-xyz',
+      lastSyncedEtag: 'last-etag',
+      pendingResolution: 'force_local',
+      remotePath: 'rec_abc',
+      remoteBildPfad: 'bild.jpg',
+      bildPfad: '/local/bild.jpg',
+    );
+    final map = artikel.toPocketBaseMap();
+
+    expect(map.containsKey('etag'), isFalse);
+    expect(map.containsKey('last_synced_etag'), isFalse);
+    expect(map.containsKey('lastSyncedEtag'), isFalse);
+    expect(map.containsKey('pending_resolution'), isFalse);
+    expect(map.containsKey('pendingResolution'), isFalse);
+    expect(map.containsKey('remote_path'), isFalse);
+    expect(map.containsKey('remotePath'), isFalse);
+    expect(map.containsKey('remoteBildPfad'), isFalse);
+    expect(map.containsKey('bildPfad'), isFalse);
+  });
+
+  test('device_id ist enthalten wenn gesetzt', () async {
+    final artikel = Artikel(
+      name: 'DeviceId-Test',
+      menge: 1,
+      ort: 'A',
+      fach: 'B',
+      beschreibung: '',
+      bildPfad: '',
+      erstelltAm: DateTime.now().toUtc(),
+      aktualisiertAm: DateTime.now().toUtc(),
+      deviceId: 'device-abc-123',
+    );
+    final map = artikel.toPocketBaseMap();
+
+    expect(map['device_id'], equals('device-abc-123'));
+  });
+
+  test('device_id ist null wenn nicht gesetzt', () async {
+    final artikel = _makeArtikel();
+    final map = artikel.toPocketBaseMap();
+
+    // device_id ist im Map vorhanden aber null
+    expect(map.containsKey('device_id'), isTrue);
+    expect(map['device_id'], isNull);
+  });
+
+  // ── deleted-Typ ──────────────────────────────────────────────────────
+
+  test('deleted ist bool (nicht int) im PocketBase-Map', () async {
+    final aktiv = _makeArtikel();
+    final geloescht = _makeArtikel(deleted: true);
+
+    expect(aktiv.toPocketBaseMap()['deleted'], equals(false));
+    expect(aktiv.toPocketBaseMap()['deleted'], isA<bool>());
+    expect(geloescht.toPocketBaseMap()['deleted'], equals(true));
+    expect(geloescht.toPocketBaseMap()['deleted'], isA<bool>());
+  });
+});
+
+
     // =======================================================================
     // searchArtikel()
     // =======================================================================

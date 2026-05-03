@@ -1,3 +1,5 @@
+// lib/services/conflict_resolution_utils.dart
+
 import '../models/artikel_model.dart';
 
 /// Liefert eine belastbare Remote-Baseline für die Konfliktauflösung
