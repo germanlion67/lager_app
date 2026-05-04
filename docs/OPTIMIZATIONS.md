@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+46 | **Zuletzt aktualisiert:** 04.05.2026
+**Version:** 0.9.4+48 | **Zuletzt aktualisiert:** 04.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -41,83 +41,6 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 ---
 
 ## 🟡 Priorität: Mittel
-
-### T-001: Konfliktlösung, Sync-Hardening und Integrationsverifikation (M-007)
-Manuelle Integrationstests und Restverifikation für die inzwischen deutlich gehärtete Konflikt- und Sync-Pipeline.
-
-**Technische Basis, Hardening und service-nahe Tests — weitgehend abgeschlossen ✅**
-- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling ✅
-- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index ✅
-- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen ✅
-- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien ✅
-- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock ✅
-- [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut ✅
-- [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt ✅
-- [x] **T-001.13** — Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version ✅
-- [x] **T-001.14** — Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version ✅
-- [x] **T-001.16** — Erfolgreicher `force_local`-Push bereinigt `pendingResolution` ✅
-- [x] **T-001.17** — Erfolgreicher `force_merge`-Push bereinigt `pendingResolution` ✅
-
-- [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
-- [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
-- [x] Produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
-- [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
-- [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
-- [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
-- [x] `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
-- [x] `artikelnummer` wird im PocketBase-Payload nur bei `>= 1` gesendet
-- [x] Konflikt-Snapshot-Persistenz (`saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()`) service-nah abgesichert
-- [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
-- [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
-
-**Manuelle Integrations- und Feldtests**
-- [x] **T-001.6** — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
-- [x] **T-001.7** — „Lokal behalten“ → Server wird im Folgesync überschrieben
-- [x] **T-001.8** — „Server übernehmen“ → Lokale Daten werden ersetzt
-- [x] **T-001.9** — „Zusammenführen“ → fachlich bestätigt; Merge-Dialog und Feldauswahl funktionieren, Merge-Version wird im Folgesync korrekt gepusht; längere offene Konflikt-UI wird konfliktbewusst als Wartephase behandelt und führt nicht mehr zu einem falschen Orchestrator-Timeout
-- [x] **T-001.11** — Mehrere Konflikte gleichzeitig → sequentielle Bearbeitung im echten Sync-Lauf mit gemischten Entscheidungen (`skip`, `useRemote`, `useLocal`) erfolgreich bestätigt
-- [x] **T-001.18** - Reale UUID-Kollision „lokal offline neu erzeugt, vor erstem Sync gleicher Remote-Datensatz bereits vorhanden“ als konservativen Konfliktfall verifiziert
-- [ ] Optional: engeren technischen Duplicate-UUID-Recovery-Fallback im echten `create()`-Race separat real prüfen
-- [x] Manuell verifizieren: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
-- [x] Manuell verifizieren: `force_merge` bleibt nach bestätigter Auflösung fachlich stabil; die frühere Timeout-Auffälligkeit während offener Konflikt-UI ist real nicht mehr reproduzierbar
-- [x] Manuell verifizieren: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
-- [x] Manuell verifizieren: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI; Gegenprobe ohne Remote-Änderung löscht regulär ohne unnötigen Konflikt
-
-**Einordnung zu T-001.18**
-Die reale UUID-Kollision „lokal offline neu erzeugt, vor dem ersten Sync gleicher Remote-Datensatz bereits vorhanden“ wird im aktuellen Projekt nicht als stiller Auto-Recovery-Fall bewertet, sondern bewusst als konservativer Konfliktfall. Nach manueller Auflösung (`useLocal`) läuft der Folgesync erfolgreich weiter; es entstehen keine Dubletten und kein Retry-Loop. Der engere Duplicate-UUID-Recovery im `create()`-Catch bleibt davon als technischer Fallback unberührt.
-
-**Verbleibende technische Restpunkte**
-- [x] Artikel-Modell und Persistenz für `kategorie` vervollständigen
-- [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung absichern
-- [x] `test/services/artikel_db_service_test.dart`: Snapshot-Methoden gezielt ergänzt
-- [x] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für Zeitstempel- und `artikelnummer`-Regeln ergänzt
-- [x] `test/services/pocketbase_sync_service_test.dart`: `_extractBildName()` und `remoteBildPfad`-Persistenz service-nah ergänzt
-- [x] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgeglichen und vereinheitlicht
-
-**Optional / spätere Verfeinerung**
-- [ ] Monitoring/Zähler für technische Duplicate-UUID-Recovery-Fallbacks im `create()`-Pfad prüfen oder ergänzen
-- [ ] Optional: UUID-Format serverseitig zusätzlich per Pattern validieren
-- [ ] Optional fachlich prüfen, ob die technische Nutzung von `etag` und `last_synced_etag` langfristig noch weiter vereinfacht oder im Code stärker vereinheitlicht werden sollte; die aktuelle Dokumentation ist in `docs/SYNC.md` bereits konsolidiert
-- [ ] Optional `ConflictCallback` semantisch verbessern, sodass Entscheidungen direkt zurückgegeben werden
-- [x] Optional service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzen
-- [ ] Optional verbleibende Modelltests nur noch für zusätzliche Randfälle ergänzen; Roundtrip- und `copyWith()`-Null-Semantik sind bereits weitgehend abgedeckt
-- [ ] Optional Semantik von `aktualisiertAm` vs. `updatedAt` dokumentieren oder klarer benennen
-- [ ] Optional Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln
-- [ ] Optional Restprüfung auf konsistente UTC-/Zeitstempel-Semantik in `artikel_db_service.dart`
-- [ ] Optional Soft-Delete-/Delete-Abschlusslogik im Sync fachlich weiter vereinfachen
-
-**Hinweis**
-Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und inzwischen in mehreren realen Geräte-/Server-Läufen bestätigt. Zusätzlich sind die Bildpfad-bezogenen Response-/Persistenzpfade im service-nahen Sync-Test ergänzt, der Konfliktfall Soft-Delete lokal + Remote-Edit erneut manuell erfolgreich verifiziert und E-001 fachlich neu eingeordnet.
-
-Die real geprüfte Konstellation „lokal offline neu erzeugt, vor dem ersten Sync gleicher Remote-Datensatz bereits vorhanden“ wird im Projekt bewusst konservativ als Konflikt behandelt. Dieses Verhalten ist gewünscht und gilt damit als bestätigt. Offen ist nur noch optional ein separater Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback im tatsächlichen `create()`-Race.
-
-Die technische Referenz für Sync-Regeln, Invarianten, Edge Cases und Änderungsverbote ist jetzt:
-- `docs/SYNC.md`
-
-- `FakeArtikelDbService` wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.  
-- Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService`, Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` sowie `_extractBildName()` / `remoteBildPfad` im service-nahen Sync-Test explizit regressionssicher abgesichert.
-
---- 
 
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
@@ -240,6 +163,101 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
+### T-001: Konfliktlösung, Sync-Hardening und Integrationsverifikation (M-007) — abgeschlossen 2026-05-04 | `0.9.4+48`
+
+**Status:** abgeschlossen ✅
+
+Umfassende Absicherung der Konflikt- und Sync-Pipeline durch service-nahe Tests,
+manuelle Integrationstests auf echten Geräten gegen PocketBase und gezielte Hardening-Maßnahmen.
+
+**Technische Basis, Hardening und service-nahe Tests**
+- [x] T-001.1 — `ConflictData`: Konstruktor, Felder, Null-Handling
+- [x] T-001.2 — `ConflictResolution` Enum: Alle Werte, `byName`, Index
+- [x] T-001.3 — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
+- [x] T-001.4 — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien
+- [x] T-001.5 — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
+- [x] T-001.10 — „Überspringen" → Konflikt bleibt, erscheint beim nächsten Sync erneut
+- [x] T-001.12 — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+- [x] T-001.13 — Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version
+- [x] T-001.14 — Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version
+- [x] T-001.16 — Erfolgreicher `force_local`-Push bereinigt `pendingResolution`
+- [x] T-001.17 — Erfolgreicher `force_merge`-Push bereinigt `pendingResolution`
+- [x] UI-Fehlerpfad bei Konfliktauflösung bleibt stabil (Snackbar, kein Pop)
+- [x] Remote-Delete-Guards für dirty/pending/clean service-nah abgesichert
+- [x] Produktive Konfliktlogik für `pendingResolution`, `force_local`, `force_merge`, Skip, Delete-vs-Edit, Remote-Delete-Guards und `useRemote`-Baseline gehärtet
+- [x] Duplicate-UUID-Recovery beim Remote-Create service-nah abgesichert
+- [x] `_PocketBaseConflictAdapter` interface-/analyzer-konform vervollständigt
+- [x] `toPocketBaseMap()` sendet keine lokalen Sync-Metadaten mehr mit
+- [x] `toPocketBaseMap()` sendet `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
+- [x] `artikelnummer` wird im PocketBase-Payload nur bei `>= 1` gesendet
+- [x] Konflikt-Snapshot-Persistenz (`saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()`) service-nah abgesichert
+- [x] Modelltests für relevante Sync-Felder sind weitgehend vorhanden
+- [x] UTC-Inkonsistenzen im relevanten Modell-/DB-Bereich weitgehend bereinigt
+- [x] Service-nähere Sync-/Integrationstests mit Fakes für Remote-Records und Persistenzpfade ergänzt
+
+**Manuelle Integrations- und Feldtests**
+- [x] T-001.6 — Artikel auf Gerät A ändern, offline auf Gerät B ändern → Sync → Konflikt-UI erscheint
+- [x] T-001.7 — „Lokal behalten" → Server wird im Folgesync überschrieben
+- [x] T-001.8 — „Server übernehmen" → Lokale Daten werden ersetzt
+- [x] T-001.9 — „Zusammenführen" → fachlich bestätigt; Merge-Dialog und Feldauswahl funktionieren, Merge-Version wird im Folgesync korrekt gepusht; längere offene Konflikt-UI wird konfliktbewusst als Wartephase behandelt und führt nicht mehr zu einem falschen Orchestrator-Timeout
+- [x] T-001.11 — Mehrere Konflikte gleichzeitig → sequentielle Bearbeitung im echten Sync-Lauf mit gemischten Entscheidungen (`skip`, `useRemote`, `useLocal`) erfolgreich bestätigt
+- [x] T-001.18 — Reale UUID-Kollision „lokal offline neu erzeugt, vor erstem Sync gleicher Remote-Datensatz bereits vorhanden" als konservativen Konfliktfall verifiziert
+- [x] Manuell verifiziert: `force_local` überschreibt Remote-Datensatz nach Konfliktentscheidung korrekt
+- [x] Manuell verifiziert: `force_merge` bleibt nach bestätigter Auflösung fachlich stabil; die frühere Timeout-Auffälligkeit während offener Konflikt-UI ist real nicht mehr reproduzierbar
+- [x] Manuell verifiziert: übersprungene Konflikte erscheinen im UI beim nächsten Sync erneut
+- [x] Manuell verifiziert: Soft-Delete lokal + Remote-Edit führt weiterhin reproduzierbar zur Konflikt-UI; Gegenprobe ohne Remote-Änderung löscht regulär ohne unnötigen Konflikt
+- [x] Engerer technischer Duplicate-UUID-Recovery-Fallback im echten `create()`-Race: Ergebnis ist eine Konfliktmeldung — für dieses Projekt gewünschtes konservatives Verhalten
+
+**Einordnung zu T-001.18**
+Die reale UUID-Kollision „lokal offline neu erzeugt, vor dem ersten Sync gleicher Remote-Datensatz bereits vorhanden" wird im aktuellen Projekt nicht als stiller Auto-Recovery-Fall bewertet, sondern bewusst als konservativer Konfliktfall. Nach manueller Auflösung (`useLocal`) läuft der Folgesync erfolgreich weiter; es entstehen keine Dubletten und kein Retry-Loop. Der engere Duplicate-UUID-Recovery im `create()`-Catch bleibt davon als technischer Fallback unberührt.
+
+**Verbleibende technische Restpunkte — alle abgeschlossen**
+- [x] Artikel-Modell und Persistenz für `kategorie` vervollständigt
+- [x] Konflikt-UI/Navigation in `main.dart` gegen parallele Mehrfachöffnung abgesichert
+- [x] `test/services/artikel_db_service_test.dart`: Snapshot-Methoden gezielt ergänzt
+- [x] `test/models/artikel_model_test.dart`: `toPocketBaseMap()` für Zeitstempel- und `artikelnummer`-Regeln ergänzt
+- [x] `test/services/pocketbase_sync_service_test.dart`: `_extractBildName()` und `remoteBildPfad`-Persistenz service-nah ergänzt
+- [x] Index-Namen in `DATABASE.md` und `ARCHITECTURE.md` gegen den echten SQLite-Code abgeglichen und vereinheitlicht
+- [x] UUID-Format serverseitig per Pattern-Validierung in PocketBase abgesichert
+- [x] UTC-Konsistenz in `artikel_db_service.dart` geprüft — alle Zeitstempel-Stellen durchgängig UTC, keine Inkonsistenzen
+- [x] Zeitstempel-Semantik (`aktualisiertAm` vs. `updated_at` vs. PocketBase `updated`) in `docs/DATABASE.md` Abschnitt 1.1e dokumentiert
+
+**Bewusst gestrichene Optional-Punkte**
+Folgende Punkte wurden als „für dieses Projekt nicht benötigt" bewertet und bewusst nicht umgesetzt:
+- Monitoring/Zähler für Duplicate-UUID-Recovery-Fallbacks im `create()`-Pfad — bestehende Sync-Logs reichen für Diagnose aus
+- `etag`/`last_synced_etag`-Nutzung langfristig vereinfachen — funktioniert zuverlässig, ist in `docs/SYNC.md` konsolidiert dokumentiert, Vereinfachung birgt Regressionsrisiko ohne fachlichen Nutzen
+- `ConflictCallback` semantisch verbessern (Entscheidungen direkt zurückgeben) — aktueller Callback funktioniert stabil, Umbau wäre reines Refactoring ohne fachlichen Gewinn
+- Verbleibende Modelltests für zusätzliche Randfälle — Roundtrip, `copyWith()`-Null-Semantik und Sync-relevante Pfade sind bereits abgedeckt
+- Konfliktauflösung über dediziertes Interface statt generischem `SyncService` entkoppeln — bei nur einem Sync-Backend kein Mehrwert
+- Soft-Delete-/Delete-Abschlusslogik im Sync fachlich vereinfachen — funktioniert korrekt, ist getestet und manuell verifiziert, Refactoring-Risiko ohne akuten Bedarf
+
+**Betroffene Dateien (Auswahl)**
+- `lib/services/pocketbase_sync_service.dart`
+- `lib/services/artikel_db_service.dart`
+- `lib/services/sync_orchestrator.dart`
+- `lib/services/conflict_resolution_utils.dart`
+- `lib/models/artikel_model.dart`
+- `lib/main.dart`
+- `lib/screens/conflict_resolution_screen.dart`
+- `test/services/pocketbase_sync_service_conflict_test.dart`
+- `test/services/pocketbase_sync_service_test.dart`
+- `test/services/sync_orchestrator_test.dart`
+- `test/services/artikel_db_service_test.dart`
+- `test/models/artikel_model_test.dart`
+- `test/services/conflict_resolution_utils_test.dart`
+- `docs/SYNC.md`
+- `docs/DATABASE.md`
+- `docs/ARCHITECTURE.md`
+
+**Hinweis**
+Die technische Konfliktlogik wurde mit `fix/sync-hardening2-v0.9.4` deutlich gehärtet und in mehreren realen Geräte-/Server-Läufen bestätigt. Die Bildpfad-bezogenen Response-/Persistenzpfade sind im service-nahen Sync-Test ergänzt, der Konfliktfall Soft-Delete lokal + Remote-Edit erneut manuell erfolgreich verifiziert und die UUID-Kollision fachlich als konservativer Konfliktfall eingeordnet.
+
+Die technische Referenz für Sync-Regeln, Invarianten, Edge Cases und Änderungsverbote ist:
+- `docs/SYNC.md`
+
+`FakeArtikelDbService` wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die Snapshot-Pfade. Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService`, Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` sowie `_extractBildName()` / `remoteBildPfad` im service-nahen Sync-Test explizit regressionssicher abgesichert.
+
+--- 
 
 ## — M-013: fix: Bild entfernen 2026-05-04 | `v0.9.4+47` 
 
@@ -530,143 +548,51 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 - Settings-nahe Persistenzpfade jetzt gezielt und isoliert testbar
 - O-010 fachlich sauber ergänzt und testseitig abgerundet
 
---- 
+---
+
+## In History überführt
+
+---
 
 ### O-010: `SettingsScreen` — Logik in testbaren Controller extrahieren — abgeschlossen 2026-04-23 | `0.9.1+29`
-**Typ:** Refactoring / Testbarkeit  
-**Betrifft:** `lib/screens/settings_screen.dart`, `lib/screens/settings_controller.dart`, `lib/screens/settings_state.dart`
+Settings-Logik (Laden/Speichern, Dirty-Tracking, PB-URL, DB-Status, App-Lock) in neuen `SettingsController` extrahiert. `SettingsScreen` auf UI-Verantwortung reduziert (Dialoge, SnackBars, Navigation, Rendering). `TextEditingController` bewusst pragmatisch im Controller belassen. Controller gezielt testbar gemacht, Save-/Reset-/Dirty-State- und Reject-/Success-Pfade abgesichert.
 
-`SettingsScreen` wurde fachlich sauber und minimal-invasiv refactored.
-Persistente Settings-Logik, Laufzeit-State und Service-Orchestrierung
-wurden in einen neuen `SettingsController` ausgelagert.
-
-**Umsetzung**
-- `settings_controller.dart` eingeführt
-- `SettingsScreen` auf UI-nahe Verantwortung reduziert:
-  - Dialoge
-  - SnackBars
-  - Navigation / Logout-Handling
-  - Rendering
-- In den Controller verschoben:
-  - Laden und Speichern der Settings
-  - Dirty-Tracking
-  - PocketBase-URL prüfen / speichern / zurücksetzen
-  - DB-Status prüfen
-  - App-Lock-Status laden / speichern
-- `TextEditingController` bewusst pragmatisch im Controller belassen
-  (`artikelNummerController`, `pocketBaseUrlController`)
-
-**Testauswirkung**
-- `SettingsController` gezielt testbar gemacht
-- zusätzliche Tests für Save-/Reset-/Dirty-State-Verhalten ergänzt
-- Reject-/Success-Pfade von `saveSettings()` abgesichert
-
---- 
+---
 
 ### F-007: Einstellung — Letzter-Sync-Zeitstempel ein-/ausblenden — abgeschlossen 2026-04-23 | `0.9.1+29`
-**Typ:** Feature  
-**Betrifft:** `lib/screens/settings_screen.dart`, `lib/screens/artikel_list_screen.dart`, `lib/screens/settings_state.dart`
+Toggle in den Einstellungen zum Ein-/Ausblenden des Sync-Zeitstempels in der Artikelliste. Persistenz via `SharedPreferences` (`show_last_sync`), reaktiv via `ValueNotifier<bool>`, Default `true`. Hotfix `v0.9.0+25`: `ValueListenableBuilder` ergänzt (Toggle war zuvor funktionslos). Architektur-Bereinigung `v0.9.1+29`: State in `settings_state.dart` zentralisiert, Screen-Abhängigkeit entkoppelt.
 
-Toggle in den Einstellungen, der den Sync-Zeitstempel in der
-Artikelliste ein- oder ausblendet. Persistenz via SharedPreferences.
-
-- Toggle in den Einstellungen ergänzt
-- SharedPreferences-Key: `show_last_sync`
-- Reaktive Wirkung ohne App-Neustart via `ValueNotifier<bool>`
-- Default fachlich konsistent auf `true` vereinheitlicht
-- `showLastSyncNotifier`, Prefs-Key und Default in
-  `settings_state.dart` zentralisiert
-- `ArtikelListScreen` bezieht den gemeinsamen State nicht mehr aus
-  `settings_screen.dart`
-
-F-007 — Hotfix in `v0.9.0+25`:
-- `ValueListenableBuilder` in `ArtikelListScreen` ergänzt; Toggle war
-  zuvor funktionslos, da der Notifier nie abgehört wurde
-
-F-007 — Architektur-Bereinigung in `v0.9.1+29`:
-- `showLastSyncNotifier` aus `settings_screen.dart` herausgelöst
-- zentrale, UI-neutrale Datei `settings_state.dart` eingeführt
-- gemeinsame State-Abhängigkeit vom Screen entkoppelt
-
---- 
+---
 
 ### O-009: Widget-Tests `ArtikelListScreen` — abgeschlossen 2026-04-22 | `0.9.0+25`
-- Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
-- `erstelltAm` / `aktualisiertAm` als Pflichtfelder im Testartikel ergänzt
-- `_pumpScreenWithArtikel()` Helper für Dropdown-Tests via `initialArtikel`
-- Suchfeld-Label korrigiert: `'Suche...'` → `'Suche…'` (U+2026)
-- Alle 15 Widget-Tests grün ✅
-- Gesamtstand: **625 Tests**, 28 Dateien ✅
+Import-Pfad, Pflichtfelder (`erstelltAm`/`aktualisiertAm`) und Suchfeld-Label (`'Suche…'`) korrigiert. `_pumpScreenWithArtikel()`-Helper ergänzt. 15 Widget-Tests grün. Gesamtstand: **625 Tests**, 28 Dateien.
 
---- 
+---
 
 ### F-006: Log-Level-Filter als Dropdown statt Button-Reihe — abgeschlossen 2026-04-22 | `0.9.0+25`
-**Typ:** Feature / UX-Verbesserung  
-**Betrifft:** Log-Dialog (`AppLogService.showLogDialog()`)
+Log-Level-Button-Reihe (Trace–Fatal) passte auf schmalen Displays (360dp) nicht in eine Zeile. Ersetzt durch `DropdownButton<Level>` mit Default `Level.error`. Auf S20 verifiziert.
 
-Button-Reihe für Trace/Debug/Info/Warn/Error/Fatal passt auf schmalen
-Displays nicht in eine Zeile. Ersetzen durch `DropdownButton<Level>`
-mit Default-Wert `Level.error`.
-
-- Log-Dialog-Code lokalisieren (vermutlich `app_log_service.dart` oder separater Dialog)
-- Button-Reihe durch `DropdownButton<Level>` ersetzen
-- Default: `Level.error`
-- Gefilterte Log-Ausgabe weiterhin korrekt aktualisieren
-- Auf S20 (360dp) verifizieren
-
---- 
+---
 
 ### B-012: Letzter-Sync-Zeitstempel auf schmalen Displays abgeschnitten — abgeschlossen 2026-04-22 | `0.9.0+25`
-**Typ:** Bug / Regression (B-007-Commit)  
-**Betrifft:** `lib/screens/artikel_list_screen.dart` → AppBar `title`
+Sync-Label in AppBar konkurrierte auf 360dp mit Action-Icons. Fix: `TextOverflow.ellipsis` und `Flexible`-Wrapper ergänzt. Auf S20 verifiziert.
 
-Das Sync-Label hat kein `overflow`-Handling und konkurriert auf 360dp
-mit Action-Icons um Platz. Kein `TextOverflow`, kein `Flexible`-Wrapper.
-
-- `overflow: TextOverflow.ellipsis` am Text ergänzen
-- `Text` in `Flexible` wrappen um Layout-Constraints zu respektieren
-- Nach B-009-Fix (Dropdown-Entfernung) erneut auf S20 prüfen — Problem könnte sich dadurch bereits teilweise lösen
-
---- 
+---
 
 ### B-011: App-Version zeigt veralteten Build-Stand — abgeschlossen 2026-04-22 | `0.9.0+25`
-**Typ:** Bug / Build-Prozess  
-**Betrifft:** Build-Pipeline, kein Code-Fehler
+Kein Code-Fehler — `_getAppVersion()` via `PackageInfo.fromPlatform()` korrekt implementiert. Ursache: veraltete APK installiert (kein Build nach Version-Bump). Nach Neuinstallation korrekte Version bestätigt.
 
-`_getAppVersion()` in `settings_screen.dart` ist korrekt implementiert
-und liest via `PackageInfo.fromPlatform()` aus den nativen
-Build-Artefakten. Die angezeigte Version 0.8.8+23 stammt aus der
-installierten APK — es wurde kein neuer Build nach dem Version-Bump
-auf 0.8.9+24 erstellt oder die falsche APK installiert.
-
-- `flutter build apk --release` mit aktuellem Stand ausführen
-- Neue APK auf S20 installieren (vorherige deinstallieren)
-- Version in Settings verifizieren → muss 0.8.9+24 zeigen
-- Hinweis: `pubspec.yaml` zeigt bereits 0.9.0+25 —
-  nach nächstem Release-Build wird 0.9.0+25 erscheinen ✅
-
---- 
+---
 
 ### B-010: Snackbar-Feedback in Artikelliste fehlt — abgeschlossen 2026-04-22 | `0.9.0+25`
-**Typ:** Bug / Regression (B-007-Commit)  
-**Betrifft:** `lib/screens/artikel_list_screen.dart`
-
-Nach Sync-Erfolg/-Fehler gibt es kein Snackbar-Feedback mehr.
-Der `SyncStatus`-Listener ruft bei `success` nur `_ladeArtikel()` auf.
-Fehler-Pfade zeigen keine Rückmeldung.
-
-- Snackbar bei `SyncStatus.success` ergänzen
-- Snackbar bei `SyncStatus.error` ergänzen (Fehlertext aus Provider)
-- Snackbar bei manuellem Sync-Start ergänzen
-- `ScaffoldMessenger`-Erreichbarkeit nach Dropdown-Entfernung (B-009) verifizieren
-
---- 
+Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackbar bei Sync-Start, -Erfolg und -Fehler in `ArtikelListScreen` ergänzt. 
 
 
 ## 🔍 Wartungs-Historie
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-04 | 0.9.4+48 | T-001 abgeschlossen: Konfliktlösung, Sync-Hardening und Integrationsverifikation vollständig abgehakt. UUID-Pattern serverseitig abgesichert, UTC-Konsistenz geprüft (sauber), Zeitstempel-Semantik in DATABASE.md dokumentiert, verbleibende Optional-Punkte bewusst als „nicht benötigt" gestrichen. |
 | 2026-05-04 | 0.9.4+46 | M-013 abgeschlossen: Bild-Reset („Bild leeren") ermöglichen |
 | 2026-05-04 | 0.9.4+44 | O-012 abgeschlossen: Verbose-Flag geprüft und bewusst verworfen — Log-Level-Filter (F-006) deckt den Use Case ab. |
 | 2026-05-03 | 0.9.4+43 | Sync-Dokumentation konsolidiert: `docs/SYNC.md` als technische Referenz für Push/Pull, Konflikterkennung, Edge Cases, Invarianten und Änderungsverbote ergänzt; `prompt.txt` als allgemeiner Arbeitskontext erweitert. |
