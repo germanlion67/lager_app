@@ -59,6 +59,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   late final TextEditingController _beschreibungController;
   late final TextEditingController _ortController;
   late final TextEditingController _fachController;
+  late final TextEditingController _kategorieController;
   late int _menge;
   bool _isEditing = false;
   bool _hasChanged = false;
@@ -103,6 +104,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     _ortController = TextEditingController(text: widget.artikel.ort)
       ..addListener(_onChanged);
     _fachController = TextEditingController(text: widget.artikel.fach)
+      ..addListener(_onChanged);
+    _kategorieController = TextEditingController(text: widget.artikel.kategorie ?? '',)
       ..addListener(_onChanged);
     _menge = widget.artikel.menge;
     _bildPfad =
@@ -404,6 +407,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     _nameController.dispose();
     _beschreibungController.dispose();
     _ortController.dispose();
+    _kategorieController.dispose();
     _fachController.dispose();
     super.dispose();
   }
@@ -559,6 +563,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         'ort': _ortController.text,
         'fach': _fachController.text,
         'beschreibung': _beschreibungController.text,
+        'kategorie': _kategorieController.text.trim().isEmpty
+            ? null
+            : _kategorieController.text.trim(),
         'aktualisiertAm': now.toIso8601String(),
         'updated_at': now.millisecondsSinceEpoch,
       };
@@ -621,6 +628,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         ort: _ortController.text,
         fach: _fachController.text,
         beschreibung: _beschreibungController.text,
+        kategorie: _kategorieController.text.trim().isEmpty
+            ? null
+            : _kategorieController.text.trim(),
         aktualisiertAm: now,
         remoteBildPfad: neuerBildPfad,
         remotePath: recordId,
@@ -672,6 +682,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       ort: _ortController.text,
       fach: _fachController.text,
       beschreibung: _beschreibungController.text,
+      kategorie: _kategorieController.text.trim().isEmpty
+          ? null
+          : _kategorieController.text.trim(),
       bildPfad: _bildPfad ?? '',  // M-013: null → leerer String
       aktualisiertAm: DateTime.now().toUtc(),
     );
@@ -1308,6 +1321,23 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                         ),
                       ),
                     ),
+
+                  // ── Kategorie ──────────────────────────────────
+                  TextField(
+                    controller: _kategorieController,
+                    enabled: _isEditing && !isBlocked,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      labelText: 'Kategorie',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.category_outlined),
+                      filled: true,
+                      fillColor: _isEditing
+                          ? colorScheme.surface
+                          : colorScheme.surfaceContainerLow,
+                    ),
+                  ),
+                  const SizedBox(height: AppConfig.spacingSectionGap),
 
                   // M-011: Zentrales Bild-Widget mit Vollbild-Tap
                   if (_isLoadingRemoteBild)

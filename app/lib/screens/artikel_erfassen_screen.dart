@@ -46,6 +46,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   final _fachCtrl = TextEditingController();
   final _mengeCtrl = TextEditingController(text: '0');
   final _artikelnummerCtrl = TextEditingController();
+  final _kategorieCtrl = TextEditingController();
 
   // v0.7.8 Punkt 4: FocusNode für Menge-Feld
   final FocusNode _mengeFocus = FocusNode();
@@ -77,6 +78,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _fachCtrl.addListener(_markDirty);
     _mengeCtrl.addListener(_markDirty);
     _artikelnummerCtrl.addListener(_markDirty);
+    _kategorieCtrl.addListener(_markDirty);
 
     // v0.7.8 Punkt 4: Beim Fokus den gesamten Inhalt des Menge-Felds markieren
     _mengeFocus.addListener(() {
@@ -125,6 +127,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _fachCtrl.dispose();
     _mengeCtrl.dispose();
     _artikelnummerCtrl.dispose();
+    _kategorieCtrl.dispose();
     // v0.7.8 Punkt 4: FocusNode disposen
     _mengeFocus.dispose();
     super.dispose();
@@ -419,6 +422,9 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         name: name,
         artikelnummer: artikelnummer,
         beschreibung: _beschreibungCtrl.text.trim(),
+        kategorie: _kategorieCtrl.text.trim().isEmpty
+            ? null
+            : _kategorieCtrl.text.trim(),
         ort: ort,
         fach: fach,
         menge: menge,
@@ -592,6 +598,20 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                   ),
                   maxLines: 2,
                   maxLength: AppConfig.inputMaxLengthBeschreibung,
+                ),
+                const SizedBox(height: AppConfig.spacingMedium),
+
+                // ── Kategorie ─────────────────────────────────
+                TextFormField(
+                  controller: _kategorieCtrl,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'Kategorie',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.category_outlined),
+                  ),
+                  maxLength: AppConfig.inputMaxLengthKategorie,
+                  textInputAction: TextInputAction.next,
                 ),
                 const SizedBox(height: AppConfig.spacingMedium),
 

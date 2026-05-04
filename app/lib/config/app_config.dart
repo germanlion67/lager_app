@@ -315,6 +315,7 @@ static const int inputMaxLengthOrt = 60;
 static const int inputMaxLengthFach = 60;
 static const int inputMaxMenge = 999999;
 static const int inputMinArtikelnummer = 1000;
+static const int inputMaxLengthKategorie = 50;
 
 
 // ── Kamera / Bildverarbeitung ─────────────────────────────────────
