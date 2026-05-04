@@ -165,18 +165,19 @@ void main() {
     });
 
     testWidgets(
-        'Bild-Buttons sind im View-Modus NICHT sichtbar', (tester) async {
+        'Bild-Button ist im View-Modus NICHT sichtbar', (tester) async {
       await _pumpScreen(tester);
 
+      // M-013: Beide möglichen Tooltips prüfen
       expect(
         find.byWidgetPredicate(
-          (w) => w is IconButton && w.tooltip == 'Bild wählen',
+          (w) => w is IconButton && w.tooltip == 'Bild hinzufügen',
         ),
         findsNothing,
       );
       expect(
         find.byWidgetPredicate(
-          (w) => w is IconButton && w.tooltip == 'Kamera',
+          (w) => w is IconButton && w.tooltip == 'Bild ändern',
         ),
         findsNothing,
       );
@@ -203,9 +204,11 @@ void main() {
       await _pumpScreen(tester);
       await _aktiviereEditModus(tester);
 
+      // M-013: Button heißt jetzt „Bild hinzufügen" (kein Bild vorhanden)
+      // oder „Bild ändern" (Bild vorhanden). Testartikel hat kein Bild.
       expect(
         find.byWidgetPredicate(
-          (w) => w is IconButton && w.tooltip == 'Bild wählen',
+          (w) => w is IconButton && w.tooltip == 'Bild hinzufügen',
         ),
         findsOneWidget,
       );

@@ -734,16 +734,36 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
                     ),
                   ),
                   const SizedBox(height: AppConfig.spacingSmall),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: OutlinedButton.icon(
-                      onPressed: _cropImage,
-                      icon: const Icon(Icons.crop),
-                      label: const Text('Zuschneiden'),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      // M-013: Bild entfernen (nur RAM-Cleanup)
+                      OutlinedButton.icon(
+                        onPressed: _isSaving ? null : _resetBildState,
+                        icon: Icon(
+                          Icons.image_not_supported_outlined,
+                          color: _isSaving
+                              ? null
+                              : Theme.of(context).colorScheme.error,
+                        ),
+                        label: Text(
+                          'Entfernen',
+                          style: TextStyle(
+                            color: _isSaving
+                                ? null
+                                : Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppConfig.spacingSmall),
+                      OutlinedButton.icon(
+                        onPressed: _isSaving ? null : _cropImage,
+                        icon: const Icon(Icons.crop),
+                        label: const Text('Zuschneiden'),
+                      ),
+                    ],
                   ),
                 ],
-
                 const SizedBox(height: AppConfig.spacingLarge),
 
                 // ── Buttons ───────────────────────────────────

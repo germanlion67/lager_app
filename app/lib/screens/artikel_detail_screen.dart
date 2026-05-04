@@ -81,6 +81,12 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
   int _anhangCount = 0;
   final _attachmentService = AttachmentService();
 
+  // M-013: Prüft ob irgendein Bild vorhanden ist (pending, lokal oder remote).
+  bool get _hatBild =>
+      _pendingBytes != null ||
+      (_bildPfad != null && _bildPfad!.isNotEmpty) ||
+      _remoteBildUrl != null;
+
   @override
   void initState() {
     super.initState();
@@ -107,6 +113,249 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
     // M-012: Anhang-Anzahl für Badge laden
     ladeAnhangCount();
+  }
+
+  // ==================== M-013: BILD-OPTIONEN BOTTOMSHEET ====================
+
+  /// Öffnet ein BottomSheet mit allen verfügbaren Bild-Aktionen.
+  /// Kontextsensitiv: zeigt „Entfernen" und „Zuschneiden" nur wenn relevant.
+  void _showBildOptionen() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final hatBild = _hatBild;
+
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppConfig.borderRadiusXLarge),
+        ),
+      ),
+      builder: (sheetCtx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(
+            bottom: AppConfig.spacingMedium,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag-Handle
+              Padding(
+                padding: const EdgeInsets.only(
+                  top: AppConfig.spacingMedium,
+                  bottom: AppConfig.spacingSmall,
+                ),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: colorScheme.onSurfaceVariant,
+                    borderRadius: BorderRadius.circular(
+                      AppConfig.borderRadiusXXSmall,
+                    ),
+                  ),
+                ),
+              ),
+
+              // Titel
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConfig.spacingLarge,
+                  vertical: AppConfig.spacingSmall,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      hatBild ? Icons.image : Icons.add_photo_alternate,
+                      color: colorScheme.primary,
+                    ),
+                    const SizedBox(width: AppConfig.spacingSmall),
+                    Text(
+                      hatBild ? 'Bild ändern' : 'Bild hinzufügen',
+                      style: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(),
+
+              // Aus Datei wählen
+              ListTile(
+                leading: const Icon(Icons.image_outlined),
+                title: const Text('Aus Datei wählen'),
+                onTap: () {
+                  Navigator.pop(sheetCtx);
+                  _pickImageFile();
+                },
+              ),
+
+              // Kamera
+              if (ImagePickerService.isCameraAvailable)
+                ListTile(
+                  leading: const Icon(Icons.camera_alt_outlined),
+                  title: const Text('Kamera'),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    _pickImageCamera();
+                  },
+                ),
+
+              // Zuschneiden — bei pendingBytes ODER bestehendem lokalen Bild
+              if (_pendingBytes != null ||
+                  (!kIsWeb && _bildPfad != null && _bildPfad!.isNotEmpty))
+                ListTile(
+                  leading: const Icon(Icons.crop),
+                  title: const Text('Zuschneiden'),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    _cropImageFromAny();
+                  },
+                ),
+
+              // Divider + Entfernen (nur wenn Bild vorhanden)
+              if (hatBild) ...[
+                const Divider(),
+                ListTile(
+                  leading: Icon(
+                    Icons.image_not_supported_outlined,
+                    color: colorScheme.error,
+                  ),
+                  title: Text(
+                    'Bild entfernen',
+                    style: TextStyle(color: colorScheme.error),
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetCtx);
+                    // Sheet erst schließen, dann Dialog
+                    _bildEntfernen();
+                  },
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // M-013: Crop für pendingBytes ODER bestehendes lokales Bild.
+  // Lädt bei Bedarf die Bytes aus der lokalen Datei.
+  Future<void> _cropImageFromAny() async {
+    Uint8List? bytesToCrop = _pendingBytes;
+
+    // Wenn keine pendingBytes, aber ein lokales Bild existiert → Bytes laden
+    if (bytesToCrop == null && !kIsWeb && _bildPfad != null) {
+      try {
+        bytesToCrop = await platform.readFileBytes(_bildPfad!);
+        _logger.d('M-013: Lokales Bild für Crop geladen: $_bildPfad');
+      } catch (e, st) {
+        _logger.e(
+          'M-013: Lokales Bild konnte nicht geladen werden',
+          error: e,
+          stackTrace: st,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bild konnte nicht geladen werden'),
+            ),
+          );
+        }
+        return;
+      }
+    }
+
+    if (bytesToCrop == null) return;
+    if (!mounted) return;  // M-013: Guard vor context-Zugriff
+    
+    final cropResult = await ImagePickerService.openCropDialog(
+      context,
+      bytesToCrop,
+    );
+    if (!mounted || cropResult == null) return;
+
+    setState(() {
+      _pendingBytes = cropResult.bytes;
+      _hasChanged = true;
+    });
+  }
+
+  // ==================== M-013: BILD ENTFERNEN ====================
+
+  Future<void> _bildEntfernen() async {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: Icon(
+          Icons.image_not_supported_outlined,
+          color: colorScheme.error,
+          size: AppConfig.iconSizeXLarge,
+        ),
+        title: const Text('Bild entfernen?'),
+        content: const Text(
+          'Das Bild wird lokal gelöscht und beim nächsten '
+          'Sync auch auf dem Server entfernt.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(
+              backgroundColor: colorScheme.error,
+            ),
+            child: const Text('Bild entfernen'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || !mounted) return;
+
+    _logger.i('M-013: Bild entfernen für ${widget.artikel.uuid}');
+
+    // Lokale Dateien physisch löschen (nur Mobile/Desktop)
+    if (!kIsWeb) {
+      await _deleteLocalImageFiles();
+    }
+
+    // Image-Cache invalidieren
+    _clearImageCache();
+
+    setState(() {
+      _pendingBytes = null;
+      _bildPfad = null;
+      _remoteBildUrl = null;
+      _hasChanged = true;
+    });
+  }
+
+  /// M-013: Löscht die lokale Bilddatei und das Thumbnail physisch.
+  Future<void> _deleteLocalImageFiles() async {
+    try {
+      if (_bildPfad != null) {
+        await platform.deleteFileIfExists(_bildPfad!);
+        _logger.d('M-013: Lokale Bilddatei gelöscht: $_bildPfad');
+      }
+      final thumbPfad = widget.artikel.thumbnailPfad;
+      if (thumbPfad != null && thumbPfad.isNotEmpty) {
+        await platform.deleteFileIfExists(thumbPfad);
+        _logger.d('M-013: Thumbnail gelöscht: $thumbPfad');
+      }
+    } catch (e, st) {
+      _logger.w(
+        'M-013: Lokale Bilddateien konnten nicht gelöscht werden',
+        error: e,
+        stackTrace: st,
+      );
+    }
   }
 
   // M-012: kein führender Underscore → kein Lint-Fehler
@@ -253,20 +502,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
   }
 
-  // v0.7.8 Punkt 1: Crop-Methode für Detail-Screen
-  Future<void> _cropImage() async {
-    if (_pendingBytes == null) return;
-    final cropResult = await ImagePickerService.openCropDialog(
-      context,
-      _pendingBytes,
-    );
-    if (!mounted) return;
-    if (cropResult == null) return;
-    setState(() {
-      _pendingBytes = cropResult.bytes;
-      _hasChanged = true;
-    });
-  }
 
   void _clearImageCache() {
     _logger.d('Image-Cache wird geleert');
@@ -327,6 +562,17 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
         'aktualisiertAm': now.toIso8601String(),
         'updated_at': now.millisecondsSinceEpoch,
       };
+
+      // M-013: Bild entfernt → File-Feld in PocketBase löschen
+      final bildEntfernt = _bildPfad == null &&
+          _pendingBytes == null &&
+          widget.artikel.remoteBildPfad != null &&
+          widget.artikel.remoteBildPfad!.isNotEmpty;
+
+      if (bildEntfernt) {
+        body['bild'] = null;
+        _logger.i('M-013: Web — Bild-Feld wird auf null gesetzt');
+      }
 
       final List<http.MultipartFile> files = [];
       if (_pendingBytes != null) {
@@ -399,7 +645,14 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     final hasNewImage =
         _bildPfad != null && _bildPfad != widget.artikel.bildPfad;
 
-    _logger.d('Neues Bild vorhanden: $hasNewImage – Pfad: $_bildPfad');
+    // M-013: Bild wurde bewusst entfernt
+    final bildEntfernt =
+        _bildPfad == null && widget.artikel.bildPfad.isNotEmpty;
+
+    _logger.d(
+      'Neues Bild: $hasNewImage – '
+      'Bild entfernt: $bildEntfernt – Pfad: $_bildPfad',
+    );
 
     // v0.7.8 Punkt 2: name in copyWith ergänzt
     final artikelMitAenderungen = widget.artikel.copyWith(
@@ -408,7 +661,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       ort: _ortController.text,
       fach: _fachController.text,
       beschreibung: _beschreibungController.text,
-      bildPfad: _bildPfad ?? widget.artikel.bildPfad,
+      bildPfad: _bildPfad ?? '',  // M-013: null → leerer String
       aktualisiertAm: DateTime.now().toUtc(),
     );
 
@@ -417,6 +670,15 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       _logger.i(
         'Artikel in DB gespeichert: ${artikelMitAenderungen.name}',
       );
+
+      // M-013: Bild-Info in DB clearen für sauberen Sync-Push
+      if (bildEntfernt) {
+        await _db.clearBildInfoByUuidSilent(widget.artikel.uuid);
+        await _db.markAsModified(widget.artikel.uuid);
+        _logger.i(
+          'M-013: Bild-Info gecleart, Artikel als dirty markiert',
+        );
+      }
 
       if (hasNewImage) {
         _logger.d('Starte PocketBase Bild-Upload im Hintergrund...');
@@ -797,19 +1059,15 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
               ),
               // v0.7.8 Punkt 5: Alle Aktionen in die AppBar
               actions: [
-                // Bild wählen (nur im Edit-Modus)
+                // M-013: Bild-Optionen (nur im Edit-Modus)
                 if (_isEditing) ...[
                   IconButton(
-                    icon: const Icon(Icons.image),
-                    tooltip: 'Bild wählen',
-                    onPressed: isBlocked ? null : _pickImageFile,
-                  ),
-                  if (ImagePickerService.isCameraAvailable)
-                    IconButton(
-                      icon: const Icon(Icons.camera_alt),
-                      tooltip: 'Kamera',
-                      onPressed: isBlocked ? null : _pickImageCamera,
+                    icon: Icon(
+                      _hatBild ? Icons.image : Icons.add_photo_alternate,
                     ),
+                    tooltip: _hatBild ? 'Bild ändern' : 'Bild hinzufügen',
+                    onPressed: isBlocked ? null : _showBildOptionen,
+                  ),
                 ],
                 // Anhänge (immer sichtbar, mit Badge)
                 Stack(
@@ -1062,19 +1320,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                       onTap: _zeigeBildVollbild,
                     ),
 
-                  // v0.7.8 Punkt 1: Crop-Button unter dem Bild (nur im Edit-Modus
-                  // wenn ein neues Bild ausgewählt wurde)
-                  if (_isEditing && _pendingBytes != null) ...[
-                    const SizedBox(height: AppConfig.spacingSmall),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: isBlocked ? null : _cropImage,
-                        icon: const Icon(Icons.crop),
-                        label: const Text('Zuschneiden'),
-                      ),
-                    ),
-                  ],
+                  // M-013: Crop- und Entfernen-Buttons sind jetzt im
+                  // BottomSheet (_showBildOptionen) — kein Body-Button mehr nötig.
 
                   // v0.7.8 Punkt 5: AppLoadingButton aus Body entfernt
                   // (Speichern/Ändern jetzt als Icon in AppBar)

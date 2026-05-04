@@ -99,6 +99,14 @@ Future<void> _generateAndSaveThumbnail({
   }
 }
 
+/// M-013: Löscht eine Datei wenn sie existiert. No-op wenn nicht.
+Future<void> deleteFileIfExists(String path) async {
+  final file = File(path);
+  if (await file.exists()) {
+    await file.delete();
+  }
+}
+
 /// Liest Bytes einer lokalen Datei.
 Future<Uint8List> readFileBytes(String path) => File(path).readAsBytes();
 

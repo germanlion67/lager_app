@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+45 | **Zuletzt aktualisiert:** 04.05.2026
+**Version:** 0.9.4+46 | **Zuletzt aktualisiert:** 04.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -129,45 +129,6 @@ Die technische Referenz für Sync-Regeln, Invarianten, Edge Cases und Änderungs
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
 
 --- 
-
-### M-013: Bild-Reset („Bild leeren“) ermöglichen
-**Beschreibung:**  
-Derzeit lässt sich bei einem bestehenden Artikel kein Bild mehr vollständig entfernen.  
-• Setzt der Nutzer `bildPfad = ''`, wird zwar lokal kein Bild mehr angezeigt, beim nächsten Sync bleibt die Datei jedoch weiterhin in PocketBase gespeichert.  
-• Ebenso bleibt `remoteBildPfad` erhalten, sodass ein Pull das alte Bild sofort wiederherstellen würde.  
-Ziel ist ein konsistenter „Bild leeren“-Workflow, der sowohl lokal als auch remote wirklich entfernt.
-
-**Tasks (Entwurf)**  
-1. UI/UX  
-   - Im Detail-Screen klaren „Bild entfernen“-Button ergänzen (Icon 🗑️ oder Kontextmenü).  
-   - Bestätigungs-Dialog („Bild wirklich löschen?“) zur Vermeidung von Fehlklicks.  
-2. Modell / DB  
-   - `bildPfad` in DB auf leeren String setzen.  
-   - `remoteBildPfad` = `null` markieren, damit Pull nicht erneut lädt.  
-3. Sync-Service (`PocketBaseSyncService`)  
-   - Beim Push eines Artikels mit leerem `bildPfad` UND vorhandenem Remote-Bild →  
-     a) PATCH `body['bild'] = null` senden, um File-Feld in PocketBase zu löschen.  
-     b) `remoteBildPfad` lokal in `markSynced()`/`upsert` als `null` persistieren.  
-   - Beim Pull: Wenn Remote `bild`-Feld leer ist, sicherstellen, dass lokal ebenfalls `bildPfad = ''` + `remoteBildPfad = null` stehen.  
-4. Tests  
-   - Unit-Tests für Push-Delete-Pfad (Update mit `body['bild'] = null`).  
-   - Pull-Tests: Remote-Bild entfernt → lokale Datei wird gelöscht & DB-Felder geleert.  
-   - Widget-Test: Button-Flow im Detail-Screen (Dialog, State-Update, Snackbar).  
-5. Optionales Cleanup  
-   - Lokale Datei beim „Bild leeren“ auch physisch löschen (Cache-Pfad).  
-   - Alte Bild-Versionen in PocketBase evtl. via Cloud-Funktion endgültig löschen.
-
-**Abhängigkeiten:**  
-– Keine Blocker, aber greift in bestehende Sync-Hardening-Pfade ein → sorgfältig testen.  
-– Ggf. Koordination mit `downloadMissingImages()`-Logik, damit gelöschte Bilder nicht versehentlich neu geladen werden.
-
-- [x] Artikel-Modell und Persistenz für `bildPfad = ''` / `remoteBildPfad = null`
-- [x] Sync-Service (`PocketBaseSyncService`) – Push-Delete-Pfad & Pull-Cleanup
-- [ ] UI/UX „Bild entfernen“-Button + Bestätigungsdialog
-- [ ] Unit- und Widget-Tests für Button-Flow & Delete-Pfad
-- [ ] Optionales lokales File-Cleanup (Cache)
-
----
 
 ## F-009 — Kategorie-Eingabe in der Artikel-UX
 
@@ -574,7 +535,78 @@ auf insgesamt **626 Tests**, **3 übersprungen** erweitert
 ### K-001 bis K-005: Fundament — erledigt in `v0.2.0` bis `v0.7.1`
 - Bundle IDs, PocketBase Schema, Runtime-URL-Config, WSL2-Support
 
----
+--- 
+
+### M-013: Bild-Reset („Bild leeren") ermöglichen
+**Status:** abgeschlossen ✅
+
+**Beschreibung:**
+Derzeit lässt sich bei einem bestehenden Artikel kein Bild mehr vollständig entfernen.
+• Setzt der Nutzer `bildPfad = ''`, wird zwar lokal kein Bild mehr angezeigt, beim nächsten Sync bleibt die Datei jedoch weiterhin in PocketBase gespeichert.
+• Ebenso bleibt `remoteBildPfad` erhalten, sodass ein Pull das alte Bild sofort wiederherstellen würde.
+Ziel ist ein konsistenter „Bild leeren"-Workflow, der sowohl lokal als auch remote wirklich entfernt.
+
+**Umsetzung:**
+
+1. **UI/UX — Kontextsensitives BottomSheet (Option B)**
+   - AppBar: Zwei Bild-Buttons (📷 Kamera + 🖼 Datei) durch einen einzigen kontextsensitiven Button ersetzt.
+   - Kein Bild vorhanden → Icon `add_photo_alternate`, Tooltip „Bild hinzufügen".
+   - Bild vorhanden → Icon `image`, Tooltip „Bild ändern".
+   - Tap öffnet BottomSheet mit allen verfügbaren Aktionen:
+     - 🖼 Aus Datei wählen
+     - 📷 Kamera (wenn verfügbar)
+     - ✂ Zuschneiden (wenn `_pendingBytes` oder lokales Bild vorhanden)
+     - 🗑 Bild entfernen (rot, mit Divider — nur wenn Bild vorhanden)
+   - Bestätigungsdialog bei „Bild entfernen" (Sheet schließt erst, dann Dialog).
+   - Erfassungs-Screen: Einfacher „Entfernen"-Button neben Crop (nur RAM-Cleanup).
+
+2. **Modell / DB**
+   - `bildPfad` in DB auf leeren String gesetzt.
+   - `remoteBildPfad` = `null` markiert via `clearBildInfoByUuidSilent()`.
+   - Artikel als dirty markiert via `markAsModified()` → Sync-Push wird ausgelöst.
+
+3. **Sync-Service (`PocketBaseSyncService`)**
+   - Push: Artikel mit leerem `bildPfad` + vorhandenem Remote-Bild → `body['bild'] = null` gesendet.
+   - Pull: Remote `bild`-Feld leer → `clearBildInfoByUuidSilent()` lokal aufgerufen.
+   - `downloadMissingImages()` überspringt Artikel ohne Remote-Bild korrekt.
+
+4. **Lokales File-Cleanup**
+   - Bilddatei und Thumbnail werden beim Entfernen physisch gelöscht.
+   - Image-Cache wird invalidiert.
+   - Platform-Helper `deleteFileIfExists()` in `detail_screen_io.dart` / `_stub.dart`.
+
+5. **Crop-Erweiterung**
+   - Zuschneiden funktioniert jetzt auch für bestehende lokale Bilder (nicht nur `_pendingBytes`).
+   - Bytes werden bei Bedarf aus der lokalen Datei geladen → Crop-Dialog → `_pendingBytes` aktualisiert.
+
+6. **Tests**
+   - Widget-Tests angepasst: Neue Tooltips (`Bild hinzufügen` / `Bild ändern`), View-Modus-Prüfung.
+   - 24/24 Tests grün, `flutter analyze` sauber.
+
+**Betroffene Dateien:**
+
+| Datei | Änderung |
+|---|---|
+| `artikel_detail_screen.dart` | `_hatBild`, `_showBildOptionen()`, `_cropImageFromAny()`, `_bildEntfernen()`, `_deleteLocalImageFiles()`, AppBar 2→1 Button, Body Crop-Block entfernt, `_speichernMobile()` + `_speichernWeb()` Bild-Entfernung |
+| `artikel_erfassen_screen.dart` | „Entfernen"-Button neben Crop |
+| `detail_screen_io.dart` | `deleteFileIfExists()` |
+| `detail_screen_stub.dart` | `deleteFileIfExists()` No-op |
+| `artikel_detail_screen_test.dart` | Tooltips angepasst |
+
+**Abhängigkeiten:**
+– Backend-Pfade (DB + Sync) waren bereits in v0.9.x umgesetzt.
+– Keine Konflikte mit `downloadMissingImages()`-Logik.
+
+- [x] Artikel-Modell und Persistenz für `bildPfad = ''` / `remoteBildPfad = null`
+- [x] Sync-Service (`PocketBaseSyncService`) – Push-Delete-Pfad & Pull-Cleanup
+- [x] UI/UX: Kontextsensitives BottomSheet (Hinzufügen/Ändern/Zuschneiden/Entfernen)
+- [x] Bestätigungsdialog bei „Bild entfernen"
+- [x] Lokales File-Cleanup (Bilddatei + Thumbnail physisch löschen)
+- [x] Crop auch für bestehende lokale Bilder (nicht nur pendingBytes)
+- [x] Widget-Tests angepasst (24/24 grün)
+- [ ] Unit-Tests für Push-Delete-Pfad & Pull-Cleanup (ausstehend)
+
+--- 
 
 ### M-002 bis M-006: Core-Features — erledigt in `v0.7.6+x`
 - Zentrales Error Handling, Loading States, Pagination und Input Validation
@@ -719,7 +751,7 @@ wurden in einen neuen `SettingsController` ausgelagert.
 
 ### O-001: Bereinigung von `debugPrint` — erledigt in `v0.3.0`
 - Alle `debugPrint`-Aufrufe durch `AppLogService` ersetzt
-- Verbleibende 8 Aufrufe in `app_log_io.dart` sind absichtlich
+- Verbleibende 5 Aufrufe in `app_log_io.dart` sind absichtlich
   *(zirkuläre Abhängigkeit)*
 
 ---
@@ -893,6 +925,7 @@ Die Bereinigung von `pendingResolution` erfolgt nicht direkt im `PocketBaseSyncS
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-04 | 0.9.4+46 | M-013 abgeschlossen: Bild-Reset („Bild leeren") ermöglichen |
 | 2026-05-04 | 0.9.4+44 | O-012 abgeschlossen: Verbose-Flag geprüft und bewusst verworfen — Log-Level-Filter (F-006) deckt den Use Case ab. |
 | 2026-05-03 | 0.9.4+43 | Sync-Dokumentation konsolidiert: `docs/SYNC.md` als technische Referenz für Push/Pull, Konflikterkennung, Edge Cases, Invarianten und Änderungsverbote ergänzt; `prompt.txt` als allgemeiner Arbeitskontext erweitert. |
 | 2026-05-03 | 0.9.4+43 | `ARCHITECTURE.md` und `DATABASE.md` gegen den aktuellen SQLite-/Sync-Stand konsolidiert; Indexnamen gegen den echten Code verifiziert und vereinheitlicht. |
