@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.9.3 | **Zuletzt aktualisiert:** 26.04.2026
+**Version:** 0.9.4 | **Zuletzt aktualisiert:** 03.05.2026
 
 ---
 
@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **661 Tests bestanden, 3 skipped, 0 Fehler**
+✅ **754 Tests bestanden, 3 skipped, 0 Fehler**
 
 > `--exclude-tags performance` ist optional verfügbar, aber nicht erforderlich.  
 > Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
@@ -27,27 +27,28 @@ flutter test
 
 | Datei | Kategorie | Tests | Aufgabe |
 | :-- | :-- | :--: | :-- |
-| `test/conflict_resolution_test.dart` | Unit + Widget | 77 | T-001 |
-| `test/models/artikel_model_test.dart` | Unit | 64 | O-002 / T-001 |
-| `test/models/attachment_model_test.dart` | Unit | 30 | O-002 |
+| `test/conflict_resolution_test.dart` | Unit + Widget | 61 | T-001 |
+| `test/models/artikel_model_test.dart` | Unit | 94 | O-002 / T-001 |
+| `test/models/attachment_model_test.dart` | Unit | 38 | O-002 |
 | `test/models/nextcloud_credentials_test.dart` | Unit | 4 | — |
 | `test/services/app_lock_service_test.dart` | Unit | 13 | O-011 |
-| `test/services/artikel_db_service_test.dart` | Integration | 75 | O-002 / T-001 |
+| `test/services/artikel_db_service_test.dart` | Integration | 116 | O-002 / T-001 |
 | `test/services/artikel_export_service_test.dart` | Unit + Widget | 2 | — |
 | `test/services/artikel_import_service_test.dart` | Unit | 4 | — |
 | `test/services/app_log_service_test.dart` | Unit | 14 | — |
 | `test/services/attachment_service_test.dart` | Unit | 34 | T-005 |
 | `test/services/backup_status_service_test.dart` | Unit | 15 | — |
-| `test/services/backup_status_test.dart` | Unit | 22 | T-006 |
+| `test/services/backup_status_test.dart` | Unit | 23 | T-006 |
+| `test/services/conflict_resolution_utils_test.dart` | Unit | 8 | T-001 |
 | `test/services/image_picker_service_test.dart` | Unit + Widget | 15 | O-007 |
 | `test/services/nextcloud_client_test.dart` | Unit | 39 | T-003 |
 | `test/services/nextcloud_listfiles_test.dart` | Unit | 1 | — |
-| `test/services/pocketbase_sync_service_test.dart` | Unit | 17 | T-002 |
-| `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 11 | T-008 / T-001 |
+| `test/services/pocketbase_sync_service_test.dart` | Unit | 66 | T-002 |
+| `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 7 | T-008 / T-001 |
 | `test/services/settings_controller_test.dart` | Unit | 15 | O-010 / T-009 |
-| `test/services/sync_orchestrator_test.dart` | Unit | 9 | T-008 |
-| `test/services/sync_status_provider_test.dart` | Unit | 5 | K-006 |
-| `test/utils/attachment_utils_test.dart` | Unit | 28 | — |
+| `test/services/sync_orchestrator_test.dart` | Unit | 13 | T-008 |
+| `test/services/sync_status_provider_test.dart` | Unit | 6 | K-006 |
+| `test/utils/attachment_utils_test.dart` | Unit | 43 | — |
 | `test/utils/image_processing_utils_test.dart` | Unit | 30 | O-002 |
 | `test/utils/uuid_generator_test.dart` | Unit | 23 | O-002 |
 | `test/widgets/artikel_detail_screen_test.dart` | Widget | 24 | O-006 |
@@ -61,9 +62,9 @@ flutter test
 | `test/helpers/no_op_nextcloud_service.dart` | Test-Helper | — | O-006 |
 | `test/mocks/sync_service_mocks.dart` | Test-Helper | — | T-001 |
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
-| **Gesamt** |  | **664** |  |
+| **Gesamt** |  | **757** |  |
 
-> Hinweis: Der letzte verifizierte Gesamtlauf ergab **661 bestandene Tests** und **3 übersprungene Tests**.  
+> Hinweis: Der letzte verifizierte Gesamtlauf ergab **754 bestandene Tests** und **3 übersprungene Tests**.  
 > Die Dateisummen dienen der Übersicht und können bei zukünftigen kleineren Testumbauten leicht abweichen.
 
 ---
@@ -104,7 +105,7 @@ flutter test test/services/nextcloud_client_test.dart
 
 ---
 
-### `conflict_resolution_test.dart` — T-001 (77 Tests)
+### `conflict_resolution_test.dart` — T-001 (61 Tests)
 
 **Ziel:** Abdeckung des Konfliktauflösungs-Flows im UI-/Resolution-Scope.
 
@@ -138,7 +139,7 @@ flutter test test/conflict_resolution_test.dart
 
 ---
 
-### `services/pocketbase_sync_service_test.dart` — T-002 (17 Tests)
+### `services/pocketbase_sync_service_test.dart` — T-002 (66 Tests)
 
 **Ziel:** Unit-Tests für die PocketBase-Sync-Logik — Push, Pull, Fehlerbehandlung, inklusive Smart-Sync-Logik für Bilder.
 
@@ -212,6 +213,20 @@ flutter test test/services/pocketbase_sync_service_conflict_test.dart \
 
 ---
 
+### `services/conflict_resolution_utils_test.dart` — T-001 (8 Tests)
+
+**Ziel:** Unit-Tests für `requireRemoteBaselineEtag` — Hilfsfunktion zur Baseline-ETag-Ermittlung für die Konflikterkennung.
+
+| Gruppe | Tests | Was wird geprüft |
+| :-- | :--: | :-- |
+| `requireRemoteBaselineEtag` | 8 | ETag vorhanden, Fallback auf `lastSyncedEtag`, Leer-/Whitespace-Handling, Trimming, `StateError` wenn beide fehlen |
+
+```bash
+flutter test test/services/conflict_resolution_utils_test.dart
+```
+
+---
+
 ### `services/attachment_service_test.dart` — T-005 (34 Tests)
 
 **Ziel:** Unit-Tests für `AttachmentService` — alle CRUD-Operationen gegen PocketBase ohne Netzwerk, ohne Dateisystem.
@@ -239,7 +254,7 @@ flutter test test/services/attachment_service_test.dart
 
 ---
 
-### `models/attachment_model_test.dart` — O-002 (30 Tests)
+### `models/attachment_model_test.dart` — O-002 (38 Tests)
 
 **Ziel:** Vollständige Abdeckung des `AttachmentModel` — reine Modell-Logik ohne Abhängigkeiten.
 
@@ -262,7 +277,7 @@ flutter test test/models/attachment_model_test.dart
 
 ---
 
-### `services/artikel_db_service_test.dart` — O-002 / T-001 (75 Tests)
+### `services/artikel_db_service_test.dart` — O-002 / T-001 (116 Tests)
 
 **Ziel:** Integrationstests für alle Methoden des `ArtikelDbService`, einschließlich der Sync-Metadaten für die Konfliktauflösung.
 
@@ -312,7 +327,7 @@ flutter test test/services/artikel_db_service_test.dart
 
 ---
 
-### `models/artikel_model_test.dart` — O-002 / T-001 (64 Tests)
+### `models/artikel_model_test.dart` — O-002 / T-001 (94 Tests)
 
 **Ziel:** Absicherung des `Artikel`-Modells inklusive der neuen Sync-Metadaten.
 
@@ -397,7 +412,7 @@ flutter test test/widgets/merge_dialog_test.dart
 
 ---
 
-### `services/backup_status_test.dart` — T-006 (22 Tests)
+### `services/backup_status_test.dart` — T-006 (23 Tests)
 
 **Ziel:** Vollständige Abdeckung der `BackupStatus`-Modell-Logik und des `BackupAge`-Enums.
 
@@ -447,7 +462,7 @@ flutter test test/services/image_picker_service_test.dart
 
 ---
 
-### `utils/attachment_utils_test.dart` (28 Tests)
+### `utils/attachment_utils_test.dart` (43 Tests)
 
 **Ziel:** Vollständige Abdeckung der Attachment-Validierung und Hilfsfunktionen.
 
@@ -505,7 +520,7 @@ flutter test test/utils/uuid_generator_test.dart
 
 ---
 
-### `services/sync_status_provider_test.dart` — K-006 (5 Tests)
+### `services/sync_status_provider_test.dart` — K-006 (6 Tests)
 
 **Ziel:** Tests für das `SyncStatusProvider`-Interface und den `FakeSyncStatusProvider` Test-Double.
 
