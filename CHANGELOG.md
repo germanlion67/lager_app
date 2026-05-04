@@ -2,6 +2,62 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [v0.9.4+47] — M-013: Bild entfernen (Bugfixes) 2026-05-04
+
+### Bugfixes
+- **Detail-Screen: Bild nach Entfernen sofort ausgeblendet**
+  `ArtikelDetailBild` erhielt bisher das unveränderte `widget.artikel`-Objekt,
+  das noch `remoteBildPfad` und `bildPfad` enthielt. Nach „Bild entfernen"
+  wurde deshalb das Remote-Bild per PB-Fallback weiterhin angezeigt, bis
+  gespeichert und zurücknavigiert wurde.
+  → Fix: `artikel.copyWith(...)` mit aktuellem Bild-State an das Widget
+  übergeben. Placeholder erscheint jetzt sofort nach dem Entfernen.
+
+- **Listenansicht: 404-Log nach Bild-Entfernung eliminiert**
+  Nach `Navigator.pop()` versuchte `CachedNetworkImage` in der Listenansicht
+  noch die alte Remote-URL aus dem Cache zu laden → 404.
+  → Fix: `CachedNetworkImage.evictFromCache()` wird in `_speichernMobile()`
+  aufgerufen, bevor `clearBildInfoByUuidSilent()` die DB-Felder leert.
+
+### Technische Details
+- Kein Einfluss auf Sync-Verhalten (Cache-Eviction ist rein clientseitig)
+- Kein zusätzlicher API-Call nötig (`_remoteBildUrl` aus State wiederverwendet)
+- 754 Tests grün, `flutter analyze` sauber
+
+
+## [0.9.4+46] — 2026-05-04
+
+### ✨ Neue Features
+
+**M-013: Bild-Reset („Bild leeren") ermöglichen**
+- Bilder können jetzt vollständig von Artikeln entfernt werden — lokal und remote.
+- Neues kontextsensitives BottomSheet für alle Bild-Aktionen:
+  - 🖼 Aus Datei wählen
+  - 📷 Kamera
+  - ✂ Zuschneiden (jetzt auch für bestehende lokale Bilder)
+  - 🗑 Bild entfernen (mit Bestätigungsdialog)
+- AppBar vereinfacht: Ein Bild-Button statt zwei (dynamisches Icon + Tooltip).
+- Lokale Bilddatei und Thumbnail werden beim Entfernen physisch gelöscht.
+- Sync: Entferntes Bild wird beim nächsten Push auch in PocketBase gelöscht (`body['bild'] = null`).
+
+### 🔧 Optimierungen
+
+**O-012: Widget-Tests für ArtikelDetailScreen**
+- 24 Widget-Tests für den Detail-Screen implementiert:
+  - Render-Tests (Name, Ort, Fach, Menge, Artikelnummer, Beschreibung)
+  - AppBar-Aktionen (Ändern, PDF, Löschen, Anhänge, Bild-Button Sichtbarkeit)
+  - Edit-Modus (Speichern-Button, Name editierbar, AppBar-Titel-Update, Menge +/−)
+  - Verwerfen-Dialog (ohne Änderungen, mit Änderungen, „Weiter bearbeiten")
+  - Löschen-Dialog (Bestätigung, Abbrechen)
+- Tests an M-013-Änderungen angepasst (neue Tooltips, BottomSheet statt Body-Buttons).
+
+### 📌 Hinweis
+
+**F-010: Anhänge-Verwaltung**
+- Die Anhänge-Funktion (`AttachmentService`) ist in den Widget-Tests noch nicht vollständig gemockt. `PocketBaseService` wird in `initState()` aufgerufen und erzeugt Log-Warnungen (`⛔ AttachmentService.countForArtikel() fehlgeschlagen`). Dies hat keinen Einfluss auf die Testergebnisse, wird aber in einem zukünftigen Update durch ein sauberes Mock-Setup behoben.
+
+--- 
+
 ## [0.9.4+43] — 2026-05-03
 
 ### Dokumentation

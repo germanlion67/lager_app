@@ -22,6 +22,224 @@ Einträge **ohne eindeutige Versionszuordnung** stehen gesammelt im Archivbereic
 
 ## 1. Versionshistorie
 
+### O-010: `SettingsScreen` — Logik in testbaren Controller extrahieren — abgeschlossen 2026-04-23 | `0.9.1+29`
+**Typ:** Refactoring / Testbarkeit  
+**Betrifft:** `lib/screens/settings_screen.dart`, `lib/screens/settings_controller.dart`, `lib/screens/settings_state.dart`
+
+`SettingsScreen` wurde fachlich sauber und minimal-invasiv refactored.
+Persistente Settings-Logik, Laufzeit-State und Service-Orchestrierung
+wurden in einen neuen `SettingsController` ausgelagert.
+
+**Umsetzung**
+- `settings_controller.dart` eingeführt
+- `SettingsScreen` auf UI-nahe Verantwortung reduziert:
+  - Dialoge
+  - SnackBars
+  - Navigation / Logout-Handling
+  - Rendering
+- In den Controller verschoben:
+  - Laden und Speichern der Settings
+  - Dirty-Tracking
+  - PocketBase-URL prüfen / speichern / zurücksetzen
+  - DB-Status prüfen
+  - App-Lock-Status laden / speichern
+- `TextEditingController` bewusst pragmatisch im Controller belassen
+  (`artikelNummerController`, `pocketBaseUrlController`)
+
+**Testauswirkung**
+- `SettingsController` gezielt testbar gemacht
+- zusätzliche Tests für Save-/Reset-/Dirty-State-Verhalten ergänzt
+- Reject-/Success-Pfade von `saveSettings()` abgesichert
+
+
+### F-007: Einstellung — Letzter-Sync-Zeitstempel ein-/ausblenden — abgeschlossen 2026-04-23 | `0.9.1+29`
+**Typ:** Feature  
+**Betrifft:** `lib/screens/settings_screen.dart`, `lib/screens/artikel_list_screen.dart`, `lib/screens/settings_state.dart`
+
+Toggle in den Einstellungen, der den Sync-Zeitstempel in der
+Artikelliste ein- oder ausblendet. Persistenz via SharedPreferences.
+
+- Toggle in den Einstellungen ergänzt
+- SharedPreferences-Key: `show_last_sync`
+- Reaktive Wirkung ohne App-Neustart via `ValueNotifier<bool>`
+- Default fachlich konsistent auf `true` vereinheitlicht
+- `showLastSyncNotifier`, Prefs-Key und Default in
+  `settings_state.dart` zentralisiert
+- `ArtikelListScreen` bezieht den gemeinsamen State nicht mehr aus
+  `settings_screen.dart`
+
+F-007 — Hotfix in `v0.9.0+25`:
+- `ValueListenableBuilder` in `ArtikelListScreen` ergänzt; Toggle war
+  zuvor funktionslos, da der Notifier nie abgehört wurde
+
+F-007 — Architektur-Bereinigung in `v0.9.1+29`:
+- `showLastSyncNotifier` aus `settings_screen.dart` herausgelöst
+- zentrale, UI-neutrale Datei `settings_state.dart` eingeführt
+- gemeinsame State-Abhängigkeit vom Screen entkoppelt
+
+### O-009: Widget-Tests `ArtikelListScreen` — abgeschlossen 2026-04-22 | `0.9.0+25`
+- Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
+- `erstelltAm` / `aktualisiertAm` als Pflichtfelder im Testartikel ergänzt
+- `_pumpScreenWithArtikel()` Helper für Dropdown-Tests via `initialArtikel`
+- Suchfeld-Label korrigiert: `'Suche...'` → `'Suche…'` (U+2026)
+- Alle 15 Widget-Tests grün ✅
+- Gesamtstand: **625 Tests**, 28 Dateien ✅
+
+
+### F-006: Log-Level-Filter als Dropdown statt Button-Reihe — abgeschlossen 2026-04-22 | `0.9.0+25`
+**Typ:** Feature / UX-Verbesserung  
+**Betrifft:** Log-Dialog (`AppLogService.showLogDialog()`)
+
+Button-Reihe für Trace/Debug/Info/Warn/Error/Fatal passt auf schmalen
+Displays nicht in eine Zeile. Ersetzen durch `DropdownButton<Level>`
+mit Default-Wert `Level.error`.
+
+- Log-Dialog-Code lokalisieren (vermutlich `app_log_service.dart` oder separater Dialog)
+- Button-Reihe durch `DropdownButton<Level>` ersetzen
+- Default: `Level.error`
+- Gefilterte Log-Ausgabe weiterhin korrekt aktualisieren
+- Auf S20 (360dp) verifizieren
+
+
+### B-012: Letzter-Sync-Zeitstempel auf schmalen Displays abgeschnitten — abgeschlossen 2026-04-22 | `0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)  
+**Betrifft:** `lib/screens/artikel_list_screen.dart` → AppBar `title`
+
+Das Sync-Label hat kein `overflow`-Handling und konkurriert auf 360dp
+mit Action-Icons um Platz. Kein `TextOverflow`, kein `Flexible`-Wrapper.
+
+- `overflow: TextOverflow.ellipsis` am Text ergänzen
+- `Text` in `Flexible` wrappen um Layout-Constraints zu respektieren
+- Nach B-009-Fix (Dropdown-Entfernung) erneut auf S20 prüfen — Problem könnte sich dadurch bereits teilweise lösen
+
+
+### B-011: App-Version zeigt veralteten Build-Stand — abgeschlossen 2026-04-22 | `0.9.0+25`
+**Typ:** Bug / Build-Prozess  
+**Betrifft:** Build-Pipeline, kein Code-Fehler
+
+`_getAppVersion()` in `settings_screen.dart` ist korrekt implementiert
+und liest via `PackageInfo.fromPlatform()` aus den nativen
+Build-Artefakten. Die angezeigte Version 0.8.8+23 stammt aus der
+installierten APK — es wurde kein neuer Build nach dem Version-Bump
+auf 0.8.9+24 erstellt oder die falsche APK installiert.
+
+- `flutter build apk --release` mit aktuellem Stand ausführen
+- Neue APK auf S20 installieren (vorherige deinstallieren)
+- Version in Settings verifizieren → muss 0.8.9+24 zeigen
+- Hinweis: `pubspec.yaml` zeigt bereits 0.9.0+25 —
+  nach nächstem Release-Build wird 0.9.0+25 erscheinen ✅
+
+
+### B-010: Snackbar-Feedback in Artikelliste fehlt — abgeschlossen 2026-04-22 | `0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)  
+**Betrifft:** `lib/screens/artikel_list_screen.dart`
+
+Nach Sync-Erfolg/-Fehler gibt es kein Snackbar-Feedback mehr.
+Der `SyncStatus`-Listener ruft bei `success` nur `_ladeArtikel()` auf.
+Fehler-Pfade zeigen keine Rückmeldung.
+
+- Snackbar bei `SyncStatus.success` ergänzen
+- Snackbar bei `SyncStatus.error` ergänzen (Fehlertext aus Provider)
+- Snackbar bei manuellem Sync-Start ergänzen
+- `ScaffoldMessenger`-Erreichbarkeit nach Dropdown-Entfernung (B-009) verifizieren
+
+
+### B-009: Artikelliste — Ort-Dropdown hardcodiert und falsch platziert — abgeschlossen 2026-04-22 | `0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)  
+**Betrifft:** `lib/screens/artikel_list_screen.dart` → AppBar `actions`
+
+Der Ort-Filter-Dropdown wurde als Test-Stub mit hardcodierten Werten
+(`Lager 1`, `Lager 2`, `Büro`) in die AppBar `actions` eingefügt.
+Er liest keine echten Daten aus `_artikelListe` und ist falsch
+platziert (AppBar statt Body/Filter-Leiste).
+
+- Dropdown aus AppBar `actions` entfernen
+- Echte Ort-Werte dynamisch aus `_artikelListe` ableiten (distinct, alphabetisch sortiert, „Alle“ als erster Eintrag)
+- Filter-UI in die Suchleiste im Body integrieren
+- Filterlogik mit `_gefilterteArtikel()` verbinden (bereits korrekt)
+
+### B-008: Artikelliste — Beschreibung, Artikelnummer und Fach fehlen — abgeschlossen 2026-04-22 | `0.9.0+25`
+**Typ:** Bug / Regression (B-007-Commit)  
+**Betrifft:** `lib/screens/artikel_list_screen.dart` → `_buildArtikelTile()`
+
+`_buildArtikelTile()` wurde auf ein minimales `ListTile` reduziert.
+Vor B-007 war es ein reichhaltigeres Card-Widget mit allen Feldern.
+Wiederherstellen als `Card` mit Artikelnummer, Name, Beschreibung,
+Ort, Fach und Menge.
+
+- `_buildArtikelTile()` auf Card-Layout mit allen Feldern erweitern
+- Artikelnummer, Beschreibung und Fach wieder einblenden
+- Auf S20 (360dp) und Tablet verifizieren
+
+### B-007: Intelligenter Bild-Sync & UI-Optimierung — abgeschlossen 2026-04-21 | `0.8.9+24`
+- **Smart Sync**: `PocketBaseSyncService` vergleicht nun Datei-Zeitstempel mit PocketBase-Updates
+- **Cleanup**: Automatisches Löschen alter Bildversionen im Dateisystem bei Namensänderung
+- **UI-Kontrast**: „Letzter Sync“-Zeitstempel auf `onSurface` (Bold) umgestellt für maximale Lesbarkeit
+
+### P-003: Bild-Caching — abgeschlossen 2026-04-20 | `0.8.6+21`
+- Integration von `cached_network_image`
+- `ArtikelBildWidget` nutzt persistenten Cache für Remote-Bilder
+- Kein Flackern/Neu-Laden beim Scrollen in der Liste
+- Cache-Invalidierung bei ETag-Änderung sichergestellt
+
+
+### B-003 bis B-006: Sync-Stabilität — abgeschlossen 2026-04-17 | `0.8.5+19`
+- ETag-basierte Konflikt-Erkennung vor PATCH
+- Korrektur der Bild-Download-Skip-Logik
+- Navigator-Init via GlobalKey gefixt
+
+
+### T-008: ETag-Konflikt-Logik und `downloadMissingImages`-Check-Logik — abgeschlossen 2026-04-17 | `0.8.5+19`
+- `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
+- `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
+- ETag-Grenzwerte, ConflictCallback-Typedef, SyncStatus-Enum abgedeckt ✅
+- Gesamtstand: **625 Tests**, 28 Dateien ✅
+
+### B-001: Settings-Änderungen werden ohne Speichern übernommen — abgeschlossen 2026-04-14 | `0.8.3+16`
+- Dirty-Tracking, Save-Button und Unsaved-Dialog analysiert
+- Ergebnis: Verhalten war bereits korrekt implementiert, kein Fix nötig
+
+
+### B-002: Biometrische Authentifizierung — System-Dialog & Verfügbarkeitsprüfung — abgeschlossen 2026-04-14 | `0.8.3+16`
+- Nativer System-Dialog bestätigt
+- Verfügbarkeitsprüfung vor Aktivierung bestätigt
+- Toggle wird nur bei erfolgreicher Probe-Authentifizierung persistiert
+
+### F-004 & F-005: UI-Politur — abgeschlossen 2026-04-14 | `0.8.4+17`
+- Nextcloud-Status-Icon Farbe angepasst
+- Detail-Screen Felder leserlicher (`OutlineInputBorder`)
+
+### N-003 & N-005: Branding — abgeschlossen 2026-04-14 | `0.8.4+17`
+- Neues App-Icon und Native Splash Screen für alle Plattformen
+
+### F-001 & F-002: Security — abgeschlossen 2026-04-13 | `0.8.2+13`
+- Biometrische Authentifizierung und konfigurierbare Sperrzeit
+
+### T-003 bis T-007: Test-Offensive — abgeschlossen 2026-04-13 | `0.8.1+10`
+- Unit-Tests für `NextcloudClient`, `MergeDialog`, `AttachmentService`, `BackupStatusService`
+- Performance-Test self-contained; `flutter test` läuft ohne manuelle Vorbereitung
+
+### O-008: Magic-Number-Arithmetik in Spacing-Tokens — abgeschlossen 2026-04-13 | `0.8.1+11`
+- Neuer Token `spacingSectionGap`
+- 3 Stellen `spacingXLarge - 4` ersetzt
+- Reines Rename-/Token-Refactoring
+
+
+### F-003: Artikeldetailansicht — abgeschlossen 2026-04-13 | `0.8.0+8`
+- `Row` mit zwei `Expanded`-Kindern
+- Neuer Token `detailFieldSpacing`
+- Responsive und Dark-Mode-kompatibel
+
+### O-007: Tests für `ImagePickerService` nach P-001 — abgeschlossen 2026-04-13 | `0.8.0+7`
+- 15 Tests, alle grün
+- `FakeImagePicker`, Plattform-Checks, Guard-Pfade und Kamera-Flows abgedeckt
+
+### P-005: Dependency-Update — abgeschlossen 2026-04-13 | `0.8.0+5`
+- `cupertino_icons`, `shared_preferences`, `mockito`, `connectivity_plus` aktualisiert
+- `connectivity_plus`-API-Migration bereits umgesetzt
+- `dependency_overrides` bereinigt
+
+
 ### v0.8.6+21 — 2026-04-20
 
 #### P-003: Bild-Caching — erledigt in `v0.8.6+21`

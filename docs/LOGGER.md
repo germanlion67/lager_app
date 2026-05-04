@@ -26,7 +26,6 @@ final Logger _logger = AppLogService.logger;
 ```
 Immer das passende Level verwenden.
 
-
 ### 1. Information (Normaler Ablauf)
 ```dart
 _logger.i("Synchronisation erfolgreich abgeschlossen.");
@@ -64,42 +63,84 @@ try {
 | `e(...)` | `error` | Exceptions, Abstürze, DB-Korruption | Immer sichtbar |
 | `f(...)` | `fatal` | Kritisch, App kann nicht weiterlaufen | Immer sichtbar |
 
+---
+
 ## 📋 Definierte Log-Events (Referenz)
-| Logger          | Level   | Nachricht                                                                 | Kontext                                     |
-| :-------------- | :------ | :------------------------------------------------------------------------ | :------------------------------------------ |
-| `ArtikelList`   | `INFO`  | `[ArtikelList] Sync abgeschlossen → Liste neu laden`                      | Nach `SyncStatus.success`                   |
-| `ArtikelList`   | `WARN`  | `[ArtikelList] Sync fehlgeschlagen`                                       | Nach `SyncStatus.error`                     |
-| `PocketBaseSync` | `INFO`  | `PocketBaseSync: downloadMissingImages start`                             | Beginn Bild-Download-Phase                  |
-| `PocketBaseSync` | `INFO`  | `PocketBaseSync: downloadMissingImages end (downloaded: X, skipped: Y, failed: Z)` | Ende mit Statistik                          |
-| `PocketBaseSync` | `DEBUG` | `PocketBaseSync: Downloading image for {uuid}: {url}`                     | Pro heruntergeladenem Bild                  |
-| `PocketBaseSync` | `DEBUG` | `PocketBaseSync: Bild gespeichert für {uuid}: {path}`                     | Erfolgreicher Download                      |
-| `PocketBaseSync` | `WARN`  | `PocketBaseSync: Image download HTTP {code} für {uuid}`                   | HTTP-Fehler beim Download                   |
-| `PocketBaseSync` | `WARN`  | `PocketBaseSync: Image download failed for {uuid}: {error}`               | Allgemeiner Download-Fehler                 |
-| `PocketBaseSync` | `WARN`  | `PocketBaseSync: Duplicate-UUID beim Create erkannt; starte Recovery-Lookup (uuid={uuid})` | Create scheitert an unique uuid, Recovery startet |
-| `PocketBaseSync` | `INFO`  | `PocketBaseSync: Duplicate-UUID-Recovery erfolgreich (uuid={uuid}, remoteId={remoteId})` | Bestehender Remote-Record gefunden und lokal verknüpft |
-| `PocketBaseSync` | `ERROR` | `PocketBaseSync: Duplicate-UUID-Recovery fehlgeschlagen (uuid={uuid})` | Recovery-Lookup/Markierung fehlgeschlagen |
-| `ArtikelDbService` | `DEBUG` | `✅ Bildpfad für Artikel UUID {uuid} silent aktualisiert`                 | `setBildPfadByUuidSilent()`                 |
-| `Main`          | `INFO`  | `[Main] Starte initialen Sync nach Setup...`                              | Nach URL-Konfiguration                      |
-| `Main`          | `INFO`  | `[Main] Initialer Sync abgeschlossen`                                     | Sync fertig, UI-Wechsel                     |
-| `Main`          | `INFO`  | `[Main] Kein Sync nötig → direkt zur App`                                 | Web oder nicht eingeloggt                   |
-| `ArtikelList`   | `INFO`  | `[ArtikelList] Sync gestartet`                                            | Bei manuellem Sync-Start                    |
-| `ArtikelList`   | `INFO`  | `[ArtikelList] Sync erfolgreich — Liste neu geladen`                      | Nach `SyncStatus.success` + `_ladeArtikel()`|
-| `ArtikelList`   | `ERROR` | `[ArtikelList] Sync fehlgeschlagen: {fehlertext}`                         | Nach `SyncStatus.error` mit Fehlertext      |
-| `AppLogService` | `DEBUG` | `[LogDialog] Level-Filter geändert: {level}`                              | F-006: Dropdown-Auswahl geändert            |
-| `Settings`      | `INFO`  | `[Settings] show_last_sync geändert: {true/false}`                        | F-007: Toggle-Änderung persistiert          |
-| Logger            | Level | Nachricht                                                           | Kontext                                                      |
-| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;CREATE  ok  uuid={uuid}                         | Erfolgreicher Remote-Create                                  |
-| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;UPDATE  ok  uuid={uuid}                         | Erfolgreicher Remote-Update                                  |
-| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;DELETE  ok  uuid={uuid}                         | Erfolgreicher Remote-Delete                                  |
-| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH&#124;DELETE  ok(local-only)  uuid={uuid}           | Lokal gelöscht, remote bereits nicht vorhanden               |
-| PocketBaseSync    | `WARN`  | SYNC&#124;PUSH  fail  uuid={uuid}  msg="{kurztext}"               | Push-Fehler, Details folgen als ERROR                        |
-| PocketBaseSync    | `INFO`  | SYNC&#124;PUSH  done  created=N  updated=N  deleted=N  conflicts=N  errors=N  total=N | Abschluss Push-Phase                                         |
-| PocketBaseSync    | `INFO`  | SYNC&#124;PULL  done  upserted=N  skipped=N  conflicts=N  deleted=N  errors=N  total=N | Abschluss Pull-Phase                                         |
-| PocketBaseSync    | `WARN`  | SYNC&#124;PULL  fail  msg="{kurztext}"                             | Pull-Fehler, Details folgen als ERROR                        |
-| SyncOrchestrator  | `WARN`  | SYNC&#124;ORCHESTRATOR  fail  phase={phase}  msg="{kurztext}"     | Timeout oder Fehler im Orchestrator, Phase gibt Kontext      |
 
+> **Hinweis:** Diese Tabelle bildet die tatsächlich im Produktivcode vorhandenen Log-Aufrufe ab.  
+> Neue Log-Events hier eintragen, damit die Nachrichtenformate konsistent bleiben.
 
-💡 Neue Log-Events hier eintragen damit die Nachrichtenformate konsistent bleiben.
+### Sync-Service (`PocketBaseSyncService`)
+
+| Level   | Nachricht                                                                                           | Kontext                                                        |
+| :------ | :-------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
+| `DEBUG` | `PocketBaseSync: Skipping sync on Web platform`                                                     | Web-Guard, kein Sync auf Web                                   |
+| `INFO`  | `PocketBaseSync: syncOnce start (collection={name})`                                                | Beginn Sync-Lauf                                               |
+| `INFO`  | `PocketBaseSync: syncOnce end (success)`                                                            | Ende Sync-Lauf                                                 |
+| `ERROR` | `PocketBaseSync: syncOnce failed`                                                                   | Sync-Lauf fehlgeschlagen (mit `error` + `stackTrace`)          |
+| `INFO`  | `PocketBaseSync: pushing {N} pending changes`                                                       | Beginn Push-Phase                                              |
+| `INFO`  | SYNC&#124;PUSH&#124;CREATE  ok  uuid={uuid}                                                        | Erfolgreicher Remote-Create                                    |
+| `INFO`  | SYNC&#124;PUSH&#124;UPDATE  ok  uuid={uuid}                                                        | Erfolgreicher Remote-Update                                    |
+| `INFO`  | SYNC&#124;PUSH&#124;DELETE  ok  uuid={uuid}                                                        | Erfolgreicher Remote-Delete                                    |
+| `INFO`  | SYNC&#124;PUSH&#124;DELETE  ok(local-only)  uuid={uuid}                                            | Lokal gelöscht, remote bereits nicht vorhanden                 |
+| `DEBUG` | SYNC&#124;PUSH&#124;CREATE  remoteBildPfad gesetzt  uuid={uuid}  bild={name}                       | Follow-up-PATCH nach CREATE mit Bild                           |
+| `WARN`  | SYNC&#124;PUSH&#124;CREATE  remoteBildPfad-Update fehlgeschlagen  uuid={uuid}  err={error}         | Follow-up-PATCH fehlgeschlagen                                 |
+| `DEBUG` | SYNC&#124;PUSH&#124;UPDATE  remoteBildPfad gesetzt  uuid={uuid}  bild={name}                       | Follow-up-PATCH nach UPDATE mit Bild                           |
+| `WARN`  | SYNC&#124;PUSH&#124;UPDATE  remoteBildPfad-Update fehlgeschlagen  uuid={uuid}  err={error}         | Follow-up-PATCH fehlgeschlagen                                 |
+| `WARN`  | SYNC&#124;PUSH  fail  uuid={uuid}  msg="{kurztext}"                                                | Push-Fehler (Kurzform), Details folgen als ERROR               |
+| `INFO`  | SYNC&#124;PUSH  done  created=N  updated=N  deleted=N  conflicts=N  errors=N  total=N              | Abschluss Push-Phase                                           |
+| `WARN`  | `PocketBaseSync: Create ohne Antwort (Timeout/Duplicate-UUID); starte Recovery-Lookup (uuid={uuid})` | Timeout-after-success oder Duplicate-UUID, Recovery startet    |
+| `WARN`  | `PocketBaseSync: Recovery-Lookup ohne Ergebnis (uuid={uuid}) — Create fehlgeschlagen`               | Recovery-Lookup ohne Treffer                                   |
+| `INFO`  | `PocketBaseSync: Create-Recovery erfolgreich (uuid={uuid}, remoteId={id})`                          | Bestehender Remote-Record gefunden und lokal verknüpft         |
+| `DEBUG` | SYNC&#124;PULL  conflict(local-dirty)  uuid={uuid}  remoteBild={name}  → snapshot gespeichert      | Pull erkennt Konflikt, speichert Remote-Snapshot               |
+| `INFO`  | SYNC&#124;PULL  done  upserted=N  skipped=N  conflicts=N  deleted=N  errors=N  total=N             | Abschluss Pull-Phase                                           |
+| `WARN`  | SYNC&#124;PULL  fail  msg="{kurztext}"                                                              | Pull-Fehler (Kurzform), Details folgen als ERROR               |
+| `ERROR` | `PocketBase pull failed`                                                                             | Pull-Fehler (mit `error` + `stackTrace`)                       |
+| `ERROR` | `PocketBase push failed (uuid={uuid})`                                                               | Push-Fehler pro Artikel (mit `error` + `stackTrace`)           |
+| `INFO`  | `PocketBaseSync: downloadMissingImages start`                                                       | Beginn Bild-Download-Phase                                     |
+| `INFO`  | `PocketBaseSync: downloadMissingImages end (downloaded=X, skipped=Y, failed=Z)`                     | Ende Bild-Download mit Statistik                               |
+| `ERROR` | `PocketBaseSync: downloadMissingImages failed`                                                      | Bild-Download-Phase fehlgeschlagen (mit `error` + `stackTrace`) |
+
+### Sync-Orchestrator (`SyncOrchestrator`)
+
+| Level   | Nachricht                                                                        | Kontext                                          |
+| :------ | :------------------------------------------------------------------------------- | :----------------------------------------------- |
+| `DEBUG` | `SyncOrchestrator: Skipping sync on Web platform`                                | Web-Guard                                        |
+| `DEBUG` | `SyncOrchestrator: Konflikt-Callback registriert`                                | Callback-Setup                                   |
+| `WARN`  | `SyncOrchestrator: bereits disposed – überspringe`                               | Disposed-Guard                                   |
+| `WARN`  | `SyncOrchestrator: Sync bereits aktiv – überspringe`                             | Parallel-Guard                                   |
+| `INFO`  | `SyncOrchestrator: start`                                                        | Beginn Orchestrator-Lauf                         |
+| `INFO`  | `SyncOrchestrator: end (success) – {timestamp}`                                  | Erfolgreicher Abschluss                          |
+| `WARN`  | SYNC&#124;ORCHESTRATOR  fail  phase={phase}  msg="{kurztext}"                   | Timeout oder Fehler, Phase gibt Kontext          |
+| `ERROR` | `SyncOrchestrator: sync failed`                                                  | Fehler (mit `error` + `stackTrace`)              |
+| `INFO`  | SYNC&#124;ORCHESTRATOR  wait  phase={phase}  state=conflict_ui  elapsed={s}s    | Konfliktbewusste Wartephase                      |
+| `INFO`  | `SyncOrchestrator: Starte periodischen Sync (alle {N} min)`                      | Timer-Start                                      |
+| `INFO`  | `SyncOrchestrator: Periodischer Sync gestoppt`                                   | Timer-Stop                                       |
+| `INFO`  | `SyncOrchestrator: disposed`                                                     | Dispose                                          |
+
+### Weitere Dateien — Übersicht
+
+Die folgenden Dateien enthalten Logger-Aufrufe, die hier nicht einzeln aufgelistet werden.
+Für die vollständige Nachricht gilt der jeweilige Produktivcode als Referenz.
+
+| Datei | Log-Aufrufe | Wichtigste Events |
+| :---- | ----------: | :---------------- |
+| `main.dart` | ~44 | Global Error Handler (`FATAL`), Auth-Flow (Login/Logout/Token-Refresh), Konflikt-UI-Lifecycle (Guards, Open, Close), Sync-Lifecycle (Initial/Periodisch/WLAN-Guard), Server-Setup-Callback, App-Lifecycle (Resume/Pause/DB-Reopen), Dev-Mode-Warnungen |
+| `artikel_db_service.dart` | ~50 | Schema-Erstellung und Migration (`INFO`/`WARN`), CRUD-Erfolg/-Fehler pro Operation (`DEBUG`/`ERROR`), Sync-Metadaten (`markSynced`, `markForForceLocal`, `markForForceMerge`), Conflict-Snapshot-Persistenz, Bild-/Thumbnail-Pfad-Updates, Suche und Duplikat-Checks, DB-Reset und Backup-Restore |
+| `pocketbase_service.dart` | ~25 | Initialisierung und URL-Auflösung, Client-Erstellung und Health-Check, Login/Logout/Token-Refresh/Passwort-Reset, URL-Update mit Health-Check-Validierung, Placeholder-Warnungen |
+| `settings_controller.dart` | ~6 | Fehler-Logs für Laden/Speichern/Reset/DB-Löschen (`ERROR`), PocketBase-Verbindungstest |
+| `conflict_resolution_screen.dart` | 2 | Fehler bei Konfliktauflösung und Merge (`ERROR`) |
+| `artikel_list_screen.dart` | ~2 | Fehler beim Laden der Artikelliste, Nextcloud-Init-Fehler |
+| `app_log_service.dart` | 0 | Kein eigener Logger — stellt den Logger bereit |
+| `login_screen.dart` | 0 | Nutzt nur UI-State, kein Logger |
+| `connectivity_service.dart` | 0 | Reine Utility, kein Logger |
+| `app_lock_service.dart` | 0 | Reine State-/Persistenz-Logik, kein Logger |
+
+### `debugPrint`-Verbleib
+
+| Datei | Anzahl | Grund |
+| :---- | -----: | :---- |
+| `app_log_io.dart` | 5 | Bewusst beibehalten — zirkuläre Abhängigkeit (`Logger → IO → Logger`). Betrifft Filesystem-Zugriff, Log-Rotation und Bootstrap-Status. Kein anderer Produktivcode enthält `debugPrint`. |
 
 ---
 
@@ -121,21 +162,32 @@ die frühere Button-Reihe benötigte horizontales Scrollen.
 
 ---
 
+## 🔮 Geplant: Nutzerfreundliche Aktivitäts-Logs (F-010)
+
+Neben dem bestehenden technischen Entwickler-Log ist eine zweite, menschenlesbare Log-Ebene geplant (`UserLogService`). Diese zeigt dem Nutzer verständliche Aktivitätsmeldungen wie „Artikel ‚LED Strip 5m' erstellt und synchronisiert" statt technischer Debug-Ausgaben mit UUIDs und ETags.
+
+Details und Aufgabenliste: → `docs/OPTIMIZATIONS.md` (F-010)
+
+---
+
 ## 🌓 Visualisierung
 
 Log-Einträge passen sich dem `AppTheme` an:
+
 | Farbe       | Level     |
 | :---------- | :-------- |
 | 🔴 Rot      | `error`   |
 | 🟡 Gelb     | `warning` |
-| 🔵 Blau/Grau | `info`    |
+| 🔵 Blau/Grau | `info`   |
+
 ---
 
 ## 🧹 Migrations-Guide
 
-Verbleibenden `debugPrint`-Statements werden schrittweise ersetzt.
-Betroffenen Dateien: 👉 siehe Projekt-Status
+`debugPrint` ist im Produktivcode vollständig durch `AppLogService.logger` ersetzt.
+Die 5 verbleibenden `debugPrint`-Aufrufe in `app_log_io.dart` sind bewusst beibehalten
+(zirkuläre Abhängigkeit — siehe Tabelle oben).
 
---- 
+---
 
 [Zurück zur README](../README.md) | [ARCHITECTURE.md](ARCHITECTURE.md) | [Zum Projekt-Status](OPTIMIZATIONS.md)

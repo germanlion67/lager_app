@@ -123,6 +123,20 @@ aufgerufen; das Ergebnis wird via `markSynced(..., remoteBildPfad: ...)` persist
 
 ---
 
+### 1.1e Zeitstempel-Semantik: `aktualisiertAm` vs. `updated_at` vs. PocketBase `updated`
+
+| Feld | Spalte in SQLite | Typ | Wann gesetzt | Zweck |
+|---|---|---|---|---|
+| `aktualisiertAm` | `aktualisiertAm` | TEXT (ISO-8601 UTC) | Bei fachlicher Artikelbearbeitung durch den Nutzer | Fachlicher Änderungszeitpunkt; wird an PocketBase übertragen und in der UI angezeigt |
+| `updatedAt` | `updated_at` | INTEGER (Unix ms UTC) | Bei jeder lokalen DB-Mutation (CRUD, Sync-Markierungen, Restore) | Technischer Sync-Zeitstempel; bestimmt Push-Reihenfolge (`ORDER BY updated_at ASC`) |
+| PocketBase `updated` | — (nicht lokal persistiert) | TEXT (ISO-8601 UTC) | Automatisch von PocketBase bei jedem Schreibzugriff | Dient als `etag` / `last_synced_etag` für die Konflikterkennung |
+
+**Wichtig:**
+- `aktualisiertAm` und `updated_at` sind **nicht** austauschbar — sie haben unterschiedliche Auslöser und Zwecke.
+- PocketBase `updated` wird lokal als `etag` bzw. `last_synced_etag` gespeichert, **nicht** als `updated_at`.
+- `setBildPfadByUuidSilent()` und `clearBildInfoByUuidSilent()` ändern bewusst **weder** `aktualisiertAm` **noch** `updated_at`.
+
+--- 
 
 ### Bedeutung der Sync-Metadaten
 
@@ -483,7 +497,8 @@ Anhänge werden **fachlich getrennt** von der SQLite-basierten Artikel-Synchroni
 
 ---
 
-> **Zuletzt aktualisiert:** fix/sync-hardening2-v0.9.4 / 0.9.4+43 (2026-05-03)  
+> **Zuletzt aktualisiert:** O-012/M-013-v0.9.5 / 0.9.4+48 (2026-05-04)  
+> Zeitstempel-Semantik (`aktualisiertAm` vs. `updated_at` vs. PocketBase `updated`) als Abschnitt 1.1e dokumentiert (T-001, 2026-05-04)
 > Sync-Metadaten `last_synced_etag` und `pending_resolution` konsolidiert dokumentiert  
 > Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  
 > Duplicate-UUID-Recovery im Create-Pfad dokumentiert  

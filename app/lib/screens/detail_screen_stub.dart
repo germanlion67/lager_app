@@ -16,6 +16,9 @@ Future<String?> persistSelectedImage({
 Future<Uint8List> readFileBytes(String path) async =>
     throw UnsupportedError('readFileBytes ist im Web nicht verfügbar');
 
+/// M-013: No-op auf Web — keine lokalen Dateien.
+Future<void> deleteFileIfExists(String path) async {}    
+
 bool fileExists(String path) => false;
 
 Widget buildFileImage(

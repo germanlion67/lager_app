@@ -37,7 +37,7 @@ Sie unterstützt insbesondere:
 - **lokale Bild- und Dateiverwaltung**
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.4+43**
+- `pubspec.yaml`: **0.9.4+48**
 - Referenz-Arbeitsstand dieser Prompt-Fassung: **Branch-Kontext nahe `test/update-v0.9.4+43`**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
