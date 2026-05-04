@@ -3,7 +3,7 @@
 //   B-008 — _buildArtikelTile(): Card-Layout mit allen Feldern wiederhergestellt.
 //            Artikelnummer (nullable int), Beschreibung, Ort, Fach, Menge als Chips.
 //   B-009 — Ort-Dropdown aus AppBar entfernt, in Body mit echten Daten implementiert.
-//            _aktualisiereVerfuegbareOrte(): distinct, alphabetisch, aus _artikelListe.
+//            _aktualisiereFilter(): distinct, alphabetisch, aus _artikelListe.
 //   B-010 — _showSnackBar(): Zentrale Hilfsmethode. Feedback bei Sync-Start/-Erfolg/-Fehler.
 //   B-012 — Sync-Label: overflow + maxLines. titleSpacing + Padding gegen AppBar-Overflow.
 
@@ -59,6 +59,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   List<Artikel> _artikelListe = [];
   String _suchbegriff = '';
   String _filterOrt = '';
+  String _filterKategorie = '';
   bool _isLoading = true;
   bool? _pbConnected;
 
@@ -81,6 +82,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   // B-009: Verfügbare Orte für den Filter — dynamisch aus _artikelListe
   List<String> _verfuegbareOrte = [];
+  List<String> _verfuegbareKategorien = [];
 
   @override
   void initState() {
@@ -93,7 +95,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       _artikelListe = List<Artikel>.from(widget.initialArtikel!);
       _isLoading = false;
       // B-009: Orte aus initialArtikel ableiten
-      _aktualisiereVerfuegbareOrte();
+      _aktualisiereFilter();
     } else {
       _ladeArtikel();
     }
@@ -138,16 +140,25 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     super.dispose();
   }
 
-  // ── B-009: Orte aus der geladenen Liste ableiten ─────────────────────────
+  // ── B-009: Orte und Kategorien aus den geladenen Listen ableiten ─────────────────────────
   // Distinct, nicht-leere Werte, alphabetisch sortiert.
-  void _aktualisiereVerfuegbareOrte() {
+  void _aktualisiereFilter() {
     final orte = _artikelListe
         .map((a) => a.ort.trim())
         .where((o) => o.isNotEmpty)
         .toSet()
         .toList()
       ..sort();
-    setState(() => _verfuegbareOrte = orte);
+    final kategorien = _artikelListe
+        .map((a) => (a.kategorie ?? '').trim())
+        .where((k) => k.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort();
+    setState(() {
+      _verfuegbareOrte = orte;
+      _verfuegbareKategorien = kategorien;
+    });
   }
 
   // ── B-010: Zentrale Snackbar-Hilfsmethode ────────────────────────────────
@@ -190,7 +201,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _hasMore = seite.length >= AppConfig.paginationPageSize;
       }
       // B-009: Orte nach jedem Laden aktualisieren
-      _aktualisiereVerfuegbareOrte();
+      _aktualisiereFilter();
     } catch (e) {
       _logger.e('Fehler beim Laden: $e');
       _showSnackBar('❌ Fehler beim Laden der Artikel', isError: true);
@@ -228,7 +239,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _hasMore = seite.length >= AppConfig.paginationPageSize;
       });
       // B-009: Orte nach Nachladen aktualisieren
-      _aktualisiereVerfuegbareOrte();
+      _aktualisiereFilter();
     } finally {
       setState(() => _isLoadingMore = false);
     }
@@ -268,8 +279,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   List<Artikel> _gefilterteArtikel() {
     final basis = _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
-    if (_filterOrt.isEmpty) return basis;
-    return basis.where((a) => a.ort.trim() == _filterOrt.trim()).toList();
+    return basis.where((a) {
+      if (_filterOrt.isNotEmpty && a.ort.trim() != _filterOrt.trim()) {
+        return false;
+      }
+      if (_filterKategorie.isNotEmpty &&
+          (a.kategorie ?? '').trim() != _filterKategorie.trim()) {
+        return false;
+      }
+      return true;
+    }).toList();
   }
 
   String _formatTime(DateTime dt) {
@@ -405,7 +424,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
 
           // ── B-009: Ort-Filter — im Body, mit echten Daten ───────────────
-          if (_verfuegbareOrte.isNotEmpty)
+          // ── F-009 / B-009: Ort- und Kategorie-Filter nebeneinander ────────
+          if (_verfuegbareOrte.isNotEmpty || _verfuegbareKategorien.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(
                 AppConfig.spacingSmall,
@@ -414,45 +434,103 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 0,
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Icon(Icons.place_outlined, size: 18),
-                  const SizedBox(width: AppConfig.spacingXSmall),
-                  Expanded(
-                    child: DropdownButton<String>(
-                      key: const Key('locationFilterDropdown'),
-                      value: _filterOrt.isEmpty ? null : _filterOrt,
-                      hint: const Text('Alle Orte'),
-                      isExpanded: true,
-                      underline: const SizedBox.shrink(),
-                      isDense: true,
-                      items: [
-                        // Erster Eintrag: "Alle Orte" → setzt Filter zurück
-                        const DropdownMenuItem<String>(
-                          value: null,
-                          child: Text('Alle Orte'),
-                        ),
-                        // Echte Orte aus der Artikelliste, alphabetisch
-                        ..._verfuegbareOrte.map(
-                          (ort) => DropdownMenuItem<String>(
-                            value: ort,
-                            child: Text(
-                              ort,
-                              overflow: TextOverflow.ellipsis,
+                  // ── Ort-Filter ──────────────────────────────────
+                  if (_verfuegbareOrte.isNotEmpty)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.place_outlined, size: 18),
+                          const SizedBox(width: AppConfig.spacingXSmall),
+                          Expanded(
+                            child: DropdownButton<String>(
+                              key: const Key('locationFilterDropdown'),
+                              value: _filterOrt.isEmpty ? null : _filterOrt,
+                              hint: const Text('Alle Orte'),
+                              isExpanded: true,
+                              underline: const SizedBox.shrink(),
+                              isDense: true,
+                              items: [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  child: Text('Alle Orte'),
+                                ),
+                                ..._verfuegbareOrte.map(
+                                  (ort) => DropdownMenuItem<String>(
+                                    value: ort,
+                                    child: Text(
+                                      ort,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (v) => setState(() => _filterOrt = v ?? ''),
                             ),
                           ),
-                        ),
-                      ],
-                      onChanged: (String? newValue) {
-                        setState(() => _filterOrt = newValue ?? '');
-                      },
+                          if (_filterOrt.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              tooltip: 'Ort-Filter zurücksetzen',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => setState(() => _filterOrt = ''),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  // Aktiver Filter → Reset-Button anzeigen
-                  if (_filterOrt.isNotEmpty)
-                    IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      tooltip: 'Filter zurücksetzen',
-                      onPressed: () => setState(() => _filterOrt = ''),
+
+                  // ── Abstand zwischen den Filtern ────────────────
+                  if (_verfuegbareOrte.isNotEmpty &&
+                      _verfuegbareKategorien.isNotEmpty)
+                    const SizedBox(width: AppConfig.spacingSmall),
+
+                  // ── Kategorie-Filter ────────────────────────────
+                  if (_verfuegbareKategorien.isNotEmpty)
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.category_outlined, size: 18),
+                          const SizedBox(width: AppConfig.spacingXSmall),
+                          Expanded(
+                            child: DropdownButton<String>(
+                              key: const Key('categoryFilterDropdown'),
+                              value: _filterKategorie.isEmpty
+                                  ? null
+                                  : _filterKategorie,
+                              hint: const Text('Alle Kategorien'),
+                              isExpanded: true,
+                              underline: const SizedBox.shrink(),
+                              isDense: true,
+                              items: [
+                                const DropdownMenuItem<String>(
+                                  value: null,
+                                  child: Text('Alle Kategorien'),
+                                ),
+                                ..._verfuegbareKategorien.map(
+                                  (kat) => DropdownMenuItem<String>(
+                                    value: kat,
+                                    child: Text(
+                                      kat,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              onChanged: (v) =>
+                                  setState(() => _filterKategorie = v ?? ''),
+                            ),
+                          ),
+                          if (_filterKategorie.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              tooltip: 'Kategorie-Filter zurücksetzen',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () =>
+                                  setState(() => _filterKategorie = ''),
+                            ),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -579,6 +657,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                           _buildInfoChip(
                             icon: Icons.place_outlined,
                             label: artikel.ort,
+                            colorScheme: colorScheme,
+                            textTheme: textTheme,
+                          ),
+                        if (artikel.kategorie != null && artikel.kategorie!.isNotEmpty)
+                          _buildInfoChip(
+                            icon: Icons.category_outlined,
+                            label: artikel.kategorie!,
                             colorScheme: colorScheme,
                             textTheme: textTheme,
                           ),

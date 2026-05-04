@@ -52,23 +52,6 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 
 --- 
 
-## F-009 — Kategorie-Eingabe in der Artikel-UX
-
-**Priorität:** Niedrig
-**Branch:** fix/sync-hardening2-v0.9.4 (nach Merge: main)
-**Entdeckt bei:** B-001 / B-002
-
-### Problem
-Die technische Basis für `kategorie` ist inzwischen im Modell, Mapping, Persistenz- und Sync-Pfad vorhanden.  
-Offen ist — falls im aktuellen UI-Stand noch nicht umgesetzt — die vollständige und nutzerfreundliche Eingabe bzw. Bearbeitung in der Artikel-UX.
-
-### Gewünschtes Verhalten
-- Artikel-Formular enthält ein klar sichtbares Kategorie-Feld (Freitext oder Dropdown)
-- Wert lässt sich beim Erstellen und Bearbeiten eines Artikels setzen
-- Wert wird lokal persistiert und im Sync korrekt an PocketBase übertragen
-
-### Akzeptanzkriterium
-Die Kategorie ist im relevanten Artikel-UI-Flow vollständig nutzbar und die reale End-to-End-Übertragung ist bestätigt.
 
 --- 
 
@@ -152,8 +135,6 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 **Aktuell besonders relevante offene Themen**
 - optionaler Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback
 - Android-Kamera-Verifikation
-- UI/UX für „Bild entfernen“
-- ggf. verbleibende UX-Ergänzung für `kategorie`
 - konfigurierbares Sync-Intervall
 
 ---
@@ -162,6 +143,29 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+### F-009: Kategorie-Eingabe in der Artikel-UX — abgeschlossen 2026-05-04 | `0.9.4+49`
+
+**Priorität:** Niedrig
+**Branch:** fix/sync-hardening2-v0.9.4 (nach Merge: main)
+**Entdeckt bei:** B-001 / B-002
+
+### Problem
+Die technische Basis für `kategorie` ist inzwischen im Modell, Mapping, Persistenz- und Sync-Pfad vorhanden.  
+Offen ist — falls im aktuellen UI-Stand noch nicht umgesetzt — die vollständige und nutzerfreundliche Eingabe bzw. Bearbeitung in der Artikel-UX.
+
+### Gewünschtes Verhalten
+- Artikel-Formular enthält ein klar sichtbares Kategorie-Feld (Freitext oder Dropdown)
+- Wert lässt sich beim Erstellen und Bearbeiten eines Artikels setzen
+- Wert wird lokal persistiert und im Sync korrekt an PocketBase übertragen
+
+### Akzeptanzkriterium
+Die Kategorie ist im relevanten Artikel-UI-Flow vollständig nutzbar und die reale End-to-End-Übertragung ist bestätigt.
+
+### Ergebnis
+Kategorie-Feld (`String?`) in Erfassen- und Detail-Screen ergänzt (Freitext, `prefixIcon: category_outlined`, max 50 Zeichen). Listenansicht zeigt Kategorie als Chip. Kategorie-Filter als zweites Dropdown neben dem Ort-Filter (`Row` mit zwei `Expanded`, UND-verknüpft). Filter-Werte werden dynamisch aus der Artikelliste abgeleitet (`_aktualisiereFilter()`). `AppConfig.inputMaxLengthKategorie` ergänzt. Keine Änderungen an Modell, DB-Schema oder Sync nötig — technische Basis war bereits vorhanden. Verifiziert auf A515F + S20, PocketBase E2E bestätigt.
+
+--- 
 
 ### T-001: Konfliktlösung, Sync-Hardening und Integrationsverifikation (M-007) — abgeschlossen 2026-05-04 | `0.9.4+48`
 
@@ -592,6 +596,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-04 | 0.9.4+49 | F-009 umgesetzt: Kategorie-Feld in Erfassen/Detail/Liste, Kategorie-Filter neben Ort-Filter, Chip in Listenansicht. |
 | 2026-05-04 | 0.9.4+48 | T-001 abgeschlossen: Konfliktlösung, Sync-Hardening und Integrationsverifikation vollständig abgehakt. UUID-Pattern serverseitig abgesichert, UTC-Konsistenz geprüft (sauber), Zeitstempel-Semantik in DATABASE.md dokumentiert, verbleibende Optional-Punkte bewusst als „nicht benötigt" gestrichen. |
 | 2026-05-04 | 0.9.4+46 | M-013 abgeschlossen: Bild-Reset („Bild leeren") ermöglichen |
 | 2026-05-04 | 0.9.4+44 | O-012 abgeschlossen: Verbose-Flag geprüft und bewusst verworfen — Log-Level-Filter (F-006) deckt den Use Case ab. |
