@@ -2,6 +2,29 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [v0.9.4+47] — M-013: Bild entfernen (Bugfixes) 2026-05-04
+
+### Bugfixes
+- **Detail-Screen: Bild nach Entfernen sofort ausgeblendet**
+  `ArtikelDetailBild` erhielt bisher das unveränderte `widget.artikel`-Objekt,
+  das noch `remoteBildPfad` und `bildPfad` enthielt. Nach „Bild entfernen"
+  wurde deshalb das Remote-Bild per PB-Fallback weiterhin angezeigt, bis
+  gespeichert und zurücknavigiert wurde.
+  → Fix: `artikel.copyWith(...)` mit aktuellem Bild-State an das Widget
+  übergeben. Placeholder erscheint jetzt sofort nach dem Entfernen.
+
+- **Listenansicht: 404-Log nach Bild-Entfernung eliminiert**
+  Nach `Navigator.pop()` versuchte `CachedNetworkImage` in der Listenansicht
+  noch die alte Remote-URL aus dem Cache zu laden → 404.
+  → Fix: `CachedNetworkImage.evictFromCache()` wird in `_speichernMobile()`
+  aufgerufen, bevor `clearBildInfoByUuidSilent()` die DB-Felder leert.
+
+### Technische Details
+- Kein Einfluss auf Sync-Verhalten (Cache-Eviction ist rein clientseitig)
+- Kein zusätzlicher API-Call nötig (`_remoteBildUrl` aus State wiederverwendet)
+- 754 Tests grün, `flutter analyze` sauber
+
+
 ## [0.9.4+46] — 2026-05-04
 
 ### ✨ Neue Features

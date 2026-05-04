@@ -569,9 +569,20 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
           widget.artikel.remoteBildPfad != null &&
           widget.artikel.remoteBildPfad!.isNotEmpty;
 
+      // M-013: Bild-Info in DB clearen für sauberen Sync-Push
       if (bildEntfernt) {
-        body['bild'] = null;
-        _logger.i('M-013: Web — Bild-Feld wird auf null gesetzt');
+        // Remote-Bild aus dem CachedNetworkImage-Cache evicten,
+        // damit die Listenansicht keinen 404 auslöst.
+        if (_remoteBildUrl != null) {
+          await CachedNetworkImage.evictFromCache(_remoteBildUrl!);
+          _logger.d('M-013: Remote-Bild-Cache evictet: $_remoteBildUrl');
+        }
+
+        await _db.clearBildInfoByUuidSilent(widget.artikel.uuid);
+        await _db.markAsModified(widget.artikel.uuid);
+        _logger.i(
+          'M-013: Bild-Info gecleart, Artikel als dirty markiert',
+        );
       }
 
       final List<http.MultipartFile> files = [];
@@ -1314,7 +1325,18 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                     )
                   else
                     ArtikelDetailBild(
-                      artikel: artikel,
+                      // M-013: Artikel mit aktuellem Bild-State übergeben,
+                      // damit nach „Bild entfernen" sofort der Placeholder
+                      // angezeigt wird (nicht das alte Remote-Bild).
+                      artikel: artikel.copyWith(
+                        bildPfad: _bildPfad ?? '',
+                        remoteBildPfad: _remoteBildUrl != null
+                            ? artikel.remoteBildPfad
+                            : '',
+                        remotePath: _remoteBildUrl != null
+                            ? artikel.remotePath
+                            : '',
+                      ),
                       pendingBytes: _pendingBytes,
                       remoteBildUrl: _remoteBildUrl,
                       onTap: _zeigeBildVollbild,
