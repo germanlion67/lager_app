@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+43 | **Zuletzt aktualisiert:** 03.05.2026
+**Version:** 0.9.4+45 | **Zuletzt aktualisiert:** 04.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-016`, `F-010`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-012`
+- `B-016`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-012`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -120,28 +120,6 @@ Die technische Referenz für Sync-Regeln, Invarianten, Edge Cases und Änderungs
 
 --- 
 
-### O-012: Sync-Logs mobil-lesbar machen (Summary-Lines pro Operation)
-**Status:** weitgehend abgeschlossen
-
-Die Summary-Logs für Push/Pull/Orchestrator wurden bereits produktiv eingeführt und in `docs/LOGGER.md` dokumentiert. Die mobilen 1-Zeilen-Zusammenfassungen gehören inzwischen zum produktiven Diagnosepfad.
-
-**Bereits umgesetzt**
-- [x] strukturierte Summary-Lines für zentrale Sync-Phasen eingeführt
-- [x] `docs/LOGGER.md` um relevante Sync-Log-Events ergänzt
-- [x] Orchestrator-Fehler/Timeouts mit Phasenbezug geloggt
-- [x] Detail-Logs mit `error` und `stackTrace` bleiben erhalten
-
-**Optionaler Rest**
-- [ ] Optional: Verbose-Flag (`AppConfig.verboseSync`) prüfen, falls künftig zwischen Summary- und sehr detaillierten Sync-Logs unterschieden werden soll
-
-**Hinweis**
-Die technische Referenz für aktuelle Sync-Logs und Summary-Konventionen ist:
-- `docs/LOGGER.md`
-- `docs/SYNC.md`
-
-
---- 
-
 ### P-004: Android Kamera-Test abschließen
 **Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
 
@@ -228,6 +206,51 @@ Wert wird persistiert (`SharedPreferences.sync_interval_seconds`) und vom `SyncS
 **Abhängigkeiten:** none  
 
 ---
+
+### F-010: Nutzerfreundliche Aktivitäts-Logs (UserLogService)
+**Beschreibung:**  
+Neben den bestehenden technischen Entwickler-Logs (AppLogService) soll eine zweite, menschenlesbare Log-Ebene eingeführt werden. Diese zeigt dem Nutzer verständliche Aktivitätsmeldungen wie „Artikel ‚LED Strip 5m' erstellt und synchronisiert", „Synchronisation abgeschlossen — 3 aktualisiert" oder „Verbindung zum Server verloren" statt technischer Debug-Ausgaben mit UUIDs und ETags.
+
+**Abgrenzung zu O-012:**  
+O-012 (Entwickler-Summary-Logs) bleibt unverändert bestehen. F-010 ist eine eigenständige, nutzerseitige Funktion.
+
+**Design-Entscheidungen**
+- Eigener `UserLogService` mit eigenem Datenmodell (`UserLogEntry`), getrennt von `AppLogService`
+- Viewer als eigener Dialog, erreichbar über den Settings-Screen
+- Umschaltung zwischen Entwickler-Log und Nutzer-Log per Einstellung im Settings-Screen
+- Sprache: Deutsch, aber lokalisierbar vorbereitet (Nachrichtentexte über Hilfsmethoden oder einfache l10n-Abstraktion, kein volles ARB/intl erforderlich)
+- Keine Feldänderungs-Diffs — geloggt wird auf Artikelebene (erstellt / geändert / gelöscht / synchronisiert), nicht auf Feldebene
+- Persistenz über App-Neustart hinweg (SQLite-Tabelle `user_log`)
+- Automatisches Löschen von Einträgen älter als X Tage (konfigurierbar, Default z. B. 14 Tage), Cleanup beim App-Start oder vor dem Anzeigen
+
+**Geplante Nutzer-Log-Quellen**
+- `PocketBaseSyncService` — Push-Ergebnisse (CREATE/UPDATE/DELETE ok/fail), Pull-Zusammenfassung, Verbindungsfehler
+- `SyncOrchestrator` — Sync gestartet / abgeschlossen / fehlgeschlagen
+- `main.dart` — Login / Logout
+- Optional später: Artikel-Erfassung, Einstellungsänderungen
+
+**Tasks**
+- [ ] `UserLogEntry`-Modell mit `timestamp`, `level`, `message`
+- [ ] `UserLogService` mit SQLite-Persistenz (`user_log`-Tabelle)
+- [ ] Auto-Cleanup: Einträge älter als X Tage beim Start löschen
+- [ ] DB-Migration für `user_log`-Tabelle
+- [ ] Nutzer-Log-Aufrufe in `PocketBaseSyncService` (neben bestehenden technischen Logs)
+- [ ] Nutzer-Log-Aufrufe in `SyncOrchestrator`
+- [ ] Nutzer-Log-Aufrufe in `main.dart` (Auth-Events)
+- [ ] Viewer-Dialog (`UserLogDialog`) mit Level-Filter und Löschen-Button
+- [ ] Settings-Screen: Umschaltung Entwickler-Log / Nutzer-Log
+- [ ] Lokalisierbare Nachrichtentexte vorbereiten
+- [ ] Unit-Tests für `UserLogService` (CRUD, Cleanup, Kapazitätsgrenze)
+- [ ] Widget-Test für Viewer-Dialog
+- [ ] `docs/LOGGER.md` um Nutzer-Log-Konzept ergänzen
+
+**Aufwandsschätzung:** ~5–6 Stunden
+
+**Abhängigkeiten:**  
+Keine Blocker. Greift nicht in bestehende Sync-Logik ein — nur additive Log-Aufrufe neben den bestehenden technischen Logs.
+
+---
+
 
 ## ⏭️ Future (nicht in Planung)
 
@@ -589,6 +612,19 @@ auf insgesamt **626 Tests**, **3 übersprungen** erweitert
 
 ---
 
+### O-012: Sync-Logs mobil-lesbar machen (Summary-Lines pro Operation) — abgeschlossen in `v0.9.4+44`
+
+Die Summary-Logs für Push/Pull/Orchestrator wurden produktiv eingeführt und in `docs/LOGGER.md` dokumentiert. Die mobilen 1-Zeilen-Zusammenfassungen gehören inzwischen zum produktiven Diagnosepfad.
+
+**Umgesetzt**
+- [x] strukturierte Summary-Lines für zentrale Sync-Phasen eingeführt
+- [x] `docs/LOGGER.md` um relevante Sync-Log-Events ergänzt
+- [x] Orchestrator-Fehler/Timeouts mit Phasenbezug geloggt
+- [x] Detail-Logs mit `error` und `stackTrace` bleiben erhalten
+- [x] Verbose-Flag (`AppConfig.verboseSync`) geprüft und bewusst verworfen — der bestehende Log-Level-Filter (F-006) deckt den Use Case ab; bei nur 4 `debug`-Level-Logs im Sync-Pfad wäre ein eigenes Flag toter Config-Code
+
+--- 
+
 ### O-011: `AppLockService` testbarer machen
 **Typ:** Optimierung / Testbarkeit  
 **Betrifft:** `lib/services/app_lock_service.dart`
@@ -641,132 +677,6 @@ wurden in einen neuen `SettingsController` ausgelagert.
 - Reject-/Success-Pfade von `saveSettings()` abgesichert
 
 --- 
-
-### T-001.18: Reale UUID-Kollision als konservativer Konfliktfall verifiziert — abgeschlossen 03.05.2026
-**Beschreibung:**  
-Die Konstellation „lokal offline neu erzeugter Artikel, vor dem ersten Sync gleicher Datensatz bereits remote mit identischer `uuid` vorhanden“ wurde real gegen PocketBase geprüft. Im produktiven Lauf wurde dieser Fall nicht als stiller Duplicate-UUID-Recovery-Create-Fall behandelt, sondern bewusst konservativ in die Konflikt-UI überführt.
-
-**Abschlussstand:**  
-Dieses Verhalten ist für das Projekt gewünscht und wird daher als fachlich korrekt bewertet. Nach manueller Auflösung mit `useLocal` wurde der bestehende Remote-Datensatz im Folgesync erfolgreich fortgeführt. Es entstanden keine Dubletten und kein Retry-Loop.
-
-**Fachlicher Effekt:**
-- bereits vor dem Push erkennbare UUID-Kollisionen mit lokaler fachlicher Neuanlage werden konservativ als Konflikt behandelt
-- Konflikt-UI und manuelle Auflösung funktionieren in dieser Konstellation stabil
-- der bestehende Remote-Datensatz wird im Folgesync korrekt aktualisiert
-- kein Endlos-Retry, keine Dublette
-- der engere technische Duplicate-UUID-Recovery-Fallback im `create()`-Pfad bleibt davon unberührt
-
-**Tasks**
-- [x] reale UUID-Kollision gegen echtes PocketBase reproduzieren
-- [x] Laufverhalten per Logs und Remote-Record-Verlauf auswerten
-- [x] gegen den aktuellen Produktivcode prüfen, ob Konflikt oder Auto-Recovery beabsichtigt ist
-- [x] als gewünschtes konservatives Projektverhalten bewerten
-- [x] Doku- und Statusbewertung entsprechend anpassen
-
-
-### T-001 (Ergänzung 03.05.2026): Bildpfad-Testlücke geschlossen und Delete-Konfliktfall erneut verifiziert
-**Beschreibung:**  
-Die service-nahe Testabdeckung für den PocketBase-Bildrückgabepfad wurde ergänzt. `_extractBildName()` und die Persistenz von `remoteBildPfad` nach CREATE/UPDATE sind nun für `List<String>`, `String`, `null` und leere Werte regressionssicher abgesichert. Zusätzlich wurde der Konfliktfall „lokaler Soft-Delete bei zwischenzeitlicher Remote-Änderung“ erneut manuell erfolgreich verifiziert; die Gegenprobe ohne Remote-Änderung löscht regulär ohne unnötigen Konflikt.
-
-**Abschlussstand:**  
-- `flutter test test/services/pocketbase_sync_service_test.dart` grün  
-- `_extractBildName()` / `remoteBildPfad` service-nah ergänzt  
-- M-004 manuell bestanden  
-- Gegenprobe ebenfalls bestanden
-
-**Tasks**
-- [x] service-nahe Tests für `_extractBildName()` und `remoteBildPfad` ergänzen
-- [x] CREATE-/UPDATE-Pfad im Test-Nachbau an produktiven Bildpfad angleichen
-- [x] Soft-Delete lokal + Remote-Edit erneut manuell verifizieren
-- [x] Gegenprobe ohne Remote-Änderung durchführen
-
-
-### T-011: Snapshot-Persistenz und PocketBase-Modell-Mapping regressionssicher ergänzt — erledigt in `fix/sync-hardening2-v0.9.4`
-**Typ:** Testausbau / DB-Tests / Modell-Mapping  
-**Betrifft:**  
-`test/services/artikel_db_service_test.dart`,  
-`test/services/artikel_db_service_test_helper.dart`,  
-`test/models/artikel_model_test.dart`
-
-Die testseitige Absicherung der neueren Sync-Hardening-Pfade wurde gezielt erweitert.
-
-**Abgedeckte Bereiche**
-- `saveRemoteConflictSnapshot()` und `loadRemoteConflictSnapshot()` in `ArtikelDbService`
-- REPLACE-Verhalten bei erneutem Snapshot-Speichern
-- Expiry-Verhalten älterer Snapshots
-- stabile DB-Testisolation über reset-basierte In-Memory-Testumgebung
-- `Artikel.toPocketBaseMap()` enthält `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
-- `Artikel.toPocketBaseMap()` enthält `artikelnummer` nur bei `>= 1`
-- lokale Sync-/Konflikt-Steuerfelder werden weiterhin nicht an PocketBase übertragen
-
-**Ergebnis**
-- `flutter test test/services/artikel_db_service_test.dart` grün
-- `flutter test test/models/artikel_model_test.dart` grün
-- `flutter test` grün
-- `flutter analyze` grün
-
---- 
-
-### T-010: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows — erledigt in `fix/sync-hardening2-v0.9.4`
-**Typ:** Testausbau / Sync-Hardening / Konfliktlogik  
-**Betrifft:**  
-`lib/services/pocketbase_sync_service.dart`,  
-`lib/services/conflict_resolution_utils.dart`,  
-`lib/main.dart`,  
-`test/services/pocketbase_sync_service_test.dart`,  
-`test/services/pocketbase_sync_service_conflict_test.dart`,  
-`test/services/conflict_resolution_utils_test.dart`,  
-`test/screens/conflict_resolution_screen_test.dart`,  
-`docs/LOGGER.md`,  
-PocketBase-Schema / Admin-Konfiguration (`uuid` als `required` + `unique`)
-
-Die PocketBase-Synchronisation und die Konfliktauflösung wurden in mehreren realen Fehler- und Randfällen gezielt gehärtet.
-
-**Abgedeckte fachliche Verbesserungen**
-- Unsichere Fälle ohne stabile Konfliktbasis (`last_synced_etag`) werden konservativ als Konflikt behandelt
-- Das gilt für Push-Update, Push-Delete und Pull
-- Bewusste Ausnahmen über `pendingResolution = force_local | force_merge` bleiben möglich
-- Duplicate-UUID-Race-Conditions beim Remote-Create werden erkannt und über Recovery-Lookup per `uuid` aufgelöst
-- Recovery-Erfolg und Recovery-Fehler sind im Log nachvollziehbar dokumentiert
-- Die useRemote-Baseline wurde in eine Utility ausgelagert und akzeptiert nur noch belastbare Remote-Baselines
-- Der PocketBase-Conflict-Adapter erfüllt das erwartete Interface explizit und analyzer-konform
-- UI-Fehlerpfade im `ConflictResolutionScreen` wurden abgesichert (Snackbar, kein versehentliches Schließen)
-- Übersprungene Konflikte erscheinen beim nächsten Sync erneut
-- Pull überschreibt Datensätze mit `force_local` oder `force_merge` nicht
-- Soft-Delete lokal + Remote-Edit wird als Konflikt behandelt
-- Remote-Delete-Cleanup ist gegen dirty/pending Datensätze abgesichert
-- Lokales Cleanup erfolgt nur für saubere Datensätze nach plausiblem/validem Pull
-- Erfolgreiche `force_local`-/`force_merge`-Pushes laufen korrekt über den `markSynced()`-Pfad und bereinigen `pendingResolution` auf Contract-Ebene
-
-**Qualitätsstatus**
-- `flutter analyze` grün
-- `flutter test` grün
-
-**Hinweis**
-Die Bereinigung von `pendingResolution` erfolgt nicht direkt im `PocketBaseSyncService`, sondern über den Contract von `markSynced()` in der DB-Schicht. Die Tests bilden dieses Zusammenspiel nun service-nah ab.
-
----
-
-### T-009: Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade — erledigt in `v0.9.2+32`
-**Typ:** Testausbau  
-**Betrifft:** `lib/screens/settings_controller.dart`,
-`lib/screens/settings_state.dart`
-
-Nach O-010 wurden verbleibende Rand- und Fehlerpfade der
-Settings-Logik gezielt durch Unit-Tests abgesichert.
-
-**Abgedeckte Bereiche**
-- `saveSettings()`-Fehlerpfad (`SaveSettingsResult.error`)
-- Default-Verhalten für `showLastSync`, wenn keine Pref gesetzt ist
-- zusätzliche Persistenztests für settings-nahe Werte
-- verbleibende Save-/Reset-/Dirty-State-Pfade im Controller konsolidiert abgesichert
-
-**Ergebnis**
-- `test/services/settings_controller_test.dart` auf **15 Tests** erweitert
-- Settings-nahe Persistenzpfade jetzt gezielt und isoliert testbar
-- O-010 fachlich sauber ergänzt und testseitig abgerundet
-
----
 
 ### O-009: Widget-Tests `ArtikelListScreen` — abgeschlossen in `v0.9.0+25`
 - Import-Pfad korrigiert: `artikel.dart` → `artikel_model.dart`
@@ -840,6 +750,133 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 ---
 
+### T-001.18: Reale UUID-Kollision als konservativer Konfliktfall verifiziert — abgeschlossen 03.05.2026
+**Beschreibung:**  
+Die Konstellation „lokal offline neu erzeugter Artikel, vor dem ersten Sync gleicher Datensatz bereits remote mit identischer `uuid` vorhanden“ wurde real gegen PocketBase geprüft. Im produktiven Lauf wurde dieser Fall nicht als stiller Duplicate-UUID-Recovery-Create-Fall behandelt, sondern bewusst konservativ in die Konflikt-UI überführt.
+
+**Abschlussstand:**  
+Dieses Verhalten ist für das Projekt gewünscht und wird daher als fachlich korrekt bewertet. Nach manueller Auflösung mit `useLocal` wurde der bestehende Remote-Datensatz im Folgesync erfolgreich fortgeführt. Es entstanden keine Dubletten und kein Retry-Loop.
+
+**Fachlicher Effekt:**
+- bereits vor dem Push erkennbare UUID-Kollisionen mit lokaler fachlicher Neuanlage werden konservativ als Konflikt behandelt
+- Konflikt-UI und manuelle Auflösung funktionieren in dieser Konstellation stabil
+- der bestehende Remote-Datensatz wird im Folgesync korrekt aktualisiert
+- kein Endlos-Retry, keine Dublette
+- der engere technische Duplicate-UUID-Recovery-Fallback im `create()`-Pfad bleibt davon unberührt
+
+**Tasks**
+- [x] reale UUID-Kollision gegen echtes PocketBase reproduzieren
+- [x] Laufverhalten per Logs und Remote-Record-Verlauf auswerten
+- [x] gegen den aktuellen Produktivcode prüfen, ob Konflikt oder Auto-Recovery beabsichtigt ist
+- [x] als gewünschtes konservatives Projektverhalten bewerten
+- [x] Doku- und Statusbewertung entsprechend anpassen
+
+
+### T-001 (Ergänzung 03.05.2026): Bildpfad-Testlücke geschlossen und Delete-Konfliktfall erneut verifiziert
+**Beschreibung:**  
+Die service-nahe Testabdeckung für den PocketBase-Bildrückgabepfad wurde ergänzt. `_extractBildName()` und die Persistenz von `remoteBildPfad` nach CREATE/UPDATE sind nun für `List<String>`, `String`, `null` und leere Werte regressionssicher abgesichert. Zusätzlich wurde der Konfliktfall „lokaler Soft-Delete bei zwischenzeitlicher Remote-Änderung“ erneut manuell erfolgreich verifiziert; die Gegenprobe ohne Remote-Änderung löscht regulär ohne unnötigen Konflikt.
+
+**Abschlussstand:**  
+- `flutter test test/services/pocketbase_sync_service_test.dart` grün  
+- `_extractBildName()` / `remoteBildPfad` service-nah ergänzt  
+- M-004 manuell bestanden  
+- Gegenprobe ebenfalls bestanden
+
+**Tasks**
+- [x] service-nahe Tests für `_extractBildName()` und `remoteBildPfad` ergänzen
+- [x] CREATE-/UPDATE-Pfad im Test-Nachbau an produktiven Bildpfad angleichen
+- [x] Soft-Delete lokal + Remote-Edit erneut manuell verifizieren
+- [x] Gegenprobe ohne Remote-Änderung durchführen
+
+--- 
+
+### T-009: Ergänzende Tests für `SettingsController` und settings-nahe Persistenzpfade — erledigt in `v0.9.2+32`
+**Typ:** Testausbau  
+**Betrifft:** `lib/screens/settings_controller.dart`,
+`lib/screens/settings_state.dart`
+
+Nach O-010 wurden verbleibende Rand- und Fehlerpfade der
+Settings-Logik gezielt durch Unit-Tests abgesichert.
+
+**Abgedeckte Bereiche**
+- `saveSettings()`-Fehlerpfad (`SaveSettingsResult.error`)
+- Default-Verhalten für `showLastSync`, wenn keine Pref gesetzt ist
+- zusätzliche Persistenztests für settings-nahe Werte
+- verbleibende Save-/Reset-/Dirty-State-Pfade im Controller konsolidiert abgesichert
+
+**Ergebnis**
+- `test/services/settings_controller_test.dart` auf **15 Tests** erweitert
+- Settings-nahe Persistenzpfade jetzt gezielt und isoliert testbar
+- O-010 fachlich sauber ergänzt und testseitig abgerundet
+
+--- 
+
+### T-011: Snapshot-Persistenz und PocketBase-Modell-Mapping regressionssicher ergänzt — erledigt in `fix/sync-hardening2-v0.9.4`
+**Typ:** Testausbau / DB-Tests / Modell-Mapping  
+**Betrifft:**  
+`test/services/artikel_db_service_test.dart`,  
+`test/services/artikel_db_service_test_helper.dart`,  
+`test/models/artikel_model_test.dart`
+
+Die testseitige Absicherung der neueren Sync-Hardening-Pfade wurde gezielt erweitert.
+
+**Abgedeckte Bereiche**
+- `saveRemoteConflictSnapshot()` und `loadRemoteConflictSnapshot()` in `ArtikelDbService`
+- REPLACE-Verhalten bei erneutem Snapshot-Speichern
+- Expiry-Verhalten älterer Snapshots
+- stabile DB-Testisolation über reset-basierte In-Memory-Testumgebung
+- `Artikel.toPocketBaseMap()` enthält `erstelltAm` und `aktualisiertAm` als UTC-ISO-Strings
+- `Artikel.toPocketBaseMap()` enthält `artikelnummer` nur bei `>= 1`
+- lokale Sync-/Konflikt-Steuerfelder werden weiterhin nicht an PocketBase übertragen
+
+**Ergebnis**
+- `flutter test test/services/artikel_db_service_test.dart` grün
+- `flutter test test/models/artikel_model_test.dart` grün
+- `flutter test` grün
+- `flutter analyze` grün
+
+--- 
+
+### T-010: Sync-Hardening für Konfliktbasis, Duplicate-UUID-Recovery, useRemote-Baseline und pending-resolution-Flows — erledigt in `fix/sync-hardening2-v0.9.4`
+**Typ:** Testausbau / Sync-Hardening / Konfliktlogik  
+**Betrifft:**  
+`lib/services/pocketbase_sync_service.dart`,  
+`lib/services/conflict_resolution_utils.dart`,  
+`lib/main.dart`,  
+`test/services/pocketbase_sync_service_test.dart`,  
+`test/services/pocketbase_sync_service_conflict_test.dart`,  
+`test/services/conflict_resolution_utils_test.dart`,  
+`test/screens/conflict_resolution_screen_test.dart`,  
+`docs/LOGGER.md`,  
+PocketBase-Schema / Admin-Konfiguration (`uuid` als `required` + `unique`)
+
+Die PocketBase-Synchronisation und die Konfliktauflösung wurden in mehreren realen Fehler- und Randfällen gezielt gehärtet.
+
+**Abgedeckte fachliche Verbesserungen**
+- Unsichere Fälle ohne stabile Konfliktbasis (`last_synced_etag`) werden konservativ als Konflikt behandelt
+- Das gilt für Push-Update, Push-Delete und Pull
+- Bewusste Ausnahmen über `pendingResolution = force_local | force_merge` bleiben möglich
+- Duplicate-UUID-Race-Conditions beim Remote-Create werden erkannt und über Recovery-Lookup per `uuid` aufgelöst
+- Recovery-Erfolg und Recovery-Fehler sind im Log nachvollziehbar dokumentiert
+- Die useRemote-Baseline wurde in eine Utility ausgelagert und akzeptiert nur noch belastbare Remote-Baselines
+- Der PocketBase-Conflict-Adapter erfüllt das erwartete Interface explizit und analyzer-konform
+- UI-Fehlerpfade im `ConflictResolutionScreen` wurden abgesichert (Snackbar, kein versehentliches Schließen)
+- Übersprungene Konflikte erscheinen beim nächsten Sync erneut
+- Pull überschreibt Datensätze mit `force_local` oder `force_merge` nicht
+- Soft-Delete lokal + Remote-Edit wird als Konflikt behandelt
+- Remote-Delete-Cleanup ist gegen dirty/pending Datensätze abgesichert
+- Lokales Cleanup erfolgt nur für saubere Datensätze nach plausiblem/validem Pull
+- Erfolgreiche `force_local`-/`force_merge`-Pushes laufen korrekt über den `markSynced()`-Pfad und bereinigen `pendingResolution` auf Contract-Ebene
+
+**Qualitätsstatus**
+- `flutter analyze` grün
+- `flutter test` grün
+
+**Hinweis**
+Die Bereinigung von `pendingResolution` erfolgt nicht direkt im `PocketBaseSyncService`, sondern über den Contract von `markSynced()` in der DB-Schicht. Die Tests bilden dieses Zusammenspiel nun service-nah ab.
+
+---
+
 ### T-008: ETag-Konflikt-Logik und `downloadMissingImages`-Check-Logik — abgeschlossen in `v0.8.5+19`
 - `pocketbase_sync_service_conflict_test.dart` — 11 Tests ✅
 - `sync_orchestrator_test.dart` — 9 Tests (erweitert) ✅
@@ -856,6 +893,7 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-04 | 0.9.4+44 | O-012 abgeschlossen: Verbose-Flag geprüft und bewusst verworfen — Log-Level-Filter (F-006) deckt den Use Case ab. |
 | 2026-05-03 | 0.9.4+43 | Sync-Dokumentation konsolidiert: `docs/SYNC.md` als technische Referenz für Push/Pull, Konflikterkennung, Edge Cases, Invarianten und Änderungsverbote ergänzt; `prompt.txt` als allgemeiner Arbeitskontext erweitert. |
 | 2026-05-03 | 0.9.4+43 | `ARCHITECTURE.md` und `DATABASE.md` gegen den aktuellen SQLite-/Sync-Stand konsolidiert; Indexnamen gegen den echten Code verifiziert und vereinheitlicht. |
 | 2026-05-03 | 0.9.4+42 | E-001 real eingeordnet: Die Konstellation „lokal offline neu erzeugt, vor erstem Sync gleicher Remote-Datensatz bereits vorhanden“ wird nun fachlich als gewünschter konservativer Konfliktfall bewertet. Nach manueller Auflösung (`useLocal`) erfolgreicher Folgesync ohne Dublette oder Retry-Loop. |
