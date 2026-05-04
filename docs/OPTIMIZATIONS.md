@@ -47,13 +47,13 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 Manuelle Integrationstests und Restverifikation für die inzwischen deutlich gehärtete Konflikt- und Sync-Pipeline.
 
 **Technische Basis, Hardening und service-nahe Tests — weitgehend abgeschlossen ✅**
-- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling
-- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index
-- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen
-- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien
-- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock
-- [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut
-- [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt
+- [x] **T-001.1** — `ConflictData`: Konstruktor, Felder, Null-Handling ✅
+- [x] **T-001.2** — `ConflictResolution` Enum: Alle Werte, `byName`, Index ✅
+- [x] **T-001.3** — `SyncService.detectConflicts()`: Mock-Daten, ETag-Abweichung erkennen ✅
+- [x] **T-001.4** — `SyncService._determineConflictReason()`: Alle Zeitstempel-Szenarien ✅
+- [x] **T-001.5** — `ConflictResolutionScreen`: Widget-Tests mit `SyncService`-Mock ✅
+- [x] **T-001.10** — „Überspringen“ → Konflikt bleibt, erscheint beim nächsten Sync erneut ✅
+- [x] **T-001.12** — Edge Case: Soft-Delete lokal + Edit remote → Konflikt korrekt erkannt ✅
 - [x] **T-001.13** — Pull überschreibt `force_local`-Datensatz nicht mit Remote-Version ✅
 - [x] **T-001.14** — Pull überschreibt `force_merge`-Datensatz nicht mit Remote-Version ✅
 - [x] **T-001.16** — Erfolgreicher `force_local`-Push bereinigt `pendingResolution` ✅
@@ -115,8 +115,9 @@ Die real geprüfte Konstellation „lokal offline neu erzeugt, vor dem ersten Sy
 Die technische Referenz für Sync-Regeln, Invarianten, Edge Cases und Änderungsverbote ist jetzt:
 - `docs/SYNC.md`
 
-→ `FakeArtikelDbService` wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.  
-→ Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService`, Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` sowie `_extractBildName()` / `remoteBildPfad` im service-nahen Sync-Test explizit regressionssicher abgesichert.
+- `FakeArtikelDbService` wurde um `saveRemoteConflictSnapshot()` / `loadRemoteConflictSnapshot()` erweitert — die Fake-Infrastruktur ist damit vollständig für die neuen Snapshot-Pfade.  
+- Zusätzlich sind Snapshot-Persistenz in `ArtikelDbService`, Zeitstempel-/`artikelnummer`-Regeln in `Artikel.toPocketBaseMap()` sowie `_extractBildName()` / `remoteBildPfad` im service-nahen Sync-Test explizit regressionssicher abgesichert.
+
 --- 
 
 ### O-012: Sync-Logs mobil-lesbar machen (Summary-Lines pro Operation)
@@ -149,8 +150,7 @@ Die technische Referenz für aktuelle Sync-Logs und Summary-Konventionen ist:
 - [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
 - [ ] Ggf. automatisierte Testabdeckung ergänzen
 
-
-
+--- 
 
 ### M-013: Bild-Reset („Bild leeren“) ermöglichen
 **Beschreibung:**  
@@ -294,8 +294,7 @@ Die Lösung ist produktiv umgesetzt und per Verhaltenstests sowie realem Geräte
 - `lib/services/pocketbase_sync_service.dart` — Follow-up-PATCH nach CREATE/UPDATE mit `remoteBildPfad`
 - `lib/services/artikel_db_service.dart` — `setBildPfadByUuidSilent()` im Pull-Pfad
 
----
-
+--- 
 
 ### B-014 + O-012 (Anteil) abgeschlossen
 **Titel:** HTTP 400 CREATE-Fix, Push-Timeouts, markSynced-Spaltennamen-Fix, Summary-Logs
@@ -319,6 +318,7 @@ Die Lösung ist produktiv umgesetzt und per Verhaltenstests sowie realem Geräte
 **Offene Punkte:**
 - PocketBase Admin: `kategorie`-Feld manuell ergänzen
 
+--- 
 
 ### B-013: image upload flow, remoteBildPfad support & ghost-file cleanup - erledigt in `v0.9.4+36`
 
@@ -371,7 +371,7 @@ mit Action-Icons um Platz. Kein `TextOverflow`, kein `Flexible`-Wrapper.
 - `Text` in `Flexible` wrappen um Layout-Constraints zu respektieren
 - Nach B-009-Fix (Dropdown-Entfernung) erneut auf S20 prüfen — Problem könnte sich dadurch bereits teilweise lösen
 
----
+--- 
 
 ### B-011: App-Version zeigt veralteten Build-Stand — erledigt in `v0.9.0+25`
 **Typ:** Bug / Build-Prozess  
@@ -864,11 +864,7 @@ Settings-Logik gezielt durch Unit-Tests abgesichert.
 | 2026-05-02 | 0.9.4+41 | B-015 weiter eingegrenzt: konfliktbewusste Timeout-Semantik des Orchestrators ist jetzt per Verhaltenstests abgesichert; offen bleibt die produktive UX-/Ablaufbehandlung längerer Merge-Interaktion. |
 | 2026-04-30 | 0.9.4+41 | T-001 manuell weiter bestätigt: `useLocal`, `useRemote`, `skip` und Mehrfachkonflikte im echten Geräte-/Server-Lauf verifiziert. Gemischte Auflösungen (`skip`, `useRemote`, `useLocal`) funktionieren sequentiell; nur übersprungene Konflikte erscheinen im Folgesync erneut. Merge fachlich bestätigt, aber mit bekanntem Orchestrator-Timeout-Befund bei längerer UI-Interaktion. |
 | 2026-04-30 | 0.9.4+39 | B-003 abgeschlossen: `remoteBildPfad` wird nach CREATE/UPDATE via Follow-up-PATCH korrekt in PocketBase geschrieben. Verifikation via Flutter-Logs (SYNC\|PUSH\|CREATE ok, downloaded=1) und PocketBase-Record-Inspektion (Δ created→updated = 147ms). |
-| 2026-04-30 | 0.9.4+39 | Fix 1+2: Doppelter Konflikt-Callback
-  durch UUID-Guard (Push) und Snapshot-Strategie (Pull) behoben.
-  saveRemoteConflictSnapshot / loadRemoteConflictSnapshot implementiert
-  (DB v6, neue Tabelle conflict_snapshots). FakeArtikelDbService
-  vollständig. T-001.13/14/16/17 grün. flutter analyze + flutter test grün. |
+| 2026-04-30 | 0.9.4+39 | Fix 1+2: Doppelter Konflikt-Callback durch UUID-Guard(Push) und Snapshot-Strategie (Pull) behoben. saveRemoteConflictSnapshot /loadRemoteConflictSnapshot implementiert (DB v6, neue Tabelle conflict_snapshots).FakeArtikelDbService vollständig. T-001.13/14/16/17 grün. flutter analyze + flutter test grün. |
 | 2026-04-29 | v0.9.4+38 | fix/sync-hardening2-v0.9.4(T-001.6): fehlende PB-Felder + remoteBildPfad List-Cast + LOG-001 noBoxing |
 | 2026-04-29 | v0.9.4+37 | fix/sync-hardening2-v0.9.4(B-014): HTTP 400 CREATE, Push-Timeouts, markSynced-Spaltenname, Summary-Logs |
 | 2026-04-28 | v0.9.4+36 | fix/sync-hardening2-v0.9.4 B-013 abgeschlossen: image upload flow, `remoteBildPfad` |
