@@ -24,6 +24,11 @@ PocketBase ist dann erreichbar unter: `http://localhost:8080`
 
 Admin-UI: `http://localhost:8080/_/`
 
+> **Hinweis:** Das tatsächlich verfügbare PocketBase-Schema ergibt sich aus dem
+> aktuellen Container-/Migrationsstand. Serverseitige Migrationen liegen unter
+> `server/pb_migrations/`. Maßgeblich sind der laufende Stand und die aktuelle Doku,
+> nicht ältere Session-Prompts.
+
 ### Datenbank stoppen
 
 ```bash
@@ -78,6 +83,21 @@ Hot-Reload funktioniert im Web-Server-Modus:
 - `q` zum Beenden
 
 ---
+
+## Plattformhinweis: Web vs. Native
+
+Die Web-Variante unterscheidet sich bewusst von Mobile/Desktop:
+
+- keine produktive lokale SQLite-Sync-Persistenz wie auf Native
+- andere Datei-/Bildpfade
+- andere Laufzeit- und Browser-Bedingungen
+- Konfiguration häufig über Browser-/Runtime-Mechanismen
+
+Für lokale Web-Entwicklung ist deshalb wichtig, Web-spezifische Effekte
+(z. B. Browser, CanvasKit, CORS, Runtime-Konfiguration) nicht mit den nativen
+SQLite-/Sync-Pfaden gleichzusetzen.
+
+--- 
 
 ## 3. Zusammenfassung: Typischer Entwicklungs-Workflow
 

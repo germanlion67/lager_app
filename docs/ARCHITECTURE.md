@@ -50,7 +50,22 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
                                                • last_backup.json
 ```
 
----
+## 0.1 Einordnung der Betriebsarchitektur
+
+Das oben gezeigte Diagramm beschreibt die **produktive Laufzeit- und Deployment-Topologie**
+(Reverse Proxy, Web-Frontend, PocketBase, Volumes, Backups).
+
+Davon zu unterscheiden ist die **Anwendungsarchitektur innerhalb der Flutter-App**
+(z. B. `main.dart`, Services, lokale SQLite, Sync-Orchestrierung, Konflikt-UI).
+
+Kurz gesagt:
+- **Deployment-Topologie** beantwortet: *Wo laufen welche Dienste?*
+- **App-Architektur** beantwortet: *Wie arbeiten UI, lokale Persistenz und Sync fachlich zusammen?*
+
+Für operative Details wie Compose-Dateien, Proxy-Setup, Backups und Release-Abläufe ist
+primär `DEPLOYMENT.md` maßgeblich.
+
+--- 
 
 ## 1. 🏗️ High-Level Architektur
 
@@ -101,6 +116,16 @@ Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so ko
 | 2 | `RuntimeEnvConfig.pocketBaseUrl()` | Web: `window.ENV_CONFIG.POCKETBASE_URL` |
 | 3 | `--dart-define=POCKETBASE_URL=...` | Build-Argument |
 | 4 | `ServerSetupScreen` | Erststart-Eingabe durch den Nutzer |
+
+**Plattformhinweis:**
+- **Web** kann die Server-URL zusätzlich zur Laufzeit über `window.ENV_CONFIG` erhalten
+  (typisch via Container-Start / Webserver-Setup), ohne dass dafür zwingend ein neuer
+  Flutter-Web-Build erforderlich ist.
+- **Native Plattformen** nutzen primär persistierte Einstellungen (`SharedPreferences`)
+  oder Build-Konfigurationen (`--dart-define`); eine echte Web-Runtime-Injektion existiert dort nicht.
+
+Welche Quelle im Einzelfall tatsächlich greift, bestimmt der aktuelle Produktivcode.
+
 
 ### 2.4 Dev-Mode
 
