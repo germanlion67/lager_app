@@ -2,7 +2,9 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
-## [v0.9.5+52] - docs: Inhalte aus Alt-Prompts in Doku überführen und Legacy-Prompts gelöscht
+## [v0.9.5+53] - chore: upgrade pub dependencies within current constraints - 2026-05-05
+
+## [v0.9.5+52] - docs: Inhalte aus Alt-Prompts in Doku überführen und Legacy-Prompts gelöscht  - 2026-05-05
 
 - wichtige Inhalte aus prompt_Datenbank.txt und prompt_deployment.txt in
   bestehende Doku überführt
@@ -12,7 +14,7 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 - prompt_Datenbank.txt entfernt
 - prompt_deployment.txt entfernt
 
-## [v0.9.5+50] - O-013 — konfigurierbarer Log-Viewer Default-Level 
+## [v0.9.5+50] - O-013 — konfigurierbarer Log-Viewer Default-Level - 2026-05-05
 
 ### Verbessert
 - **O-013:** Log-Viewer Default-Level in App-Einstellungen konfigurierbar.

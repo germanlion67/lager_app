@@ -51,6 +51,7 @@ git add .   Staged:     neue Dateien, geänderte Dateien, gelöschte Dateien (im
 git add -u  Staged nur: Änderungen an bereits bekannten Dateien inklusive Löschungen
 git add -A  Staged:     alles, also neue, geänderte und gelöschte Dateien
 --------------------------------------
+git checkout -b chore/pub-upgrade-safe    neuen Branch "chore/pub-upgrade-safe" erstellen und direkt wechseln
 
 
 Superuser direkt im Container neu erstellen
