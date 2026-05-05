@@ -50,7 +50,22 @@ Dieses Dokument beschreibt die technische Architektur der **Lager_app**, die Dat
                                                • last_backup.json
 ```
 
----
+## 0.1 Einordnung der Betriebsarchitektur
+
+Das oben gezeigte Diagramm beschreibt die **produktive Laufzeit- und Deployment-Topologie**
+(Reverse Proxy, Web-Frontend, PocketBase, Volumes, Backups).
+
+Davon zu unterscheiden ist die **Anwendungsarchitektur innerhalb der Flutter-App**
+(z. B. `main.dart`, Services, lokale SQLite, Sync-Orchestrierung, Konflikt-UI).
+
+Kurz gesagt:
+- **Deployment-Topologie** beantwortet: *Wo laufen welche Dienste?*
+- **App-Architektur** beantwortet: *Wie arbeiten UI, lokale Persistenz und Sync fachlich zusammen?*
+
+Für operative Details wie Compose-Dateien, Proxy-Setup, Backups und Release-Abläufe ist
+primär `DEPLOYMENT.md` maßgeblich.
+
+--- 
 
 ## 1. 🏗️ High-Level Architektur
 
@@ -101,6 +116,16 @@ Die Lager_app folgt einem **Hybrid-Cloud-Modell** (Offline-First). Sie ist so ko
 | 2 | `RuntimeEnvConfig.pocketBaseUrl()` | Web: `window.ENV_CONFIG.POCKETBASE_URL` |
 | 3 | `--dart-define=POCKETBASE_URL=...` | Build-Argument |
 | 4 | `ServerSetupScreen` | Erststart-Eingabe durch den Nutzer |
+
+**Plattformhinweis:**
+- **Web** kann die Server-URL zusätzlich zur Laufzeit über `window.ENV_CONFIG` erhalten
+  (typisch via Container-Start / Webserver-Setup), ohne dass dafür zwingend ein neuer
+  Flutter-Web-Build erforderlich ist.
+- **Native Plattformen** nutzen primär persistierte Einstellungen (`SharedPreferences`)
+  oder Build-Konfigurationen (`--dart-define`); eine echte Web-Runtime-Injektion existiert dort nicht.
+
+Welche Quelle im Einzelfall tatsächlich greift, bestimmt der aktuelle Produktivcode.
+
 
 ### 2.4 Dev-Mode
 
@@ -596,6 +621,11 @@ orchestrator.runOnce();
 Der In-App Log-Dialog verwendet einen `DropdownButton<Level>` statt der
 früheren horizontalen Button-Reihe.
 
+**O-013:** Der Default-Level wird beim Öffnen aus `SharedPreferences`
+geladen (Key: `logViewerDefaultLevelPrefsKey`, Fallback: `error`).
+Jede Änderung im Dropdown wird sofort persistiert. Konfigurierbar
+auch über die Entwickler-Card im Settings-Screen.
+
 ### 13.2 F-007: Sync-Zeitstempel-Toggle (ValueNotifier-Pattern)
 
 Der Sync-Zeitstempel in der `ArtikelListScreen`-AppBar kann in den
@@ -613,6 +643,18 @@ klarer getrennt:
   PocketBase-URL-Prüfung, App-Lock-Status, DB-Status
 - `settings_state.dart`: UI-neutraler geteilter Settings-State
   (`showLastSyncNotifier`, Prefs-Key, Defaultwert)
+
+### 14.1 Settings-Cards (Übersicht)
+
+| Card | Inhalt | Seit |
+| :--- | :--- | :--- |
+| Benutzerkonto | Login-Status, E-Mail, Logout | v0.7.3 |
+| PocketBase Server | URL, Verbindungstest, Sync-Zeitstempel-Toggle | v0.5.0 |
+| Backup-Status | `BackupStatusWidget` | v0.8.0 |
+| Sicherheit | App-Lock, Biometrie, Timeout-Slider | v0.8.2 |
+| Artikelnummer | Start-Nummer, DB-Löschung | v0.6.0 |
+| **Entwickler** | Log-Viewer Default-Level (Dropdown, `SharedPreferences`) | **v0.9.5 (O-013)** |
+| App-Information | Version, Plattform, Auth-Status | v0.5.0 |
 
 ---
 
@@ -651,7 +693,7 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Uplo
 
 ## 19. Wartungs-Notiz
 
-> **Zuletzt aktualisiert:** fix/sync-hardening2-v0.9.4 / 0.9.4+43 (2026-05-03)  
+> **Zuletzt aktualisiert:** O-013 / 0.9.5+50 (2026-05-05) 
 > Architekturtext gegen historische ETag-only-Beschreibungen konsolidiert  
 > Konflikterkennung auf `last_synced_etag` als stabile Vergleichsbasis dokumentiert  
 > Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  

@@ -2,7 +2,7 @@
 
 import 'dart:convert';
 import '../utils/uuid_generator.dart';
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 
 // ✅ Sentinel für nullable copyWith-Felder
 class _Undefined {
@@ -37,7 +37,7 @@ class Artikel {
   final String? remotePath;
   final String? deviceId;
 
-  static final Logger _logger = Logger();
+  static final _logger = AppLogService.logger;
 
   Artikel({
     this.id,

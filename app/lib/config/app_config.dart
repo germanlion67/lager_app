@@ -283,6 +283,12 @@ class AppConfig {
   /// Größe des App-Logos auf dem Login-Screen.
   static const double loginLogoSize = 80.0;
 
+  // ── O-013: Default Log-Level für den Log-Viewer ──────────────────────
+  /// Standard-Filterlevel beim Öffnen des Log-Viewers.
+  /// Kann vom Nutzer in den Einstellungen überschrieben werden.
+  static const String logViewerDefaultLevelPrefsKey = 'log_viewer_default_level';
+  static const String logViewerDefaultLevelFallback = 'error';
+
   /// Höhe für prominente Buttons (z.B. Login).
   static const double buttonHeight = 48.0;
 

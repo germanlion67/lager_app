@@ -10,7 +10,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -22,7 +22,7 @@ import 'pdf_service_shared.dart';
 /// - Mobile (Android/iOS): Download-Ordner + share_plus
 /// - Desktop (Linux/macOS/Windows): FilePicker Save-Dialog mit Fallback
 class PdfSaverImpl implements PdfSaver {
-  final Logger _logger = Logger();
+  final _logger = AppLogService.logger;
 
   /// Speichert [pdfBytes] plattformspezifisch und gibt den Pfad zurück.
   ///

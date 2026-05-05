@@ -2,7 +2,7 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import 'package:xml/xml.dart' as xml;
 
 /// Standard-Timeout für alle WebDAV-Operationen.
@@ -53,7 +53,7 @@ class NextcloudClient {
   final String username;
   final http.Client _client;
 
-  final Logger _logger = Logger();
+  final _logger = AppLogService.logger;
 
   late final Map<String, String> _headers;
 

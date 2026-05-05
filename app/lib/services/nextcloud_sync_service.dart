@@ -2,7 +2,7 @@
 
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import 'package:path/path.dart' as p;
 import 'nextcloud_credentials.dart';
 import 'nextcloud_webdav_client.dart';
@@ -48,7 +48,7 @@ class ResyncResult {
 }
 
 class NextcloudSyncService {
-  final Logger _logger = Logger();
+  final _logger = AppLogService.logger;
 
   // FIX Bug 1: Nullable statt late — kein LateInitializationError möglich.
   // Zugriff nur nach erfolgreichem init() via _requireClient().

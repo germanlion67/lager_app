@@ -7,7 +7,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:sqflite/sqflite.dart';
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/artikel_model.dart';
 import '../utils/uuid_generator.dart';
@@ -22,7 +22,7 @@ class ArtikelDbService implements SyncArtikelDbService {
   factory ArtikelDbService() => _instance;
   ArtikelDbService._internal();
 
-  static final _logger = Logger();
+  static final _logger = AppLogService.logger;
   Database? _db;
 
   Future<Database> get database async {

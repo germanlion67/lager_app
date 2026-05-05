@@ -37,8 +37,7 @@ Sie unterstützt insbesondere:
 - **lokale Bild- und Dateiverwaltung**
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.4+48**
-- Referenz-Arbeitsstand dieser Prompt-Fassung: **Branch-Kontext nahe `test/update-v0.9.4+43`**
+- `pubspec.yaml`: **0.9.5+52**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
 
@@ -55,6 +54,11 @@ Wenn sich Aussagen zwischen Prompt, Doku, Tests und Code widersprechen, gilt fol
    - `docs/DATABASE.md`
    - `docs/LOGGER.md`
    - `docs/SYNC.md`
+   - bei Installations-, Dev- oder Deployment-Fragen zusätzlich:
+     - `INSTALL.md`
+     - `DEPLOYMENT.md`
+     - `docs/DEV_SETUP.md`
+     - `docs/PORTAINER_PROD.md`
 4. **`docs/OPTIMIZATIONS.md`** für Status, Prioritäten, offene Aufgaben
 5. **`docs/TESTING.md`** für Testübersicht und Testorganisation
 6. **`CHANGELOG.md` / `HISTORY.md`** für Historie
@@ -107,7 +111,10 @@ Bei Befunden möglichst sauber unterscheiden zwischen:
 
 ## Grundsätzliche Plattformbesonderheiten
 - **Web** nutzt keinen produktiven PocketBase-Sync-Lauf wie Mobile/Desktop
+- **Web** kann Server-/Runtime-Konfiguration zusätzlich über Web-Laufzeitmechanismen erhalten (z. B. Runtime-Config)
 - **Mobile/Desktop** nutzen lokale DB, Sync-Orchestrierung, Bilddownload und App-Lock
+- **Mobile/Desktop** nutzen primär persistierte Einstellungen und/oder Build-Konfigurationen
+- **CORS** ist vor allem für Browser-/Web-Zugriffe relevant, nicht in gleicher Form für native Clients
 - Desktop-spezifische Initialisierung erfolgt über plattformspezifische `main_*`-Dateien
 - bestimmte Bild-/Datei-/Kamera-Flows sind plattformabhängig
 
@@ -194,9 +201,9 @@ Wichtige Services sind insbesondere:
 - `AppLogService`
 
 ## Zentrale UI-Bildschirme
-- `ArtikelListScreen`
+- `ArtikelListScreen` — Artikelliste mit Ort- und Kategorie-Filter (F-009)
 - `LoginScreen`
-- `SettingsScreen`
+- `SettingsScreen` — inkl. Entwickler-Card mit Log-Viewer Default-Level (O-013)
 - `ServerSetupScreen`
 - `ConflictResolutionScreen`
 - `AppLockScreen`
@@ -363,6 +370,14 @@ Die lokale Persistenz enthält nicht nur fachliche Artikeldaten, sondern auch:
 Für genaue Spalten, Tabellen, Migrationsstand und Invarianten ist maßgeblich:
 - **`docs/DATABASE.md`**
 - aktueller DB-Code
+
+## Migrationsquellen
+- lokale SQLite-Migrationen: produktiver DB-Code
+- PocketBase-Migrationen: `server/pb_migrations/`
+
+Auch hier gilt: maßgeblich ist der tatsächlich gezeigte aktuelle Stand, nicht eine historische Dateiliste.
+PocketBase bringt zusätzlich System-Collections mit (z. B. für Superuser/Auth).
+Diese sind für die meisten fachlichen App-Fragen jedoch nachrangig gegenüber den produktiv genutzten Collections und dem aktuellen Code.
 
 ---
 
@@ -537,6 +552,10 @@ Die Dokumentationsstruktur ist inzwischen klarer getrennt:
 - `docs/SYNC.md` = technische Wahrheit für Sync-Details, Invarianten, Edge Cases und Änderungsverbote
 - `docs/TESTING.md` = Testübersicht und Testorganisation
 - `docs/OPTIMIZATIONS.md` = offene Punkte und Prioritäten
+- `INSTALL.md` = allgemeine Installations- und Startanleitung
+- `DEPLOYMENT.md` = allgemeiner Produktions- und Betriebsleitfaden
+- `docs/DEV_SETUP.md` = lokale Entwicklungsumgebung und bekannte Dev-Stolperfallen
+- `docs/PORTAINER_PROD.md` = spezieller Portainer-/Proxy-Produktionsbetrieb
 
 Spezialisierte Arbeits-Prompts sollten nur noch abgeleitete Hilfsmittel sein, nicht die führende technische Wahrheit.
 

@@ -62,6 +62,28 @@ nano .env.production
 
 ---
 
+## 📁 Relevante Deployment-Artefakte
+
+Je nach Zielumgebung sind insbesondere folgende Dateien und Verzeichnisse relevant:
+
+| Pfad | Zweck |
+|---|---|
+| `app/Dockerfile` | Build des Flutter-Web-Containers |
+| `app/Caddyfile` | Webserver-/SPA-Konfiguration für das Frontend |
+| `app/docker-entrypoint.sh` | Runtime-Injektion z. B. für Web-Konfiguration |
+| `server/pb_migrations/` | PocketBase-Migrationen |
+| `docker-compose.yml` | Entwicklungsumgebung |
+| `docker-compose.prod.yml` | produktionsnahes Compose-Setup |
+| `docker-stack.yml` | Docker-Swarm-Variante |
+| `portainer-stack.yml` | Portainer-Deployment |
+| `.env.production` | produktive Umgebungsvariablen |
+
+**Wichtig:**  
+Nicht jede Datei ist in jeder Umgebung führend. Maßgeblich ist immer das tatsächlich
+verwendete Deployment-Ziel und der aktuell produktive Stand im Repository.
+
+--- 
+
 ## 🚀 Deployment starten
 
 Wir nutzen die produktionsspezifische Compose-Datei, die keine Ports direkt nach außen öffnet (außer NPM).
@@ -75,12 +97,19 @@ docker compose \
 
 ### Automatische Initialisierung
 
-Beim ersten Start führt PocketBase automatisch folgende Schritte aus:
+Beim ersten Start richtet PocketBase den Server entsprechend des aktuellen
+Container-/Migrationsstands ein. Dazu gehören typischerweise:
 
-1. ✅ **Admin-Account** wird mit den ENV-Daten erstellt.
-2. ✅ **Collections** (`artikel`, `artikel_dokumente`, `attachments`, `users`) werden angelegt.
-3. ✅ **API Rules** werden auf „Authentifizierung erforderlich“ gesetzt.
-4. ✅ **Indizes** für Performance-Optimierung werden erstellt.
+1. ✅ **Admin-Account** auf Basis der ENV-Konfiguration
+2. ✅ **Anwenden vorhandener PocketBase-Migrationen**
+3. ✅ **Initiales Collections-/Schema-Setup** gemäß aktuellem Projektstand
+4. ✅ **Übernahme definierter Rules und Indizes**, soweit im produktiven Setup enthalten
+
+**Wichtig:**  
+Welche Collections, Felder, Rules und Indizes konkret vorhanden sind, ergibt sich aus:
+- dem aktuellen produktiven Migrationsstand unter `server/pb_migrations/`
+- dem tatsächlich laufenden PocketBase-System
+- den führenden Fachdokumenten (`DATABASE.md`, `ARCHITECTURE.md`, `SYNC.md`)
 
 ---
 
@@ -350,6 +379,40 @@ tar czf pb_backup_$(date +%Y%m%d).tar.gz -C server pb_data
 
 ---
 
+## 🖥️ Plattform-Builds im Überblick
+
+| Plattform | Build-Ziel | Lokale Datenhaltung | Sync-Modell |
+|---|---|---|---|
+| Android | APK / AAB | SQLite | regulärer Offline-First-Sync |
+| Linux Desktop | natives Binary | SQLite FFI | regulärer Offline-First-Sync |
+| Windows Desktop | `.exe` | SQLite FFI | regulärer Offline-First-Sync |
+| Web | Flutter Web | keine produktive lokale SQLite | backendnah / abweichender Laufzeitpfad |
+
+**Wichtig:**  
+Web unterscheidet sich architektonisch bewusst von Mobile/Desktop:
+- keine reguläre lokale SQLite-Sync-Persistenz wie auf Native
+- andere Datei-/Bild-/Laufzeitpfade
+- Konfiguration häufig über Runtime-Mechanismen des Web-Deployments
+
+--- 
+
+## ✅ Deployment-Checkliste vor einem Release
+
+Vor produktiven Updates nach Möglichkeit kurz prüfen:
+
+- [ ] aktueller Branch / Commit korrekt?
+- [ ] Backup vor dem Update erstellt?
+- [ ] `docker-compose.prod.yml` bzw. Ziel-Deployment-Datei korrekt?
+- [ ] `.env.production` vollständig und plausibel gepflegt?
+- [ ] `POCKETBASE_URL` / Runtime-Konfiguration korrekt?
+- [ ] Reverse-Proxy-Ziele und SSL-Zertifikate aktiv?
+- [ ] PocketBase nach Start erreichbar?
+- [ ] relevante Collections / Migrationen vorhanden?
+- [ ] Web-Frontend nach Build erreichbar?
+- [ ] bei Änderungen an servernaher Struktur: Doku (`DATABASE.md`, `ARCHITECTURE.md`, ggf. `SYNC.md`) mitgezogen?
+
+--- 
+
 ## 🔄 Updates einspielen
 
 Um auf eine neue Version der App zu aktualisieren:
@@ -367,19 +430,19 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
 ---
 
 
-## 📎 Attachments-Collection (ab v0.7.2)
+## 📎 Attachments-Collection
 
 Die Collection `attachments` speichert Dateianhänge pro Artikel.
 
-### API-Regeln
+**Maßgeblich für aktuelles Schema, Limits, Rules und fachliche Verwendung sind:**
+- `docs/DATABASE.md`
+- aktueller PocketBase-Migrationsstand
+- das tatsächlich laufende produktive Setup
 
-| Regel | Wert | Begründung |
-|---|---|---|
-| listRule | `""` (offen) | Kein Login-Flow implementiert |
-| viewRule | `""` (offen) | Analog zu `artikel`-Collection |
-| createRule | `""` (offen) | Analog zu `artikel`-Collection |
-| updateRule | `""` (offen) | Analog zu `artikel`-Collection |
-| deleteRule | `""` (offen) | Analog zu `artikel`-Collection |
+**Wichtig:**  
+Ältere Beschreibungen mit vollständig offenen Collection-Rules sind nicht automatisch
+der aktuelle Produktivstand. Für die aktuelle Bewertung gelten gezeigter Code,
+Migrationen und konsolidierte Fachdokumente.
 
 
 ### Schema-Felder

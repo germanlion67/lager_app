@@ -53,6 +53,11 @@ docker compose build --no-cache pocketbase
 > (Collections, Admin-User, Rules).  
 > Ändere das Admin-Passwort sofort!
 
+> **Hinweis:** Das serverseitige PocketBase-Schema wird durch den aktuellen
+> Migrationsstand aufgebaut. Maßgeblich sind die produktiven Migrationen unter
+> `server/pb_migrations/`, der laufende Serverstand sowie die Fachdokumentation
+> in `docs/DATABASE.md`.
+
 ---
 
 ## 💻 Lokale Entwicklung (Flutter)
@@ -149,6 +154,10 @@ flutter run --dart-define=POCKETBASE_URL=http://<IP>:8080
 
 > 💡 **Tipp:** Wenn du die URL einmal über den Setup-Screen oder die Einstellungen eingegeben hast, wird sie lokal gespeichert.  
 > Beim nächsten Start ist kein `--dart-define` mehr nötig.
+> **Plattformhinweis:**  
+> Auf Web kann die Server-URL zusätzlich über Runtime-Konfiguration bereitgestellt werden.
+> Auf nativen Plattformen wird typischerweise mit gespeicherten Einstellungen oder
+> `--dart-define` gearbeitet. Welche Quelle effektiv verwendet wird, bestimmt der aktuelle Code.
 
 ---
 
@@ -209,6 +218,17 @@ Für das produktive Deployment mit SSL, Nginx Proxy Manager und gehärteten Eins
 👉 [DEPLOYMENT.md](DEPLOYMENT.md)
 
 ---
+
+## 📚 Weiterführende Spezialdokumente
+
+Für spezielle Betriebs- oder Entwicklungsfälle gelten ergänzend:
+
+- `DEPLOYMENT.md` — produktives Deployment allgemein
+- `docs/PORTAINER_PROD.md` — Portainer-/Proxy-spezifischer Produktionsbetrieb
+- `docs/DEV_SETUP.md` — lokale Entwicklung, WSL2 und bekannte Dev-Stolperfallen
+- `docs/DATABASE.md` — Datenmodell, Migrationen und Sync-Metadaten
+
+--- 
 
 ## 🔍 Stolperstellen & Tipps
 

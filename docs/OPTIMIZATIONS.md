@@ -28,12 +28,13 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-016`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-013`, `P-006`, `T-012`
+- `B-016`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-014`, `P-006`, `T-012`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
 auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` verschoben wird.
 
+Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, `style`- Formatierung, `refactor`- Code-Umbau, Future/Fix, `test`- Test hinzugefügt, `chore`- Build, Config, Dependencies
 ---
 
 ## 🔴 Priorität: Hoch
@@ -115,7 +116,8 @@ O-012 (Entwickler-Summary-Logs) bleibt unverändert bestehen. F-010 ist eine eig
 **Abhängigkeiten:**  
 Keine Blocker. Greift nicht in bestehende Sync-Logik ein — nur additive Log-Aufrufe neben den bestehenden technischen Logs.
 
----
+
+--- 
 
 ## ⏭️ Future (nicht in Planung)
 
@@ -143,6 +145,26 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+
+### O-013: Log-Viewer Default-Level in Einstellungen konfigurierbar ✅
+**Beschreibung:**
+User kann in den App-Einstellungen den Standard-Filter-Level für den
+Entwickler-Log-Viewer wählen (Trace, Debug, Info, Warning, Error, Fatal).
+Wird in SharedPreferences persistiert. Beim Öffnen des Log-Viewers
+wird der gespeicherte Level als Default verwendet statt hardcoded
+`Level.error`. Neue "Entwickler"-Card im Settings-Screen.
+
+**Betroffene Dateien:**
+- `app/lib/services/app_log_service.dart` — `_selectedLevel` aus SharedPreferences laden/speichern, `_levelToKey()`/`_levelFromKey()` Hilfsfunktionen
+- `app/lib/screens/settings_screen.dart` — neue `_buildDeveloperCard()` mit persistiertem Dropdown
+- `app/lib/config/app_config.dart` — `logViewerDefaultLevelPrefsKey` + `logViewerDefaultLevelFallback` Konstanten
+
+**Aufwand:** ~94 Zeilen, ~25 Minuten (inkl. Lint-Fix)
+**Abhängigkeiten:** Keine. Unabhängig von F-010.
+**Status:** ✅ Abgeschlossen — manuell getestet
+
+--- 
 
 ### F-009: Kategorie-Eingabe in der Artikel-UX — abgeschlossen 2026-05-04 | `0.9.4+49`
 
@@ -596,6 +618,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-05 | 0.9.5+50 | O-013 umgesetzt: Log-Viewer Default-Level in App-Einstellungen konfigurierbar |
 | 2026-05-04 | 0.9.4+49 | F-009 umgesetzt: Kategorie-Feld in Erfassen/Detail/Liste, Kategorie-Filter neben Ort-Filter, Chip in Listenansicht. |
 | 2026-05-04 | 0.9.4+48 | T-001 abgeschlossen: Konfliktlösung, Sync-Hardening und Integrationsverifikation vollständig abgehakt. UUID-Pattern serverseitig abgesichert, UTC-Konsistenz geprüft (sauber), Zeitstempel-Semantik in DATABASE.md dokumentiert, verbleibende Optional-Punkte bewusst als „nicht benötigt" gestrichen. |
 | 2026-05-04 | 0.9.4+46 | M-013 abgeschlossen: Bild-Reset („Bild leeren") ermöglichen |

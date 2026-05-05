@@ -13,6 +13,23 @@ Dein aktuelles Setup: Portainer Stack veröffentlicht Ports **8080/8081** auf de
 
 > Mobile braucht nur die **API-Domain**. CORS ist nur für Browser relevant.
 
+## 📁 Relevante Projektdateien für dieses Setup
+
+Für Portainer- und Produktionsbetrieb sind insbesondere folgende Dateien relevant:
+
+| Pfad | Zweck |
+|---|---|
+| `portainer-stack.yml` | Portainer-spezifisches Stack-Setup |
+| `docker-compose.prod.yml` | produktionsnahes Compose-Setup |
+| `server/pb_migrations/` | PocketBase-Migrationen |
+| `app/docker-entrypoint.sh` | Runtime-Konfiguration des Web-Frontends |
+| `app/Caddyfile` | Frontend-Webserver-/SPA-Konfiguration |
+| `.env.production` | produktive Umgebungsvariablen |
+
+**Wichtig:**  
+Maßgeblich ist immer der tatsächlich eingesetzte Stack und der aktuelle
+Migrationsstand — nicht eine historische Beispielkonfiguration.
+
 ---
 
 ## 1) DNS einrichten (Pflicht)
@@ -80,6 +97,30 @@ Wenn du *noch kein* Web unter Domain hast und nur testen willst:
 > Hinweis: In deinem aktuellen Stack sind `PB_DATA_DIR`, `PB_MIGRATIONS_DIR`, `PB_DEV_MODE` bereits gesetzt/vernünftig.  
 > `PB_PORT`/`WEB_PORT` musst du nur setzen, wenn du Ports ändern willst.
 
+--- 
+
+## 🔧 URL-Konfiguration der Clients
+
+Die Server-URL kann je nach Plattform und Betriebsart aus unterschiedlichen Quellen stammen.
+
+### Web
+Typische Priorität:
+1. persistierte Einstellung im Browser
+2. Runtime-Konfiguration (z. B. via `window.ENV_CONFIG`)
+3. Build-Default (`--dart-define`)
+4. Setup-Screen
+
+### Mobile/Desktop
+Typische Priorität:
+1. persistierte Einstellung
+2. Build-Default (`--dart-define`)
+3. Setup-Screen
+
+**Wichtig:**  
+Welche Quelle im konkreten Build tatsächlich greift, bestimmt der aktuelle Produktivcode.
+Für Portainer-/Produktivbetrieb ist die Runtime-Konfiguration der Web-Version
+oft flexibler als eine fest einkompilierte URL.
+
 ---
 
 ## ✅ First install ready (optional): ersten App-User automatisch anlegen
@@ -94,7 +135,11 @@ Wenn du **bei der Erstinstallation** direkt einen Login-User für die App haben 
 Optional (empfohlen für “idempotent” Setup / Passwort später ändern ohne Volume-Reset):
 - `PB_TEST_USER_UPSERT` = `1`
 
-> Hinweis: Der PocketBase **Superuser** (`PB_ADMIN_*`) ist **nicht** automatisch ein App-User.  
+> Hinweis: Der PocketBase **Superuser** (`PB_ADMIN_*`) ist **nicht** automatisch ein 
+
+> **Technischer Hinweis:** Bei neueren PocketBase-Versionen werden Admins über die
+> System-Auth-Collection `_superusers` verwaltet. Historische ältere Admin-Endpunkte
+> oder Altdokumentation sind daher nicht automatisch auf den aktuellen Stand übertragbar.App-User.  
 > Die App authentifiziert sich gegen die Collection `users`.
 
 ### ⚠️ Wichtig: Sonderzeichen in Passwörtern (Portainer / Compose)
@@ -279,6 +324,11 @@ NPM → Add Proxy Host:
 
 ### Dann CORS richtig setzen (Portainer Stack ENV)
 - `CORS_ALLOWED_ORIGINS=https://lager.germanlion67.de`
+
+> **Wichtig:** CORS betrifft primär Browser-/Web-Zugriffe.  
+> Native Mobile- und Desktop-Clients unterliegen nicht denselben Browser-CORS-Regeln.
+> Für sie ist vor allem entscheidend, dass die API-Domain erreichbar und korrekt konfiguriert ist.
+
 
 Stack neu deployen / Container neu starten.
 

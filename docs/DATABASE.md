@@ -14,6 +14,22 @@ Die App nutzt zwei persistente Datenspeicher:
 Die native App arbeitet **offline-first** mit lokaler SQLite-Datenbank und synchronisiert gegen PocketBase.  
 Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Sync-Datenhaltung nicht.
 
+
+### Serverseitiges Datenmodell in PocketBase
+
+PocketBase nutzt serverseitig ebenfalls SQLite als persistente Datenbasis (`data.db`).
+Für die Lager_app sind fachlich vor allem folgende Collection-Typen relevant:
+
+- **`artikel`** — zentrale fachliche Artikeldaten
+- **`attachments`** — Dateianhänge pro Artikel
+- **`users`** — Nutzerverwaltung / Auth-Collection
+- **PocketBase-System-Collections** wie z. B. `_superusers`, `_mfas`, `_otps`, `_externalAuths`, `_authOrigins`
+
+**Wichtig:**  
+System-Collections sind für den App-Alltag in der Regel **nicht Teil des fachlichen Domänenmodells**.
+Für Entwicklungs- und Analysearbeit sind primär die produktiv genutzten Collections
+sowie der aktuelle Code, die Migrationen und die dokumentierten Fachregeln relevant.
+
 ---
 
 ## 📂 1. Lokale Datenbank-Struktur
@@ -55,6 +71,14 @@ Die Web-Version arbeitet direkt gegen das Backend und benötigt diese lokale Syn
 | v4 | `artikelnummer` |
 | v5 | `last_synced_etag`, `pending_resolution` |
 | v6 | `conflict_snapshots`-Tabelle |
+
+**Migrationsquellen:**
+- Flutter-/SQLite-seitig: aktueller Migrationscode in `lib/services/artikel_db_service.dart`
+- PocketBase-seitig: Migrationen unter `server/pb_migrations/`
+
+**Wichtig:**  
+Dateinamen und Anzahl der Migrationen können sich über die Zeit ändern.
+Maßgeblich sind der aktuell gezeigte Migrationsstand und das tatsächlich produktive Schema.
 
 ### 1.1b Tabelle: `conflict_snapshots`
 
@@ -215,6 +239,19 @@ Dateianhänge pro Artikel. Diese werden in PocketBase verwaltet.
 **API-Regeln:** Auth-pflichtig seit v0.7.3 (`@request.auth.id != ''` für alle Operationen).
 
 ---
+
+### 1.5 Technischer Hinweis: PocketBase Admin-Authentifizierung
+
+Bei neueren PocketBase-Versionen werden Admins über die System-Auth-Collection
+`_superusers` verwaltet. Historische ältere Admin-Endpunkte sind daher nicht in
+jeder Version gültig.
+
+Für operative Details wie Login-Endpoints, Container-Setup oder Deployment gilt:
+- `DEPLOYMENT.md`
+- produktive Server-/Container-Konfiguration
+- tatsächlicher eingesetzter PocketBase-Stand
+
+--- 
 
 ## 🔄 2. Synchronisations-Prozess
 

@@ -4,7 +4,7 @@ Dieses Dokument beschreibt das zentrale Logging-Framework der **Lager_app**, fü
 
 ---
 
-## 🎯 Warum ein zentraler Logger?
+## 1. 🎯 Warum ein zentraler Logger?
 
 | Vorteil               | Beschreibung                                                              |
 | :--------------------- | :------------------------------------------------------------------------ |
@@ -15,7 +15,7 @@ Dieses Dokument beschreibt das zentrale Logging-Framework der **Lager_app**, fü
 
 ---
 
-## 🛠️ Verwendung im Code
+## 2. 🛠️ Verwendung im Code
 
 Zugriff global über den `AppLogService.logger`. In Dateien bevorzugt so verwenden:
 ```dart
@@ -26,17 +26,17 @@ final Logger _logger = AppLogService.logger;
 ```
 Immer das passende Level verwenden.
 
-### 1. Information (Normaler Ablauf)
+### 2.1. Information (Normaler Ablauf)
 ```dart
 _logger.i("Synchronisation erfolgreich abgeschlossen.");
 ```
 
-### 2. Warnung (Unerwartet, aber kein Crash)
+### 2.2. Warnung (Unerwartet, aber kein Crash)
 ```dart
 _logger.w("Keine Internetverbindung. Sync verschoben.");
 ```
 
-### 3. Fehler (Kritische Probleme)
+### 2.3. Fehler (Kritische Probleme)
 Immer `error`-Objekt und `stackTrace` übergeben.
 ```dart
 try {
@@ -52,7 +52,47 @@ try {
 
 ---
 
-## 🖥️ Log-Level Definitionen
+## 3. ⚠️ Wichtig: Logger in Tests
+
+### 3.1 Kein `Logger()` in Tests verwenden!
+
+In **Testdateien** darf **niemals** ein eigener `Logger()` instanziiert werden.
+Der Default-`PrettyPrinter` erzeugt Box-Zeichen (`│ └ ┌ ├`), die den
+Test-Output verschmutzen und die Lesbarkeit zerstören.
+
+**❌ Falsch:**
+```dart
+final logger = Logger(); // ← erzeugt Box-Zeichen im Test-Output!
+logger.i("Test-Nachricht");
+```
+
+**✅ Richtig:**
+```dart
+import '../services/app_log_service.dart';
+
+final Logger _logger = AppLogService.logger;
+_logger.i("Test-Nachricht");
+```
+
+`AppLogService.logger` verwendet einen `SimplePrinter` (ohne Box-Zeichen),
+der für Tests und Produktion gleichermaßen saubere Ausgaben liefert.
+
+### 3.2 Übersprungene Tests (~3 Skips)
+
+Die Testsuite zeigt dauerhaft `~3` übersprungene Tests. Das sind **legitime Skips**
+für Tests mit externen Abhängigkeiten, die in der CI/Test-Umgebung nicht verfügbar sind:
+
+| Datei | Zeile | Grund |
+| :---- | ----: | :---- |
+| `test/services/nextcloud_listfiles_test.dart` | 369 | Nextcloud-Server nicht verfügbar |
+| `test/services/artikel_export_service_test.dart` | 36 | UI-Abhängigkeit (hängt ohne Display) |
+| `test/services/artikel_export_service_test.dart` | 43 | Platform-Plugin fehlt in Test-Umgebung |
+
+Diese Skips sind **kein Fehler** und erfordern keine Aktion.
+
+---
+
+## 4. 🖥️ Log-Level Definitionen
 
 | API-Methode | Level-Name | Verwendung | Sichtbarkeit (Prod) |
 | :---------- | :--------- | :--------- | :------------------ |
@@ -65,12 +105,12 @@ try {
 
 ---
 
-## 📋 Definierte Log-Events (Referenz)
+## 5. 📋 Definierte Log-Events (Referenz)
 
 > **Hinweis:** Diese Tabelle bildet die tatsächlich im Produktivcode vorhandenen Log-Aufrufe ab.  
 > Neue Log-Events hier eintragen, damit die Nachrichtenformate konsistent bleiben.
 
-### Sync-Service (`PocketBaseSyncService`)
+### 5.1 Sync-Service (`PocketBaseSyncService`)
 
 | Level   | Nachricht                                                                                           | Kontext                                                        |
 | :------ | :-------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
@@ -101,7 +141,7 @@ try {
 | `INFO`  | `PocketBaseSync: downloadMissingImages end (downloaded=X, skipped=Y, failed=Z)`                     | Ende Bild-Download mit Statistik                               |
 | `ERROR` | `PocketBaseSync: downloadMissingImages failed`                                                      | Bild-Download-Phase fehlgeschlagen (mit `error` + `stackTrace`) |
 
-### Sync-Orchestrator (`SyncOrchestrator`)
+### 5.2 Sync-Orchestrator (`SyncOrchestrator`)
 
 | Level   | Nachricht                                                                        | Kontext                                          |
 | :------ | :------------------------------------------------------------------------------- | :----------------------------------------------- |
@@ -118,7 +158,7 @@ try {
 | `INFO`  | `SyncOrchestrator: Periodischer Sync gestoppt`                                   | Timer-Stop                                       |
 | `INFO`  | `SyncOrchestrator: disposed`                                                     | Dispose                                          |
 
-### Weitere Dateien — Übersicht
+### 5.3 Weitere Dateien — Übersicht
 
 Die folgenden Dateien enthalten Logger-Aufrufe, die hier nicht einzeln aufgelistet werden.
 Für die vollständige Nachricht gilt der jeweilige Produktivcode als Referenz.
@@ -136,7 +176,7 @@ Für die vollständige Nachricht gilt der jeweilige Produktivcode als Referenz.
 | `connectivity_service.dart` | 0 | Reine Utility, kein Logger |
 | `app_lock_service.dart` | 0 | Reine State-/Persistenz-Logik, kein Logger |
 
-### `debugPrint`-Verbleib
+### 5.4 `debugPrint`-Verbleib
 
 | Datei | Anzahl | Grund |
 | :---- | -----: | :---- |
@@ -144,7 +184,7 @@ Für die vollständige Nachricht gilt der jeweilige Produktivcode als Referenz.
 
 ---
 
-## 🎛️ Log-Dialog — Level-Filter (F-006)
+## 6. 🎛️ Log-Dialog — Level-Filter (F-006)
 
 Der In-App Log-Viewer (`AppLogService.showLogDialog()`) verwendet seit `v0.9.0+25`
 einen `DropdownButton<Level>` statt der früheren horizontalen Button-Reihe.
@@ -152,7 +192,7 @@ einen `DropdownButton<Level>` statt der früheren horizontalen Button-Reihe.
 | Eigenschaft | Wert |
 | :---------- | :--- |
 | Widget | `DropdownButton<Level>` |
-| Default | `Level.error` |
+| Default | `Level.error` (konfigurierbar in Einstellungen seit O-013) |
 | Verfügbare Level | `trace`, `debug`, `info`, `warning`, `error`, `fatal` |
 | Farbe | Passt sich dynamisch dem gewählten Level an |
 | Leer-State | `check_circle_outline`-Icon + Level-Name im Text |
@@ -162,7 +202,7 @@ die frühere Button-Reihe benötigte horizontales Scrollen.
 
 ---
 
-## 🔮 Geplant: Nutzerfreundliche Aktivitäts-Logs (F-010)
+## 7. 🔮 Geplant: Nutzerfreundliche Aktivitäts-Logs (F-010)
 
 Neben dem bestehenden technischen Entwickler-Log ist eine zweite, menschenlesbare Log-Ebene geplant (`UserLogService`). Diese zeigt dem Nutzer verständliche Aktivitätsmeldungen wie „Artikel ‚LED Strip 5m' erstellt und synchronisiert" statt technischer Debug-Ausgaben mit UUIDs und ETags.
 
@@ -170,7 +210,7 @@ Details und Aufgabenliste: → `docs/OPTIMIZATIONS.md` (F-010)
 
 ---
 
-## 🌓 Visualisierung
+## 8. 🌓 Visualisierung
 
 Log-Einträge passen sich dem `AppTheme` an:
 
@@ -182,11 +222,14 @@ Log-Einträge passen sich dem `AppTheme` an:
 
 ---
 
-## 🧹 Migrations-Guide
+## 9. 🧹 Migrations-Guide
 
 `debugPrint` ist im Produktivcode vollständig durch `AppLogService.logger` ersetzt.
 Die 5 verbleibenden `debugPrint`-Aufrufe in `app_log_io.dart` sind bewusst beibehalten
 (zirkuläre Abhängigkeit — siehe Tabelle oben).
+
+**Auch in Tests gilt:** Kein `Logger()` direkt instanziieren — immer
+`AppLogService.logger` verwenden (siehe [Logger in Tests](#⚠️-wichtig-logger-in-tests)).
 
 ---
 

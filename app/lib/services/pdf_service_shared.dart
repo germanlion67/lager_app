@@ -4,7 +4,7 @@
 // Kein dart:io, kein dart:html.
 
 import 'package:flutter/foundation.dart';
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../models/artikel_model.dart';
@@ -40,7 +40,7 @@ abstract class PdfSaver {
 /// Plattformunabhängiger PDF-Aufbau-Service.
 /// Gibt fertige [Uint8List]-Bytes zurück — kein Speichern, kein Öffnen.
 class PdfBuilderService {
-  final Logger _logger = Logger();
+  final _logger = AppLogService.logger;
 
   /// Baut eine Artikellisten-PDF.
   Future<Uint8List> buildArtikelListePdf(List<Artikel> artikelListe) async {
