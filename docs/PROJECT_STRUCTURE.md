@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v0.8.9+24 (21.04.2026)
+> Stand: v0.9.5+50 (05.05.2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -60,7 +60,9 @@ app/lib/
 │   ├── pdf_service_stub.dart         #   PDF-Stub für Web
 │   ├── qr_scan_screen_mobile_scanner.dart  # QR/Barcode-Scanner
 │   ├── server_setup_screen.dart      #   Server-URL Konfiguration
-│   ├── settings_screen.dart          #   App-Einstellungen
+│   ├── settings_controller.dart      #   O-010: Settings-Logik (Dirty-Tracking, Save, PB-URL)
+│   ├── settings_screen.dart          #   App-Einstellungen (inkl. Entwickler-Card seit O-013)
+│   ├── settings_state.dart           #   UI-neutraler geteilter Settings-State
 │   └── sync_management_screen.dart   #   Sync-Übersicht & Steuerung
 ├── services/                         # Business-Logik
 │   ├── app_log_service.dart          #   Zentrales Logging (Conditional Import)
@@ -96,7 +98,9 @@ app/lib/
 │   ├── pdf_service_shared.dart       #     ↳ PDF: Gemeinsame Logik
 │   ├── pdf_service_stub.dart         #     ↳ PDF: Stub
 │   ├── pdf_service_web.dart          #     ↳ PDF: Web (Browser-Download)
+│   ├── orchestrator_sync_backend.dart #  Backend-Interface für SyncOrchestrator
 │   ├── pocketbase_service.dart       #   PocketBase REST-Client
+│   ├── pocketbase_sync_contracts.dart #  Sync-Verträge (Interfaces/Typedefs)
 │   ├── pocketbase_sync_service.dart  #   PocketBase Sync (Push/Pull, Konflikt-Callback)
 │   ├── scan_result.dart              #   Scan-Ergebnis Modell
 │   ├── scan_service.dart             #   Scanner (Conditional Import)
@@ -151,7 +155,7 @@ app/lib/
 
 ---
 
-### app/test/ — Tests (625 Tests, 3 skipped, 28 Testdateien)
+### app/test/ — Tests (757 Tests, 3 skipped, 31 Testdateien)
 
 >  Testdateien, sowie alle Tests beschrieben — Ziele, Abdeckungen und lokaler Aufruf befinden sich hier: 🧪 **[TESTING.md](docs/TESTING.md):** 
 
@@ -303,10 +307,10 @@ lager_app/
 
 | Bereich                   | Anzahl             |
 | :------------------------ | :----------------- |
-| **Quellcode-Dateien** (`app/lib/`) | 72 |
+| **Quellcode-Dateien** (`app/lib/`) | 92 |
 | **Davon Conditional Imports** | 28 (14 Paare) |
-| **Test-Dateien** | 28 Testdateien + 1 Helper + 2 Mocks  |
-| **Tests gesamt** | 625 (3 skipped) |
+| **Test-Dateien** | 31 Testdateien + 3 Helpers + 2 Mocks |
+| **Tests gesamt** | 757 (754 bestanden, 3 skipped) |
 | **PocketBase Migrationen** | 7 |
 | **Dokumentations-Dateien** | 19 |
 | **CI/CD Workflows** | 4 |

@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.9.4 | **Zuletzt aktualisiert:** 03.05.2026
+**Version:** 0.9.5 | **Zuletzt aktualisiert:** 05.05.2026
 
 ---
 
@@ -20,6 +20,9 @@ flutter test
 
 > `--exclude-tags performance` ist optional verfügbar, aber nicht erforderlich.  
 > Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
+> **Zu den 3 skipped Tests:** Diese entstehen ausschließlich im Gesamtlauf durch
+> Test-Binding-Reihenfolge (Singleton-State zwischen Testdateien). Einzeln ausgeführt
+> laufen alle 757 Tests ohne Skips. Es handelt sich nicht um fachliche Einschränkungen.
 
 ---
 
@@ -175,7 +178,7 @@ flutter test test/services/pocketbase_sync_service_test.dart
 ---
 
 
-### `services/pocketbase_sync_service_conflict_test.dart` + `services/sync_orchestrator_test.dart` — T-008 / T-001 (20 Tests)
+### `services/pocketbase_sync_service_conflict_test.dart` + `services/sync_orchestrator_test.dart` — T-008 / T-001 (7+13 Tests)
 
 **Ziel:** Fachlich belastbare Absicherung der Konflikterkennung und des Konfliktverhaltens im Sync-Umfeld.
 
@@ -777,6 +780,7 @@ Für den Release-Stand **0.9.3** gelten insbesondere **T-001.7 bis T-001.12** fa
 | :-- | :-- | :-- |
 | `fake_sync_status_provider.dart` | Test-Double für `SyncStatusProvider` — emittiert kontrollierte Sync-Events | `sync_status_provider_test.dart`, Sync-UI-Tests |
 | `no_op_nextcloud_service.dart` | Timer-freier Test-Double via `NextcloudServiceInterface` | `artikel_list_screen_test.dart` |
+| `artikel_db_service_test_helper.dart` | Wiederverwendbarer In-Memory-DB-Setup für `ArtikelDbService`-Tests | `artikel_db_service_test.dart` |
 
 
 ### Verwendung von `FakeSyncStatusProvider`

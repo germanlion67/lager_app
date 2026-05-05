@@ -6,7 +6,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 
 import '../models/artikel_model.dart';
 import 'pdf_service_shared.dart';
@@ -29,7 +29,7 @@ import 'pdf_service_io.dart'
 /// - Mobile:  Download-Ordner + share_plus
 /// - Web:     Browser-nativer Download, Rückgabe immer null
 class PdfService {
-  final Logger _logger = Logger();
+  final _logger = AppLogService.logger;
   final PdfBuilderService _builder = PdfBuilderService();
   final PdfSaver _saver = PdfSaverImpl();
 

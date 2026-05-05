@@ -37,8 +37,8 @@ Sie unterstützt insbesondere:
 - **lokale Bild- und Dateiverwaltung**
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.4+48**
-- Referenz-Arbeitsstand dieser Prompt-Fassung: **Branch-Kontext nahe `test/update-v0.9.4+43`**
+- `pubspec.yaml`: **0.9.5+50**
+- Referenz-Arbeitsstand dieser Prompt-Fassung: **O-013 / F-009 abgeschlossen (2026-05-05)**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
 
@@ -194,9 +194,9 @@ Wichtige Services sind insbesondere:
 - `AppLogService`
 
 ## Zentrale UI-Bildschirme
-- `ArtikelListScreen`
+- `ArtikelListScreen` — Artikelliste mit Ort- und Kategorie-Filter (F-009)
 - `LoginScreen`
-- `SettingsScreen`
+- `SettingsScreen` — inkl. Entwickler-Card mit Log-Viewer Default-Level (O-013)
 - `ServerSetupScreen`
 - `ConflictResolutionScreen`
 - `AppLockScreen`

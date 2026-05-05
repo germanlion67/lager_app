@@ -15,7 +15,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:pocketbase/pocketbase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import '../config/app_config.dart';
 
 import 'pocketbase_sync_contracts.dart';
@@ -34,7 +34,7 @@ class PocketBaseService implements SyncPocketBaseService {
 
   static const String _prefsKey = 'pocketbase_url';
 
-  static final Logger _logger = Logger();
+  static final _logger = AppLogService.logger;
 
   // Singleton
   static PocketBaseService? _instance;

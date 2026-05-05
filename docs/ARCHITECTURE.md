@@ -596,6 +596,11 @@ orchestrator.runOnce();
 Der In-App Log-Dialog verwendet einen `DropdownButton<Level>` statt der
 früheren horizontalen Button-Reihe.
 
+**O-013:** Der Default-Level wird beim Öffnen aus `SharedPreferences`
+geladen (Key: `logViewerDefaultLevelPrefsKey`, Fallback: `error`).
+Jede Änderung im Dropdown wird sofort persistiert. Konfigurierbar
+auch über die Entwickler-Card im Settings-Screen.
+
 ### 13.2 F-007: Sync-Zeitstempel-Toggle (ValueNotifier-Pattern)
 
 Der Sync-Zeitstempel in der `ArtikelListScreen`-AppBar kann in den
@@ -613,6 +618,18 @@ klarer getrennt:
   PocketBase-URL-Prüfung, App-Lock-Status, DB-Status
 - `settings_state.dart`: UI-neutraler geteilter Settings-State
   (`showLastSyncNotifier`, Prefs-Key, Defaultwert)
+
+### 14.1 Settings-Cards (Übersicht)
+
+| Card | Inhalt | Seit |
+| :--- | :--- | :--- |
+| Benutzerkonto | Login-Status, E-Mail, Logout | v0.7.3 |
+| PocketBase Server | URL, Verbindungstest, Sync-Zeitstempel-Toggle | v0.5.0 |
+| Backup-Status | `BackupStatusWidget` | v0.8.0 |
+| Sicherheit | App-Lock, Biometrie, Timeout-Slider | v0.8.2 |
+| Artikelnummer | Start-Nummer, DB-Löschung | v0.6.0 |
+| **Entwickler** | Log-Viewer Default-Level (Dropdown, `SharedPreferences`) | **v0.9.5 (O-013)** |
+| App-Information | Version, Plattform, Auth-Status | v0.5.0 |
 
 ---
 
@@ -651,7 +668,7 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Uplo
 
 ## 19. Wartungs-Notiz
 
-> **Zuletzt aktualisiert:** fix/sync-hardening2-v0.9.4 / 0.9.4+43 (2026-05-03)  
+> **Zuletzt aktualisiert:** O-013 / 0.9.5+50 (2026-05-05) 
 > Architekturtext gegen historische ETag-only-Beschreibungen konsolidiert  
 > Konflikterkennung auf `last_synced_etag` als stabile Vergleichsbasis dokumentiert  
 > Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  

@@ -9,7 +9,7 @@
 import 'dart:js_interop';
 import 'dart:typed_data';
 
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 import 'package:web/web.dart' as web;
 
 import 'pdf_service_shared.dart';
@@ -19,7 +19,7 @@ import 'pdf_service_shared.dart';
 /// Es gibt keinen lokalen Dateipfad im Web — [savePdfBytes] gibt daher
 /// immer `null` zurück. Der Download wird direkt beim Aufruf ausgelöst.
 class PdfSaverImpl implements PdfSaver {
-  final Logger _logger = Logger();
+  final _logger = AppLogService.logger;
 
   /// Löst einen Browser-Download für [pdfBytes] aus.
   ///

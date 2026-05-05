@@ -122,9 +122,6 @@ class _PocketBaseConflictAdapter implements SyncService {
   _PocketBaseConflictAdapter(this._db);
 
   @override
-  final logger = _log;
-
-  @override
   final SyncProgressService progressService = SyncProgressService();
 
   @override

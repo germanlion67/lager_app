@@ -2,7 +2,7 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 
 /// Typ von Sync-Fehlern
 enum SyncErrorType {
@@ -323,7 +323,7 @@ extension RecoveryActionExtension on RecoveryAction {
 
 /// Service für Error Recovery und Retry Logic
 class SyncErrorRecoveryService {
-  final Logger logger = Logger();
+  final _logger = AppLogService.logger;
   final List<SyncError> _errorHistory = [];
   final Map<String, int> _retryCount = {};
   final Map<String, DateTime> _lastRetryTime = {};
@@ -354,7 +354,7 @@ class SyncErrorRecoveryService {
     String? itemName,
     Map<String, dynamic>? context,
   }) async {
-    logger.e('Sync error occurred', error: error, stackTrace: stackTrace);
+    _logger.e('Sync error occurred', error: error, stackTrace: stackTrace);
 
     final syncError = SyncError.fromException(
       error,
@@ -440,7 +440,7 @@ class SyncErrorRecoveryService {
 
     // Fix: Cooldown prüfen vor Retry
     if (_isInCooldown(key)) {
-      logger.d('Item $key is in cooldown, waiting...');
+      _logger.d('Item $key is in cooldown, waiting...');
       await Future<void>.delayed(retryDelay);
     }
 
@@ -449,7 +449,7 @@ class SyncErrorRecoveryService {
       milliseconds: exponentialBackoffBase.inMilliseconds * (1 << retries),
     );
 
-    logger.i(
+    _logger.i(
         'Retrying after ${delay.inSeconds}s (attempt ${retries + 1}/$maxRetries)',);
     await Future<void>.delayed(delay);
 

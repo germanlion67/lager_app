@@ -2,6 +2,16 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [v0.9.5+50] - O-013 — konfigurierbarer Log-Viewer Default-Level 
+
+### Verbessert
+- **O-013:** Log-Viewer Default-Level in App-Einstellungen konfigurierbar.
+  Neue "Entwickler"-Card im Settings-Screen mit Level-Dropdown
+  (Trace → Fatal). Auswahl wird in SharedPreferences persistiert und
+  beim Öffnen des Log-Viewers als Default geladen.
+
+--- 
+
 ## [v0.9.4+47] — M-013: Bild entfernen (Bugfixes) 2026-05-04
 
 ### Bugfixes
@@ -24,6 +34,7 @@ Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 - Kein zusätzlicher API-Call nötig (`_remoteBildUrl` aus State wiederverwendet)
 - 754 Tests grün, `flutter analyze` sauber
 
+--- 
 
 ## [0.9.4+46] — 2026-05-04
 

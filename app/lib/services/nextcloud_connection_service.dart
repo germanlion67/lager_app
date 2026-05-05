@@ -5,7 +5,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:logger/logger.dart';
+import 'package:lager_app/services/app_log_service.dart';
 
 import '../screens/nextcloud_settings_screen.dart';
 import 'nextcloud_credentials.dart';
@@ -20,7 +20,7 @@ class NextcloudConnectionService implements NextcloudServiceInterface {
   factory NextcloudConnectionService() => _instance;
   NextcloudConnectionService._internal();
 
-  final Logger _logger = Logger();
+  final _logger = AppLogService.logger;
   final ValueNotifier<NextcloudConnectionStatus> _connectionStatus =
       ValueNotifier<NextcloudConnectionStatus>(
     NextcloudConnectionStatus.unknown,

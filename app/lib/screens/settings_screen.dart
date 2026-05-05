@@ -2,6 +2,7 @@
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 
@@ -14,7 +15,6 @@ import '../widgets/backup_status_widget.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'settings_controller.dart';
-
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onLogout;
@@ -314,6 +314,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
                     if (!kIsWeb) _buildArtikelNummerCard(),
                     if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
+                    _buildDeveloperCard(),  // O-013
+                    const SizedBox(height: AppConfig.spacingLarge),
                     _buildInfoCard(),
                   ],
                 ),
@@ -768,6 +770,102 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── O-013: Entwickler-Einstellungen Card ────────────────────────────
+  Widget _buildDeveloperCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // Level-Optionen (gleiche Reihenfolge wie im Log-Viewer)
+    const levels = <String, String>{
+      'trace':   '🔍 Trace',
+      'debug':   '🐛 Debug',
+      'info':    'ℹ️ Info',
+      'warning': '⚠️ Warning',
+      'error':   '❌ Error',
+      'fatal':   '💀 Fatal',
+    };
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.developer_mode, color: colorScheme.primary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
+                  'Entwickler',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppConfig.spacingMedium),
+            FutureBuilder<String>(
+              future: SharedPreferences.getInstance().then(
+                (p) => p.getString(AppConfig.logViewerDefaultLevelPrefsKey)
+                    ?? AppConfig.logViewerDefaultLevelFallback,
+              ),
+              builder: (context, snapshot) {
+                final currentValue = snapshot.data
+                    ?? AppConfig.logViewerDefaultLevelFallback;
+
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(
+                    Icons.filter_list,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  title: const Text('Log-Viewer Standard-Level'),
+                  subtitle: const Text(
+                    'Mindest-Level beim Öffnen des Entwickler-Logs',
+                  ),
+                  trailing: DropdownButton<String>(
+                    value: levels.containsKey(currentValue)
+                        ? currentValue
+                        : AppConfig.logViewerDefaultLevelFallback,
+                    underline: const SizedBox.shrink(),
+                    items: levels.entries.map((e) {
+                      return DropdownMenuItem<String>(
+                        value: e.key,
+                        child: Text(
+                          e.value,
+                          style: textTheme.bodyMedium,
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) async {
+                      if (value == null) return;
+                      final messenger = ScaffoldMessenger.of(context);
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString(
+                        AppConfig.logViewerDefaultLevelPrefsKey,
+                        value,
+                      );
+                      if (!mounted) return;
+                      setState(() {}); // FutureBuilder neu triggern
+                      messenger.clearSnackBars();
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Log-Level auf ${levels[value]} gesetzt',
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),

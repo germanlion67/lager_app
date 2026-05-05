@@ -6,6 +6,8 @@
 //   F-006 — Log-Level-Filter: FilterChip-Reihe durch DropdownButton<Level>
 //            ersetzt. Default: Level.error (vorher: Level.trace).
 //            Passt auf S20 (360dp) ohne horizontales Scrollen.
+//   O-013 — Default-Level aus SharedPreferences laden/speichern.
+//            Konfigurierbar in den App-Einstellungen.
 //
 // VERWENDUNG:
 //   import '../services/app_log_service.dart';
@@ -23,6 +25,7 @@ import 'package:flutter/foundation.dart' show kReleaseMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logger/logger.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
 import '../config/app_theme.dart';
@@ -58,7 +61,7 @@ abstract final class AppLogService {
     level: kReleaseMode ? Level.warning : Level.debug,
     output: MultiOutput([ConsoleOutput(), _CleanMemoryOutput()]),
     printer: PrettyPrinter(
-      methodCount: 1,
+      methodCount: 0,
       errorMethodCount: 8,
       lineLength: 80,
       colors: true,       // Terminal bekommt weiterhin Farben
@@ -95,6 +98,21 @@ Color  _color(Level l) => _levelMeta[l]?.$2 ?? AppTheme.greyNeutral600;
 String _emoji(Level l) => _levelMeta[l]?.$3 ?? '';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// O-013: Level ↔ String Konvertierung für SharedPreferences
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Stabiler Key für Persistenz (lowercase Level-Name).
+String _levelToKey(Level l) => l.name.toLowerCase();
+
+/// Wandelt gespeicherten String zurück in Level.
+Level? _levelFromKey(String s) {
+  for (final entry in _levelMeta.entries) {
+    if (_levelToKey(entry.key) == s) return entry.key;
+  }
+  return null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Log-Viewer Dialog
 // ─────────────────────────────────────────────────────────────────────────────
 class _LogViewerDialog extends StatefulWidget {
@@ -107,7 +125,34 @@ class _LogViewerDialog extends StatefulWidget {
 class _LogViewerDialogState extends State<_LogViewerDialog> {
   // F-006: Default Level.error statt Level.trace —
   // zeigt sofort das Relevante, reduziert initialen Log-Rausch.
+  // O-013: Wird aus SharedPreferences überschrieben, falls gespeichert.
   Level _selectedLevel = Level.error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDefaultLevel();
+  }
+
+  // ── O-013: Persistierter Default-Level ──────────────────────────────
+  Future<void> _loadDefaultLevel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(AppConfig.logViewerDefaultLevelPrefsKey);
+    if (stored != null && mounted) {
+      final level = _levelFromKey(stored);
+      if (level != null) {
+        setState(() => _selectedLevel = level);
+      }
+    }
+  }
+
+  Future<void> _saveDefaultLevel(Level level) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      AppConfig.logViewerDefaultLevelPrefsKey,
+      _levelToKey(level),
+    );
+  }
 
   List<OutputEvent> get _filtered => _memoryOutput.buffer
       .where((e) => e.level.index >= _selectedLevel.index)
@@ -270,6 +315,7 @@ class _LogViewerDialogState extends State<_LogViewerDialog> {
                         onChanged: (Level? newLevel) {
                           if (newLevel != null) {
                             setState(() => _selectedLevel = newLevel);
+                            _saveDefaultLevel(newLevel);  // O-013
                           }
                         },
                       ),
