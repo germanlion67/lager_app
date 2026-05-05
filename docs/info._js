@@ -47,8 +47,30 @@ git branch                  # main aktiv?
 
 -----------------------------------
 
+git add .   Staged:     neue Dateien, geänderte Dateien, gelöschte Dateien (im aktuellen Verzeichnisbereich)
+git add -u  Staged nur: Änderungen an bereits bekannten Dateien inklusive Löschungen
+git add -A  Staged:     alles, also neue, geänderte und gelöschte Dateien
+--------------------------------------
+
+
 Superuser direkt im Container neu erstellen
 docker exec -it pocketbase /pb/pocketbase superuser create admin@example.com changeme123 --dir=/pb_data
 
 Test User 
 (user@lager.app / changeme123)
+
+--------------------updaten-----------------
+Ohne nennenswertes Laufzeit-Risiko kannst du sicher machen:
+
+flutter pub outdated
+flutter pub get
+flutter analyze
+flutter test
+Mit moderatem Risiko:
+
+flutter pub upgrade
+Mit höherem Risiko:
+
+flutter pub upgrade --major-versions
+flutter upgrade
+--------------------
