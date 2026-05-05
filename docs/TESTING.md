@@ -16,11 +16,8 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **754 Tests bestanden, 3 skipped, 0 Fehler**
-
-> `--exclude-tags performance` ist optional verfügbar, aber nicht erforderlich.  
-> Der Performance-Test ist self-contained und erzeugt seine Testdaten automatisch.
-> **Zu den 3 skipped Tests:** Diese entstehen ausschließlich im Gesamtlauf durch
+✅ **755 Tests bestanden, 2 skipped, 0 Fehler**
+> **Zu den 2 skipped Tests:** Diese entstehen ausschließlich im Gesamtlauf durch
 > Test-Binding-Reihenfolge (Singleton-State zwischen Testdateien). Einzeln ausgeführt
 > laufen alle 757 Tests ohne Skips. Es handelt sich nicht um fachliche Einschränkungen.
 
@@ -36,7 +33,7 @@ flutter test
 | `test/models/nextcloud_credentials_test.dart` | Unit | 4 | — |
 | `test/services/app_lock_service_test.dart` | Unit | 13 | O-011 |
 | `test/services/artikel_db_service_test.dart` | Integration | 116 | O-002 / T-001 |
-| `test/services/artikel_export_service_test.dart` | Unit + Widget | 2 | — |
+| `test/services/artikel_export_service_test.dart` | Unit + Widget | 3 | — |
 | `test/services/artikel_import_service_test.dart` | Unit | 4 | — |
 | `test/services/app_log_service_test.dart` | Unit | 14 | — |
 | `test/services/attachment_service_test.dart` | Unit | 34 | T-005 |
@@ -67,7 +64,7 @@ flutter test
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
 | **Gesamt** |  | **757** |  |
 
-> Hinweis: Der letzte verifizierte Gesamtlauf ergab **754 bestandene Tests** und **3 übersprungene Tests**.  
+> Hinweis: Der letzte verifizierte Gesamtlauf ergab **755 bestandene Tests** und **2 übersprungene Tests**.
 > Die Dateisummen dienen der Übersicht und können bei zukünftigen kleineren Testumbauten leicht abweichen.
 
 ---
@@ -581,7 +578,13 @@ flutter test test/models/nextcloud_credentials_test.dart
 
 **Ziel:** Tests für den `ArtikelImportService` (JSON-Import).
 
-- Gültiges JSON parsen, ungültiges JSON (Fehlerfall), leere Liste, Mock für `path_provider`
+**Strategie:**
+- `TestDefaultBinaryMessengerBinding` + Channel-Mock für `path_provider` (`getApplicationDocumentsDirectory`)
+- Alle Tests laufen ohne Skip
+
+| Gruppe | Tests | Was wird geprüft |
+| :-- | :--: | :-- |
+| JSON-Import | 4 | Gültiges JSON parsen, ungültiges JSON (Fehlerfall), leere Liste, Dateistruktur |
 
 ```bash
 flutter test test/services/artikel_import_service_test.dart
@@ -591,9 +594,18 @@ flutter test test/services/artikel_import_service_test.dart
 
 ### `services/artikel_export_service_test.dart` (2 Tests)
 
-**Ziel:** Tests für den `ArtikelExportService` (ZIP-Export).
+**Ziel:** Tests für den `ArtikelExportService` (ZIP-Export + Nextcloud-Backup).
 
-- Export gibt `null` zurück bei leerer Artikelliste, `FileSelectorPlatform` korrekt gemockt
+
+**Strategie:**
+- `FileSelectorPlatform` via Test-Implementierung injiziert
+- Nextcloud-Test nutzt `AppLogService.memoryOutput` direkt — kein Logger-Mock nötig
+- `MissingPluginException` von `flutter_secure_storage` wird im Produktivcode gefangen und geloggt
+
+| Gruppe | Tests | Was wird geprüft |
+| :-- | :--: | :-- |
+| `backupToZipFile` | 1 | Export gibt `null` zurück bei leerer Artikelliste (skip: UI-Abhängigkeit) |
+| `backupZipToNextcloud` | 1 | Fehler wird intern gefangen, Error-Log mit "Nextcloud"-Kontext geschrieben |
 
 ```bash
 flutter test test/services/artikel_export_service_test.dart
