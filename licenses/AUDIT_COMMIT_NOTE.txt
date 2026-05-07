@@ -1,0 +1,3 @@
+chore(license): audit started — progress marker
+
+This commit marks the start of the full license audit for all dependencies listed in app/pubspec.lock. The audit will run and add license files under `licenses/`. The PR will be opened after all files are added and the summary is prepared.
