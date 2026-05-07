@@ -1,0 +1,10 @@
+Package: cached_network_image
+Version: 3.4.1
+Declared license: MIT
+
+Primary source: https://pub.dev/packages/cached_network_image/versions/3.4.1
+License text reference: https://spdx.org/licenses/MIT.html
+
+Notes:
+- This is part of the initial license audit snapshot for lager_app.
+- Verify upstream repository notices (if any) before release packaging.

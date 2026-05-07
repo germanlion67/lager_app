@@ -1,0 +1,6 @@
+Initial license audit snapshot:
+- Dependency baseline captured from app/pubspec.lock
+- Initial license mapping table added
+- Per-package license summary files added with source and SPDX links
+
+This commit is intended as a starting point for complete dependency license compliance.

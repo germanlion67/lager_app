@@ -1,0 +1,10 @@
+Package: file_picker
+Version: 11.0.2
+Declared license: MIT
+
+Primary source: https://pub.dev/packages/file_picker/versions/11.0.2
+License text reference: https://spdx.org/licenses/MIT.html
+
+Notes:
+- This is part of the initial license audit snapshot for lager_app.
+- Verify upstream repository notices (if any) before release packaging.
