@@ -1,17 +1,17 @@
-# Licenses Audit (Initial Snapshot)
+# Lizenz-Audit (Initialer Snapshot)
 
-This folder tracks dependency license compliance work for `lager_app`.
+Dieser Ordner verfolgt die Compliance-Arbeit bezüglich Abhängigkeitslizenzen für `lager_app`.
 
-## Files
+## Dateien
 
-- `DEPENDENCIES_LIST.md`: authoritative dependency list copied from `app/pubspec.lock` (with heading/context wrapper).
-- `DEPENDENCIES_LICENSES.md`: package/version/license/source summary table.
-- `*-LICENSE.txt`: per-package license summary files with source and license-text links.
-- `AUDIT_PROGRESS.md`: short progress tracker for this audit pass.
-- `AUDIT_COMMIT_NOTE.txt`: commit-scoped note for this initial collection.
+- `DEPENDENCIES_LIST.md`: Die maßgebliche Abhängigkeitsliste, kopiert aus `app/pubspec.lock` (mit Überschrift/Kontext-Wrapper).
+- `DEPENDENCIES_LICENSES.md`: Eine Zusammenfassungstabelle mit Paket/Version/Lizenz/Quelle.
+- `*-LICENSE.txt`: Lizenzzusammenfassungsdateien pro Paket mit Quell- und Lizenztext-Links.
+- `AUDIT_PROGRESS.md`: Ein kurzer Fortschrittstracker für diesen Audit-Durchlauf.
+- `AUDIT_COMMIT_NOTE.txt`: Eine Commit-bezogene Notiz für diese initiale Sammlung.
 
-## Next Steps
+## Nächste Schritte
 
-1. Expand coverage from the initial dependency subset to all transitive dependencies.
-2. Replace link-only package entries with embedded full license texts where needed for distribution.
-3. Check for NOTICE/AUTHORS obligations (especially Apache-2.0 dependencies) and include them in release artifacts.
+1. Erweiterung der Abdeckung vom anfänglichen Abhängigkeits-Subset auf alle transitiven Abhängigkeiten.
+2. Ersetzen von ausschließlich verlinkten Paket-Einträgen durch eingebettete vollständige Lizenztexte, wo dies für die Distribution erforderlich ist.
+3. Überprüfung auf NOTICE/AUTHORS-Verpflichtungen (insbesondere bei Apache-2.0-Abhängigkeiten) und deren Aufnahme in die Release-Artefakte.
