@@ -1,0 +1,10 @@
+Package: intl
+Version: 0.20.2
+Declared license: BSD-3-Clause
+
+Primary source: https://pub.dev/packages/intl/versions/0.20.2
+License text reference: https://spdx.org/licenses/BSD-3-Clause.html
+
+Notes:
+- This is part of the initial license audit snapshot for lager_app.
+- Verify upstream repository notices (if any) before release packaging.

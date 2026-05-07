@@ -1,0 +1,10 @@
+Package: crop_your_image
+Version: 2.0.0
+Declared license: Apache-2.0
+
+Primary source: https://pub.dev/packages/crop_your_image/versions/2.0.0
+License text reference: https://spdx.org/licenses/Apache-2.0.html
+
+Notes:
+- This is part of the initial license audit snapshot for lager_app.
+- Verify upstream repository notices (if any) before release packaging.

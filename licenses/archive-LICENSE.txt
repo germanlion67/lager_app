@@ -1,0 +1,10 @@
+Package: archive
+Version: 4.0.9
+Declared license: BSD-2-Clause
+
+Primary source: https://pub.dev/packages/archive/versions/4.0.9
+License text reference: https://spdx.org/licenses/BSD-2-Clause.html
+
+Notes:
+- This is part of the initial license audit snapshot for lager_app.
+- Verify upstream repository notices (if any) before release packaging.

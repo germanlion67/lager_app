@@ -1,0 +1,10 @@
+Package: file_selector
+Version: 1.1.0
+Declared license: BSD-3-Clause
+
+Primary source: https://pub.dev/packages/file_selector/versions/1.1.0
+License text reference: https://spdx.org/licenses/BSD-3-Clause.html
+
+Notes:
+- This is part of the initial license audit snapshot for lager_app.
+- Verify upstream repository notices (if any) before release packaging.
