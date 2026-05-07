@@ -241,6 +241,7 @@ class PocketBaseSyncService implements OrchestratorSyncBackend {
           if (artikel.bildPfad.trim().isEmpty &&
               _safeGet(remoteData, 'bild').isNotEmpty) {
             body['bild'] = null;
+            body['remoteBildPfad'] = '';  // B-016: Remote-Verweis ebenfalls leeren
           }
 
           final files = _buildFiles(artikel);
