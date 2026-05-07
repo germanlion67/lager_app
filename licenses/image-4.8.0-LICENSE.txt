@@ -1,0 +1,7 @@
+Package: image
+Version: 4.8.0
+
+License: MIT License
+License text: https://opensource.org/licenses/MIT
+Authoritative source (pub.dev): https://pub.dev/packages/image/versions/4.8.0
+Repository LICENSE: https://github.com/brendan-duncan/image/blob/main/LICENSE

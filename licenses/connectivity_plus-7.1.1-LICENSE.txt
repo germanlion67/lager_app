@@ -1,0 +1,7 @@
+Package: connectivity_plus
+Version: 7.1.1
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/connectivity_plus/versions/7.1.1
+Repository (for LICENSE file): https://github.com/fluttercommunity/plus_plugins/tree/main/packages/connectivity_plus/connectivity_plus

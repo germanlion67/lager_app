@@ -1,0 +1,7 @@
+Package: crypto
+Version: 3.0.7
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/crypto/versions/3.0.7
+Repository: https://github.com/dart-lang/crypto (see package metadata)

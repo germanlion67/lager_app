@@ -1,0 +1,7 @@
+Package: package_info_plus
+Version: 9.0.1
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/package_info_plus/versions/9.0.1
+Repository: see pub.dev page for repo link

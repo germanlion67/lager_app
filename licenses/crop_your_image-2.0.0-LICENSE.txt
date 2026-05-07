@@ -1,0 +1,9 @@
+Package: crop_your_image
+Version: 2.0.0
+
+License: Apache License 2.0
+License text: https://www.apache.org/licenses/LICENSE-2.0
+Authoritative source (pub.dev): https://pub.dev/packages/crop_your_image/versions/2.0.0
+Repository (for LICENSE file): https://github.com/chooyan-eng/crop_your_image/blob/v2.0.0/LICENSE
+
+Note: If an upstream NOTICE file exists, include it in distributions per Apache-2.0 requirements.

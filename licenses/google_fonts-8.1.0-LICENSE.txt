@@ -1,0 +1,7 @@
+Package: google_fonts
+Version: 8.1.0
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/google_fonts/versions/8.1.0
+Repository: see pub.dev page for repo link

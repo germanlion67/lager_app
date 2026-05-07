@@ -1,0 +1,6 @@
+Package: csv
+Version: 8.0.0
+
+License: MIT License
+License text: https://opensource.org/licenses/MIT
+Authoritative source (pub.dev): https://pub.dev/packages/csv/versions/8.0.0

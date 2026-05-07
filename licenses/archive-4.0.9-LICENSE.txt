@@ -1,0 +1,8 @@
+Package: archive
+Version: 4.0.9
+
+License: BSD 2-Clause "Simplified" License
+License text: https://opensource.org/licenses/BSD-2-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/archive/versions/4.0.9
+
+Note: Upstream LICENSE file should be included in distributions. This file records the license and source for compliance purposes.

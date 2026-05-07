@@ -1,0 +1,7 @@
+Package: path
+Version: 1.9.1
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/path/versions/1.9.1
+Repository LICENSE: available via pub.dev package page

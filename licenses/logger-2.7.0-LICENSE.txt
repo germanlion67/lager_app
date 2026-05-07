@@ -1,0 +1,7 @@
+Package: logger
+Version: 2.7.0
+
+License: MIT License
+License text: https://opensource.org/licenses/MIT
+Authoritative source (pub.dev): https://pub.dev/packages/logger/versions/2.7.0
+Repository LICENSE: see pub.dev / repository link

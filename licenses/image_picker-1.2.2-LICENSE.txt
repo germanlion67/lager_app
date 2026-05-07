@@ -1,0 +1,7 @@
+Package: image_picker
+Version: 1.2.2
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/image_picker/versions/1.2.2
+Repository: see package page for repo and LICENSE

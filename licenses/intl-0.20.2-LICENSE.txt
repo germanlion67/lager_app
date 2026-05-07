@@ -1,0 +1,7 @@
+Package: intl
+Version: 0.20.2
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/intl/versions/0.20.2
+Repository: https://github.com/dart-lang/intl (check LICENSE)

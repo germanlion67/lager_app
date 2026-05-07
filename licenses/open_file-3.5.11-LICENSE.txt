@@ -1,0 +1,7 @@
+Package: open_file
+Version: 3.5.11
+
+License: BSD 3-Clause License
+License text: https://opensource.org/licenses/BSD-3-Clause
+Authoritative source (pub.dev): https://pub.dev/packages/open_file/versions/3.5.11
+Repository: see pub.dev page

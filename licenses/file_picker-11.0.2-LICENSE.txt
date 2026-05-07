@@ -1,0 +1,7 @@
+Package: file_picker
+Version: 11.0.2
+
+License: MIT License
+License text: https://opensource.org/licenses/MIT
+Authoritative source (pub.dev): https://pub.dev/packages/file_picker/versions/11.0.2
+Repository LICENSE: https://github.com/miguelpruivo/flutter_file_picker/blob/master/LICENSE

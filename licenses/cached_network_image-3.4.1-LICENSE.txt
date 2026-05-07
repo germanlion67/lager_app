@@ -1,0 +1,8 @@
+Package: cached_network_image
+Version: 3.4.1
+
+License: MIT License
+License text: https://opensource.org/licenses/MIT
+Authoritative source (pub.dev): https://pub.dev/packages/cached_network_image/versions/3.4.1
+
+Note: Include copyright notice when distributing.
