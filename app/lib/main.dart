@@ -63,6 +63,12 @@ void main() async {
       stackTrace: details.stack,
     );
   };
+  // B-017: Roten ErrorWidget-Screen durch leeres Widget ersetzen.
+  // Tritt z.B. bei Activity-Restart nach Permission-Änderung auf.
+  // Der Fehler wird weiterhin über FlutterError.onError geloggt.
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return const SizedBox.shrink();
+  };
 
   PlatformDispatcher.instance.onError = (error, stack) {
     _log.f(
