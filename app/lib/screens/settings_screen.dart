@@ -18,7 +18,13 @@ import 'settings_controller.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onLogout;
-  const SettingsScreen({super.key, this.onLogout});
+  final void Function(int seconds)? onSyncIntervalChanged;
+
+  const SettingsScreen({
+    super.key,
+    this.onLogout,
+    this.onSyncIntervalChanged,
+  });
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -37,6 +43,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _initController() async {
     try {
+      // F-008: Callback von main.dart an Controller weiterreichen
+      _controller.onSyncIntervalChanged = widget.onSyncIntervalChanged;
       await _controller.init();
     } catch (e) {
       if (!mounted) return;
@@ -308,6 +316,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: AppConfig.spacingLarge),
                     _buildPocketBaseCard(),
                     const SizedBox(height: AppConfig.spacingLarge),
+                    if (!kIsWeb) _buildSyncCard(),
+                    if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
                     const BackupStatusWidget(),
                     const SizedBox(height: AppConfig.spacingLarge),
                     if (!kIsWeb) _buildSecurityCard(),
@@ -463,6 +473,93 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 );
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+// ── F-008: Sync-Einstellungen Card ──────────────────────────────────────
+  Widget _buildSyncCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppConfig.spacingLarge),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sync, color: colorScheme.primary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
+                  'Synchronisierung',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppConfig.spacingMedium),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(
+                Icons.timer_outlined,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              title: const Text('Automatisches Sync-Intervall'),
+              subtitle: Text(
+                _controller.syncIntervalSeconds == 0
+                    ? 'Synchronisierung nur bei manuellem Auslösen'
+                    : 'Daten werden automatisch im Hintergrund abgeglichen',
+              ),
+              trailing: DropdownButton<int>(
+                value: _controller.syncIntervalSeconds,
+                underline: const SizedBox.shrink(),
+                items: SettingsController.allowedSyncIntervals.map((seconds) {
+                  return DropdownMenuItem<int>(
+                    value: seconds,
+                    child: Text(
+                      SettingsController.formatInterval(seconds),
+                      style: textTheme.bodyMedium,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) async {
+                  if (value == null) return;
+                  final previous = _controller.syncIntervalSeconds;
+                  await _controller.setSyncInterval(value);
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).clearSnackBars();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '🔄 Sync-Intervall: '
+                        '${SettingsController.formatInterval(value)}',
+                      ),
+                      action: SnackBarAction(
+                        label: 'Rückgängig',
+                        onPressed: () async {
+                          await _controller.setSyncInterval(previous);
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (_controller.syncIntervalSeconds == 0) ...[
+              const SizedBox(height: AppConfig.spacingSmall),
+              _buildStatusContainer(
+                icon: Icons.info_outline,
+                message: 'Bei „Nur manuell" werden Änderungen erst '
+                    'synchronisiert, wenn du in der Artikelliste '
+                    'nach unten ziehst (Pull-to-Refresh).',
+                type: _StatusType.info,
+              ),
+            ],
           ],
         ),
       ),

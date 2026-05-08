@@ -51,6 +51,18 @@ class SettingsController extends ChangeNotifier {
 
   bool showLastSync = defaultShowLastSync;
 
+// ── F-008: Sync-Intervall ───────────────────────────────────────────────
+  static const String syncIntervalPrefsKey = 'sync_interval_seconds';
+  static const int defaultSyncIntervalSeconds = 900; // 15 Minuten
+
+  /// Erlaubte Werte: 0 = nur manuell, 60 = 1 Min, 300 = 5 Min, 900 = 15 Min
+  static const List<int> allowedSyncIntervals = [0, 60, 300, 900];
+
+  int syncIntervalSeconds = defaultSyncIntervalSeconds;
+
+  /// Callback den main.dart setzt — wird bei Intervall-Änderung aufgerufen.
+  void Function(int seconds)? onSyncIntervalChanged;
+
   Future<void> init() async {
     await loadSettings();
     if (!kIsWeb) {
@@ -81,6 +93,10 @@ class SettingsController extends ChangeNotifier {
       showLastSync =
           prefs.getBool(showLastSyncPrefsKey) ?? defaultShowLastSync;
       showLastSyncNotifier.value = showLastSync;
+
+// F-008: Sync-Intervall laden
+      syncIntervalSeconds = prefs.getInt(syncIntervalPrefsKey)
+          ?? defaultSyncIntervalSeconds;
 
       pbConnectionOk = null;
 
@@ -272,6 +288,51 @@ class SettingsController extends ChangeNotifier {
   void setAppLockTimeoutPreview(int minutes) {
     appLockTimeoutMinutes = minutes.clamp(1, 30);
     notifyListeners();
+  }
+
+// ── F-008: Sync-Intervall ändern ────────────────────────────────────────
+  Future<void> setSyncInterval(int seconds) async {
+    if (!allowedSyncIntervals.contains(seconds)) return;
+
+    final previous = syncIntervalSeconds;
+    syncIntervalSeconds = seconds;
+    notifyListeners();
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(syncIntervalPrefsKey, seconds);
+      AppLogService.logger.i(
+        '[Settings] Sync-Intervall geändert: ${_formatInterval(seconds)}',
+      );
+      // Callback an main.dart — Timer sofort neu starten
+      onSyncIntervalChanged?.call(seconds);
+    } catch (e, st) {
+      AppLogService.logger.e(
+        'Sync-Intervall speichern fehlgeschlagen',
+        error: e,
+        stackTrace: st,
+      );
+      syncIntervalSeconds = previous;
+      notifyListeners();
+    }
+  }
+
+  /// Menschenlesbare Darstellung des Intervalls.
+  static String formatInterval(int seconds) => _formatInterval(seconds);
+
+  static String _formatInterval(int seconds) {
+    switch (seconds) {
+      case 0:
+        return 'Nur manuell';
+      case 60:
+        return 'Jede Minute';
+      case 300:
+        return 'Alle 5 Minuten';
+      case 900:
+        return 'Alle 15 Minuten';
+      default:
+        return '$seconds Sekunden';
+    }
   }
 
   @override

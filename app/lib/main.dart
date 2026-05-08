@@ -253,7 +253,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _wifiOnlySync = true;
   Timer? _syncTimer;
 
-  static const int _syncIntervalMinutes = 15;
+// F-008: Wird aus SharedPreferences geladen, Default 900s (15 Min).
+  // 0 = nur manuell (kein Timer).
+  int _syncIntervalSeconds = 900;
 
   // F2: GlobalKey für Navigator-Zugriff aus Callbacks ohne BuildContext.
   // Typ-Annotation explizit — kein HTML-Lint-Problem da kein Doc-Comment.
@@ -505,6 +507,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     if (mounted) {
       setState(() {
         _wifiOnlySync = prefs.getBool('wifi_only_sync') ?? true;
+        _syncIntervalSeconds = prefs.getInt('sync_interval_seconds') ?? 900;
       });
     }
   }
@@ -525,12 +528,25 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   }
 
   void _startPeriodicSync() {
+      _syncTimer?.cancel();
     if (!_pbService.hasClient) return;
-    _syncTimer?.cancel();
+    // F-008: 0 = nur manuell → kein Timer
+    if (_syncIntervalSeconds <= 0) {
+      _log.i('[Sync] Automatischer Sync deaktiviert (nur manuell)');
+      return;
+    }
+    _log.i('[Sync] Periodischer Sync alle $_syncIntervalSeconds Sekunden');
     _syncTimer = Timer.periodic(
-      const Duration(minutes: _syncIntervalMinutes),
+      Duration(seconds: _syncIntervalSeconds),
       (_) => _syncIfConnected(),
     );
+  }
+
+// F-008: Callback für Settings-Screen — Timer sofort neu starten
+  void _onSyncIntervalChanged(int seconds) {
+    _log.i('[Sync] Intervall geändert auf $seconds Sekunden');
+    _syncIntervalSeconds = seconds;
+    _startPeriodicSync();
   }
 
   Future<void> _syncIfConnected() async {
@@ -706,7 +722,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         switch (settings.name) {
           case '/settings':
             return MaterialPageRoute(
-              builder: (_) => SettingsScreen(onLogout: _onLogout),
+              builder: (_) => SettingsScreen(
+                onLogout: _onLogout,
+                onSyncIntervalChanged: _onSyncIntervalChanged,
+              ),
             );
           default:
             return MaterialPageRoute(
