@@ -89,6 +89,41 @@ docker compose up -d --build
 
 > ⚠️ **Sicherheitshinweis:** Diese Zugangsdaten sind nur für die lokale Entwicklung gedacht.
 > Ändere sie **sofort** in Produktionsumgebungen! Siehe [DEPLOYMENT.md](DEPLOYMENT.md).
+
+---
+
+## 📱 Schnellstart (Server + Mobile App)
+
+Der einfachste Weg, die Lager_app produktiv zu nutzen — **ohne Flutter-Kenntnisse**.
+
+### 1. PocketBase starten (Docker)
+
+```bash
+git clone https://github.com/germanlion67/lager_app.git
+cd lager_app
+cp .env.example .env
+docker compose up -d --build
+```
+
+### 2. Android-App installieren
+
+Lade die neueste APK von der [Releases-Seite](https://github.com/germanlion67/lager_app/releases/latest) herunter und installiere sie auf deinem Android-Gerät.
+
+### 3. App mit Server verbinden
+
+Beim ersten Start erscheint ein Einrichtungsbildschirm:
+
+1. **Server-URL eingeben:** `http://<IP-deines-Rechners>:8080`
+2. **Verbindung testen** → grüner Haken
+3. **Weiter** → Login mit den Standard-Zugangsdaten (siehe oben)
+
+> 💡 **Tipp:** Die IP deines Rechners findest du mit `ip addr` (Linux) oder `ipconfig` (Windows).
+> Verwende **nicht** `localhost` — das zeigt auf dem Handy auf das Handy selbst.
+
+Das war's — du kannst Artikel erfassen, scannen und synchronisieren! 🎉
+
+> 🏢 **Für Teams / Produktion** mit SSL, Web-App, Backup und Portainer siehe [DEPLOYMENT.md](DEPLOYMENT.md).
+
 ---
 
 ## 🛠️ Schnellstart (Flutter nativ)

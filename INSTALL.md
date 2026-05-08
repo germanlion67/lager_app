@@ -1,6 +1,11 @@
 # 🛠️ Installationsanleitung
 
-Diese Anleitung führt dich durch die Einrichtung der **Lager_app** für die lokale Entwicklung und verschiedene Zielplattformen.
+> 📦 **Repository:** [github.com/germanlion67/lager_app](https://github.com/germanlion67/lager_app)
+>
+> 🚀 **Schnelleinstieg gesucht?** Siehe [README.md → Schnellstart](README.md#-schnellstart-server--mobile-app)
+> für den schnellsten Weg zum laufenden System.
+>
+> Diese Anleitung hier beschreibt die **detaillierte Einrichtung** für Entwicklung und alle Plattformen.
 
 ---
 
@@ -158,6 +163,9 @@ flutter run --dart-define=POCKETBASE_URL=http://<IP>:8080
 > Auf Web kann die Server-URL zusätzlich über Runtime-Konfiguration bereitgestellt werden.
 > Auf nativen Plattformen wird typischerweise mit gespeicherten Einstellungen oder
 > `--dart-define` gearbeitet. Welche Quelle effektiv verwendet wird, bestimmt der aktuelle Code.
+> 💡 **Kein Flutter installiert?** Die fertige APK findest du auf der
+> [Releases-Seite](https://github.com/germanlion67/lager_app/releases/latest).
+> Der folgende Abschnitt ist nur für Entwickler relevant, die die APK selbst bauen möchten.
 
 ---
 
@@ -247,6 +255,12 @@ Für spezielle Betriebs- oder Entwicklungsfälle gelten ergänzend:
 - Android blockiert standardmäßig unverschlüsselten HTTP-Traffic (ab API-Level 28).
 - Die App hat `android:usesCleartextTraffic="true"` bereits gesetzt, sodass HTTP für LAN-Tests funktioniert.
 - Für Produktion wird dennoch **HTTPS** empfohlen.
+
+### Portainer-Stack startet nicht?
+- Prüfe, ob alle Pflicht-Variablen gesetzt sind (`PB_ADMIN_PASSWORD`, `POCKETBASE_URL`, `CORS_ALLOWED_ORIGINS`)
+- Prüfe, ob die Docker-Images im Registry verfügbar sind (`ghcr.io/germanlion67/lager_app_*`)
+- Prüfe Container-Logs in Portainer unter **Containers → Logs**
+- Detaillierte Fehlerbehebung: [PORTAINER_PROD.md](docs/PORTAINER_PROD.md)
 
 ### Docker-Build schlägt fehl?
 - Achte darauf, dass du den Build vom Wurzelverzeichnis `lager_app/` startest, nicht aus dem `app/`-Ordner heraus.
