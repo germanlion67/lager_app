@@ -43,11 +43,15 @@ class ArtikelListScreen extends StatefulWidget {
     this.nextcloudService,
     this.initialArtikel,
     this.syncStatusProvider,
+    this.onLogout,
+    this.onSyncIntervalChanged,
   });
 
   final NextcloudServiceInterface? nextcloudService;
   final List<Artikel>? initialArtikel;
   final SyncStatusProvider? syncStatusProvider;
+  final VoidCallback? onLogout;
+  final void Function(int seconds)? onSyncIntervalChanged;
 
   @override
   State<ArtikelListScreen> createState() => _ArtikelListScreenState();
@@ -779,7 +783,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         await Navigator.push<void>(
           context,
           MaterialPageRoute<void>(
-            builder: (_) => const SettingsScreen(),
+            builder: (_) => SettingsScreen(
+              onLogout: widget.onLogout,
+              onSyncIntervalChanged: widget.onSyncIntervalChanged,
+            ),
           ),
         );
     }

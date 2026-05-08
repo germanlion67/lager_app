@@ -529,7 +529,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }).toList(),
                 onChanged: (value) async {
                   if (value == null) return;
-                  final previous = _controller.syncIntervalSeconds;
                   await _controller.setSyncInterval(value);
                   if (!mounted) return;
                   ScaffoldMessenger.of(context).clearSnackBars();
@@ -539,12 +538,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         '🔄 Sync-Intervall: '
                         '${SettingsController.formatInterval(value)}',
                       ),
-                      action: SnackBarAction(
-                        label: 'Rückgängig',
-                        onPressed: () async {
-                          await _controller.setSyncInterval(previous);
-                        },
-                      ),
+                      duration: const Duration(seconds: 3),
                     ),
                   );
                 },

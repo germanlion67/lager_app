@@ -800,10 +800,18 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               },
             ),
           ),
-          ArtikelListScreen(syncStatusProvider: _orchestrator),
+          ArtikelListScreen(
+            syncStatusProvider: _orchestrator,
+            onLogout: _onLogout,
+            onSyncIntervalChanged: _onSyncIntervalChanged,
+          ),
         ],
       );
     }
-    return ArtikelListScreen(syncStatusProvider: _orchestrator);
+    return ArtikelListScreen(
+      syncStatusProvider: _orchestrator,
+      onLogout: _onLogout,
+      onSyncIntervalChanged: _onSyncIntervalChanged,
+      );
   }
 }
