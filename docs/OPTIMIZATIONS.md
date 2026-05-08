@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.4+48 | **Zuletzt aktualisiert:** 04.05.2026
+**Version:** 0.9.5+54 | **Zuletzt aktualisiert:** 07.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-016`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-014`, `P-006`, `T-012`
+- `B-018`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-014`, `P-006`, `T-012`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -43,34 +43,11 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 
 ## 🟡 Priorität: Mittel
 
-### P-004: Android Kamera-Test abschließen
-**Beschreibung:** Android ist aktuell „Build stabil, Kamera-Test ausstehend“.
 
-**Details**
-- [ ] Vollständige manuelle Tests der Kamerafunktionalität auf verschiedenen Android-Geräten
-- [ ] Prüfen, ob Bilder korrekt aufgenommen, zugeschnitten und hochgeladen werden
-- [ ] Ggf. automatisierte Testabdeckung ergänzen
-
---- 
-
-
---- 
+---
 
 ## 🟢 Priorität: Nice-to-Have
 
-### F-008: Hintergrund-Sync-Intervall konfigurierbar machen
-**Beschreibung:** Derzeit ist das automatische Sync-Intervall hart auf 15 Minuten eingestellt.  
-Der Nutzer soll im Einstellungs-Screen ein Intervall (1 / 5 / 15 Minuten oder „Nur manuell“) wählen können.  
-Wert wird persistiert (`SharedPreferences.sync_interval_seconds`) und vom `SyncScheduler` gelesen. Änderungen greifen ohne App-Neustart.
-
-**Tasks**
-- [ ] Settings-UI: Dropdown / Slider mit 1, 5, 15 Min, Aus
-- [ ] Neuer/erweiterter `SyncScheduler` oder Refactor von `_startPeriodicSync()`
-- [ ] Persistenz in SharedPreferences
-- [ ] Unit-Tests: Scheduler startet/aktualisiert Timer korrekt
-- [ ] Widget-Test: UI-Einstellung speichert und reflektiert Wert
-
-**Abhängigkeiten:** none  
 
 ---
 
@@ -145,6 +122,131 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+### F-008: Hintergrund-Sync-Intervall konfigurierbar — abgeschlossen 2026-05-08 | `0.9.5+54`
+**Beschreibung:** Das automatische Sync-Intervall war hart auf 15 Minuten eingestellt. Der Nutzer kann jetzt im Einstellungs-Screen ein Intervall wählen.
+
+**Optionen:**
+- 1 Minute
+- 5 Minuten
+- 15 Minuten (Standard)
+- Nur manuell (kein Timer, Sync nur via Pull-to-Refresh)
+
+**Architektur:**
+Callback-Pattern analog zu `onLogout`:
+```
+SettingsScreen.onSyncIntervalChanged(int seconds)
+  → SettingsController.setSyncInterval()
+    → SharedPreferences persistieren
+    → Callback an main.dart
+      → _startPeriodicSync() mit neuem Intervall
+```
+Änderungen greifen sofort ohne App-Neustart.
+
+**Persistenz:** `SharedPreferences` Key `sync_interval_seconds` (int, Default 900)
+
+**Betroffene Dateien:**
+| Datei | Änderung |
+|-------|----------|
+| `lib/screens/settings_controller.dart` | Feld `syncIntervalSeconds`, Laden/Speichern, Callback, Formatter |
+| `lib/screens/settings_screen.dart` | Neue Sync-Card mit Dropdown, `onSyncIntervalChanged` Parameter |
+| `lib/main.dart` | `_syncIntervalSeconds` statt Konstante, `_onSyncIntervalChanged()` Callback, Timer-Neustart |
+
+**Tasks:**
+- [x] Settings-UI: Dropdown mit 1, 5, 15 Min, Aus
+- [x] Refactor von `_startPeriodicSync()` — liest dynamisches Intervall
+- [x] Persistenz in SharedPreferences
+- [x] Callback-Kette durch ArtikelListScreen durchgereicht
+- [x] SnackBar Auto-Dismiss (3s, ohne Action)
+- [x] Gerätetest auf Samsung SM A515F bestanden
+- [x] Unit-Tests: Scheduler startet/aktualisiert Timer korrekt
+- [x] Widget-Test: UI-Einstellung speichert und reflektiert Wert
+
+--- 
+
+### B-016: `remoteBildPfad` wird beim Bild-Entfernen nicht in PocketBase geleert — abgeschlossen 2026-05-08 | `0.9.5+51`
+**Entdeckt bei:** P-004, Test 5 (Bild entfernen)
+**Schwere:** Niedrig
+
+**Beschreibung:**
+Beim Entfernen eines Bildes (M-013) wurde das `bild`-Feld in PocketBase korrekt auf `null` gesetzt und die Bilddatei gelöscht. Das Textfeld `remoteBildPfad` blieb jedoch mit dem alten Dateinamen stehen.
+
+**Fix:**
+Im Push-Update-Pfad von `pocketbase_sync_service.dart` wird jetzt `body['remoteBildPfad'] = ''` zusammen mit `body['bild'] = null` gesendet.
+
+**Betroffene Datei:** `lib/services/pocketbase_sync_service.dart` — 1 Zeile hinzugefügt
+
+**Verifiziert (08.05.2026):**
+- PocketBase Admin: `bild` = leer ✅
+- PocketBase Admin: `remoteBildPfad` = leer ✅
+- Kein Follow-up-PATCH ausgelöst (korrekt) ✅
+- `downloadMissingImages` überspringt korrekt ✅
+
+--- 
+
+### B-017: Kurzer BlueScreen bei Kamera-Permission-Entzug zur Laufzeit - Abgeschlossen 2026-05-08 | `0.9.5+54`
+**Entdeckt bei:** P-004, Test 7.4 (Permission verweigern)
+**Schwere:** Niedrig (herabgestuft von Mittel nach Analyse)
+**Status:** Bekanntes Android-Verhalten — kein Fix nötig
+
+**Beschreibung:**
+Wird die Kamera-Permission in den Android-Einstellungen entzogen, während die App im Hintergrund ist, beendet Android die Activity sofort (Security-Policy). Dabei kann kurzzeitig ein BlueScreen (Flutter-ErrorWidget) aufblitzen, bevor Android die Activity neu erstellt und Flutter komplett von vorne startet.
+
+**Analyse (07.05.2026):**
+Die Logs zeigen keinen Stacktrace und keine unbehandelte Exception. Stattdessen wird der Prozess sauber beendet (PID-Wechsel) und die App startet komplett neu — inklusive Login-Screen. Kein Datenverlust, kein korrupter Zustand. Der „BlueScreen" ist der kurze Moment zwischen Activity-Kill und Neustart, in dem Flutter noch versucht, den alten Widget-Tree zu rendern.
+
+**Verhalten:**
+```
+Permission in Android-Einstellungen geändert
+  → Android beendet Activity (alter PID stirbt)
+  → Android erstellt Activity neu (neuer PID)
+  → Flutter startet komplett von vorne
+  → Login-Screen erscheint (kein gespeicherter Token nach Prozess-Kill)
+```
+
+**Bewertung:**
+- Kein Flutter-Bug, sondern erwartetes Android-OS-Verhalten
+- Kein Datenverlust, kein korrupter DB-Zustand
+- App startet nach Neustart sauber
+- Nach Neustart mit entzogener Permission erscheint korrekt die Berechtigungsabfrage
+
+**Fix (07.05.2026):** `ErrorWidget.builder` in `main()` überschrieben — zeigt `SizedBox.shrink()` statt rotem ErrorWidget. Fehler werden weiterhin geloggt. Rein kosmetisch, kein funktionaler Einfluss.
+
+--- 
+
+### P-004: Android Kamera-Test — abgeschlossen 2026-05-07 | `0.9.5+50`
+**Beschreibung:** Vollständige manuelle Verifikation der Kamerafunktionalität auf Android (SM-A515F).
+
+**Testmatrix**
+
+| Test | Beschreibung | Ergebnis |
+|------|-------------|----------|
+| 1 | Kamera Happy Path (Aufnahme → Vorschau → Speichern → Sync → PocketBase) | ✅ |
+| 2 | Kamera abbrechen (Zurück in Kamera-App) | ✅ |
+| 3 | Kamera → Zuschneiden (Crop-Dialog mit Kamerabild) | ✅ |
+| 4 | Kamera → Bild ersetzen (bestehendes Bild durch neues Kamerabild) | ✅ |
+| 5 | Bild entfernen (M-013) — lokal + PocketBase | ⚠️ B-016 |
+| 6 | Kamera bei Neuerfassung (neuer Artikel mit Kamerabild) | ✅ |
+| 7.1 | Nicht speichern → Verwerfen-Dialog | ✅ |
+| 7.2 | Verwerfen → alter Zustand wiederhergestellt | ✅ |
+| 7.3 | Großes Foto (> 10 MB) | ✅ übersprungen — `maxWidth`/`maxHeight` in AppConfig greifen automatisch |
+| 7.4 | Kamera-Permission verweigern | ❌ B-017 |
+| 7.5 | App-Kill während Kamera-Intent (Low Memory) | ✅ sauberer Neustart, kein korrupter Zustand |
+
+**Android-Konfiguration verifiziert**
+
+| Prüfpunkt | Status |
+|-----------|--------|
+| `CAMERA`-Permission in AndroidManifest | ✅ |
+| `uses-feature camera required="false"` | ✅ |
+| `MainActivity` erbt von `FlutterFragmentActivity` | ✅ |
+| `image_picker: ^1.2.0` (eigener FileProvider integriert) | ✅ |
+| DB-Lifecycle bei Kamera-Intent (close/reopen) | ✅ |
+| Thumbnail-Erzeugung nach Kamera-Aufnahme | ✅ |
+| Hintergrund-Upload zu PocketBase (fire-and-forget) | ✅ |
+| `downloadMissingImages` Round-Trip-Bestätigung | ✅ |
+
+**Offene Befunde:** B-016, B-017
 
 
 ### O-013: Log-Viewer Default-Level in Einstellungen konfigurierbar ✅
@@ -618,6 +720,8 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-08 | 0.9.5+54 | F-008: Sync-Intervall konfigurierbar (1/5/15 Min oder nur manuell). Dropdown in Einstellungen, Callback-Pattern für sofortige Übernahme ohne App-Neustart. |
+| 2026-05-08 | 0.9.5+51 | P-004 abgeschlossen: Android-Kamera vollständig manuell verifiziert (8 Tests auf A515F). B-016 behoben: `remoteBildPfad` wird beim Bild-Entfernen jetzt in PocketBase geleert (1 Zeile in Push-Update-Pfad). B-017 behoben: `ErrorWidget.builder` unterdrückt roten ErrorWidget-Flash bei Activity-Restart nach Permission-Änderung (kosmetisch, erwartetes Android-OS-Verhalten). |
 | 2026-05-05 | 0.9.5+50 | O-013 umgesetzt: Log-Viewer Default-Level in App-Einstellungen konfigurierbar |
 | 2026-05-04 | 0.9.4+49 | F-009 umgesetzt: Kategorie-Feld in Erfassen/Detail/Liste, Kategorie-Filter neben Ort-Filter, Chip in Listenansicht. |
 | 2026-05-04 | 0.9.4+48 | T-001 abgeschlossen: Konfliktlösung, Sync-Hardening und Integrationsverifikation vollständig abgehakt. UUID-Pattern serverseitig abgesichert, UTC-Konsistenz geprüft (sauber), Zeitstempel-Semantik in DATABASE.md dokumentiert, verbleibende Optional-Punkte bewusst als „nicht benötigt" gestrichen. |
