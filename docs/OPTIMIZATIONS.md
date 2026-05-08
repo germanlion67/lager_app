@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-018`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-014`, `P-006`, `T-012`
+- `B-018`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-023`, `P-006`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -43,13 +43,174 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 
 ## 🟡 Priorität: Mittel
 
+### O-014: Nextcloud-Code entkoppeln und entfernen
+**Beschreibung:**
+~1.870 Zeilen Nextcloud-Code und die Dependency `webdav_client` sind im Projekt,
+obwohl Nextcloud unter „Future (nicht in Planung)" steht. Der Code ist jedoch
+nicht isoliert — Nextcloud-Imports existieren in:
+- `artikel_import_service.dart` (Nextcloud-Import-Pfad)
+- `artikel_export_service.dart` (Nextcloud-Export-Pfad)
+- `artikel_list_screen.dart` (vermutlich Menüpunkt/Button)
+- `sync_service.dart` (wird von 7 Dateien importiert für `ConflictData`,
+  `ConflictResolution`, `SyncService`-Interface, `SyncProgressService`,
+  `SyncErrorRecoveryService`)
+
+**Ziel:**
+1. `ConflictData`, `ConflictResolution`, `SyncResult` und das Adapter-Interface
+   in eigene Datei extrahieren (z. B. `lib/services/conflict_types.dart`)
+2. Nextcloud-Referenzen aus Import-/Export-Services entfernen
+   (Conditional Imports auf Stubs umleiten oder Nextcloud-Pfade entfernen)
+3. Nextcloud-Menüpunkt aus `artikel_list_screen.dart` entfernen
+4. Alle Nextcloud-Dateien entfernen
+5. `webdav_client` aus `pubspec.yaml` entfernen
+
+**Betroffene Dateien (Entkopplung):**
+- `lib/services/sync_service.dart` → Conflict-Types extrahieren, Rest entfernen
+- `lib/services/artikel_import_service.dart` → Nextcloud-Pfad entfernen
+- `lib/services/artikel_export_service.dart` → Nextcloud-Pfad entfernen
+- `lib/screens/artikel_list_screen.dart` → Nextcloud-UI entfernen
+- `lib/main.dart` → Import von `sync_service.dart` auf neue Datei umstellen
+
+**Zu löschende Dateien:**
+- `lib/services/nextcloud_client.dart`
+- `lib/services/nextcloud_webdav_client.dart`
+- `lib/services/nextcloud_sync_service.dart`
+- `lib/services/nextcloud_connection_service.dart`
+- `lib/services/nextcloud_credentials.dart`
+- `lib/services/nextcloud_service_interface.dart`
+- `lib/services/export_nextcloud.dart`
+- `lib/services/export_nextcloud_stub.dart`
+- `lib/services/import_nextcloud.dart`
+- `lib/screens/nextcloud_settings_screen.dart`
+- `lib/widgets/nextcloud_resync_dialog.dart`
+- `lib/services/sync_service.dart`
+
+**Aufwand:** ~3–4 Stunden (wegen Entkopplung)
+**Risiko:** Mittel — Import-/Export-Pfade und List-Screen betroffen
+
+**Tasks:**
+- [ ] `conflict_types.dart` mit ConflictData, ConflictResolution, SyncResult extrahieren
+- [ ] Alle 7 Dateien die `sync_service.dart` importieren auf neue Imports umstellen
+- [ ] Nextcloud-Pfade aus Import-/Export-Services entfernen
+- [ ] Nextcloud-UI aus `artikel_list_screen.dart` entfernen
+- [ ] 12 Nextcloud-Dateien + `sync_service.dart` löschen
+- [ ] `webdav_client` aus pubspec.yaml entfernen
+- [ ] Betroffene Tests anpassen
+- [ ] `flutter analyze` + `flutter test` grün
+- [ ] PROJECT_STRUCTURE.md aktualisieren
 
 ---
+
+### O-017: `catch (e)` durch `catch (e, st)` ersetzen
+**Beschreibung:**
+Mehrere produktive Services fangen Exceptions ohne StackTrace (`catch (e)` statt
+`catch (e, st)`). Dadurch geht bei Fehlerdiagnose die Aufrufkette verloren.
+
+**Betroffene produktive Dateien:**
+- `pdf_service_shared.dart` (1×)
+- `scan_service_stub.dart` (1×)
+- `app_log_io.dart` (4×)
+- `artikel_import_service.dart` (2×)
+
+Nextcloud-Dateien (9+ Stellen) entfallen mit O-014.
+
+**Aufwand:** ~30 Minuten
+**Risiko:** Sehr niedrig
+
+**Tasks:**
+- [ ] `catch (e)` → `catch (e, st)` in den 4 produktiven Dateien
+- [ ] StackTrace an Logger-Aufrufe durchreichen
+- [ ] `flutter analyze` grün
+
+--- 
+
+### T-012: Testlücken bei produktiven Services schließen
+**Beschreibung:**
+6 produktiv genutzte Services haben keine Testdatei. Höchste Priorität hat
+`pocketbase_service.dart` (492 Zeilen, zentraler Client-Service).
+
+**Priorisierte Testliste:**
+
+| Priorität | Service | Testfokus |
+|-----------|---------|-----------|
+| 🔴 Hoch | `pocketbase_service.dart` | `initialize()` URL-Prioritäten, `updateUrl()` mit Health-Check, `login()`/`logout()`, `refreshAuthToken()`, `needsSetup`-Logik |
+| 🟡 Mittel | `connectivity_service.dart` | WiFi-Erkennung, Timeout-Verhalten |
+| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking |
+| 🟡 Mittel | `sync_error_recovery.dart` | Recovery-Strategien, Retry-Logik |
+| 🟢 Niedrig | `tag_service.dart` | CRUD |
+| 🟢 Niedrig | `database_service.dart` | Init-Pfade |
+
+**Aufwand:** ~4–6 Stunden (alle), ~2 Stunden (nur pocketbase_service)
+**Risiko:** Keins — rein additiv
+
+**Tasks:**
+- [ ] `test/services/pocketbase_service_test.dart` erstellen
+- [ ] `test/services/connectivity_service_test.dart` erstellen
+- [ ] Weitere nach Bedarf
+
+--- 
 
 ## 🟢 Priorität: Nice-to-Have
 
 
+### O-020: main.dart, artikel_detail_screen.dart, artikel_db_service.dart aufteilen
+
+### O-021: State Management modernisieren 
+
+### O-022: AppConfig modularisieren, flutter_local_notifications entfernen
+
+--- 
+
+### O-016: Timeouts in AppConfig zentralisieren
+**Beschreibung:**
+Timeout-Werte sind über 6+ Service-Dateien als lokale Konstanten oder
+Inline-Literals verstreut. `AppConfig.networkTimeout` (12s) existiert,
+wird aber von den meisten Services nicht genutzt.
+
+**Ziel:**
+Alle Timeout-Konstanten in `AppConfig` bündeln, ohne die Werte zu ändern:
+
+| Konstante | Wert | Ersetzt |
+|-----------|------|---------|
+| `networkTimeout` | 12s | Bereits vorhanden |
+| `syncPushTimeout` | 30s | `_kPushRequestTimeout` |
+| `syncUploadTimeout` | 120s | `_kPushUploadTimeout` |
+| `connectivityCheckTimeout` | 3s | Inline in `connectivity_service.dart` |
+| `backupStatusTimeout` | 5s | Inline in `backup_status_service.dart` |
+
+Nextcloud-Timeouts werden nicht migriert (entfallen mit O-014).
+
+**Aufwand:** ~1 Stunde
+**Risiko:** Sehr niedrig — nur Konstantenverlagerung, keine Wertänderung
+
+**Tasks:**
+- [ ] Timeout-Konstanten in `AppConfig` ergänzen
+- [ ] Services auf `AppConfig.*Timeout` umstellen
+- [ ] Lokale `_k*`-Konstanten entfernen
+- [ ] `flutter analyze` + `flutter test` grün
+
 ---
+
+### O-015: Dependency-Hygiene
+**Beschreibung:**
+`flutter_local_notifications: ^21.0.0` wird nirgends im Code importiert
+(0 Treffer bei grep). Die Dependency kann entfernt werden.
+
+Weitere Kandidaten (`webdav_client`) werden mit O-014 adressiert.
+
+**Verifiziert per grep:**
+- `flutter_local_notifications` → 0 Treffer in `app/lib/` ✅
+- `google_fonts` → genutzt in `app_theme.dart` → behalten ✅
+- `provider` → genutzt in 8 Dateien → behalten ✅
+
+**Tasks:**
+- [ ] `flutter_local_notifications` aus pubspec.yaml entfernen
+- [ ] `flutter pub get` + `flutter test` grün
+
+**Aufwand:** 10 Minuten
+**Risiko:** Sehr niedrig
+
+--- 
 
 ### F-010: Nutzerfreundliche Aktivitäts-Logs (UserLogService)
 **Beschreibung:**  
@@ -93,6 +254,20 @@ O-012 (Entwickler-Summary-Logs) bleibt unverändert bestehen. F-010 ist eine eig
 **Abhängigkeiten:**  
 Keine Blocker. Greift nicht in bestehende Sync-Logik ein — nur additive Log-Aufrufe neben den bestehenden technischen Logs.
 
+--- 
+
+### O-019: `print()` in `app_config.dart` durch Logger ersetzen
+**Beschreibung:**
+Eine `print()`-Stelle in `app_config.dart:99` (innerhalb `assert`).
+Funktional harmlos (nur Debug), aber inkonsistent mit dem sonst
+durchgängig genutzten `AppLogService.logger`.
+
+**Aufwand:** 5 Minuten
+**Risiko:** Keins
+
+**Tasks:**
+- [ ] `print()` durch `AppLogService.logger.w()` ersetzen
+- [ ] `assert`-Wrapper ggf. entfernen (Logger hat eigenen Level-Filter)
 
 --- 
 
@@ -115,6 +290,28 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 - optionaler Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback
 - Android-Kamera-Verifikation
 - konfigurierbares Sync-Intervall
+
+--- 
+
+### O-018: Hardcoded deutsche UI-Strings (Lokalisierungsvorbereitung)
+**Beschreibung:**
+20+ Stellen in Screens enthalten hardcoded deutsche Strings, vor allem
+Fehlermeldungen in SnackBars. Aktuell kein funktionales Problem, aber
+Hindernis für spätere Lokalisierung.
+
+**Betroffene Screens:**
+- `artikel_erfassen_screen.dart`
+- `artikel_detail_screen.dart`
+- `list_screen_mobile_actions.dart`
+- `list_screen_web_actions.dart`
+- `settings_screen.dart`
+
+**Empfehlung:** Erst umsetzen wenn Mehrsprachigkeit tatsächlich geplant wird.
+Bis dahin als dokumentierte technische Schuld belassen.
+
+**Aufwand:** ~4–6 Stunden (vollständige Extraktion in l10n)
+**Risiko:** Niedrig
+**Priorität:** Future — erst bei Mehrsprachigkeitsbedarf
 
 ---
 

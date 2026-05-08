@@ -118,7 +118,7 @@ Beim ersten Start erscheint ein Einrichtungsbildschirm:
 3. **Weiter** → Login mit den Standard-Zugangsdaten (siehe oben)
 
 > 💡 **Tipp:** Die IP deines Rechners findest du mit `ip addr` (Linux) oder `ipconfig` (Windows).
-> Verwende **nicht** `localhost` — das zeigt auf dem Handy auf das Handy selbst.
+> Verwende **nicht** `localhost` — das zeigt auf das Handy selbst.
 
 Das war's — du kannst Artikel erfassen, scannen und synchronisieren! 🎉
 
