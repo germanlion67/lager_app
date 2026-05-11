@@ -16,6 +16,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart' show BoxFit, Color, EdgeInsets;
 import 'package:runtime_env_config/runtime_env_config.dart';
+import 'package:lager_app/services/app_log_service.dart';
 
 class AppConfig {
   AppConfig._();
@@ -31,6 +32,7 @@ class AppConfig {
   //
   // Wird über init() befüllt, damit pocketBaseUrl synchron bleiben kann.
   static String? _runtimePocketBaseUrl;
+  static final _logger = AppLogService.logger;
 
   /// Muss beim App-Start aufgerufen werden (vor validateConfig() und idealerweise
   /// vor der ersten Nutzung von pocketBaseUrl).
@@ -39,7 +41,15 @@ class AppConfig {
 
     try {
       _runtimePocketBaseUrl = await RuntimeEnvConfig.pocketBaseUrl();
-    } catch (_) {
+      _logger.i(
+        '[AppConfig] Runtime PocketBase URL: $_runtimePocketBaseUrl',
+      );
+    } catch (e, stack) {
+      _logger.e(
+        '[AppConfig] Runtime-Config konnte nicht geladen werden',
+        error: e,
+        stackTrace: stack,
+      );
       _runtimePocketBaseUrl = null;
     }
   }
