@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-018`, `F-011`, `H-004`, `K-008`, `M-014`, `N-007`, `O-023`, `P-006`, `T-013`
+- `B-019`, `F-012`, `H-005`, `K-008`, `M-014`, `N-007`, `O-023`, `P-007`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -38,6 +38,62 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 ---
 
 ## 🔴 Priorität: Hoch
+
+### B-018: Artikelnummer wird bei Suche/Scan nicht gefunden
+**Beschreibung:**
+Bei der Suche nach einer Artikelnummer (z.B. "1029") wird der Artikel nicht gefunden,
+obwohl er vorhanden ist. Betrifft sowohl die manuelle Suche als auch den
+Web-Fallback-Dialog (Texteingabe statt QR-Scanner).
+
+**Reproduktion:**
+1. Scan-Button klicken
+2. Auf Web: Texteingabe-Dialog erscheint ("QR-Scanner ist auf dieser Plattform nicht verfügbar")
+3. Artikelnummer "1029" eingeben
+4. Artikel wird nicht gefunden ❌
+
+**Ursache (vermutet):**
+Das Feld `artikelnummer` (o.ä.) ist nicht in der Such-/Filterlogik enthalten.
+Die Suche durchsucht vermutlich nur `name`, `beschreibung` oder ähnliche Felder.
+
+**Betrifft:** Alle Plattformen (nicht Web-spezifisch)
+
+**Auswirkung:**
+- Kernfunktion der App eingeschränkt — Artikel können nicht über Artikelnummer
+  gefunden werden
+- Web-Fallback-Dialog (Texteingabe statt Scanner) ist dadurch funktionslos
+
+---
+
+**Tasks:**
+
+- [ ] **B-018.1: Suchlogik um Artikelnummer erweitern**
+  Im Such-/Filter-Code das Feld `artikelnummer` (oder entsprechendes Model-Feld)
+  zur Suche hinzufügen.
+
+  ```dart
+  // Vermutlich in der Suchlogik so ähnlich:
+  bool matchesSearch(Artikel artikel, String query) {
+    return artikel.name.toLowerCase().contains(query.toLowerCase()) ||
+           artikel.beschreibung.toLowerCase().contains(query.toLowerCase()) ||
+           artikel.artikelnummer.toLowerCase().contains(query.toLowerCase()); // ← fehlt vermutlich
+  }
+  ```
+
+- [ ] **B-018.2: Web-Fallback-Dialog Ergebnis korrekt verarbeiten**
+  Prüfen ob der Rückgabewert des Texteingabe-Dialogs korrekt an die Suchlogik
+  weitergeleitet wird (gleicher Codepfad wie Scanner-Ergebnis).
+
+- [ ] **B-018.3: Testen auf allen Plattformen**
+  Nach Fix verifizieren:
+  - [ ] Android: Scanner findet Artikel 1029
+  - [ ] Android: Manuelle Suche findet Artikel 1029
+  - [ ] Web: Texteingabe-Fallback findet Artikel 1029
+
+---
+
+**Aufwand:** ~30–60 min
+**Priorität:** 🔴 Hoch (Kernfunktion)
+**Risiko:** Niedrig
 
 ---
 
@@ -147,6 +203,404 @@ Nextcloud-Dateien (9+ Stellen) entfallen mit O-014.
 - [ ] `test/services/pocketbase_service_test.dart` erstellen
 - [ ] `test/services/connectivity_service_test.dart` erstellen
 - [ ] Weitere nach Bedarf
+
+---
+
+### H-004: Lighthouse-Befunde beheben (Web-Performance, Security-Header, SEO)
+**Beschreibung:**
+Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreiheit), 81 (Best Practices), 91 (SEO). Die Hauptursache für den niedrigen Performance-Score ist die `main.dart.js` (4 MB unkomprimiert, 2.510 ms Total Blocking Time). Daneben fehlen Security-Header und eine `robots.txt`.
+
+**Audit-Ergebnisse (Mobil-Emulation):**
+
+| Metrik | Wert | Ziel | Status |
+|:--|:--|:--|:--|
+| First Contentful Paint | 0,8s | < 1,8s | ✅ |
+| Largest Contentful Paint | 0,8s | < 2,5s | ✅ |
+| Total Blocking Time | 2.510 ms | < 200 ms | ❌ |
+| Cumulative Layout Shift | 0 | < 0,1 | ✅ |
+| Speed Index | 9,4s | < 3,4s | ❌ |
+| Time to Interactive | 17,0s | < 3,8s | ❌ |
+| Server Response Time | 21 ms | < 600 ms | ✅ |
+
+**Gesamtgröße Netzwerk:** 3.077 KiB (17 Requests, alle HTTP/2, Gzip aktiv)
+
+**Größte Ressourcen:**
+
+| Ressource | Transfer | Unkomprimiert | Anteil |
+|:--|:--|:--|:--|
+| `canvaskit.wasm` (Google CDN) | 1.631 KB | 5.687 KB | Flutter Engine |
+| `main.dart.js` | 1.280 KB | 4.085 KB | App-Code |
+| Fonts (Roboto + Material + Cupertino) | 139 KB | — | Schriften |
+
+---
+
+**Tasks nach Priorität:**
+
+#### Prio 1 — Quick Fixes (Nginx-Config, je 2 min)
+
+- [ ] **H-004.1: `robots.txt` in Nginx bereitstellen**
+  Nginx liefert `index.html` als Fallback für `/robots.txt` → 87 SEO-Fehler.
+
+  ```nginx
+  location = /robots.txt {
+      add_header Content-Type text/plain;
+      return 200 "User-agent: *\nDisallow: /\n";
+  }
+  ```
+
+  **Wirkung:** SEO-Score 91 → ~100
+
+- [ ] **H-004.2: HSTS-Header setzen**
+  Kein `Strict-Transport-Security`-Header vorhanden.
+
+  ```nginx
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  ```
+
+  **Wirkung:** Best Practices ↑
+
+#### Prio 2 — HTML-Anpassungen (index.html, je 1 min)
+
+- [ ] **H-004.3: Splash-Bild `width`/`height` und `fetchpriority` setzen**
+  LCP-Bild (`splash/img/light-2x.png`) hat keine expliziten Dimensionen und kein Priority-Hint.
+
+  ```html
+  <img class="center" aria-hidden="true"
+       src="splash/img/light-2x.png" alt=""
+       width="256" height="256" fetchpriority="high">
+  ```
+
+  **Wirkung:** LCP-Discovery-Score ↑, Unsized-Images-Warnung weg
+
+#### Prio 3 — Build-Optimierung (CI/CD, 5–30 min)
+
+- [ ] **H-004.4: `--tree-shake-icons` im Flutter-Build aktivieren**
+  Ungenutzte Material-Icons werden aktuell mitgebaut.
+
+  ```yaml
+  # In GitHub Actions Workflow:
+  flutter build web --release --tree-shake-icons
+  ```
+
+  **Wirkung:** `main.dart.js` etwas kleiner
+
+- [ ] **H-004.5: WASM-Build evaluieren**
+  Dart 3.11.5 unterstützt `flutter build web --wasm`. WebAssembly parst deutlich schneller
+  als JavaScript → TBT sinkt signifikant.
+
+  ```bash
+  flutter build web --wasm
+  ```
+
+  **Risiko:** Experimentell — Browser-Kompatibilität und `dart:js_interop` prüfen.
+  **Wirkung:** TBT potenziell von 2.510 ms auf < 500 ms
+
+#### Prio 4 — Bewusst akzeptiert (kein Fix nötig)
+
+- **`Intl.v8BreakIterator` deprecated** — kommt aus Flutter Engine (CanvasKit), wird mit
+  zukünftigem Flutter-Release behoben. Kostet 5 Punkte bei Best Practices.
+- **`meta-viewport user-scalable=no`** — Flutter setzt das automatisch. Kostet 10 Punkte
+  bei Barrierefreiheit. Für interne App akzeptabel.
+- **`main.dart.js` 55% unused code** — Flutter-Web-typisch (Tree Shaking auf JS-Ebene
+  begrenzt). WASM-Build (H-004.5) ist der effektivere Hebel.
+- **Fehlende Source Maps** — `main.dart.js` ohne Source Map. Für Release-Build akzeptabel.
+- **CSP `unsafe-inline` / fehlende `strict-dynamic`** — Flutter Web benötigt Inline-Scripts.
+  Einschränkung würde App brechen.
+
+---
+
+**Aufwand gesamt:** ~1 Stunde (H-004.1–H-004.4), WASM-Evaluierung separat ~30 min
+**Risiko:** Niedrig (H-004.1–H-003.4), Mittel (H-004.5 WASM)
+
+**Erwartete Score-Verbesserung nach H-004.1–H-003.4:**
+
+| Kategorie | Vorher | Nachher (geschätzt) |
+|:--|:--|:--|
+| Performance | 62 | ~65–70 |
+| Barrierefreiheit | 92 | 92 (Flutter-bedingt) |
+| Best Practices | 81 | ~86–90 |
+| SEO | 91 | ~100 |
+
+--- 
+
+### P-006: Lighthouse Timespan-Befunde (Laufzeit-Performance, Thumbnails, API-Latenz)
+**Beschreibung:**
+Lighthouse-Timespan-Audit vom 12.05.2026 über ~21 Sekunden Nutzerinteraktion (Login → Artikelliste → Sync).
+Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Practices: 74.
+
+**Timespan-Ergebnisse:**
+
+| Metrik | Wert | Ziel | Status |
+|:--|:--|:--|:--|
+| Total Blocking Time | 1.140 ms | < 200 ms | ❌ |
+| INP (Interaction to Next Paint) | 250 ms | < 200 ms | 🟡 |
+| Cumulative Layout Shift | 0 | < 0,1 | ✅ |
+| API-Serverlatenz (`api.germanlion67.de`) | 592 ms | < 200 ms | 🟠 |
+| Main-Thread-Arbeit | 4,6 s | < 2 s | ❌ |
+
+**INP-Aufschlüsselung (250 ms):**
+
+| Unterabschnitt | Dauer | Bewertung |
+|:--|:--|:--|
+| Eingabeverzögerung | 14 ms | ✅ |
+| Verarbeitungsdauer | 35 ms | ✅ |
+| Präsentationsverzögerung | 199 ms | ❌ Flaschenhals (Flutter CanvasKit Rendering) |
+
+**Thumbnail-Größen (60×60 Thumbnails via PocketBase `?thumb=60x60`):**
+
+| Bild | Transfer | Erwartet | Faktor |
+|:--|:--|:--|:--|
+| `esp32_terminal_adapter` | 80 KB | ~3–5 KB | 16–27× zu groß |
+| `usb_a_steckerkabel` | 60 KB | ~3–5 KB | 12–20× zu groß |
+| `mh_sensor` | 19 KB | ~2–3 KB | 6–10× zu groß |
+
+**Hauptursache TBT:** `main.dart.js` mit 4.093 ms Script Evaluation (davon 18 lange Tasks, bis 264 ms einzeln).
+
+---
+
+**Tasks nach Priorität:**
+
+#### Prio 1 — Thumbnail-Größe prüfen und optimieren
+
+- [ ] **P-006.1: PocketBase Thumbnail-Generierung prüfen**
+  Prüfen ob `?thumb=60x60` tatsächlich auf 60×60 Pixel skaliert oder das Originalbild
+  mit hoher Qualität ausliefert. Ggf. JPEG-Qualität in PocketBase-Settings reduzieren
+  oder Thumbnails clientseitig mit `CachedNetworkImage` + `memCacheWidth`/`memCacheHeight`
+  begrenzen.
+
+  ```bash
+  # Prüfe tatsächliche Bildgröße:
+  curl -s "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60" | identify -
+  ```
+
+  **Wirkung:** Thumbnail-Traffic von ~160 KB auf ~10–15 KB reduzierbar (90%+ Einsparung)
+
+- [ ] **P-006.2: Bilder vor Upload verkleinern**
+  Prüfen ob `AppConfig.maxWidth`/`maxHeight` für Uploads ausreichend niedrig sind.
+  Große Originalbilder führen zu großen Thumbnails.
+  **Wirkung:** Kleinere Originale → kleinere Thumbnails
+
+#### Prio 2 — API-Latenz untersuchen
+
+- [ ] **P-006.3: PocketBase Thumbnail-Caching prüfen**
+  592 ms durchschnittliche Serverlatenz für Bild-API. Prüfen ob PocketBase Thumbnails
+  beim ersten Abruf on-the-fly generiert und danach cachet. Wiederholte Aufrufe sollten
+  schneller sein.
+
+  ```bash
+  # Erster Abruf (ggf. Generierung):
+  time curl -s -o /dev/null "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60"
+  # Zweiter Abruf (Cache):
+  time curl -s -o /dev/null "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60"
+  ```
+
+  **Wirkung:** Klärung ob Latenz einmalig (Generierung) oder dauerhaft
+
+#### Prio 3 — Bewusst akzeptiert
+
+- **INP Präsentationsverzögerung (199 ms)** — Flutter CanvasKit rendert auf Canvas statt
+  nativem DOM. Nicht direkt optimierbar ohne Renderer-Wechsel. WASM-Build (H-004.5)
+  könnte hier helfen.
+- **18 lange Tasks aus `main.dart.js`** — Flutter-Web-typisch. Gleiche Ursache wie bei
+  H-004 (Seitenstart). WASM-Build ist der effektivste Hebel.
+
+---
+
+**Aufwand gesamt:** ~1–2 Stunden (P-006.1–P-006.3)
+**Risiko:** Niedrig
+
+--- 
+
+
+### F-011: Responsive/Adaptive Layout für Desktop-Web
+**Beschreibung:**
+Die App ist für mobile Fenstergrößen konzipiert. Auf Desktop-Monitoren wird die UI
+über die volle Breite gestreckt, was die Nutzbarkeit einschränkt. Schrittweise
+Umstellung auf responsive/adaptive Layouts in drei Stufen.
+
+**Grundprinzip:** Widgets klein und wiederverwendbar halten. Listenansicht und
+Detailansicht als eigenständige Widgets (nicht als eigene Screens mit Navigation)
+extrahieren – das ist die wichtigste Vorbereitung für Master-Detail in Stufe 3.
+
+---
+
+**Tasks nach Stufe:**
+
+#### Stufe 1 — Maximalbreite begrenzen (~30 min)
+
+- [ ] **F-011.1: Zentrale Maximalbreite einführen**
+  App-Inhalt auf max. 600px begrenzen und zentrieren. Verhindert dass die mobile UI
+  auf breiten Monitoren gestreckt wird.
+
+  ```dart
+  // In main.dart oder im zentralen Scaffold:
+  body: Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 600),
+      child: actualContent, // bisheriger Body
+    ),
+  ),
+  ```
+
+  **Wirkung:** Sofort besser lesbar auf Desktop
+
+#### Stufe 2 — Responsive Anpassungen (~4–8 h)
+
+Ziel: Widgets responsive machen und als eigenständige, wiederverwendbare Komponenten
+extrahieren. Alles hier Gebaute wird in Stufe 3 wiederverwendet.
+
+- [ ] **F-011.2: Breakpoint-Helfer einführen**
+  Zentrale Breakpoint-Definitionen anlegen.
+
+  ```dart
+  // lib/core/responsive.dart
+  class Breakpoints {
+    static const double mobile = 600;
+    static const double tablet = 900;
+    static const double desktop = 1200;
+  }
+
+  bool isMobile(BuildContext context) =>
+      MediaQuery.of(context).size.width < Breakpoints.mobile;
+  bool isTablet(BuildContext context) =>
+      MediaQuery.of(context).size.width >= Breakpoints.mobile &&
+      MediaQuery.of(context).size.width < Breakpoints.desktop;
+  bool isDesktop(BuildContext context) =>
+      MediaQuery.of(context).size.width >= Breakpoints.desktop;
+  ```
+
+- [ ] **F-011.3: Artikelliste als eigenständiges Widget extrahieren**
+  `ArtikelListWidget` aus dem aktuellen Screen herauslösen. Auf breiten Screens
+  als Grid (2–3 Spalten) statt einspaltige Liste darstellen.
+
+  ```dart
+  // Beispiel: Grid auf Desktop, Liste auf Mobil
+  Widget build(BuildContext context) {
+    if (isDesktop(context)) {
+      return GridView.builder(
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 3,
+          childAspectRatio: 3,
+        ),
+        itemBuilder: (context, index) => ArtikelTile(artikel: items[index]),
+        itemCount: items.length,
+      );
+    }
+    return ListView.builder(
+      itemBuilder: (context, index) => ArtikelTile(artikel: items[index]),
+      itemCount: items.length,
+    );
+  }
+  ```
+
+- [ ] **F-011.4: Detailansicht als eigenständiges Widget extrahieren**
+  `ArtikelDetailWidget` aus dem Detail-Screen herauslösen. Felder auf breiten
+  Screens nebeneinander gruppieren statt untereinander.
+
+  ```dart
+  // Beispiel: Wrap für responsive Feldanordnung
+  Wrap(
+    spacing: 16,
+    runSpacing: 16,
+    children: [
+      SizedBox(width: fieldWidth, child: nameField),
+      SizedBox(width: fieldWidth, child: categoryField),
+      SizedBox(width: fieldWidth, child: locationField),
+    ],
+  )
+  ```
+
+- [ ] **F-011.5: Navigation responsive machen**
+  `BottomNavigationBar` auf Desktop durch `NavigationRail` ersetzen.
+
+  ```dart
+  Widget build(BuildContext context) {
+    if (isMobile(context)) {
+      return Scaffold(
+        body: currentPage,
+        bottomNavigationBar: BottomNavigationBar(...),
+      );
+    }
+    return Scaffold(
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: currentIndex,
+            onDestinationSelected: onTabChanged,
+            destinations: [...],
+          ),
+          const VerticalDivider(thickness: 1, width: 1),
+          Expanded(child: currentPage),
+        ],
+      ),
+    );
+  }
+  ```
+
+- [ ] **F-011.6: Settings-Screen responsive machen**
+  Einstellungen auf breiten Screens zweispaltig anordnen.
+
+  **Wirkung Stufe 2 gesamt:** Deutlich bessere Desktop-Nutzbarkeit.
+  Alle Widgets sind für Stufe 3 vorbereitet.
+
+#### Stufe 3 — Adaptive Layouts / Master-Detail (~1–2 Tage)
+
+Voraussetzung: Stufe 2 abgeschlossen (Widgets extrahiert und responsive).
+Aufwand halbiert sich durch Vorarbeit aus Stufe 2.
+
+- [ ] **F-011.7: Master-Detail-Layout für Artikelverwaltung**
+  Auf Desktop: Links Artikelliste, rechts Detailansicht gleichzeitig sichtbar.
+  Verwendet die in F-011.3 und F-011.4 extrahierten Widgets.
+
+  ```dart
+  Widget build(BuildContext context) {
+    if (isDesktop(context)) {
+      return Row(
+        children: [
+          SizedBox(
+            width: 400,
+            child: ArtikelListWidget(
+              onArtikelSelected: (a) => setState(() => selected = a),
+            ),
+          ),
+          const VerticalDivider(thickness: 1, width: 1),
+          Expanded(
+            child: selected != null
+                ? ArtikelDetailWidget(artikel: selected!)
+                : const Center(child: Text('Artikel auswählen')),
+          ),
+        ],
+      );
+    }
+    // Mobil: Navigation wie bisher
+    return ArtikelListWidget(
+      onArtikelSelected: (a) => Navigator.push(...),
+    );
+  }
+  ```
+
+- [ ] **F-011.8: NavigationRail → Sidebar mit Labels erweitern**
+  Auf Desktop die NavigationRail zu einer vollständigen Sidebar mit Icons + Labels
+  und ggf. Untermenüs erweitern.
+
+- [ ] **F-011.9: Dialoge → Seitenpanels auf Desktop**
+  Modale Dialoge (z.B. Artikel-Bearbeitung) auf Desktop als Seitenpanel statt
+  Fullscreen-Dialog darstellen.
+
+---
+
+**Aufwand gesamt:**
+
+| Stufe | Aufwand | Kumuliert |
+|:--|:--|:--|
+| Stufe 1 | ~30 min | 30 min |
+| Stufe 2 | ~4–8 h | 5–9 h |
+| Stufe 3 | ~1–2 Tage | 2–3 Tage |
+
+**Risiko:** Niedrig (Stufe 1–2), Mittel (Stufe 3 – Navigationslogik-Umbau)
+
+**Hinweis:** Stufe 2 ist so konzipiert, dass alle Arbeit in Stufe 3 wiederverwendet wird.
+Der Aufwand für Stufe 3 halbiert sich durch die Vorarbeit aus Stufe 2.
 
 --- 
 

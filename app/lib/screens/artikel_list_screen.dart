@@ -185,6 +185,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       _currentOffset = 0;
       _hasMore = true;
       _artikelListe = [];
+      _suchErgebnisse = []; // Wichtig: Suchergebnisse bei Neuladen zurücksetzen
+      _isSuche = false;     // Wichtig: Suchmodus beenden
     });
 
     try {
@@ -264,15 +266,44 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       setState(() {
         _isSuche = false;
         _suchErgebnisse = [];
+        // Wenn die Suche leer ist, die gesamte Artikelliste neu laden
+        // oder zumindest sicherstellen, dass _artikelListe die Basis ist.
+        // Da _ladeArtikel() bereits die Liste aktualisiert, ist das hier
+        // nicht direkt nötig, aber es ist gut, den Zustand zu klären.
       });
+      // Wenn die Suche leer ist, wollen wir wieder die paginierte Liste sehen.
+      // Ein erneutes Laden der Artikel sorgt dafür, dass die Paginierung
+      // wieder aktiv wird und die Filter angewendet werden.
+      await _ladeArtikel(); // <-- Wichtig: Gesamte Liste neu laden, um Paginierung zu reaktivieren
       return;
     }
     setState(() => _isSuche = true);
-    final results = await _db.searchArtikel(query);
+
+    List<Artikel> results;
+    if (kIsWeb) {
+      // Im Web direkt PocketBase abfragen, da _db.searchArtikel() nicht funktioniert
+      final pb = _pbService.client;
+      // PocketBase filtert mit LIKE '%query%' für Textfelder und '=' für Zahlen
+      final isNumeric = int.tryParse(query.trim()) != null;
+      final filterString = isNumeric
+          ? 'artikelnummer = ${int.parse(query.trim())} && deleted = false'
+          : 'name ~ "$query" || beschreibung ~ "$query" && deleted = false';
+
+      final records = await pb.collection('artikel').getFullList(
+        filter: filterString,
+        sort: '-created', // Oder eine andere Sortierung
+      );
+      results = records.map((r) => Artikel.fromPocketBase(r.data, r.id)).toList();
+    } else {
+      // Lokal die angepasste searchArtikel-Methode verwenden
+      results = await _db.searchArtikel(query);
+    }
+
     if (!mounted) return;
     setState(() {
       _suchErgebnisse = results;
       _isSuche = false;
+      _hasMore = false; // Bei Suchergebnissen gibt es keine weitere Paginierung
     });
   }
 
@@ -282,7 +313,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   List<Artikel> _gefilterteArtikel() {
-    final basis = _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
+    // Die Basis ist entweder die Suchergebnisliste oder die paginierte Artikelliste.
+    // Wichtig: Die Filter für Ort und Kategorie werden auf DIESER Basis angewendet.    
+    final List<Artikel> basis;
+    if (_suchbegriff.isNotEmpty) {
+      basis = _suchErgebnisse;
+    } else {
+      basis = _artikelListe;
+    }
+
+
     return basis.where((a) {
       if (_filterOrt.isNotEmpty && a.ort.trim() != _filterOrt.trim()) {
         return false;

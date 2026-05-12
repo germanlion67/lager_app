@@ -3,12 +3,14 @@
 // Web/Desktop-Fallback: Kein Kamera-Scanner verfügbar.
 // Zeigt einen Artikelnummer-Eingabe-Dialog.
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/artikel_db_service.dart';
 import '../services/scan_result.dart';
 import '../models/artikel_model.dart';
+import '../services/pocketbase_service.dart';
 import '../screens/artikel_detail_screen.dart';
 
 /// Öffnet einen Artikelnummer-Eingabe-Dialog als Fallback für Web/Desktop.
@@ -106,14 +108,10 @@ Future<Object?> _zeigeArtikelnummerDialog(
   final int artikelnummer = int.parse(eingabe); // Validator hat int sichergestellt
 
   try {
-    final alleArtikel = await db.getAlleArtikel();
-
-    if (!context.mounted) return const ScanResultCancelled();
-
-    final Artikel? gefunden = alleArtikel.cast<Artikel?>().firstWhere(
-          (a) => a?.artikelnummer == artikelnummer,
-          orElse: () => null,
-        );
+    // B-018: Plattformabhängige Artikelsuche
+    final Artikel? gefunden = kIsWeb
+        ? await _sucheArtikelWeb(artikelnummer)
+        : await _sucheArtikelLokal(db, artikelnummer);
 
     if (!context.mounted) return const ScanResultCancelled();
 
@@ -148,4 +146,35 @@ Future<Object?> _zeigeArtikelnummerDialog(
   } catch (e) {
     return ScanResultError(e.toString());
   }
+}
+
+/// B-018: Suche über PocketBase (Web)
+Future<Artikel?> _sucheArtikelWeb(int artikelnummer) async {
+  final pb = PocketBaseService().client;
+  final result = await pb.collection('artikel').getList(
+    filter: 'artikelnummer = $artikelnummer && deleted = false',
+    perPage: 1,
+  );
+
+  if (result.items.isEmpty) return null;
+
+  final record = result.items.first;
+  return Artikel.fromPocketBase(
+    record.data,
+    record.id,
+    created: record.get<String>('created'),
+    updated: record.get<String>('updated'),
+  );
+}
+
+/// B-018: Suche über lokale SQLite-DB (Mobile/Desktop)
+Future<Artikel?> _sucheArtikelLokal(
+  ArtikelDbService db,
+  int artikelnummer,
+) async {
+  final alleArtikel = await db.getAlleArtikel();
+  return alleArtikel.cast<Artikel?>().firstWhere(
+        (a) => a?.artikelnummer == artikelnummer,
+        orElse: () => null,
+      );
 }
