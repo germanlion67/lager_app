@@ -2,6 +2,9 @@ name: Release - Build and Deploy
 
 permissions:
   contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  
   
 on:
   workflow_dispatch:
@@ -343,7 +346,7 @@ jobs:
           EOF
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-tag.outputs.tag_name }}
           name: Release ${{ github.event.inputs.version }}
