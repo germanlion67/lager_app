@@ -785,33 +785,40 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return _buildHomeWithBackground();
   }
 
-  Widget _buildHomeWithBackground() {
-    if (AppImages.hintergrundAktiv) {
-      return Stack(
-        children: [
-          Positioned.fill(
-            child: Image.asset(
-              AppImages.hintergrundPfad,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                );
-              },
-            ),
+Widget _buildHomeWithBackground() {
+  // F-011.1: Maximalbreite für Desktop-Web
+  final appContent = ArtikelListScreen(
+    syncStatusProvider: _orchestrator,
+    onLogout: _onLogout,
+    onSyncIntervalChanged: _onSyncIntervalChanged,
+  );
+
+  final constrained = Align(
+    alignment: Alignment.topCenter,
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AppConfig.maxContentWidth),
+      child: appContent,
+    ),
+  );
+
+  if (AppImages.hintergrundAktiv) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            AppImages.hintergrundPfad,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                color: Theme.of(context).scaffoldBackgroundColor,
+              );
+            },
           ),
-          ArtikelListScreen(
-            syncStatusProvider: _orchestrator,
-            onLogout: _onLogout,
-            onSyncIntervalChanged: _onSyncIntervalChanged,
-          ),
-        ],
-      );
-    }
-    return ArtikelListScreen(
-      syncStatusProvider: _orchestrator,
-      onLogout: _onLogout,
-      onSyncIntervalChanged: _onSyncIntervalChanged,
-      );
+        ),
+        constrained,
+      ],
+    );
   }
+  return constrained;
+}
 }

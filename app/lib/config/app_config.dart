@@ -324,17 +324,17 @@ class AppConfig {
   static const double uploadAreaIconSize = 40.0;
 
 
-// ── Input Validation ─────────────────────────────────────────────
-static const int inputMaxLengthName = 100;
-static const int inputMaxLengthBeschreibung = 500;
-static const int inputMaxLengthOrt = 60;
-static const int inputMaxLengthFach = 60;
-static const int inputMaxMenge = 999999;
-static const int inputMinArtikelnummer = 1000;
-static const int inputMaxLengthKategorie = 50;
+  // ── Input Validation ─────────────────────────────────────────────
+  static const int inputMaxLengthName = 100;
+  static const int inputMaxLengthBeschreibung = 500;
+  static const int inputMaxLengthOrt = 60;
+  static const int inputMaxLengthFach = 60;
+  static const int inputMaxMenge = 999999;
+  static const int inputMinArtikelnummer = 1000;
+  static const int inputMaxLengthKategorie = 50;
 
 
-// ── Kamera / Bildverarbeitung ─────────────────────────────────────
+  // ── Kamera / Bildverarbeitung ─────────────────────────────────────
 
   /// Maximale Breite (px) bei der Kameraaufnahme (image_picker maxWidth).
   static const int cameraTargetMaxWidth = 800;
@@ -345,17 +345,17 @@ static const int inputMaxLengthKategorie = 50;
   /// JPEG-Qualität (0–100) für Kameraaufnahmen.
   static const int cameraImageQuality = 85;
 
-// ── Loading & Skeleton (M-004) ────────────────────────────────────
-static const double overlayOpacity = 0.6;
-static const double cardElevationHigh = 8.0;
-static const double skeletonOpacityMin = 0.05;
-static const double skeletonOpacityMax = 0.15;
-static const double skeletonLeadingSize = 56.0;
-static const double skeletonTitleHeight = 14.0;
-static const double skeletonSubtitleHeight = 10.0;
-static const double skeletonSubtitleWidth = 120.0;
-static const double skeletonOrtFachWidth = 160.0;
-static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
+  // ── Loading & Skeleton (M-004) ────────────────────────────────────
+  static const double overlayOpacity = 0.6;
+  static const double cardElevationHigh = 8.0;
+  static const double skeletonOpacityMin = 0.05;
+  static const double skeletonOpacityMax = 0.15;
+  static const double skeletonLeadingSize = 56.0;
+  static const double skeletonTitleHeight = 14.0;
+  static const double skeletonSubtitleHeight = 10.0;
+  static const double skeletonSubtitleWidth = 120.0;
+  static const double skeletonOrtFachWidth = 160.0;
+  static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
 
 
   // ── Pagination (M-005) ────────────────────────────────────────────
@@ -371,5 +371,9 @@ static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
 
   /// Maximale Anzahl Suchergebnisse aus der DB.
   static const int searchResultLimit = 100;
+
+
+  // F-011.1: Maximale Inhaltsbreite für Desktop-Web
+  static const double maxContentWidth = 800;
 
 }
