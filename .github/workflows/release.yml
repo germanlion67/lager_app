@@ -27,7 +27,7 @@ jobs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
@@ -51,7 +51,7 @@ jobs:
     needs: create-tag
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
   
@@ -79,7 +79,7 @@ jobs:
     needs: [create-tag, test]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
@@ -153,7 +153,7 @@ jobs:
     needs: [create-tag, test]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
@@ -200,7 +200,7 @@ jobs:
       needs: [create-tag, test]
       steps:
         - name: Checkout code
-          uses: actions/checkout@v4
+          uses: actions/checkout@v4.2.2
           with:
             ref: ${{ needs.create-tag.outputs.tag_name }}
 
@@ -262,7 +262,7 @@ jobs:
     needs: [create-tag, test, build-android, build-windows, build-linux]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
