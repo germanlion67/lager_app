@@ -10,6 +10,7 @@
 //         Punkt 2 — _nameController: Artikelname editierbar
 //         Punkt 5 — Bild-Buttons + Anhänge + Speichern in AppBar
 // F-003:  Ort & Fach nebeneinander (Row mit Expanded, detailFieldSpacing)
+// F-011.4: Desktop-Layout zweispaltig (LayoutBuilder + Responsive)
 
 import 'dart:async';
 import 'dart:typed_data';
@@ -22,6 +23,7 @@ import 'package:logger/logger.dart';
 import 'package:path/path.dart' as p;
 
 import '../config/app_config.dart';
+import '../core/responsive.dart';
 import '../models/artikel_model.dart';
 import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
@@ -105,8 +107,9 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       ..addListener(_onChanged);
     _fachController = TextEditingController(text: widget.artikel.fach)
       ..addListener(_onChanged);
-    _kategorieController = TextEditingController(text: widget.artikel.kategorie ?? '',)
-      ..addListener(_onChanged);
+    _kategorieController = TextEditingController(
+      text: widget.artikel.kategorie ?? '',
+    )..addListener(_onChanged);
     _menge = widget.artikel.menge;
     _bildPfad =
         widget.artikel.bildPfad.isNotEmpty ? widget.artikel.bildPfad : null;
@@ -232,7 +235,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                   ),
                   onTap: () {
                     Navigator.pop(sheetCtx);
-                    // Sheet erst schließen, dann Dialog
                     _bildEntfernen();
                   },
                 ),
@@ -272,8 +274,8 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
 
     if (bytesToCrop == null) return;
-    if (!mounted) return;  // M-013: Guard vor context-Zugriff
-    
+    if (!mounted) return; // M-013: Guard vor context-Zugriff
+
     final cropResult = await ImagePickerService.openCropDialog(
       context,
       bytesToCrop,
@@ -506,7 +508,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
     }
   }
 
-
   void _clearImageCache() {
     _logger.d('Image-Cache wird geleert');
     imageCache.clear();
@@ -578,8 +579,6 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
 
       // M-013: Bild-Info in DB clearen für sauberen Sync-Push
       if (bildEntfernt) {
-        // Remote-Bild aus dem CachedNetworkImage-Cache evicten,
-        // damit die Listenansicht keinen 404 auslöst.
         if (_remoteBildUrl != null) {
           await CachedNetworkImage.evictFromCache(_remoteBildUrl!);
           _logger.d('M-013: Remote-Bild-Cache evictet: $_remoteBildUrl');
@@ -685,7 +684,7 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       kategorie: _kategorieController.text.trim().isEmpty
           ? null
           : _kategorieController.text.trim(),
-      bildPfad: _bildPfad ?? '',  // M-013: null → leerer String
+      bildPfad: _bildPfad ?? '', // M-013: null → leerer String
       aktualisiertAm: DateTime.now().toUtc(),
     );
 
@@ -982,9 +981,11 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
             backgroundColor: Colors.black,
             foregroundColor: colorScheme.onInverseSurface,
             // v0.7.8 Punkt 2: Dynamischer Titel auch im Vollbild
-            title: Text(_nameController.text.isNotEmpty
-                ? _nameController.text
-                : widget.artikel.name,),
+            title: Text(
+              _nameController.text.isNotEmpty
+                  ? _nameController.text
+                  : widget.artikel.name,
+            ),
           ),
           body: Center(
             child: InteractiveViewer(
@@ -1024,6 +1025,398 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
       Icons.image_not_supported,
       color: colorScheme.onInverseSurface,
       size: 64,
+    );
+  }
+
+  // ==================== F-011.4: SHARED FIELD WIDGETS ====================
+
+  // Menge-Feld — wird in Mobile + Desktop verwendet
+  Widget _buildMengeField(
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    bool isBlocked,
+  ) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: 'Menge',
+        border: const OutlineInputBorder(),
+        filled: true,
+        fillColor: _isEditing
+            ? colorScheme.surface
+            : colorScheme.surfaceContainerLow,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppConfig.spacingMedium,
+          vertical: AppConfig.spacingXSmall,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text('$_menge', style: textTheme.titleMedium),
+          if (_isEditing && !isBlocked)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.remove),
+                  onPressed: _mengeVerringern,
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.add),
+                  onPressed: _mengeErhoehen,
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Artikelnummer-Feld — wird in Mobile + Desktop verwendet
+  Widget _buildArtikelnummerField(
+    Artikel artikel,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: 'Artikelnummer',
+        border: const OutlineInputBorder(),
+        filled: true,
+        fillColor: colorScheme.surfaceContainerLow,
+      ),
+      child: Text(
+        artikel.artikelnummer?.toString() ?? '-',
+        style: textTheme.titleMedium,
+      ),
+    );
+  }
+
+  // Bild-Bereich — wird in Mobile + Desktop verwendet
+  Widget _buildBildBereich(Artikel artikel, ColorScheme colorScheme) {
+    if (_isLoadingRemoteBild) {
+      return Container(
+        height: AppConfig.artikelDetailBildHoehe,
+        width: double.infinity,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(
+            AppConfig.cardBorderRadiusLarge,
+          ),
+        ),
+        child: const CircularProgressIndicator(),
+      );
+    }
+    return ArtikelDetailBild(
+      // M-013: Artikel mit aktuellem Bild-State übergeben,
+      // damit nach „Bild entfernen" sofort der Placeholder
+      // angezeigt wird (nicht das alte Remote-Bild).
+      artikel: artikel.copyWith(
+        bildPfad: _bildPfad ?? '',
+        remoteBildPfad:
+            _remoteBildUrl != null ? artikel.remoteBildPfad : '',
+        remotePath: _remoteBildUrl != null ? artikel.remotePath : '',
+      ),
+      pendingBytes: _pendingBytes,
+      remoteBildUrl: _remoteBildUrl,
+      onTap: _zeigeBildVollbild,
+    );
+  }
+
+  // ==================== F-011.4: MOBILE LAYOUT ====================
+
+  List<Widget> _buildFelder({
+    required Artikel artikel,
+    required ColorScheme colorScheme,
+    required TextTheme textTheme,
+    required bool isBlocked,
+  }) {
+    return [
+      // Name
+      TextField(
+        controller: _nameController,
+        enabled: _isEditing && !isBlocked,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          labelText: 'Name',
+          border: const OutlineInputBorder(),
+          filled: true,
+          fillColor: _isEditing
+              ? colorScheme.surface
+              : colorScheme.surfaceContainerLow,
+        ),
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
+
+      // F-003: Ort und Fach nebeneinander (je 50 % Breite)
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _ortController,
+              enabled: _isEditing && !isBlocked,
+              decoration: InputDecoration(
+                labelText: 'Ort',
+                border: const OutlineInputBorder(),
+                filled: true,
+                fillColor: _isEditing
+                    ? colorScheme.surface
+                    : colorScheme.surfaceContainerLow,
+              ),
+            ),
+          ),
+          const SizedBox(width: AppConfig.detailFieldSpacing),
+          Expanded(
+            child: TextField(
+              controller: _fachController,
+              enabled: _isEditing && !isBlocked,
+              decoration: InputDecoration(
+                labelText: 'Fach',
+                border: const OutlineInputBorder(),
+                filled: true,
+                fillColor: _isEditing
+                    ? colorScheme.surface
+                    : colorScheme.surfaceContainerLow,
+              ),
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: AppConfig.spacingSectionGap),
+
+      // Menge + Artikelnummer
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: _buildMengeField(colorScheme, textTheme, isBlocked),
+          ),
+          const SizedBox(width: AppConfig.detailFieldSpacing),
+          Expanded(
+            child: _buildArtikelnummerField(artikel, colorScheme, textTheme),
+          ),
+        ],
+      ),
+      const SizedBox(height: AppConfig.spacingSectionGap),
+
+      // Beschreibung
+      TextField(
+        controller: _beschreibungController,
+        enabled: _isEditing && !isBlocked,
+        decoration: InputDecoration(
+          labelText: 'Beschreibung',
+          border: const OutlineInputBorder(),
+          filled: true,
+          fillColor: _isEditing
+              ? colorScheme.surface
+              : colorScheme.surfaceContainerLow,
+        ),
+        maxLines: 3,
+      ),
+      const SizedBox(height: AppConfig.spacingSectionGap),
+
+      // Anhang-Info
+      if (_anhangCount > 0)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppConfig.spacingMedium),
+          child: Text(
+            'Anhänge: $_anhangCount',
+            style: textTheme.bodySmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+
+      // Kategorie
+      TextField(
+        controller: _kategorieController,
+        enabled: _isEditing && !isBlocked,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: InputDecoration(
+          labelText: 'Kategorie',
+          border: const OutlineInputBorder(),
+          prefixIcon: const Icon(Icons.category_outlined),
+          filled: true,
+          fillColor: _isEditing
+              ? colorScheme.surface
+              : colorScheme.surfaceContainerLow,
+        ),
+      ),
+      const SizedBox(height: AppConfig.spacingSectionGap),
+
+      // Bild
+      _buildBildBereich(artikel, colorScheme),
+    ];
+  }
+
+  Widget _buildMobileLayout({
+    required Artikel artikel,
+    required ColorScheme colorScheme,
+    required TextTheme textTheme,
+    required bool isBlocked,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _buildFelder(
+        artikel: artikel,
+        colorScheme: colorScheme,
+        textTheme: textTheme,
+        isBlocked: isBlocked,
+      ),
+    );
+  }
+
+  // ==================== F-011.4: DESKTOP LAYOUT ====================
+
+  Widget _buildDesktopLayout({
+    required Artikel artikel,
+    required ColorScheme colorScheme,
+    required TextTheme textTheme,
+    required bool isBlocked,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Linke Spalte: Name, Ort+Fach, Menge+Artikelnummer
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Name
+              TextField(
+                controller: _nameController,
+                enabled: _isEditing && !isBlocked,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Name',
+                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: _isEditing
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerLow,
+                ),
+              ),
+              const SizedBox(height: AppConfig.spacingMedium),
+
+              // Ort + Fach
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ortController,
+                      enabled: _isEditing && !isBlocked,
+                      decoration: InputDecoration(
+                        labelText: 'Ort',
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: _isEditing
+                            ? colorScheme.surface
+                            : colorScheme.surfaceContainerLow,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppConfig.detailFieldSpacing),
+                  Expanded(
+                    child: TextField(
+                      controller: _fachController,
+                      enabled: _isEditing && !isBlocked,
+                      decoration: InputDecoration(
+                        labelText: 'Fach',
+                        border: const OutlineInputBorder(),
+                        filled: true,
+                        fillColor: _isEditing
+                            ? colorScheme.surface
+                            : colorScheme.surfaceContainerLow,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConfig.spacingSectionGap),
+
+              // Menge + Artikelnummer
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildMengeField(colorScheme, textTheme, isBlocked),
+                  ),
+                  const SizedBox(width: AppConfig.detailFieldSpacing),
+                  Expanded(
+                    child: _buildArtikelnummerField(
+                      artikel,
+                      colorScheme,
+                      textTheme,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(width: AppConfig.spacingLarge),
+
+        // Rechte Spalte: Bild, Beschreibung, Kategorie
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Bild
+              _buildBildBereich(artikel, colorScheme),
+              const SizedBox(height: AppConfig.spacingSectionGap),
+
+              // Beschreibung
+              TextField(
+                controller: _beschreibungController,
+                enabled: _isEditing && !isBlocked,
+                decoration: InputDecoration(
+                  labelText: 'Beschreibung',
+                  border: const OutlineInputBorder(),
+                  filled: true,
+                  fillColor: _isEditing
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerLow,
+                ),
+                maxLines: 3,
+              ),
+              const SizedBox(height: AppConfig.spacingSectionGap),
+
+              // Kategorie
+              TextField(
+                controller: _kategorieController,
+                enabled: _isEditing && !isBlocked,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                  labelText: 'Kategorie',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.category_outlined),
+                  filled: true,
+                  fillColor: _isEditing
+                      ? colorScheme.surface
+                      : colorScheme.surfaceContainerLow,
+                ),
+              ),
+
+              // Anhang-Info
+              if (_anhangCount > 0) ...[
+                const SizedBox(height: AppConfig.spacingMedium),
+                Text(
+                  'Anhänge: $_anhangCount',
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -1165,230 +1558,39 @@ class _ArtikelDetailScreenState extends State<ArtikelDetailScreen> {
                 ),
               ],
             ),
-            body: SingleChildScrollView(
-              padding: const EdgeInsets.all(AppConfig.spacingLarge),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // v0.7.8 Punkt 2: Name-Feld als erstes Feld
-                  TextField(
-                    controller: _nameController,
-                    enabled: _isEditing && !isBlocked,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      labelText: 'Name',
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: _isEditing
-                          ? colorScheme.surface
-                          : colorScheme.surfaceContainerLow,
-                    ),
-                  ),
-                  const SizedBox(height: AppConfig.spacingMedium),
 
-// F-003: Ort und Fach nebeneinander (je 50 % Breite)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _ortController,
-                          enabled: _isEditing && !isBlocked,
-                          decoration: InputDecoration(
-                            labelText: 'Ort',
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                            fillColor: _isEditing
-                                ? colorScheme.surface
-                                : colorScheme.surfaceContainerLow,
-                          ),
+            // F-011.4: LayoutBuilder → Desktop zweispaltig, Mobile einspaltig
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop =
+                    Responsive.fromConstraints(constraints) ==
+                        ScreenSize.desktop;
+
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(AppConfig.spacingLarge),
+                  child: isDesktop
+                      ? _buildDesktopLayout(
+                          artikel: artikel,
+                          colorScheme: colorScheme,
+                          textTheme: textTheme,
+                          isBlocked: isBlocked,
+                        )
+                      : _buildMobileLayout(
+                          artikel: artikel,
+                          colorScheme: colorScheme,
+                          textTheme: textTheme,
+                          isBlocked: isBlocked,
                         ),
-                      ),
-                      const SizedBox(width: AppConfig.detailFieldSpacing),
-                      Expanded(
-                        child: TextField(
-                          controller: _fachController,
-                          enabled: _isEditing && !isBlocked,
-                          decoration: InputDecoration(
-                            labelText: 'Fach',
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                            fillColor: _isEditing
-                                ? colorScheme.surface
-                                : colorScheme.surfaceContainerLow,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppConfig.spacingSectionGap),
-
-                  // F-005: Menge und Artikelnummer als strukturierte Info-Zeile
-                  // InputDecorator sorgt für visuelle Konsistenz mit den TextFields
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Menge mit +/- Steuerung
-                      Expanded(
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Menge',
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                            fillColor: _isEditing
-                                ? colorScheme.surface
-                                : colorScheme.surfaceContainerLow,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: AppConfig.spacingMedium,
-                              vertical: AppConfig.spacingXSmall,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                '$_menge',
-                                style: textTheme.titleMedium,
-                              ),
-                              if (_isEditing && !isBlocked)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.remove),
-                                      onPressed: _mengeVerringern,
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.add),
-                                      onPressed: _mengeErhoehen,
-                                      visualDensity: VisualDensity.compact,
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppConfig.detailFieldSpacing),
-                      // Artikelnummer als eigenes Feld
-                      Expanded(
-                        child: InputDecorator(
-                          decoration: InputDecoration(
-                            labelText: 'Artikelnummer',
-                            border: const OutlineInputBorder(),
-                            filled: true,
-                            fillColor: colorScheme.surfaceContainerLow,
-                          ),
-                          child: Text(
-                            artikel.artikelnummer?.toString() ?? '-',
-                            style: textTheme.titleMedium,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppConfig.spacingSectionGap),
-
-                  // F-005: OutlineInputBorder für visuelle Konsistenz
-                  TextField(
-                    controller: _beschreibungController,
-                    enabled: _isEditing && !isBlocked,
-                    decoration: InputDecoration(
-                      labelText: 'Beschreibung',
-                      border: const OutlineInputBorder(),
-                      filled: true,
-                      fillColor: _isEditing
-                          ? colorScheme.surface
-                          : colorScheme.surfaceContainerLow,
-                    ),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: AppConfig.spacingSectionGap),
-
-                  // v0.7.8 Punkt 5: Bild-Buttons aus Body entfernt (jetzt in AppBar)
-                  // v0.7.8 Punkt 5: AnhaengeSektion aus Body entfernt (jetzt in AppBar)
-                  // Optional: Info-Zeile für Anhang-Anzahl
-                  if (_anhangCount > 0)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        bottom: AppConfig.spacingMedium,
-                      ),
-                      child: Text(
-                        'Anhänge: $_anhangCount',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-
-                  // ── Kategorie ──────────────────────────────────
-                  TextField(
-                    controller: _kategorieController,
-                    enabled: _isEditing && !isBlocked,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      labelText: 'Kategorie',
-                      border: const OutlineInputBorder(),
-                      prefixIcon: const Icon(Icons.category_outlined),
-                      filled: true,
-                      fillColor: _isEditing
-                          ? colorScheme.surface
-                          : colorScheme.surfaceContainerLow,
-                    ),
-                  ),
-                  const SizedBox(height: AppConfig.spacingSectionGap),
-
-                  // M-011: Zentrales Bild-Widget mit Vollbild-Tap
-                  if (_isLoadingRemoteBild)
-                    Container(
-                      height: AppConfig.artikelDetailBildHoehe,
-                      width: double.infinity,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(
-                          AppConfig.cardBorderRadiusLarge,
-                        ),
-                      ),
-                      child: const CircularProgressIndicator(),
-                    )
-                  else
-                    ArtikelDetailBild(
-                      // M-013: Artikel mit aktuellem Bild-State übergeben,
-                      // damit nach „Bild entfernen" sofort der Placeholder
-                      // angezeigt wird (nicht das alte Remote-Bild).
-                      artikel: artikel.copyWith(
-                        bildPfad: _bildPfad ?? '',
-                        remoteBildPfad: _remoteBildUrl != null
-                            ? artikel.remoteBildPfad
-                            : '',
-                        remotePath: _remoteBildUrl != null
-                            ? artikel.remotePath
-                            : '',
-                      ),
-                      pendingBytes: _pendingBytes,
-                      remoteBildUrl: _remoteBildUrl,
-                      onTap: _zeigeBildVollbild,
-                    ),
-
-                  // M-013: Crop- und Entfernen-Buttons sind jetzt im
-                  // BottomSheet (_showBildOptionen) — kein Body-Button mehr nötig.
-
-                  // v0.7.8 Punkt 5: AppLoadingButton aus Body entfernt
-                  // (Speichern/Ändern jetzt als Icon in AppBar)
-                ],
-              ),
+                );
+              },
             ),
           ),
 
           // M-004: Overlay beim Speichern
-          if (_isSaving)
-            const AppLoadingOverlay(message: 'Speichern...'),
+          if (_isSaving) const AppLoadingOverlay(message: 'Speichern...'),
 
           // M-004: Overlay beim Löschen
-          if (_isDeleting)
-            const AppLoadingOverlay(message: 'Löschen...'),
+          if (_isDeleting) const AppLoadingOverlay(message: 'Löschen...'),
         ],
       ),
     );

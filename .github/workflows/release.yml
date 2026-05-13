@@ -304,11 +304,11 @@ jobs:
           - **Web-App**: Verfügbar über Docker Image \`ghcr.io/germanlion67/lager_app_web:$TAG_NAME\`
           
           ### Weitere Plattformen
-          - **iOS/macOS**: Benötigt Apple Developer Account (siehe [MANUELLE_OPTIMIERUNGEN.md](docs/MANUELLE_OPTIMIERUNGEN.md))
+          - **iOS/macOS**: Benötigt Apple Developer Account (siehe [MANUELLE_OPTIMIERUNGEN.md](https://github.com/germanlion67/lager_app/docs/MANUELLE_OPTIMIERUNGEN.md))
           
           ## 📋 Änderungen
           
-          Siehe [CHANGELOG.md](CHANGELOG.md) für Details.
+          Siehe [CHANGELOG.md](https://github.com/germanlion67/lager_app/CHANGELOG.md) für Details.
           
           ## 🚀 Installation
           
@@ -331,7 +331,7 @@ jobs:
           5. Beim ersten Start: Server-URL eingeben
 
           ### Docker/Web
-          Siehe [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) für vollständige Anweisungen.
+          Siehe [PRODUCTION_DEPLOYMENT.md](https://github.com/germanlion67/lager_app/docs/PRODUCTION_DEPLOYMENT.md) für vollständige Anweisungen.
           
           ## 🔧 Systemanforderungen
           
