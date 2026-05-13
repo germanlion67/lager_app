@@ -370,7 +370,7 @@ extrahieren – das ist die wichtigste Vorbereitung für Master-Detail in Stufe 
 Ziel: Widgets responsive machen und als eigenständige, wiederverwendbare Komponenten
 extrahieren. Alles hier Gebaute wird in Stufe 3 wiederverwendet.
 
-- [ ] **F-011.2: Breakpoint-Helfer einführen**
+- [x] **F-011.2: Breakpoint-Helfer einführen**
   Zentrale Breakpoint-Definitionen anlegen.
 
   ```dart

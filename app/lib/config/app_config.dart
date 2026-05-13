@@ -376,4 +376,9 @@ class AppConfig {
   // F-011.1: Maximale Inhaltsbreite für Desktop-Web
   static const double maxContentWidth = 800;
 
+  // F-011.2: Responsive Breakpoints
+  static const double breakpointMobile = 600.0;
+  static const double breakpointTablet = 1024.0;
+  // > breakpointTablet = Desktop
+
 }
