@@ -1,6 +1,5 @@
 // lib/screens/artikel_list_screen.dart
-
-
+//
 //   P-007 — _gefilterteArtikel() gecacht (P-007.1). setState() aus _onSuchbegriffChanged()
 //            entfernt (P-007.2). _aktualisiereFilter() ohne eigenes setState() (P-007.3).
 //            Scroll-Guard früher im _onScroll()-Pfad (P-007.5).
@@ -18,6 +17,8 @@
 //   P-007 — _gefilterteArtikel() gecacht (P-007.1). setState() aus _onSuchbegriffChanged()
 //            entfernt (P-007.2). _aktualisiereFilter() ohne eigenes setState() (P-007.3).
 //            Scroll-Guard früher im _onScroll()-Pfad (P-007.5).
+//   F-011.3 — Desktop: 2-Spalten-Grid statt ListView.
+//   F-011.5 — Desktop: NavigationRail links (Artikel / Sync / Einstellungen).
 
 import 'dart:async';
 
@@ -117,7 +118,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     if (widget.initialArtikel != null) {
       _artikelListe = List<Artikel>.from(widget.initialArtikel!);
       _isLoading = false;
-      // B-009: Orte aus initialArtikel ableiten
       _aktualisiereFilterOhneSetState();
     } else {
       _ladeArtikel();
@@ -144,7 +144,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _isSyncRunning = (status == SyncStatus.running);
       });
 
-      // B-010: Snackbar-Feedback bei Sync-Ergebnis
       if (status == SyncStatus.success) {
         _ladeArtikel();
         _showSnackBar('✅ Synchronisierung abgeschlossen');
@@ -163,8 +162,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     super.dispose();
   }
 
-  // ── P-007.3: Filter ohne eigenes setState() — wird im setState() des
-  //             Aufrufers mitgemacht (kein doppelter build()).
+  // ── P-007.3: Filter ohne eigenes setState() ───────────────────────────────
   void _aktualisiereFilterOhneSetState() {
     _verfuegbareOrte = _artikelListe
         .map((a) => a.ort.trim())
@@ -222,12 +220,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _hasMore = seite.length >= AppConfig.paginationPageSize;
       }
     } catch (e, st) {
-      // O-017: catch (e, st) statt catch (e)
       _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
       _showSnackBar('❌ Fehler beim Laden der Artikel', isError: true);
     } finally {
       if (mounted) {
-        // P-007.3: Filter im selben setState() — kein separater Aufruf nötig.
         _aktualisiereFilterOhneSetState();
         setState(() => _isLoading = false);
       }
@@ -236,7 +232,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   Future<void> _handleManualSync() async {
     if (_isSyncRunning) return;
-    // B-010: Feedback beim Start des manuellen Syncs
     _showSnackBar('🔄 Synchronisierung gestartet…');
     await widget.syncStatusProvider?.runOnce();
   }
@@ -259,7 +254,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         limit: AppConfig.paginationPageSize,
         offset: _currentOffset,
       );
-      // P-007.3: Filter im selben setState() — kein separater _aktualisiereFilter()-Aufruf.
       setState(() {
         _artikelListe.addAll(seite);
         _currentOffset += seite.length;
@@ -267,7 +261,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _aktualisiereFilterOhneSetState();
       });
     } catch (e, st) {
-      // O-017: catch (e, st) statt catch (e)
       _logger.e('Fehler beim Nachladen:', error: e, stackTrace: st);
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
@@ -275,7 +268,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   // P-007.2: setState() entfernt — _suchbegriff wird erst in _fuehreSucheAus()
-  //          gesetzt. TextField zeigt den eingetippten Text intern korrekt an.
+  //          gesetzt.
   void _onSuchbegriffChanged(String value) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(
@@ -297,7 +290,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       return;
     }
 
-    // _suchbegriff hier setzen — einmalig, nach Debounce (P-007.2)
     setState(() {
       _suchbegriff = query;
       _isSuche = true;
@@ -309,7 +301,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       final trimmed = query.trim();
       final isNumeric = int.tryParse(trimmed) != null;
 
-      // B-018: Artikelnummer im Web-Filter ergänzt
       final filterString = isNumeric
           ? 'artikelnummer = ${int.parse(trimmed)} && deleted = false'
           : '(name ~ "$trimmed" || beschreibung ~ "$trimmed" || '
@@ -322,9 +313,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       results =
           records.map((r) => Artikel.fromPocketBase(r.data, r.id)).toList();
     } else {
-      // B-018: searchArtikel() muss artikelnummer einschließen — siehe
-      //        ArtikelDbService.searchArtikel() (bereits dort umgesetzt oder
-      //        wird dort ergänzt — siehe B-018.1 Tasks).
       results = await _db.searchArtikel(query);
     }
 
@@ -342,10 +330,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   // P-007.1: Gecachte Filterberechnung.
-  // Neu berechnet nur wenn sich Basis-Liste, _filterOrt oder _filterKategorie
-  // tatsächlich geändert haben. identical() prüft Referenzgleichheit —
-  // funktioniert korrekt weil _artikelListe und _suchErgebnisse bei Änderungen
-  // immer neu zugewiesen werden.
   List<Artikel> _gefilterteArtikel() {
     final basis =
         _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
@@ -361,8 +345,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     _letzterFilterKategorie = _filterKategorie;
 
     _gefilterteArtikelCache = basis.where((a) {
-      // Kein .trim() nötig — Werte kommen bereits getrimmt aus
-      // _aktualisiereFilterOhneSetState() und den Dropdowns.
       if (_filterOrt.isNotEmpty && a.ort.trim() != _filterOrt) {
         return false;
       }
@@ -382,6 +364,309 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         '${dt.second.toString().padLeft(2, '0')}';
   }
 
+  // ── F-011.5: NavigationRail für Desktop ──────────────────────────────────
+  Widget _buildNavigationRail(ColorScheme colorScheme) {
+    return NavigationRail(
+      selectedIndex: 0, // Artikelliste ist immer aktiv in diesem Screen
+      labelType: NavigationRailLabelType.all,
+      leading: const SizedBox(height: AppConfig.spacingSmall),
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.inventory_2_outlined),
+          selectedIcon: Icon(Icons.inventory_2),
+          label: Text('Artikel'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.sync_outlined),
+          selectedIcon: Icon(Icons.sync),
+          label: Text('Sync'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: Text('Einstellungen'),
+        ),
+      ],
+      onDestinationSelected: (index) {
+        switch (index) {
+          case 0:
+            // Bereits auf Artikelliste — nichts tun
+            break;
+          case 1:
+            _handleManualSync();
+          case 2:
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => SettingsScreen(
+                  onLogout: widget.onLogout,
+                  onSyncIntervalChanged: widget.onSyncIntervalChanged,
+                ),
+              ),
+            );
+        }
+      },
+    );
+  }
+
+  // ── F-011.5: Body-Inhalt als eigene Methode ───────────────────────────────
+  // Wird in Mobile direkt und in Desktop als Expanded-Kind der Row verwendet.
+  Widget _buildBodyContent(
+    List<Artikel> gefiltert,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+  ) {
+    return Column(
+      children: [
+        // ── Suchleiste + Scanner ───────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppConfig.spacingSmall,
+            AppConfig.spacingSmall,
+            AppConfig.spacingSmall,
+            0,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const Key('articleSearchField'),
+                  decoration: const InputDecoration(
+                    labelText: 'Suche…',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: _onSuchbegriffChanged,
+                ),
+              ),
+              const SizedBox(width: AppConfig.spacingSmall),
+              IconButton.filled(
+                key: const Key('qrScannerButton'),
+                icon: const Icon(Icons.qr_code_scanner),
+                onPressed: () => ScanService.scanArtikel(
+                  context,
+                  _artikelListe,
+                  _ladeArtikel,
+                  setState,
+                  _db,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ── Ort- und Kategorie-Filter ──────────────────────────────────────
+        if (_verfuegbareOrte.isNotEmpty || _verfuegbareKategorien.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppConfig.spacingSmall,
+              AppConfig.spacingXSmall,
+              AppConfig.spacingSmall,
+              0,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Ort-Filter
+                if (_verfuegbareOrte.isNotEmpty)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.place_outlined, size: 18),
+                        const SizedBox(width: AppConfig.spacingXSmall),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            key: const Key('locationFilterDropdown'),
+                            value: _filterOrt.isEmpty ? null : _filterOrt,
+                            hint: const Text('Alle Orte'),
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            isDense: true,
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Alle Orte'),
+                              ),
+                              ..._verfuegbareOrte.map(
+                                (ort) => DropdownMenuItem<String>(
+                                  value: ort,
+                                  child: Text(
+                                    ort,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _filterOrt = v ?? ''),
+                          ),
+                        ),
+                        if (_filterOrt.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            tooltip: 'Ort-Filter zurücksetzen',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () =>
+                                setState(() => _filterOrt = ''),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                if (_verfuegbareOrte.isNotEmpty &&
+                    _verfuegbareKategorien.isNotEmpty)
+                  const SizedBox(width: AppConfig.spacingSmall),
+
+                // Kategorie-Filter
+                if (_verfuegbareKategorien.isNotEmpty)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.category_outlined, size: 18),
+                        const SizedBox(width: AppConfig.spacingXSmall),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            key: const Key('categoryFilterDropdown'),
+                            value: _filterKategorie.isEmpty
+                                ? null
+                                : _filterKategorie,
+                            hint: const Text('Alle Kategorien'),
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            isDense: true,
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Alle Kategorien'),
+                              ),
+                              ..._verfuegbareKategorien.map(
+                                (kat) => DropdownMenuItem<String>(
+                                  value: kat,
+                                  child: Text(
+                                    kat,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _filterKategorie = v ?? ''),
+                          ),
+                        ),
+                        if (_filterKategorie.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            tooltip: 'Kategorie-Filter zurücksetzen',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () =>
+                                setState(() => _filterKategorie = ''),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+        const SizedBox(height: AppConfig.spacingXSmall),
+
+        // ── Artikelliste / Grid ────────────────────────────────────────────
+        Expanded(
+          child: _isLoading || _isSuche
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _handleManualSync,
+                  child: gefiltert.isEmpty
+                      ? const SingleChildScrollView(
+                          physics: AlwaysScrollableScrollPhysics(),
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.only(top: 100),
+                              child: Text('Keine Artikel gefunden.'),
+                            ),
+                          ),
+                        )
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isDesktop =
+                                Responsive.fromConstraints(constraints) ==
+                                    ScreenSize.desktop;
+
+                            // F-011.3: Desktop → 2-Spalten-Grid
+                            if (isDesktop) {
+                              return GridView.builder(
+                                controller: _scrollController,
+                                physics:
+                                    const AlwaysScrollableScrollPhysics(),
+                                padding: const EdgeInsets.all(
+                                  AppConfig.spacingSmall,
+                                ),
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  crossAxisSpacing: AppConfig.spacingSmall,
+                                  mainAxisSpacing: AppConfig.spacingXSmall,
+                                  childAspectRatio: 3.2,
+                                ),
+                                itemCount: gefiltert.length +
+                                    (_isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index == gefiltert.length) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  return _ArtikelTile(
+                                    artikel: gefiltert[index],
+                                    onTap: () => Navigator.push<Artikel?>(
+                                      context,
+                                      MaterialPageRoute<Artikel?>(
+                                        builder: (_) => ArtikelDetailScreen(
+                                          artikel: gefiltert[index],
+                                        ),
+                                      ),
+                                    ).then((_) => _ladeArtikel()),
+                                  );
+                                },
+                              );
+                            }
+
+                            // Mobile/Tablet → ListView
+                            return ListView.builder(
+                              controller: _scrollController,
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: gefiltert.length +
+                                  (_isLoadingMore ? 1 : 0),
+                              itemBuilder: (context, index) {
+                                if (index == gefiltert.length) {
+                                  return const Center(
+                                    child: CircularProgressIndicator(),
+                                  );
+                                }
+                                return _ArtikelTile(
+                                  artikel: gefiltert[index],
+                                  onTap: () => Navigator.push<Artikel?>(
+                                    context,
+                                    MaterialPageRoute<Artikel?>(
+                                      builder: (_) => ArtikelDetailScreen(
+                                        artikel: gefiltert[index],
+                                      ),
+                                    ),
+                                  ).then((_) => _ladeArtikel()),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final gefiltert = _gefilterteArtikel();
@@ -390,7 +675,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        // B-012: Flexible title verhindert Overflow auf schmalen Displays
         titleSpacing: 0,
         title: Padding(
           padding: const EdgeInsets.only(left: AppConfig.spacingMedium),
@@ -405,8 +689,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   _buildConnectionStatusIcon(),
                 ],
               ),
-              // B-012 + F-007: overflow sichert Darstellung auf S20,
-              // ValueListenableBuilder reagiert sofort auf Toggle in Einstellungen
               ValueListenableBuilder<bool>(
                 valueListenable: showLastSyncNotifier,
                 builder: (context, showSync, _) {
@@ -441,7 +723,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               ),
             ).then((_) => _ladeArtikel()),
           ),
-          // B-009: Dropdown aus actions ENTFERNT — jetzt im Body (siehe unten)
           _isSyncRunning
               ? const Center(
                   child: Padding(
@@ -469,252 +750,30 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // ── Suchleiste + Scanner ─────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppConfig.spacingSmall,
-              AppConfig.spacingSmall,
-              AppConfig.spacingSmall,
-              0,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('articleSearchField'),
-                    decoration: const InputDecoration(
-                      labelText: 'Suche…',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onChanged: _onSuchbegriffChanged,
-                  ),
-                ),
-                const SizedBox(width: AppConfig.spacingSmall),
-                IconButton.filled(
-                  key: const Key('qrScannerButton'),
-                  icon: const Icon(Icons.qr_code_scanner),
-                  onPressed: () => ScanService.scanArtikel(
-                    context,
-                    _artikelListe,
-                    _ladeArtikel,
-                    setState,
-                    _db,
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          // ── B-009: Ort-Filter — im Body, mit echten Daten ───────────────
-          // ── F-009 / B-009: Ort- und Kategorie-Filter nebeneinander ────────
-          if (_verfuegbareOrte.isNotEmpty || _verfuegbareKategorien.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppConfig.spacingSmall,
-                AppConfig.spacingXSmall,
-                AppConfig.spacingSmall,
-                0,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // ── Ort-Filter ──────────────────────────────────
-                  if (_verfuegbareOrte.isNotEmpty)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.place_outlined, size: 18),
-                          const SizedBox(width: AppConfig.spacingXSmall),
-                          Expanded(
-                            child: DropdownButton<String>(
-                              key: const Key('locationFilterDropdown'),
-                              value:
-                                  _filterOrt.isEmpty ? null : _filterOrt,
-                              hint: const Text('Alle Orte'),
-                              isExpanded: true,
-                              underline: const SizedBox.shrink(),
-                              isDense: true,
-                              items: [
-                                const DropdownMenuItem<String>(
-                                  value: null,
-                                  child: Text('Alle Orte'),
-                                ),
-                                ..._verfuegbareOrte.map(
-                                  (ort) => DropdownMenuItem<String>(
-                                    value: ort,
-                                    child: Text(
-                                      ort,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (v) =>
-                                  setState(() => _filterOrt = v ?? ''),
-                            ),
-                          ),
-                          if (_filterOrt.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              tooltip: 'Ort-Filter zurücksetzen',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () =>
-                                  setState(() => _filterOrt = ''),
-                            ),
-                        ],
-                      ),
-                    ),
+      // F-011.5: LayoutBuilder → Desktop mit NavigationRail, Mobile ohne
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktop =
+              Responsive.fromConstraints(constraints) == ScreenSize.desktop;
 
-                  // ── Abstand zwischen den Filtern ────────────────
-                  if (_verfuegbareOrte.isNotEmpty &&
-                      _verfuegbareKategorien.isNotEmpty)
-                    const SizedBox(width: AppConfig.spacingSmall),
+          final bodyContent =
+              _buildBodyContent(gefiltert, colorScheme, textTheme);
 
-                  // ── Kategorie-Filter ────────────────────────────
-                  if (_verfuegbareKategorien.isNotEmpty)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.category_outlined, size: 18),
-                          const SizedBox(width: AppConfig.spacingXSmall),
-                          Expanded(
-                            child: DropdownButton<String>(
-                              key: const Key('categoryFilterDropdown'),
-                              value: _filterKategorie.isEmpty
-                                  ? null
-                                  : _filterKategorie,
-                              hint: const Text('Alle Kategorien'),
-                              isExpanded: true,
-                              underline: const SizedBox.shrink(),
-                              isDense: true,
-                              items: [
-                                const DropdownMenuItem<String>(
-                                  value: null,
-                                  child: Text('Alle Kategorien'),
-                                ),
-                                ..._verfuegbareKategorien.map(
-                                  (kat) => DropdownMenuItem<String>(
-                                    value: kat,
-                                    child: Text(
-                                      kat,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (v) =>
-                                  setState(() => _filterKategorie = v ?? ''),
-                            ),
-                          ),
-                          if (_filterKategorie.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              tooltip: 'Kategorie-Filter zurücksetzen',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () =>
-                                  setState(() => _filterKategorie = ''),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          if (!isDesktop) return bodyContent;
 
-          const SizedBox(height: AppConfig.spacingXSmall),
-
-          // ── Artikelliste ─────────────────────────────────────────────────
-          Expanded(
-            child: _isLoading || _isSuche
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _handleManualSync,
-                    child: gefiltert.isEmpty
-                        ? const SingleChildScrollView(
-                            physics: AlwaysScrollableScrollPhysics(),
-                            child: Center(
-                              child: Padding(
-                                padding: EdgeInsets.only(top: 100),
-                                child: Text('Keine Artikel gefunden.'),
-                              ),
-                            ),
-                          )
-                        // nachher:
-                        : LayoutBuilder(
-                            builder: (context, constraints) {
-                              final screenSize = Responsive.fromConstraints(constraints);
-                              final isDesktop = screenSize == ScreenSize.desktop;
-
-                              // F-011.3: Desktop → 2-Spalten-Grid, Mobile/Tablet → Liste
-                              if (isDesktop) {
-                                return GridView.builder(
-                                  controller: _scrollController,
-                                  physics: const AlwaysScrollableScrollPhysics(),
-                                  padding: const EdgeInsets.all(AppConfig.spacingSmall),
-                                  gridDelegate:
-                                      const SliverGridDelegateWithFixedCrossAxisCount(
-                                    crossAxisCount: 2,
-                                    crossAxisSpacing: AppConfig.spacingSmall,
-                                    mainAxisSpacing: AppConfig.spacingXSmall,
-                                    childAspectRatio: 3.2,
-                                  ),
-                                  itemCount: gefiltert.length + (_isLoadingMore ? 1 : 0),
-                                  itemBuilder: (context, index) {
-                                    if (index == gefiltert.length) {
-                                      return const Center(
-                                        child: CircularProgressIndicator(),
-                                      );
-                                    }
-                                    return _ArtikelTile(
-                                      artikel: gefiltert[index],
-                                      onTap: () => Navigator.push<Artikel?>(
-                                        context,
-                                        MaterialPageRoute<Artikel?>(
-                                          builder: (_) => ArtikelDetailScreen(
-                                            artikel: gefiltert[index],
-                                          ),
-                                        ),
-                                      ).then((_) => _ladeArtikel()),
-                                    );
-                                  },
-                                );
-                              }
-
-                              return ListView.builder(
-                                controller: _scrollController,
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                itemCount: gefiltert.length + (_isLoadingMore ? 1 : 0),
-                                itemBuilder: (context, index) {
-                                  if (index == gefiltert.length) {
-                                    return const Center(
-                                      child: CircularProgressIndicator(),
-                                    );
-                                  }
-                                  return _ArtikelTile(
-                                    artikel: gefiltert[index],
-                                    onTap: () => Navigator.push<Artikel?>(
-                                      context,
-                                      MaterialPageRoute<Artikel?>(
-                                        builder: (_) =>
-                                            ArtikelDetailScreen(artikel: gefiltert[index]),
-                                      ),
-                                    ).then((_) => _ladeArtikel()),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                  ),
-          ),
-        ],
+          // Desktop: NavigationRail links + VerticalDivider + Content rechts
+          return Row(
+            children: [
+              _buildNavigationRail(colorScheme),
+              const VerticalDivider(thickness: 1, width: 1),
+              Expanded(child: bodyContent),
+            ],
+          );
+        },
       ),
     );
   }
-
 
   Widget _buildConnectionStatusIcon() {
     return Icon(
@@ -822,9 +881,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 }
 
 // ── P-007.4: _ArtikelTile als StatelessWidget extrahiert ─────────────────
-// Flutter kann Widget-Identität über Rebuilds hinweg tracken.
-// Tiles mit unverändertem artikel-Objekt (Artikel.operator== via uuid)
-// werden nicht neu gebaut.
 class _ArtikelTile extends StatelessWidget {
   const _ArtikelTile({
     required this.artikel,
@@ -947,10 +1003,7 @@ class _ArtikelTile extends StatelessWidget {
   }
 }
 
-// ── _ArtikelInfoChip — ebenfalls als StatelessWidget ─────────────────────
-// Vorher _buildInfoChip() als State-Methode mit ColorScheme/TextTheme-
-// Parametern. Jetzt liest das Widget den Theme-Context selbst — sauberer
-// und kein Parameter-Overhead.
+// ── _ArtikelInfoChip ──────────────────────────────────────────────────────
 class _ArtikelInfoChip extends StatelessWidget {
   const _ArtikelInfoChip({
     required this.icon,

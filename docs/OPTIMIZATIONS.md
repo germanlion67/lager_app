@@ -390,7 +390,7 @@ extrahieren. Alles hier Gebaute wird in Stufe 3 wiederverwendet.
       MediaQuery.of(context).size.width >= Breakpoints.desktop;
   ```
 
-- [ ] **F-011.3: Artikelliste als eigenständiges Widget extrahieren**
+- [x] **F-011.3: Artikelliste als eigenständiges Widget extrahieren**
   `ArtikelListWidget` aus dem aktuellen Screen herauslösen. Auf breiten Screens
   als Grid (2–3 Spalten) statt einspaltige Liste darstellen.
 
@@ -414,7 +414,7 @@ extrahieren. Alles hier Gebaute wird in Stufe 3 wiederverwendet.
   }
   ```
 
-- [ ] **F-011.4: Detailansicht als eigenständiges Widget extrahieren**
+- [x] **F-011.4: Detailansicht als eigenständiges Widget extrahieren**
   `ArtikelDetailWidget` aus dem Detail-Screen herauslösen. Felder auf breiten
   Screens nebeneinander gruppieren statt untereinander.
 
@@ -431,7 +431,7 @@ extrahieren. Alles hier Gebaute wird in Stufe 3 wiederverwendet.
   )
   ```
 
-- [ ] **F-011.5: Navigation responsive machen**
+- [x] **F-011.5: Navigation responsive machen**
   `BottomNavigationBar` auf Desktop durch `NavigationRail` ersetzen.
 
   ```dart
