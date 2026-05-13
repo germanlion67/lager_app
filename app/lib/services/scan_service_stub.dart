@@ -6,12 +6,17 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:logger/logger.dart'; // ← NEU (O-017)
 
+import '../services/app_log_service.dart'; // ← NEU (O-017)
 import '../services/artikel_db_service.dart';
 import '../services/scan_result.dart';
 import '../models/artikel_model.dart';
 import '../services/pocketbase_service.dart';
 import '../screens/artikel_detail_screen.dart';
+
+
+final Logger _logger = AppLogService.logger; // ← NEU (O-017)
 
 /// Öffnet einen Artikelnummer-Eingabe-Dialog als Fallback für Web/Desktop.
 Future<Object?> openQrScanner(
@@ -143,7 +148,8 @@ Future<Object?> _zeigeArtikelnummerDialog(
     } else {
       return const ScanResultCancelled();
     }
-  } catch (e) {
+  } catch (e, st) {
+    _logger.e('Artikelsuche fehlgeschlagen:', error: e, stackTrace: st);
     return ScanResultError(e.toString());
   }
 }

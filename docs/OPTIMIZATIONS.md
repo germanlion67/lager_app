@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.5+54 | **Zuletzt aktualisiert:** 07.05.2026
+**Version:** 0.9.7+56 | **Zuletzt aktualisiert:** 13.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-019`, `F-012`, `H-005`, `K-008`, `M-014`, `N-007`, `O-023`, `P-007`, `T-013`
+- `B-019`, `F-012`, `H-005`, `K-008`, `M-014`, `N-007`, `O-023`, `P-008`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -66,7 +66,7 @@ Die Suche durchsucht vermutlich nur `name`, `beschreibung` oder ähnliche Felder
 
 **Tasks:**
 
-- [ ] **B-018.1: Suchlogik um Artikelnummer erweitern**
+- [x] **B-018.1: Suchlogik um Artikelnummer erweitern**
   Im Such-/Filter-Code das Feld `artikelnummer` (oder entsprechendes Model-Feld)
   zur Suche hinzufügen.
 
@@ -79,15 +79,15 @@ Die Suche durchsucht vermutlich nur `name`, `beschreibung` oder ähnliche Felder
   }
   ```
 
-- [ ] **B-018.2: Web-Fallback-Dialog Ergebnis korrekt verarbeiten**
+- [x] **B-018.2: Web-Fallback-Dialog Ergebnis korrekt verarbeiten**
   Prüfen ob der Rückgabewert des Texteingabe-Dialogs korrekt an die Suchlogik
   weitergeleitet wird (gleicher Codepfad wie Scanner-Ergebnis).
 
 - [ ] **B-018.3: Testen auf allen Plattformen**
   Nach Fix verifizieren:
-  - [ ] Android: Scanner findet Artikel 1029
-  - [ ] Android: Manuelle Suche findet Artikel 1029
-  - [ ] Web: Texteingabe-Fallback findet Artikel 1029
+  - [x] Android: Scanner findet Artikel 1029
+  - [x] Android: Manuelle Suche findet Artikel 1029
+  - [x] Web: Texteingabe-Fallback findet Artikel 1029
 
 ---
 
@@ -174,9 +174,9 @@ Nextcloud-Dateien (9+ Stellen) entfallen mit O-014.
 **Risiko:** Sehr niedrig
 
 **Tasks:**
-- [ ] `catch (e)` → `catch (e, st)` in den 4 produktiven Dateien
-- [ ] StackTrace an Logger-Aufrufe durchreichen
-- [ ] `flutter analyze` grün
+- [x] `catch (e)` → `catch (e, st)` in den 4 produktiven Dateien
+- [x] StackTrace an Logger-Aufrufe durchreichen
+- [x] `flutter analyze` grün
 
 --- 
 
@@ -408,6 +408,127 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 
 **Aufwand gesamt:** ~1–2 Stunden (P-006.1–P-006.3)
 **Risiko:** Niedrig
+
+--- 
+
+### P-007: UI-Performance `ArtikelListScreen` — Filter-Cache, setState-Reduktion, Widget-Extraktion  
+**Beschreibung:**  
+Analyse des tatsächlichen Codes (13.05.2026) hat fünf konkrete Performance-Befunde  
+in `artikel_list_screen.dart` identifiziert. Alle Befunde liegen ausschließlich im  
+UI-Layer — kein Eingriff in Sync-Logik erforderlich.  
+
+**Hintergrund:**  
+Nach B-018 (Artikelnummer-Suche) wurde ein zäheres Scroll-Verhalten beobachtet.  
+Die eigentliche Ursache ist nicht B-018 selbst, sondern dass `_gefilterteArtikel()`  
+bei jedem `build()` neu berechnet wird und `setState()` aus mehreren Quellen  
+häufig feuert. B-018 hat den Effekt verstärkt, war aber nicht die Ursache.  
+
+**Identifizierte Befunde:**  
+
+| Kürzel | Befund | Prio |  
+|:---|:---|:---|  
+| P-007.1 | `_gefilterteArtikel()` bei jedem `build()` neu berechnet — keine Cachierung | 🔴 |  
+| P-007.2 | `setState()` bei jedem Keystroke im Suchfeld (vor Debounce) | 🔴 |  
+| P-007.3 | `_aktualisiereFilter()` ruft eigenes `setState()` auf — doppelter `build()` bei Pagination | 🟡 |  
+| P-007.4 | `_buildArtikelTile()` als State-Methode — Flutter kann Widget-Identität nicht cachen | 🟡 |  
+| P-007.5 | Scroll-Guard `_isLoadingMore` zu spät im `_onScroll()`-Pfad | 🟢 |  
+
+**Positiv bestätigt (kein Handlungsbedarf):**  
+- `ListView.builder` korrekt verwendet ✅  
+- `ArtikelListBild` als eigenes Widget ✅  
+- Debounce auf DB-Suche vorhanden ✅  
+
+---  
+
+**Tasks:**  
+
+- [ ] **P-007.1: `_gefilterteArtikel()` cachen**  
+  Ergebnis nur neu berechnen wenn sich Basis-Liste, `_filterOrt` oder  
+  `_filterKategorie` tatsächlich geändert haben. Cache-Invalidierung via  
+  `identical()`-Referenzcheck auf die Basis-Liste.  
+
+  ```dart
+  List<Artikel> _gefilterteArtikelCache = [];
+  String _letzterFilterOrt = '';
+  String _letzterFilterKategorie = '';
+  List<Artikel>? _letzteFilterBasis;
+
+  List<Artikel> _gefilterteArtikel() {
+    final basis = _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
+    if (identical(basis, _letzteFilterBasis) &&
+        _filterOrt == _letzterFilterOrt &&
+        _filterKategorie == _letzterFilterKategorie) {
+      return _gefilterteArtikelCache;
+    }
+    _letzteFilterBasis = basis;
+    _letzterFilterOrt = _filterOrt;
+    _letzterFilterKategorie = _filterKategorie;
+    _gefilterteArtikelCache = basis.where((a) {
+      if (_filterOrt.isNotEmpty && a.ort != _filterOrt) return false;
+      if (_filterKategorie.isNotEmpty &&
+          (a.kategorie ?? '') != _filterKategorie) return false;
+      return true;
+    }).toList();
+    return _gefilterteArtikelCache;
+  }
+  ```  
+
+Wirkung: Sync-Status-Updates, _isLoadingMore-Toggles und andere  
+setState()-Aufrufe die Filter/Basis nicht ändern lösen keine Neu-Berechnung aus.  
+Regressionsrisiko: Niedrig — Logik identisch, nur gecacht.  
+
+- [x] **P-007.2: setState() aus _onSuchbegriffChanged() entfernen**  
+  _suchbegriff erst nach Debounce in _fuehreSucheAus() setzen statt  
+  bei jedem Keystroke sofort.  
+
+  ```dart
+  void _onSuchbegriffChanged(String value) {
+    _debounceTimer?.cancel();
+    // setState() entfernt — TextField zeigt Text intern korrekt an
+    _debounceTimer = Timer(
+      const Duration(milliseconds: 500),
+      () => _fuehreSucheAus(value),
+    );
+  }
+  ```  
+
+Wirkung: Bei Eingabe von „1029" feuert setState() 1× statt 4×.  
+Regressionsrisiko: Sehr niedrig — TextField steuert Anzeige intern.  
+
+- [x] **P-007.3: _aktualisiereFilter() ohne eigenes setState()**  
+  Filter-Werte direkt im bestehenden setState() von _ladeArtikel() und  
+  _ladeNaechsteSeite() setzen — kein separater setState()-Aufruf.  
+
+  Wirkung: Pro Pagination-Seite 1 setState() statt 2.  
+  Regressionsrisiko: Niedrig.  
+
+- [x] **P-007.4: _buildArtikelTile() als eigenes StatelessWidget extrahieren**  
+  Neues _ArtikelTile-Widget mit artikel und onTap als Parameter.  
+  Flutter kann Widget-Identität über Rebuilds hinweg tracken — Tiles mit  
+  unverändertem artikel-Objekt werden nicht neu gebaut.  
+
+  Hinweis: Artikel.operator== ist über uuid definiert — Flutter-  
+  Reconciliation funktioniert korrekt. Bestehende Widget-Tests auf neuen  
+  Widget-Namen _ArtikelTile prüfen.  
+  Regressionsrisiko: Niedrig — reine Extraktion, keine Logikänderung.  
+
+- [x] **P-007.5: Scroll-Guard früher im _onScroll()-Pfad**  
+  _isLoadingMore- und _hasMore-Check vor dem Pixel-Vergleich.  
+
+  ```dart
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_isLoadingMore || !_hasMore) return; // ← früher Guard
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
+      _ladeNaechsteSeite();
+    }
+  }
+  ```  
+
+Wirkung: Redundante _ladeNaechsteSeite()-Aufrufe zwischen erstem  
+Aufruf und nächstem build() verhindert.  
+Regressionsrisiko: Keins.
 
 --- 
 
@@ -1371,6 +1492,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-13 | 0.9.8+57 | P-007 abgeschlossen: `_gefilterteArtikel()` gecacht (P-007.1), setState() bei Keystroke entfernt (P-007.2), `_aktualisiereFilter()` ohne separates setState() (P-007.3), `_ArtikelTile` + `_ArtikelInfoChip` als StatelessWidgets extrahiert (P-007.4), Scroll-Guard früher im `_onScroll()`-Pfad (P-007.5). B-018 abgeschlossen: Artikelnummer in Suche (SQLite + PocketBase) und Scanner-Fallback einbezogen. O-017 abgeschlossen: catch (e, st) in scan_service_stub.dart, artikel_import_service.dart (2×), app_log_io.dart (4×) ergänzt; pdf_service_shared.dart war bereits korrekt. flutter analyze + flutter test grün. |
 | 2026-05-08 | 0.9.5+54 | F-008: Sync-Intervall konfigurierbar (1/5/15 Min oder nur manuell). Dropdown in Einstellungen, Callback-Pattern für sofortige Übernahme ohne App-Neustart. |
 | 2026-05-08 | 0.9.5+51 | P-004 abgeschlossen: Android-Kamera vollständig manuell verifiziert (8 Tests auf A515F). B-016 behoben: `remoteBildPfad` wird beim Bild-Entfernen jetzt in PocketBase geleert (1 Zeile in Push-Update-Pfad). B-017 behoben: `ErrorWidget.builder` unterdrückt roten ErrorWidget-Flash bei Activity-Restart nach Permission-Änderung (kosmetisch, erwartetes Android-OS-Verhalten). |
 | 2026-05-05 | 0.9.5+50 | O-013 umgesetzt: Log-Viewer Default-Level in App-Einstellungen konfigurierbar |

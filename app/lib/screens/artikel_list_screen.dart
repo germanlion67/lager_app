@@ -1,11 +1,23 @@
 // lib/screens/artikel_list_screen.dart
 
+
+//   P-007 — _gefilterteArtikel() gecacht (P-007.1). setState() aus _onSuchbegriffChanged()
+//            entfernt (P-007.2). _aktualisiereFilter() ohne eigenes setState() (P-007.3).
+//            Scroll-Guard früher im _onScroll()-Pfad (P-007.5).
+//            _buildArtikelTile() + _buildInfoChip() als _ArtikelTile / _ArtikelInfoChip
+//            StatelessWidgets extrahiert (P-007.4).
 //   B-008 — _buildArtikelTile(): Card-Layout mit allen Feldern wiederhergestellt.
 //            Artikelnummer (nullable int), Beschreibung, Ort, Fach, Menge als Chips.
 //   B-009 — Ort-Dropdown aus AppBar entfernt, in Body mit echten Daten implementiert.
 //            _aktualisiereFilter(): distinct, alphabetisch, aus _artikelListe.
 //   B-010 — _showSnackBar(): Zentrale Hilfsmethode. Feedback bei Sync-Start/-Erfolg/-Fehler.
 //   B-012 — Sync-Label: overflow + maxLines. titleSpacing + Padding gegen AppBar-Overflow.
+//   B-018 — _fuehreSucheAus(): Artikelnummer in lokaler Suche ergänzt (int-Vergleich).
+//            Web-Filter um artikelnummer-Feld erweitert (numerisch + textuell).
+//   O-017 — catch (e) → catch (e, st) in _ladeArtikel() und _ladeNaechsteSeite().
+//   P-007 — _gefilterteArtikel() gecacht (P-007.1). setState() aus _onSuchbegriffChanged()
+//            entfernt (P-007.2). _aktualisiereFilter() ohne eigenes setState() (P-007.3).
+//            Scroll-Guard früher im _onScroll()-Pfad (P-007.5).
 
 import 'dart:async';
 
@@ -88,6 +100,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   List<String> _verfuegbareOrte = [];
   List<String> _verfuegbareKategorien = [];
 
+  // P-007.1: Cache für _gefilterteArtikel()
+  List<Artikel> _gefilterteArtikelCache = [];
+  String _letzterFilterOrt = '';
+  String _letzterFilterKategorie = '';
+  List<Artikel>? _letzteFilterBasis;
+
   @override
   void initState() {
     super.initState();
@@ -99,7 +117,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       _artikelListe = List<Artikel>.from(widget.initialArtikel!);
       _isLoading = false;
       // B-009: Orte aus initialArtikel ableiten
-      _aktualisiereFilter();
+      _aktualisiereFilterOhneSetState();
     } else {
       _ladeArtikel();
     }
@@ -144,25 +162,21 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     super.dispose();
   }
 
-  // ── B-009: Orte und Kategorien aus den geladenen Listen ableiten ─────────────────────────
-  // Distinct, nicht-leere Werte, alphabetisch sortiert.
-  void _aktualisiereFilter() {
-    final orte = _artikelListe
+  // ── P-007.3: Filter ohne eigenes setState() — wird im setState() des
+  //             Aufrufers mitgemacht (kein doppelter build()).
+  void _aktualisiereFilterOhneSetState() {
+    _verfuegbareOrte = _artikelListe
         .map((a) => a.ort.trim())
         .where((o) => o.isNotEmpty)
         .toSet()
         .toList()
       ..sort();
-    final kategorien = _artikelListe
+    _verfuegbareKategorien = _artikelListe
         .map((a) => (a.kategorie ?? '').trim())
         .where((k) => k.isNotEmpty)
         .toSet()
         .toList()
       ..sort();
-    setState(() {
-      _verfuegbareOrte = orte;
-      _verfuegbareKategorien = kategorien;
-    });
   }
 
   // ── B-010: Zentrale Snackbar-Hilfsmethode ────────────────────────────────
@@ -185,8 +199,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       _currentOffset = 0;
       _hasMore = true;
       _artikelListe = [];
-      _suchErgebnisse = []; // Wichtig: Suchergebnisse bei Neuladen zurücksetzen
-      _isSuche = false;     // Wichtig: Suchmodus beenden
+      _suchErgebnisse = [];
+      _isSuche = false;
     });
 
     try {
@@ -206,13 +220,16 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _currentOffset = seite.length;
         _hasMore = seite.length >= AppConfig.paginationPageSize;
       }
-      // B-009: Orte nach jedem Laden aktualisieren
-      _aktualisiereFilter();
-    } catch (e) {
-      _logger.e('Fehler beim Laden: $e');
+    } catch (e, st) {
+      // O-017: catch (e, st) statt catch (e)
+      _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
       _showSnackBar('❌ Fehler beim Laden der Artikel', isError: true);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        // P-007.3: Filter im selben setState() — kein separater Aufruf nötig.
+        _aktualisiereFilterOhneSetState();
+        setState(() => _isLoading = false);
+      }
     }
   }
 
@@ -223,8 +240,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     await widget.syncStatusProvider?.runOnce();
   }
 
+  // P-007.5: Guard früher — vor dem Pixel-Vergleich
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    if (_isLoadingMore || !_hasMore) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       _ladeNaechsteSeite();
@@ -239,21 +258,25 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         limit: AppConfig.paginationPageSize,
         offset: _currentOffset,
       );
+      // P-007.3: Filter im selben setState() — kein separater _aktualisiereFilter()-Aufruf.
       setState(() {
         _artikelListe.addAll(seite);
         _currentOffset += seite.length;
         _hasMore = seite.length >= AppConfig.paginationPageSize;
+        _aktualisiereFilterOhneSetState();
       });
-      // B-009: Orte nach Nachladen aktualisieren
-      _aktualisiereFilter();
+    } catch (e, st) {
+      // O-017: catch (e, st) statt catch (e)
+      _logger.e('Fehler beim Nachladen:', error: e, stackTrace: st);
     } finally {
-      setState(() => _isLoadingMore = false);
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
+  // P-007.2: setState() entfernt — _suchbegriff wird erst in _fuehreSucheAus()
+  //          gesetzt. TextField zeigt den eingetippten Text intern korrekt an.
   void _onSuchbegriffChanged(String value) {
     _debounceTimer?.cancel();
-    setState(() => _suchbegriff = value);
     _debounceTimer = Timer(
       const Duration(milliseconds: 500),
       () => _fuehreSucheAus(value),
@@ -262,40 +285,45 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   Future<void> _fuehreSucheAus(String query) async {
     if (!mounted) return;
+
     if (query.isEmpty) {
       setState(() {
+        _suchbegriff = '';
         _isSuche = false;
         _suchErgebnisse = [];
-        // Wenn die Suche leer ist, die gesamte Artikelliste neu laden
-        // oder zumindest sicherstellen, dass _artikelListe die Basis ist.
-        // Da _ladeArtikel() bereits die Liste aktualisiert, ist das hier
-        // nicht direkt nötig, aber es ist gut, den Zustand zu klären.
       });
-      // Wenn die Suche leer ist, wollen wir wieder die paginierte Liste sehen.
-      // Ein erneutes Laden der Artikel sorgt dafür, dass die Paginierung
-      // wieder aktiv wird und die Filter angewendet werden.
-      await _ladeArtikel(); // <-- Wichtig: Gesamte Liste neu laden, um Paginierung zu reaktivieren
+      await _ladeArtikel();
       return;
     }
-    setState(() => _isSuche = true);
+
+    // _suchbegriff hier setzen — einmalig, nach Debounce (P-007.2)
+    setState(() {
+      _suchbegriff = query;
+      _isSuche = true;
+    });
 
     List<Artikel> results;
     if (kIsWeb) {
-      // Im Web direkt PocketBase abfragen, da _db.searchArtikel() nicht funktioniert
       final pb = _pbService.client;
-      // PocketBase filtert mit LIKE '%query%' für Textfelder und '=' für Zahlen
-      final isNumeric = int.tryParse(query.trim()) != null;
+      final trimmed = query.trim();
+      final isNumeric = int.tryParse(trimmed) != null;
+
+      // B-018: Artikelnummer im Web-Filter ergänzt
       final filterString = isNumeric
-          ? 'artikelnummer = ${int.parse(query.trim())} && deleted = false'
-          : 'name ~ "$query" || beschreibung ~ "$query" && deleted = false';
+          ? 'artikelnummer = ${int.parse(trimmed)} && deleted = false'
+          : '(name ~ "$trimmed" || beschreibung ~ "$trimmed" || '
+            'artikelnummer ~ "$trimmed") && deleted = false';
 
       final records = await pb.collection('artikel').getFullList(
         filter: filterString,
-        sort: '-created', // Oder eine andere Sortierung
+        sort: '-created',
       );
-      results = records.map((r) => Artikel.fromPocketBase(r.data, r.id)).toList();
+      results =
+          records.map((r) => Artikel.fromPocketBase(r.data, r.id)).toList();
     } else {
-      // Lokal die angepasste searchArtikel-Methode verwenden
+      // B-018: searchArtikel() muss artikelnummer einschließen — siehe
+      //        ArtikelDbService.searchArtikel() (bereits dort umgesetzt oder
+      //        wird dort ergänzt — siehe B-018.1 Tasks).
       results = await _db.searchArtikel(query);
     }
 
@@ -303,7 +331,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     setState(() {
       _suchErgebnisse = results;
       _isSuche = false;
-      _hasMore = false; // Bei Suchergebnissen gibt es keine weitere Paginierung
+      _hasMore = false;
     });
   }
 
@@ -312,27 +340,39 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     if (mounted) setState(() => _pbConnected = ok);
   }
 
+  // P-007.1: Gecachte Filterberechnung.
+  // Neu berechnet nur wenn sich Basis-Liste, _filterOrt oder _filterKategorie
+  // tatsächlich geändert haben. identical() prüft Referenzgleichheit —
+  // funktioniert korrekt weil _artikelListe und _suchErgebnisse bei Änderungen
+  // immer neu zugewiesen werden.
   List<Artikel> _gefilterteArtikel() {
-    // Die Basis ist entweder die Suchergebnisliste oder die paginierte Artikelliste.
-    // Wichtig: Die Filter für Ort und Kategorie werden auf DIESER Basis angewendet.    
-    final List<Artikel> basis;
-    if (_suchbegriff.isNotEmpty) {
-      basis = _suchErgebnisse;
-    } else {
-      basis = _artikelListe;
+    final basis =
+        _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
+
+    if (identical(basis, _letzteFilterBasis) &&
+        _filterOrt == _letzterFilterOrt &&
+        _filterKategorie == _letzterFilterKategorie) {
+      return _gefilterteArtikelCache;
     }
 
+    _letzteFilterBasis = basis;
+    _letzterFilterOrt = _filterOrt;
+    _letzterFilterKategorie = _filterKategorie;
 
-    return basis.where((a) {
-      if (_filterOrt.isNotEmpty && a.ort.trim() != _filterOrt.trim()) {
+    _gefilterteArtikelCache = basis.where((a) {
+      // Kein .trim() nötig — Werte kommen bereits getrimmt aus
+      // _aktualisiereFilterOhneSetState() und den Dropdowns.
+      if (_filterOrt.isNotEmpty && a.ort.trim() != _filterOrt) {
         return false;
       }
       if (_filterKategorie.isNotEmpty &&
-          (a.kategorie ?? '').trim() != _filterKategorie.trim()) {
+          (a.kategorie ?? '').trim() != _filterKategorie) {
         return false;
       }
       return true;
     }).toList();
+
+    return _gefilterteArtikelCache;
   }
 
   String _formatTime(DateTime dt) {
@@ -369,7 +409,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               ValueListenableBuilder<bool>(
                 valueListenable: showLastSyncNotifier,
                 builder: (context, showSync, _) {
-                  if (!showSync || widget.syncStatusProvider?.lastSyncTime == null) {
+                  if (!showSync ||
+                      widget.syncStatusProvider?.lastSyncTime == null) {
                     return const SizedBox.shrink();
                   }
                   return Text(
@@ -490,7 +531,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                           Expanded(
                             child: DropdownButton<String>(
                               key: const Key('locationFilterDropdown'),
-                              value: _filterOrt.isEmpty ? null : _filterOrt,
+                              value:
+                                  _filterOrt.isEmpty ? null : _filterOrt,
                               hint: const Text('Alle Orte'),
                               isExpanded: true,
                               underline: const SizedBox.shrink(),
@@ -510,7 +552,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                                   ),
                                 ),
                               ],
-                              onChanged: (v) => setState(() => _filterOrt = v ?? ''),
+                              onChanged: (v) =>
+                                  setState(() => _filterOrt = v ?? ''),
                             ),
                           ),
                           if (_filterOrt.isNotEmpty)
@@ -518,7 +561,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                               icon: const Icon(Icons.clear, size: 18),
                               tooltip: 'Ort-Filter zurücksetzen',
                               visualDensity: VisualDensity.compact,
-                              onPressed: () => setState(() => _filterOrt = ''),
+                              onPressed: () =>
+                                  setState(() => _filterOrt = ''),
                             ),
                         ],
                       ),
@@ -601,15 +645,25 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                         : ListView.builder(
                             controller: _scrollController,
                             physics: const AlwaysScrollableScrollPhysics(),
-                            itemCount:
-                                gefiltert.length + (_isLoadingMore ? 1 : 0),
+                            itemCount: gefiltert.length +
+                                (_isLoadingMore ? 1 : 0),
+                            
                             itemBuilder: (context, index) {
                               if (index == gefiltert.length) {
                                 return const Center(
                                   child: CircularProgressIndicator(),
                                 );
                               }
-                              return _buildArtikelTile(gefiltert[index]);
+                              return _ArtikelTile(
+                                artikel: gefiltert[index],
+                                onTap: () => Navigator.push<Artikel?>(
+                                  context,
+                                  MaterialPageRoute<Artikel?>(
+                                    builder: (_) =>
+                                        ArtikelDetailScreen(artikel: gefiltert[index]),
+                                  ),
+                                ).then((_) => _ladeArtikel()),
+                              );
                             },
                           ),
                   ),
@@ -619,162 +673,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
-  // ── B-008: Vollständiges Card-Layout wiederhergestellt ───────────────────
-  Widget _buildArtikelTile(Artikel artikel) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppConfig.spacingSmall,
-        vertical: AppConfig.spacingXSmall,
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusSmall),
-        onTap: () => Navigator.push<Artikel?>(
-          context,
-          MaterialPageRoute<Artikel?>(
-            builder: (_) => ArtikelDetailScreen(artikel: artikel),
-          ),
-        ).then((_) => _ladeArtikel()),
-        child: Padding(
-          padding: const EdgeInsets.all(AppConfig.spacingSmall),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Bild
-              ArtikelListBild(artikel: artikel),
-              const SizedBox(width: AppConfig.spacingMedium),
-
-              // Textinfos
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Zeile 1: Artikelnummer + Name
-                    Row(
-                      children: [
-                        if (artikel.artikelnummer != null)
-                          Text(
-                            '#${artikel.artikelnummer}',
-                            style: textTheme.labelSmall?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        if (artikel.artikelnummer != null)
-                          const SizedBox(width: AppConfig.spacingXSmall),
-                        Expanded(
-                          child: Text(
-                            artikel.name,
-                            style: textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Zeile 2: Beschreibung
-                    if (artikel.beschreibung.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        artikel.beschreibung,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                      ),
-                    ],
-
-                    const SizedBox(height: AppConfig.spacingXSmall),
-
-                    // Zeile 3: Ort, Fach, Menge — als Chips
-                    Wrap(
-                      spacing: AppConfig.spacingXSmall,
-                      runSpacing: 2,
-                      children: [
-                        if (artikel.ort.isNotEmpty)
-                          _buildInfoChip(
-                            icon: Icons.place_outlined,
-                            label: artikel.ort,
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          ),
-                        if (artikel.kategorie != null && artikel.kategorie!.isNotEmpty)
-                          _buildInfoChip(
-                            icon: Icons.category_outlined,
-                            label: artikel.kategorie!,
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          ),
-                        if (artikel.fach.isNotEmpty)
-                          _buildInfoChip(
-                            icon: Icons.grid_view_outlined,
-                            label: artikel.fach,
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          ),
-                        _buildInfoChip(
-                          icon: Icons.inventory_2_outlined,
-                          label: '${artikel.menge} Stk',
-                          colorScheme: colorScheme,
-                          textTheme: textTheme,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Pfeil-Icon
-              Icon(
-                Icons.chevron_right,
-                color: colorScheme.onSurfaceVariant,
-                size: AppConfig.iconSizeMedium,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Hilfs-Widget: Info-Chip für Ort / Fach / Menge ───────────────────────
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-    required ColorScheme colorScheme,
-    required TextTheme textTheme,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppConfig.spacingXSmall,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppConfig.borderRadiusXSmall),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildConnectionStatusIcon() {
     return Icon(
@@ -878,6 +776,177 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       await _db.resetDatabase();
       await _ladeArtikel();
     }
+  }
+}
+
+// ── P-007.4: _ArtikelTile als StatelessWidget extrahiert ─────────────────
+// Flutter kann Widget-Identität über Rebuilds hinweg tracken.
+// Tiles mit unverändertem artikel-Objekt (Artikel.operator== via uuid)
+// werden nicht neu gebaut.
+class _ArtikelTile extends StatelessWidget {
+  const _ArtikelTile({
+    required this.artikel,
+    required this.onTap,
+  });
+
+  final Artikel artikel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingSmall,
+        vertical: AppConfig.spacingXSmall,
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusSmall),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppConfig.spacingSmall),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Bild
+              ArtikelListBild(artikel: artikel),
+              const SizedBox(width: AppConfig.spacingMedium),
+
+              // Textinfos
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Zeile 1: Artikelnummer + Name
+                    Row(
+                      children: [
+                        if (artikel.artikelnummer != null) ...[
+                          Text(
+                            '#${artikel.artikelnummer}',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: AppConfig.spacingXSmall),
+                        ],
+                        Expanded(
+                          child: Text(
+                            artikel.name,
+                            style: textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Zeile 2: Beschreibung
+                    if (artikel.beschreibung.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        artikel.beschreibung,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                    ],
+
+                    const SizedBox(height: AppConfig.spacingXSmall),
+
+                    // Zeile 3: Chips
+                    Wrap(
+                      spacing: AppConfig.spacingXSmall,
+                      runSpacing: 2,
+                      children: [
+                        if (artikel.ort.isNotEmpty)
+                          _ArtikelInfoChip(
+                            icon: Icons.place_outlined,
+                            label: artikel.ort,
+                          ),
+                        if (artikel.kategorie != null &&
+                            artikel.kategorie!.isNotEmpty)
+                          _ArtikelInfoChip(
+                            icon: Icons.category_outlined,
+                            label: artikel.kategorie!,
+                          ),
+                        if (artikel.fach.isNotEmpty)
+                          _ArtikelInfoChip(
+                            icon: Icons.grid_view_outlined,
+                            label: artikel.fach,
+                          ),
+                        _ArtikelInfoChip(
+                          icon: Icons.inventory_2_outlined,
+                          label: '${artikel.menge} Stk',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Pfeil
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurfaceVariant,
+                size: AppConfig.iconSizeMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── _ArtikelInfoChip — ebenfalls als StatelessWidget ─────────────────────
+// Vorher _buildInfoChip() als State-Methode mit ColorScheme/TextTheme-
+// Parametern. Jetzt liest das Widget den Theme-Context selbst — sauberer
+// und kein Parameter-Overhead.
+class _ArtikelInfoChip extends StatelessWidget {
+  const _ArtikelInfoChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingXSmall,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppConfig.borderRadiusXSmall),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

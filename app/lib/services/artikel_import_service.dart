@@ -250,8 +250,13 @@ class ArtikelImportService {
             allowedExtensions: ['json', 'csv'],
             withData: true,
           );
-        } catch (e) {
-          _logger.w('FilePicker nicht verfügbar (z.B. WSL2/headless): $e');
+        } catch (e, st) {
+          // O-017: catch (e, st) statt catch (e)
+          _logger.w(
+            'FilePicker nicht verfügbar (z.B. WSL2/headless):',
+            error: e,
+            stackTrace: st,
+          );
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -390,8 +395,14 @@ class ArtikelImportService {
             allowedExtensions: ['zip'],
             withData: true,
           );
-        } catch (e) {
-          _logger.w('FilePicker nicht verfügbar (z.B. WSL2/headless): $e');
+
+        } catch (e, st) {
+          // O-017: catch (e, st) statt catch (e)
+          _logger.w(
+            'FilePicker nicht verfügbar (z.B. WSL2/headless):',
+            error: e,
+            stackTrace: st,
+          );
           return (false, [
             'Dateiauswahl nicht verfügbar. '
             'Unter WSL2/Linux ohne Desktop-Portal nicht unterstützt.',

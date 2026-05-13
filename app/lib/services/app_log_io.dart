@@ -10,13 +10,14 @@ Future<File?> _getLogFile() async {
   try {
     final dir = await getApplicationDocumentsDirectory();
     return File('${dir.path}/app_debug.log');
-  } catch (e) {
+  } catch (e, st) {
+    // O-017: st ergänzt — debugPrint bleibt wegen zirkulärer Abhängigkeit
     // O-001: debugPrint hier ABSICHTLICH belassen.
     // app_log_io.dart ist Teil des Logging-Systems selbst.
     // AppLogService.logger zu verwenden würde eine zirkuläre
     // Abhängigkeit erzeugen: Logger → IO → Logger.
     // debugPrint ist der einzige sichere Fallback an dieser Stelle.
-    debugPrint('Fehler beim Zugriff auf Filesystem: $e');
+    debugPrint('Fehler beim Zugriff auf Filesystem: $e\n$st');
     return null;
   }
 }
@@ -26,9 +27,10 @@ Future<File?> _getLogBackupFile() async {
   try {
     final dir = await getApplicationDocumentsDirectory();
     return File('${dir.path}/app_debug.log.bak');
-  } catch (e) {
+  } catch (e, st) {
+    // O-017: st ergänzt
     // O-001: Siehe Kommentar in _getLogFile() — zirkuläre Abhängigkeit.
-    debugPrint('Fehler beim Zugriff auf Backup-Log-Datei: $e');
+    debugPrint('Fehler beim Zugriff auf Backup-Log-Datei: $e\n$st');
     return null;
   }
 }
@@ -75,9 +77,10 @@ Future<int> getLogFileSizeBytes() async {
     if (file == null || !await file.exists()) return 0;
     final stat = await file.stat();
     return stat.size;
-  } catch (e) {
+  } catch (e, st) {
+    // O-017: st ergänzt
     // O-001: Siehe Kommentar in _getLogFile() — zirkuläre Abhängigkeit.
-    debugPrint('Fehler beim Lesen der Log-Dateigröße: $e');
+    debugPrint('Fehler beim Lesen der Log-Dateigröße: $e\n$st');
     return 0;
   }
 }
@@ -111,9 +114,10 @@ Future<void> rotateLogFile() async {
     // O-001: debugPrint hier ABSICHTLICH belassen — zirkuläre Abhängigkeit.
     // Rotation-Status ist Bootstrap-Information, kein App-Log-Eintrag.
     debugPrint('✅ Log-Rotation abgeschlossen: ${bakFile.path}');
-  } catch (e) {
+  } catch (e, st) {
+    // O-017: st ergänzt
     // O-001: Siehe Kommentar oben — zirkuläre Abhängigkeit.
-    debugPrint('❌ Fehler bei der Log-Rotation: $e');
+    debugPrint('❌ Fehler bei der Log-Rotation: $e\n$st');
     // Kein rethrow — Rotation-Fehler dürfen das Logging nicht blockieren
   }
 }
