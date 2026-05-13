@@ -44,6 +44,7 @@ import 'artikel_detail_screen.dart';
 import 'artikel_erfassen_screen.dart';
 import 'settings_screen.dart';
 import 'settings_state.dart';
+import '../core/responsive.dart';
 
 import 'list_screen_mobile_actions.dart'
     if (dart.library.html) 'list_screen_web_actions.dart'
@@ -642,27 +643,68 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                               ),
                             ),
                           )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            itemCount: gefiltert.length +
-                                (_isLoadingMore ? 1 : 0),
-                            
-                            itemBuilder: (context, index) {
-                              if (index == gefiltert.length) {
-                                return const Center(
-                                  child: CircularProgressIndicator(),
+                        // nachher:
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final screenSize = Responsive.fromConstraints(constraints);
+                              final isDesktop = screenSize == ScreenSize.desktop;
+
+                              // F-011.3: Desktop → 2-Spalten-Grid, Mobile/Tablet → Liste
+                              if (isDesktop) {
+                                return GridView.builder(
+                                  controller: _scrollController,
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  padding: const EdgeInsets.all(AppConfig.spacingSmall),
+                                  gridDelegate:
+                                      const SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: 2,
+                                    crossAxisSpacing: AppConfig.spacingSmall,
+                                    mainAxisSpacing: AppConfig.spacingXSmall,
+                                    childAspectRatio: 3.2,
+                                  ),
+                                  itemCount: gefiltert.length + (_isLoadingMore ? 1 : 0),
+                                  itemBuilder: (context, index) {
+                                    if (index == gefiltert.length) {
+                                      return const Center(
+                                        child: CircularProgressIndicator(),
+                                      );
+                                    }
+                                    return _ArtikelTile(
+                                      artikel: gefiltert[index],
+                                      onTap: () => Navigator.push<Artikel?>(
+                                        context,
+                                        MaterialPageRoute<Artikel?>(
+                                          builder: (_) => ArtikelDetailScreen(
+                                            artikel: gefiltert[index],
+                                          ),
+                                        ),
+                                      ).then((_) => _ladeArtikel()),
+                                    );
+                                  },
                                 );
                               }
-                              return _ArtikelTile(
-                                artikel: gefiltert[index],
-                                onTap: () => Navigator.push<Artikel?>(
-                                  context,
-                                  MaterialPageRoute<Artikel?>(
-                                    builder: (_) =>
-                                        ArtikelDetailScreen(artikel: gefiltert[index]),
-                                  ),
-                                ).then((_) => _ladeArtikel()),
+
+                              return ListView.builder(
+                                controller: _scrollController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                itemCount: gefiltert.length + (_isLoadingMore ? 1 : 0),
+                                itemBuilder: (context, index) {
+                                  if (index == gefiltert.length) {
+                                    return const Center(
+                                      child: CircularProgressIndicator(),
+                                    );
+                                  }
+                                  return _ArtikelTile(
+                                    artikel: gefiltert[index],
+                                    onTap: () => Navigator.push<Artikel?>(
+                                      context,
+                                      MaterialPageRoute<Artikel?>(
+                                        builder: (_) =>
+                                            ArtikelDetailScreen(artikel: gefiltert[index]),
+                                      ),
+                                    ).then((_) => _ladeArtikel()),
+                                  );
+                                },
                               );
                             },
                           ),
