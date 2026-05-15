@@ -44,6 +44,7 @@ import 'services/sync_service.dart';
 import 'services/conflict_resolution_utils.dart';
 import 'services/sync_progress_service.dart';
 import 'services/sync_error_recovery.dart';
+import 'core/responsive.dart';
 
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
 
@@ -793,12 +794,24 @@ Widget _buildHomeWithBackground() {
     onSyncIntervalChanged: _onSyncIntervalChanged,
   );
 
-  final constrained = Align(
-    alignment: Alignment.topCenter,
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: AppConfig.maxContentWidth),
-      child: appContent,
-    ),
+  // F-011.7: maxContentWidth nur auf Mobile/Tablet anwenden.
+  // Desktop braucht die volle Breite für Master-Detail.
+  final constrained = LayoutBuilder(
+    builder: (context, constraints) {
+      final isDesktop =
+          Responsive.fromConstraints(constraints) == ScreenSize.desktop;
+
+      if (isDesktop) return appContent;
+
+      return Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints:
+              const BoxConstraints(maxWidth: AppConfig.maxContentWidth),
+          child: appContent,
+        ),
+      );
+    },
   );
 
   if (AppImages.hintergrundAktiv) {

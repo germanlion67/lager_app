@@ -469,7 +469,7 @@ extrahieren. Alles hier Gebaute wird in Stufe 3 wiederverwendet.
 Voraussetzung: Stufe 2 abgeschlossen (Widgets extrahiert und responsive).
 Aufwand halbiert sich durch Vorarbeit aus Stufe 2.
 
-- [ ] **F-011.7: Master-Detail-Layout für Artikelverwaltung**
+- [x] **F-011.7: Master-Detail-Layout für Artikelverwaltung**
   Auf Desktop: Links Artikelliste, rechts Detailansicht gleichzeitig sichtbar.
   Verwendet die in F-011.3 und F-011.4 extrahierten Widgets.
 

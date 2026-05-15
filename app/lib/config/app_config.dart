@@ -374,7 +374,7 @@ class AppConfig {
 
 
   // F-011.1: Maximale Inhaltsbreite für Desktop-Web
-  static const double maxContentWidth = 800;
+  static const double maxContentWidth = 1400;
 
   // F-011.2: Responsive Breakpoints
   static const double breakpointMobile = 600.0;
@@ -383,6 +383,16 @@ class AppConfig {
 
   // F-011.6: Anzahl Spalten für Settings-Grid auf Desktop
   static const int settingsGridColumnCount = 2;
+
+  // F-011.7: Master-Detail Layout
+  static const double masterDetailMinWidth = 1024.0;
+  static const double masterListFlex = 2;    // Flex-Anteil Liste
+  static const double masterDetailFlex = 3;  // Flex-Anteil Detail
+
+  // F-011.7: maxContentWidth für Desktop (Master-Detail braucht mehr Platz)
+  // War vorher 800 — jetzt 1400 für zweispaltiges Layout.
+  // Auf Mobile wird der Constraint in main.dart nicht angewendet.
+
 
   // Aktuelle SQLite-Schema-Version (muss mit artikel_db_service.dart übereinstimmen)
   static const int dbVersion = 6;

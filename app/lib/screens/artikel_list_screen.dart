@@ -1,24 +1,8 @@
 // lib/screens/artikel_list_screen.dart
 //
-//   P-007 — _gefilterteArtikel() gecacht (P-007.1). setState() aus _onSuchbegriffChanged()
-//            entfernt (P-007.2). _aktualisiereFilter() ohne eigenes setState() (P-007.3).
-//            Scroll-Guard früher im _onScroll()-Pfad (P-007.5).
-//            _buildArtikelTile() + _buildInfoChip() als _ArtikelTile / _ArtikelInfoChip
-//            StatelessWidgets extrahiert (P-007.4).
-//   B-008 — _buildArtikelTile(): Card-Layout mit allen Feldern wiederhergestellt.
-//            Artikelnummer (nullable int), Beschreibung, Ort, Fach, Menge als Chips.
-//   B-009 — Ort-Dropdown aus AppBar entfernt, in Body mit echten Daten implementiert.
-//            _aktualisiereFilter(): distinct, alphabetisch, aus _artikelListe.
-//   B-010 — _showSnackBar(): Zentrale Hilfsmethode. Feedback bei Sync-Start/-Erfolg/-Fehler.
-//   B-012 — Sync-Label: overflow + maxLines. titleSpacing + Padding gegen AppBar-Overflow.
-//   B-018 — _fuehreSucheAus(): Artikelnummer in lokaler Suche ergänzt (int-Vergleich).
-//            Web-Filter um artikelnummer-Feld erweitert (numerisch + textuell).
-//   O-017 — catch (e) → catch (e, st) in _ladeArtikel() und _ladeNaechsteSeite().
-//   P-007 — _gefilterteArtikel() gecacht (P-007.1). setState() aus _onSuchbegriffChanged()
-//            entfernt (P-007.2). _aktualisiereFilter() ohne eigenes setState() (P-007.3).
-//            Scroll-Guard früher im _onScroll()-Pfad (P-007.5).
-//   F-011.3 — Desktop: 2-Spalten-Grid statt ListView.
-//   F-011.5 — Desktop: NavigationRail links (Artikel / Sync / Einstellungen).
+// F-011.7: Master-Detail-Layout für Desktop.
+//          Liste links, Detail rechts (inline) ab breakpointTablet.
+//          Mobile: weiterhin Navigator.push() zum ArtikelDetailScreen.
 
 import 'dart:async';
 
@@ -40,6 +24,7 @@ import '../services/sync_status_provider.dart';
 import '../services/sync_orchestrator.dart' show SyncStatus;
 
 import '../widgets/artikel_bild_widget.dart';
+import '../widgets/artikel_detail_content.dart';
 
 import 'artikel_detail_screen.dart';
 import 'artikel_erfassen_screen.dart';
@@ -98,7 +83,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   StreamSubscription<SyncStatus>? _syncSubscription;
   bool _isSyncRunning = false;
 
-  // B-009: Verfügbare Orte für den Filter — dynamisch aus _artikelListe
   List<String> _verfuegbareOrte = [];
   List<String> _verfuegbareKategorien = [];
 
@@ -107,6 +91,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   String _letzterFilterOrt = '';
   String _letzterFilterKategorie = '';
   List<Artikel>? _letzteFilterBasis;
+
+  // F-011.7: Ausgewählter Artikel für Master-Detail (Desktop)
+  Artikel? _selectedArtikel;
+
+  // F-011.7: GlobalKey für Detail-Content im Master-Detail-Panel
+  final GlobalKey<ArtikelDetailContentState> _detailContentKey = GlobalKey();
 
   @override
   void initState() {
@@ -162,7 +152,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     super.dispose();
   }
 
-  // ── P-007.3: Filter ohne eigenes setState() ───────────────────────────────
+  // ── Filter ────────────────────────────────────────────────────────────────
+
   void _aktualisiereFilterOhneSetState() {
     _verfuegbareOrte = _artikelListe
         .map((a) => a.ort.trim())
@@ -178,7 +169,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       ..sort();
   }
 
-  // ── B-010: Zentrale Snackbar-Hilfsmethode ────────────────────────────────
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     final colorScheme = Theme.of(context).colorScheme;
@@ -225,6 +215,23 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     } finally {
       if (mounted) {
         _aktualisiereFilterOhneSetState();
+
+        // F-011.7: Wenn der ausgewählte Artikel nicht mehr in der Liste ist,
+        // Auswahl zurücksetzen.
+        if (_selectedArtikel != null) {
+          final stillExists = _artikelListe.any(
+            (a) => a.uuid == _selectedArtikel!.uuid,
+          );
+          if (!stillExists) {
+            _selectedArtikel = null;
+          } else {
+            // Artikel-Daten könnten sich geändert haben → aktualisieren
+            _selectedArtikel = _artikelListe.firstWhere(
+              (a) => a.uuid == _selectedArtikel!.uuid,
+            );
+          }
+        }
+
         setState(() => _isLoading = false);
       }
     }
@@ -236,7 +243,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     await widget.syncStatusProvider?.runOnce();
   }
 
-  // P-007.5: Guard früher — vor dem Pixel-Vergleich
   void _onScroll() {
     if (!_scrollController.hasClients) return;
     if (_isLoadingMore || !_hasMore) return;
@@ -267,8 +273,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     }
   }
 
-  // P-007.2: setState() entfernt — _suchbegriff wird erst in _fuehreSucheAus()
-  //          gesetzt.
   void _onSuchbegriffChanged(String value) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(
@@ -304,12 +308,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       final filterString = isNumeric
           ? 'artikelnummer = ${int.parse(trimmed)} && deleted = false'
           : '(name ~ "$trimmed" || beschreibung ~ "$trimmed" || '
-            'artikelnummer ~ "$trimmed") && deleted = false';
+              'artikelnummer ~ "$trimmed") && deleted = false';
 
       final records = await pb.collection('artikel').getFullList(
-        filter: filterString,
-        sort: '-created',
-      );
+            filter: filterString,
+            sort: '-created',
+          );
       results =
           records.map((r) => Artikel.fromPocketBase(r.data, r.id)).toList();
     } else {
@@ -329,7 +333,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     if (mounted) setState(() => _pbConnected = ok);
   }
 
-  // P-007.1: Gecachte Filterberechnung.
   List<Artikel> _gefilterteArtikel() {
     final basis =
         _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
@@ -364,10 +367,39 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         '${dt.second.toString().padLeft(2, '0')}';
   }
 
-  // ── F-011.5: NavigationRail für Desktop ──────────────────────────────────
+  // ── F-011.7: Artikel auswählen (Desktop) oder navigieren (Mobile) ────────
+
+  void _onArtikelTap(Artikel artikel, bool isDesktop) {
+    if (isDesktop) {
+      setState(() => _selectedArtikel = artikel);
+    } else {
+      Navigator.push<Artikel?>(
+        context,
+        MaterialPageRoute<Artikel?>(
+          builder: (_) => ArtikelDetailScreen(artikel: artikel),
+        ),
+      ).then((_) => _ladeArtikel());
+    }
+  }
+
+  // ── F-011.7: Callbacks für embedded Detail-Content ────────────────────────
+
+  void _onDetailSaved(Artikel gespeicherterArtikel) {
+    _ladeArtikel();
+    _showSnackBar('✅ Artikel gespeichert');
+  }
+
+  void _onDetailDeleted() {
+    setState(() => _selectedArtikel = null);
+    _ladeArtikel();
+    _showSnackBar('🗑️ Artikel gelöscht');
+  }
+
+  // ── NavigationRail ────────────────────────────────────────────────────────
+
   Widget _buildNavigationRail(ColorScheme colorScheme) {
     return NavigationRail(
-      selectedIndex: 0, // Artikelliste ist immer aktiv in diesem Screen
+      selectedIndex: 0,
       labelType: NavigationRailLabelType.all,
       leading: const SizedBox(height: AppConfig.spacingSmall),
       destinations: const [
@@ -390,7 +422,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       onDestinationSelected: (index) {
         switch (index) {
           case 0:
-            // Bereits auf Artikelliste — nichts tun
             break;
           case 1:
             _handleManualSync();
@@ -409,16 +440,17 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
   }
 
-  // ── F-011.5: Body-Inhalt als eigene Methode ───────────────────────────────
-  // Wird in Mobile direkt und in Desktop als Expanded-Kind der Row verwendet.
-  Widget _buildBodyContent(
+  // ── Artikelliste (Suchfeld + Filter + Liste/Grid) ─────────────────────────
+
+  Widget _buildListContent(
     List<Artikel> gefiltert,
     ColorScheme colorScheme,
     TextTheme textTheme,
+    bool isDesktop,
   ) {
     return Column(
       children: [
-        // ── Suchleiste + Scanner ───────────────────────────────────────────
+        // Suchleiste + Scanner
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppConfig.spacingSmall,
@@ -456,7 +488,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ),
 
-        // ── Ort- und Kategorie-Filter ──────────────────────────────────────
+        // Ort- und Kategorie-Filter
         if (_verfuegbareOrte.isNotEmpty || _verfuegbareKategorien.isNotEmpty)
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -468,7 +500,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Ort-Filter
                 if (_verfuegbareOrte.isNotEmpty)
                   Expanded(
                     child: Row(
@@ -478,7 +509,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                         Expanded(
                           child: DropdownButton<String>(
                             key: const Key('locationFilterDropdown'),
-                            value: _filterOrt.isEmpty ? null : _filterOrt,
+                            value:
+                                _filterOrt.isEmpty ? null : _filterOrt,
                             hint: const Text('Alle Orte'),
                             isExpanded: true,
                             underline: const SizedBox.shrink(),
@@ -513,12 +545,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                       ],
                     ),
                   ),
-
                 if (_verfuegbareOrte.isNotEmpty &&
                     _verfuegbareKategorien.isNotEmpty)
                   const SizedBox(width: AppConfig.spacingSmall),
-
-                // Kategorie-Filter
                 if (_verfuegbareKategorien.isNotEmpty)
                   Expanded(
                     child: Row(
@@ -571,7 +600,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
         const SizedBox(height: AppConfig.spacingXSmall),
 
-        // ── Artikelliste / Grid ────────────────────────────────────────────
+        // Artikelliste
         Expanded(
           child: _isLoading || _isSuche
               ? const Center(child: CircularProgressIndicator())
@@ -587,79 +616,89 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                             ),
                           ),
                         )
-                      : LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isDesktop =
-                                Responsive.fromConstraints(constraints) ==
-                                    ScreenSize.desktop;
-
-                            // F-011.3: Desktop → 2-Spalten-Grid
-                            if (isDesktop) {
-                              return GridView.builder(
-                                controller: _scrollController,
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
-                                padding: const EdgeInsets.all(
-                                  AppConfig.spacingSmall,
-                                ),
-                                gridDelegate:
-                                    const SliverGridDelegateWithFixedCrossAxisCount(
-                                  crossAxisCount: 2,
-                                  crossAxisSpacing: AppConfig.spacingSmall,
-                                  mainAxisSpacing: AppConfig.spacingXSmall,
-                                  childAspectRatio: 3.2,
-                                ),
-                                itemCount: gefiltert.length +
-                                    (_isLoadingMore ? 1 : 0),
-                                itemBuilder: (context, index) {
-                                  if (index == gefiltert.length) {
-                                    return const Center(
-                                      child: CircularProgressIndicator(),
-                                    );
-                                  }
-                                  return _ArtikelTile(
-                                    artikel: gefiltert[index],
-                                    onTap: () => Navigator.push<Artikel?>(
-                                      context,
-                                      MaterialPageRoute<Artikel?>(
-                                        builder: (_) => ArtikelDetailScreen(
-                                          artikel: gefiltert[index],
-                                        ),
-                                      ),
-                                    ).then((_) => _ladeArtikel()),
-                                  );
-                                },
+                      : ListView.builder(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: gefiltert.length +
+                              (_isLoadingMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == gefiltert.length) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
                               );
                             }
-
-                            // Mobile/Tablet → ListView
-                            return ListView.builder(
-                              controller: _scrollController,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              itemCount: gefiltert.length +
-                                  (_isLoadingMore ? 1 : 0),
-                              itemBuilder: (context, index) {
-                                if (index == gefiltert.length) {
-                                  return const Center(
-                                    child: CircularProgressIndicator(),
-                                  );
-                                }
-                                return _ArtikelTile(
-                                  artikel: gefiltert[index],
-                                  onTap: () => Navigator.push<Artikel?>(
-                                    context,
-                                    MaterialPageRoute<Artikel?>(
-                                      builder: (_) => ArtikelDetailScreen(
-                                        artikel: gefiltert[index],
-                                      ),
-                                    ),
-                                  ).then((_) => _ladeArtikel()),
-                                );
-                              },
+                            final artikel = gefiltert[index];
+                            return _ArtikelTile(
+                              artikel: artikel,
+                              isSelected: isDesktop &&
+                                  _selectedArtikel?.uuid == artikel.uuid,
+                              onTap: () =>
+                                  _onArtikelTap(artikel, isDesktop),
                             );
                           },
                         ),
                 ),
+        ),
+      ],
+    );
+  }
+
+  // ── F-011.7: Detail-Panel für Desktop ─────────────────────────────────────
+
+  Widget _buildDetailPanel(ColorScheme colorScheme) {
+    if (_selectedArtikel == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.touch_app_outlined,
+              size: 64,
+              color: colorScheme.onSurfaceVariant.withValues(
+                alpha: AppConfig.opacityMedium,
+              ),
+            ),
+            const SizedBox(height: AppConfig.spacingMedium),
+            Text(
+              'Artikel auswählen',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: AppConfig.spacingSmall),
+            Text(
+              'Wähle einen Artikel aus der Liste,\num Details anzuzeigen.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(
+                      alpha: AppConfig.opacityMedium,
+                    ),
+                  ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Detail-AppBar (als Container, nicht als echte AppBar)
+        _DetailPanelHeader(
+          contentKey: _detailContentKey,
+          artikel: _selectedArtikel!,
+          colorScheme: colorScheme,
+          onClose: () => setState(() => _selectedArtikel = null),
+        ),
+        const Divider(height: 1),
+        // Detail-Content
+        Expanded(
+          child: ArtikelDetailContent(
+            key: _detailContentKey,
+            artikel: _selectedArtikel!,
+            embedded: true,
+            onSaved: _onDetailSaved,
+            onDeleted: _onDetailDeleted,
+          ),
         ),
       ],
     );
@@ -751,23 +790,37 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         ],
       ),
 
-      // F-011.5: LayoutBuilder → Desktop mit NavigationRail, Mobile ohne
+      // F-011.7: LayoutBuilder → Desktop mit Master-Detail, Mobile ohne
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final isDesktop =
-              Responsive.fromConstraints(constraints) == ScreenSize.desktop;
+          final screenSize = Responsive.fromConstraints(constraints);
+          final isDesktop = screenSize == ScreenSize.desktop;
 
-          final bodyContent =
-              _buildBodyContent(gefiltert, colorScheme, textTheme);
+          final listContent = _buildListContent(
+            gefiltert,
+            colorScheme,
+            textTheme,
+            isDesktop,
+          );
 
-          if (!isDesktop) return bodyContent;
+          if (!isDesktop) return listContent;
 
-          // Desktop: NavigationRail links + VerticalDivider + Content rechts
+          // Desktop: NavigationRail + Liste + Detail
           return Row(
             children: [
               _buildNavigationRail(colorScheme),
               const VerticalDivider(thickness: 1, width: 1),
-              Expanded(child: bodyContent),
+              // Master (Liste)
+              Expanded(
+                flex: AppConfig.masterListFlex.toInt(),
+                child: listContent,
+              ),
+              const VerticalDivider(thickness: 1, width: 1),
+              // Detail
+              Expanded(
+                flex: AppConfig.masterDetailFlex.toInt(),
+                child: _buildDetailPanel(colorScheme),
+              ),
             ],
           );
         },
@@ -875,20 +928,80 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
     if (confirm == true) {
       await _db.resetDatabase();
+      setState(() => _selectedArtikel = null);
       await _ladeArtikel();
     }
   }
 }
 
-// ── P-007.4: _ArtikelTile als StatelessWidget extrahiert ─────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// F-011.7: Detail-Panel Header (Titel + Actions + Close)
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _DetailPanelHeader extends StatelessWidget {
+  const _DetailPanelHeader({
+    required this.contentKey,
+    required this.artikel,
+    required this.colorScheme,
+    required this.onClose,
+  });
+
+  final GlobalKey<ArtikelDetailContentState> contentKey;
+  final Artikel artikel;
+  final ColorScheme colorScheme;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final contentState = contentKey.currentState;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingMedium,
+        vertical: AppConfig.spacingSmall,
+      ),
+      color: colorScheme.surfaceContainerLow,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              contentState?.titleText ?? artikel.name,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (contentState != null)
+            ...contentState.buildActions(colorScheme),
+          const SizedBox(width: AppConfig.spacingSmall),
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Detail schließen',
+            onPressed: onClose,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ArtikelTile
+// ══════════════════════════════════════════════════════════════════════════════
+
 class _ArtikelTile extends StatelessWidget {
   const _ArtikelTile({
     required this.artikel,
     required this.onTap,
+    this.isSelected = false,
   });
 
   final Artikel artikel;
   final VoidCallback onTap;
+  final bool isSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -900,6 +1013,20 @@ class _ArtikelTile extends StatelessWidget {
         horizontal: AppConfig.spacingSmall,
         vertical: AppConfig.spacingXSmall,
       ),
+      // F-011.7: Visuelles Feedback für ausgewählten Artikel
+      color: isSelected ? colorScheme.primaryContainer : null,
+      elevation: isSelected ? 0 : null,
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                AppConfig.cardBorderRadiusSmall,
+              ),
+              side: BorderSide(
+                color: colorScheme.primary,
+                width: 2,
+              ),
+            )
+          : null,
       child: InkWell(
         borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusSmall),
         onTap: onTap,
@@ -908,23 +1035,21 @@ class _ArtikelTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Bild
               ArtikelListBild(artikel: artikel),
               const SizedBox(width: AppConfig.spacingMedium),
-
-              // Textinfos
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Zeile 1: Artikelnummer + Name
                     Row(
                       children: [
                         if (artikel.artikelnummer != null) ...[
                           Text(
                             '#${artikel.artikelnummer}',
                             style: textTheme.labelSmall?.copyWith(
-                              color: colorScheme.primary,
+                              color: isSelected
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -942,8 +1067,6 @@ class _ArtikelTile extends StatelessWidget {
                         ),
                       ],
                     ),
-
-                    // Zeile 2: Beschreibung
                     if (artikel.beschreibung.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
@@ -955,10 +1078,7 @@ class _ArtikelTile extends StatelessWidget {
                         maxLines: 2,
                       ),
                     ],
-
                     const SizedBox(height: AppConfig.spacingXSmall),
-
-                    // Zeile 3: Chips
                     Wrap(
                       spacing: AppConfig.spacingXSmall,
                       runSpacing: 2,
@@ -988,8 +1108,6 @@ class _ArtikelTile extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // Pfeil
               Icon(
                 Icons.chevron_right,
                 color: colorScheme.onSurfaceVariant,
@@ -1003,7 +1121,10 @@ class _ArtikelTile extends StatelessWidget {
   }
 }
 
-// ── _ArtikelInfoChip ──────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// ArtikelInfoChip
+// ══════════════════════════════════════════════════════════════════════════════
+
 class _ArtikelInfoChip extends StatelessWidget {
   const _ArtikelInfoChip({
     required this.icon,
