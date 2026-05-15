@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.8+57 | **Zuletzt aktualisiert:** 13.05.2026
+**Version:** 0.9.8+62 | **Zuletzt aktualisiert:** 15.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -470,9 +470,34 @@ Voraussetzung: Stufe 2 abgeschlossen (Widgets extrahiert und responsive).
 Aufwand halbiert sich durch Vorarbeit aus Stufe 2.
 
 - [x] **F-011.7: Master-Detail-Layout für Artikelverwaltung**
-  Auf Desktop: Links Artikelliste, rechts Detailansicht gleichzeitig sichtbar.
-  Verwendet die in F-011.3 und F-011.4 extrahierten Widgets.
+  Auf Desktop (≥1024px): Links NavigationRail + Artikelliste (flex 2),
+  rechts Detail-Panel mit `ArtikelDetailContent` (flex 3).
+  
+  **Architektur:**
+  - `ArtikelDetailContent` als eigenständiges Widget extrahiert
+    (`lib/widgets/artikel_detail_content.dart`) — enthält gesamte Detail-Logik
+  - `ArtikelDetailScreen` ist dünner Scaffold-Wrapper für Mobile-Navigation
+    mit `ValueNotifier`-basiertem AppBar-Rebuild
+  - `embedded`-Parameter steuert ob Content im Scaffold oder inline läuft
+  - `onStateChanged`-Callback synchronisiert Wrapper mit Content-State
+  - `didUpdateWidget` reinitialisiert bei Artikelwechsel (Desktop)
+  - `_ladeAnhangCount()` mit try/catch abgesichert (Test-Kompatibilität)
+  - `maxContentWidth` auf 1400 erhöht, `ConstrainedBox` nur Mobile/Tablet
+  - Neue `AppConfig`-Konstanten: `masterDetailMinWidth`, `masterListFlex`,
+    `masterDetailFlex`, `breakpointTablet`, `breakpointDesktop`
+  - `lib/core/responsive.dart`: `ScreenSize` enum + `Responsive.fromConstraints()`
 
+  **Betroffene Dateien:**
+  | Datei | Änderung |
+  |:--|:--|
+  | `lib/widgets/artikel_detail_content.dart` | Neu — extrahiertes Detail-Widget |
+  | `lib/screens/artikel_detail_screen.dart` | Scaffold-Wrapper mit ValueNotifier |
+  | `lib/screens/artikel_list_screen.dart` | Master-Detail auf Desktop |
+  | `lib/config/app_config.dart` | Breakpoints, Flex-Werte, maxContentWidth |
+  | `lib/core/responsive.dart` | Breakpoint-Helfer (bereits vorhanden, erweitert) |
+  | `lib/main.dart` | ConstrainedBox nur Mobile/Tablet |
+
+  **Tests:** 24 + 15 + 11 = 50 Widget-Tests grün
   ```dart
   Widget build(BuildContext context) {
     if (isDesktop(context)) {
@@ -512,17 +537,16 @@ Aufwand halbiert sich durch Vorarbeit aus Stufe 2.
 
 **Aufwand gesamt:**
 
-| Stufe | Aufwand | Kumuliert |
-|:--|:--|:--|
-| Stufe 1 | ~30 min | 30 min |
-| Stufe 2 | ~4–8 h | 5–9 h |
-| Stufe 3 | ~1–2 Tage | 2–3 Tage |
+| Stufe | Aufwand | Kumuliert | Status |
+|:--|:--|:--|:--|
+| Stufe 1 | ~30 min | 30 min | ✅ |
+| Stufe 2 | ~4–8 h | 5–9 h | ✅ |
+| Stufe 3 | ~1–2 Tage | 2–3 Tage | 🟡 F-011.7 ✅, F-011.8–F-011.9 offen |
 
-**Risiko:** Niedrig (Stufe 1–2), Mittel (Stufe 3 – Navigationslogik-Umbau)
+**Risiko:** Niedrig (Stufe 1–2), Mittel (Stufe 3 — Navigationslogik-Umbau)
 
 **Hinweis:** Stufe 2 ist so konzipiert, dass alle Arbeit in Stufe 3 wiederverwendet wird.
 Der Aufwand für Stufe 3 halbiert sich durch die Vorarbeit aus Stufe 2.
-
 --- 
 
 ## 🟢 Priorität: Nice-to-Have
@@ -1498,6 +1522,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-15 | 0.9.8+62 | F-011.7 abgeschlossen: Master-Detail-Layout für Desktop. `ArtikelDetailContent` als eigenständiges Widget extrahiert, `ArtikelDetailScreen` als dünner Scaffold-Wrapper mit ValueNotifier-Rebuild, Master-Detail in `ArtikelListScreen` ab ≥1024px (NavigationRail + Liste links, Detail rechts), `maxContentWidth` auf 1400 erhöht, `ConstrainedBox` nur Mobile/Tablet, `_ladeAnhangCount()` try/catch für Test-Kompatibilität, neue AppConfig-Konstanten für Breakpoints und Flex-Werte. 50 Widget-Tests grün (24 Detail + 15 List + 11 Erfassen). |
 | 2026-05-13 | 0.9.8+57 | P-007 abgeschlossen: `_gefilterteArtikel()` gecacht (P-007.1), setState() bei Keystroke entfernt (P-007.2), `_aktualisiereFilter()` ohne separates setState() (P-007.3), `_ArtikelTile` + `_ArtikelInfoChip` als StatelessWidgets extrahiert (P-007.4), Scroll-Guard früher im `_onScroll()`-Pfad (P-007.5). B-018 abgeschlossen: Artikelnummer in Suche (SQLite + PocketBase) und Scanner-Fallback einbezogen. O-017 abgeschlossen: catch (e, st) in scan_service_stub.dart, artikel_import_service.dart (2×), app_log_io.dart (4×) ergänzt; pdf_service_shared.dart war bereits korrekt. flutter analyze + flutter test grün. |
 | 2026-05-08 | 0.9.5+54 | F-008: Sync-Intervall konfigurierbar (1/5/15 Min oder nur manuell). Dropdown in Einstellungen, Callback-Pattern für sofortige Übernahme ohne App-Neustart. |
 | 2026-05-08 | 0.9.5+51 | P-004 abgeschlossen: Android-Kamera vollständig manuell verifiziert (8 Tests auf A515F). B-016 behoben: `remoteBildPfad` wird beim Bild-Entfernen jetzt in PocketBase geleert (1 Zeile in Push-Update-Pfad). B-017 behoben: `ErrorWidget.builder` unterdrückt roten ErrorWidget-Flash bei Activity-Restart nach Permission-Änderung (kosmetisch, erwartetes Android-OS-Verhalten). |

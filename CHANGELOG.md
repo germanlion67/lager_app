@@ -2,6 +2,67 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [v0.9.8+62] - feat(F-011.7): Master-Detail-Layout für Desktop - 2026-05-15
+
+### ✨ Neue Features
+
+**F-011.7: Master-Detail-Layout für Desktop (≥1024px)**
+- Ab Desktop-Breite zeigt `ArtikelListScreen` ein zweigeteiltes Layout:
+  Links NavigationRail + Artikelliste (flex 2), rechts Detail-Panel (flex 3)
+- Artikelauswahl in der Liste zeigt Detail inline — kein `Navigator.push`
+- Visuelles Feedback: ausgewählter Artikel in `primaryContainer` hervorgehoben
+- Detail-Panel mit eigenem Header (Titel, Actions, Close-Button)
+- Platzhalter-Widget wenn kein Artikel ausgewählt
+- Mobile/Tablet (< 1024px): weiterhin klassische Navigation
+
+### 🏗️ Architektur
+
+**ArtikelDetailContent als eigenständiges Widget extrahiert**
+- Neue Datei `lib/widgets/artikel_detail_content.dart`
+- Enthält gesamte Detail-Logik: Anzeige, Edit-Modus, Speichern, Löschen,
+  Bild, Anhänge, PDF-Export
+- `embedded`-Parameter: `true` = Desktop-Panel, `false` = Mobile-Scaffold
+- `onStateChanged`-Callback informiert Wrapper über State-Änderungen
+- `buildActions(ColorScheme)` liefert AppBar-Actions als Liste
+- `titleText` und `hasUnsavedChanges` für Wrapper-Integration
+- `didUpdateWidget` reinitialisiert bei Artikelwechsel (Desktop)
+
+**ArtikelDetailScreen als dünner Scaffold-Wrapper**
+- `ValueNotifier`-basierter Rebuild-Mechanismus für AppBar-Synchronisation
+- `PopScope` mit Verwerfen-Dialog bei ungespeicherten Änderungen
+- Delegiert gesamte Logik an `ArtikelDetailContent`
+
+### 🔧 Änderungen
+
+- `AppConfig.maxContentWidth`: 800 → 1400
+- `ConstrainedBox` nur auf Mobile/Tablet angewendet (Desktop: volle Breite)
+- Neue `AppConfig`-Konstanten: `masterDetailMinWidth` (1024),
+  `masterListFlex` (2), `masterDetailFlex` (3),
+  `breakpointTablet` (600), `breakpointDesktop` (1024)
+- `lib/core/responsive.dart`: `ScreenSize` enum + `Responsive.fromConstraints()`
+
+### 🐛 Fixes
+
+- `_ladeAnhangCount()` mit try/catch abgesichert — PocketBase nicht verfügbar
+  in Tests führte zu `Bad state: PocketBaseService: Kein Client verfügbar`
+
+### 🧪 Tests
+
+- 24 + 15 + 11 = **50 Widget-Tests grün** (Detail + List + Erfassen)
+- `flutter analyze`: 0 Findings
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `lib/widgets/artikel_detail_content.dart` | **Neu** — extrahiertes Detail-Widget |
+| `lib/screens/artikel_detail_screen.dart` | Scaffold-Wrapper mit ValueNotifier |
+| `lib/screens/artikel_list_screen.dart` | Master-Detail auf Desktop |
+| `lib/config/app_config.dart` | Breakpoints, Flex-Werte, maxContentWidth |
+| `lib/core/responsive.dart` | Breakpoint-Helfer (erweitert) |
+| `lib/main.dart` | ConstrainedBox nur Mobile/Tablet |
+
+
 ## [v0.9.5+53] - chore: upgrade pub dependencies within current constraints - 2026-05-05
 
 ## [v0.9.5+52] - docs: Inhalte aus Alt-Prompts in Doku überführen und Legacy-Prompts gelöscht  - 2026-05-05

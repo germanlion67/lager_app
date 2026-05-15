@@ -165,12 +165,12 @@ lager_app/
 ├── app/                    # Flutter Hauptanwendung
 │   ├── lib/
 │   │   ├── config/         # Zentrale Steuerung (AppConfig, AppTheme, AppImages)
-│   │   ├── core/           # Plattform-Abstraktion (Logger, Exceptions)
+│   │   ├── core/           # Plattform-Abstraktion (Logger, Exceptions, Responsive)
 │   │   ├── models/         # Datenklassen (Artikel, Attachment)
 │   │   ├── screens/        # UI-Pages (23 Dateien + Conditional Imports)
 │   │   ├── services/       # Business-Logik (40 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
-│   │   └── widgets/        # Wiederverwendbare UI-Komponenten (12 Widgets)
+│   │   └── widgets/        # Wiederverwendbare UI-Komponenten (13 Widgets)
 │   └── test/               # Testsuite
 ├── packages/               # Lokale Dart-Pakete (runtime_env_config)
 ├── server/                 # PocketBase Backend + Backup-Container
@@ -658,6 +658,79 @@ klarer getrennt:
 
 ---
 
+## 14a. 📐 Responsive Layout & Master-Detail (F-011.7)
+
+### 14a.1 Breakpoints (`lib/core/responsive.dart`)
+
+| ScreenSize | Breite | Verhalten |
+| :--- | :--- | :--- |
+| `mobile` | < 600px | Klassische Navigation, `Navigator.push` |
+| `tablet` | 600–1023px | Klassische Navigation, `Navigator.push` |
+| `desktop` | ≥ 1024px | Master-Detail-Layout inline |
+
+Breakpoint-Werte in `AppConfig`:
+- `breakpointTablet` = 600
+- `breakpointDesktop` = 1024
+
+### 14a.2 Master-Detail auf Desktop
+
+Ab Desktop-Breite zeigt `ArtikelListScreen` ein zweigeteiltes Layout:
+
+```text
+┌──────────────────────────────────────────────────────┐
+│ AppBar (Titel, Suche, Sync, Filter, Settings)        │
+├──────────────────┬───────────────────────────────────┤
+│  NavigationRail  │                                   │
+│  + Artikelliste  │   ArtikelDetailContent            │
+│  (flex 2)        │   (flex 3)                        │
+│                  │                                   │
+│  ► Artikel A     │   Name: Artikel B                 │
+│    Artikel B ◄── │   Menge: 42                       │
+│    Artikel C     │   Ort: Regal 3 ...                │
+│                  │                                   │
+├──────────────────┴───────────────────────────────────┤
+│ Platzhalter wenn kein Artikel ausgewählt             │
+└──────────────────────────────────────────────────────┘
+```
+
+- Ausgewählter Artikel wird visuell in `primaryContainer` hervorgehoben
+- Detail-Panel hat eigenen Header mit Titel, Actions und Close-Button
+- Platzhalter-Widget wenn kein Artikel ausgewählt
+
+
+### 14a.3 Widget-Architektur
+
+| Widget                   | Datei                                      | Rolle                              |  
+|:-------------------------|:-------------------------------------------|:-----------------------------------|  
+| `ArtikelDetailContent`   | `lib/widgets/artikel_detail_content.dart` | Eigenständiges Widget mit gesamter Detail-Logik |  
+| `ArtikelDetailScreen`     | `lib/screens/artikel_detail_screen.dart`   | Dünner Scaffold-Wrapper für Mobile-Navigation |  
+| `ArtikelListScreen`       | `lib/screens/artikel_list_screen.dart`     | Master-Detail-Host auf Desktop     |
+
+
+#### ArtikelDetailContent ist das zentrale Detail-Widget:
+
+ArtikelDetailContent ist das zentrale Detail-Widget:
+
+- `embedded`-Parameter: `true` = Desktop-Panel (kein eigener Scaffold), `false` = Mobile-Scaffold
+- `onStateChanged`-Callback: informiert den Wrapper über State-Änderungen (AppBar-Rebuild)
+- `buildActions(ColorScheme)`: liefert AppBar-Actions als Liste
+- `titleText`: liefert den aktuellen Titel
+- `hasUnsavedChanges`: für PopScope/Verwerfen-Dialog
+- `didUpdateWidget`: reinitialisiert bei Artikelwechsel (Desktop)
+
+`ArtikelDetailScreen` (Mobile):
+
+- `ValueNotifier`-basierter Rebuild-Mechanismus für AppBar-Synchronisation
+- `PopScope` mit Verwerfen-Dialog bei ungespeicherten Änderungen
+
+### 14a.4 maxContentWidth
+
+- `AppConfig.maxContentWidth` = 1400
+- `ConstrainedBox` wird nur auf Mobile/Tablet angewendet (in `main.dart`)
+- Desktop nutzt die volle Viewport-Breite für Master-Detail
+
+--- 
+
 ## 15. 🎨 Design-System & Konfiguration
 
 Um die Wartbarkeit zu erhöhen, nutzt die App eine dreistufige Konfiguration in `app/lib/config/`:
@@ -665,6 +738,8 @@ Um die Wartbarkeit zu erhöhen, nutzt die App eine dreistufige Konfiguration in 
 1. **`AppConfig`**: Hält technische Konstanten.
 2. **`AppTheme`**: Implementiert Material 3 mit Unterstützung für `ThemeMode.system`.
 3. **`AppImages`**: Verwaltet Asset-Pfade und Feature-Flags.
+
+Responsive-Logik ist in `lib/core/responsive.dart` gekapselt (siehe Abschnitt 14a).
 
 ---
 
@@ -693,25 +768,30 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Uplo
 
 ## 19. Wartungs-Notiz
 
-> **Zuletzt aktualisiert:** O-013 / 0.9.5+50 (2026-05-05) 
-> Architekturtext gegen historische ETag-only-Beschreibungen konsolidiert  
-> Konflikterkennung auf `last_synced_etag` als stabile Vergleichsbasis dokumentiert  
-> Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  
-> `pending_resolution` für `force_local` und `force_merge` konsolidiert  
-> Guard gegen doppelte Konflikt-UI-Öffnung berücksichtigt  
-> Duplicate-UUID-Recovery im Create-Pfad dokumentiert  
-> Serverseitige UUID-Absicherung (`required` + `unique`) nachgezogen  
-> Logging für Duplicate-UUID-Recovery als aktueller Sync-Bestandteil berücksichtigt  
-> Konflikt-Snapshot-Strategie (Pull→Snapshot, Push→Callback) ergänzt  
-> `toPocketBaseMap()` — übertragene und ausgeschlossene Felder dokumentiert  
-> `_extractBildName()` als einzige Normalisierungsstelle für PocketBase `bild` dokumentiert  
-> `remoteBildPfad`-Invariante und Snapshot-Methoden-Invariante ergänzt  
-> Datenmodell-Tabelle um `thumbnailEtag`, `aktualisiertAm`, `device_id`, DB-Version und Migrationen ergänzt  
-> `artikelnummer`-Regel (`>= 1`) und PocketBase-Schema-Hintergrund dokumentiert  
-> Pull-Delete-Guard (`remoteUuids.isNotEmpty`) als Invariante nachgezogen  
-> `useRemote`-Fail-fast via `requireRemoteBaselineEtag()` dokumentiert  
-> Abschnittsnummerierung (1–19) durchgängig ergänzt  
-> Indexnamen gegen `artikel_db_service.dart` verifiziert und korrigiert  
-> Teststand: +754 / ~3 Tests, `flutter analyze` + `flutter test` grün
+> **Zuletzt aktualisiert:** F-011.7 / 0.9.8+62 (2026-05-15)
+> Responsive Breakpoints und Master-Detail-Layout dokumentiert (Abschnitt 14a)
+> ArtikelDetailContent als eigenständiges Widget dokumentiert
+> ArtikelDetailScreen als dünner Scaffold-Wrapper mit ValueNotifier-Rebuild
+> Projektstruktur: `core/` um Responsive ergänzt, Widgets auf 13 aktualisiert
+> maxContentWidth auf 1400 erhöht, ConstrainedBox nur Mobile/Tablet
+> Architekturtext gegen historische ETag-only-Beschreibungen konsolidiert
+> Konflikterkennung auf `last_synced_etag` als stabile Vergleichsbasis dokumentiert
+> Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen
+> `pending_resolution` für `force_local` und `force_merge` konsolidiert
+> Guard gegen doppelte Konflikt-UI-Öffnung berücksichtigt
+> Duplicate-UUID-Recovery im Create-Pfad dokumentiert
+> Serverseitige UUID-Absicherung (`required` + `unique`) nachgezogen
+> Logging für Duplicate-UUID-Recovery als aktueller Sync-Bestandteil berücksichtigt
+> Konflikt-Snapshot-Strategie (Pull→Snapshot, Push→Callback) ergänzt
+> `toPocketBaseMap()` — übertragene und ausgeschlossene Felder dokumentiert
+> `_extractBildName()` als einzige Normalisierungsstelle für PocketBase `bild` dokumentiert
+> `remoteBildPfad`-Invariante und Snapshot-Methoden-Invariante ergänzt
+> Datenmodell-Tabelle um `thumbnailEtag`, `aktualisiertAm`, `device_id`, DB-Version und Migrationen ergänzt
+> `artikelnummer`-Regel (`>= 1`) und PocketBase-Schema-Hintergrund dokumentiert
+> Pull-Delete-Guard (`remoteUuids.isNotEmpty`) als Invariante nachgezogen
+> `useRemote`-Fail-fast via `requireRemoteBaselineEtag()` dokumentiert
+> Abschnittsnummerierung (1–19 + 14a) durchgängig ergänzt
+> Indexnamen gegen `artikel_db_service.dart` verifiziert und korrigiert
+> Teststand: 24 + 15 + 11 = 50 Detail/List/Erfassen-Tests grün
 
 [Zurück zur README](../README.md) | [Zu den Installationsdetails](../INSTALL.md) | [Vollständige Projektstruktur](PROJECT_STRUCTURE.md) | [CI/CD & Deployment](../DEPLOYMENT.md)
