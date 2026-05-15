@@ -2,9 +2,11 @@
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
+import '../core/responsive.dart';
 
 import '../services/pocketbase_service.dart';
 import '../services/app_log_service.dart';
@@ -43,7 +45,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _initController() async {
     try {
-      // F-008: Callback von main.dart an Controller weiterreichen
       _controller.onSyncIntervalChanged = widget.onSyncIntervalChanged;
       await _controller.init();
     } catch (e) {
@@ -61,6 +62,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _controller.dispose();
     super.dispose();
   }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Dialoge & Aktionen
+  // ══════════════════════════════════════════════════════════════════════
 
   Future<bool> _showUnsavedChangesDialog() async {
     final result = await showDialog<bool>(
@@ -261,6 +266,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // App-Info kopieren
+  // ══════════════════════════════════════════════════════════════════════
+
+  Future<void> _copyAppInfo() async {
+    final pbService = PocketBaseService();
+    String version;
+    try {
+      final info = await PackageInfo.fromPlatform();
+      version = '${info.version}+${info.buildNumber}';
+    } catch (_) {
+      version = 'Unbekannt';
+    }
+
+    final buffer = StringBuffer()
+      ..writeln('Lager_app — App-Information')
+      ..writeln('──────────────────────────')
+      ..writeln('Version:        $version')
+      ..writeln('DB-Version:     ${AppConfig.dbVersion}')
+      ..writeln('Plattform:      ${kIsWeb ? "Web" : "Mobile/Desktop"}')
+      ..writeln(
+        'Datenbank:      ${kIsWeb ? "PocketBase (direkt)" : "SQLite (lokal) + PocketBase Sync"}',
+      )
+      ..writeln('PocketBase URL: ${pbService.url}')
+      ..writeln(
+        'Auth-Status:    ${pbService.isAuthenticated ? "Angemeldet (${pbService.currentUserEmail ?? "–"})" : "Nicht angemeldet"}',
+      );
+
+    await Clipboard.setData(ClipboardData(text: buffer.toString()));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('📋 App-Informationen in die Zwischenablage kopiert'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Build
+  // ══════════════════════════════════════════════════════════════════════
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -297,38 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               padding: const EdgeInsets.all(AppConfig.spacingLarge),
               child: Form(
                 key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_controller.hasUnsavedChanges)
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          bottom: AppConfig.spacingMedium,
-                        ),
-                        child: _buildStatusContainer(
-                          icon: Icons.edit_note,
-                          message: 'Du hast ungespeicherte Änderungen. '
-                              'Tippe auf 💾 zum Speichern.',
-                          type: _StatusType.warning,
-                        ),
-                      ),
-                    _buildAccountCard(),
-                    const SizedBox(height: AppConfig.spacingLarge),
-                    _buildPocketBaseCard(),
-                    const SizedBox(height: AppConfig.spacingLarge),
-                    if (!kIsWeb) _buildSyncCard(),
-                    if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-                    const BackupStatusWidget(),
-                    const SizedBox(height: AppConfig.spacingLarge),
-                    if (!kIsWeb) _buildSecurityCard(),
-                    if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-                    if (!kIsWeb) _buildArtikelNummerCard(),
-                    if (!kIsWeb) const SizedBox(height: AppConfig.spacingLarge),
-                    _buildDeveloperCard(),  // O-013
-                    const SizedBox(height: AppConfig.spacingLarge),
-                    _buildInfoCard(),
-                  ],
-                ),
+                child: _buildSettingsBody(context),
               ),
             ),
           ),
@@ -336,6 +353,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+
+  // ── F-011.6: Responsive Settings-Body ─────────────────────────────
+  Widget _buildSettingsBody(BuildContext context) {
+    final isWide = !Responsive.isMobile(context);
+
+    // Unsaved-Changes-Banner (immer volle Breite)
+    final banner = _controller.hasUnsavedChanges
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: AppConfig.spacingMedium),
+            child: _buildStatusContainer(
+              icon: Icons.edit_note,
+              message: 'Du hast ungespeicherte Änderungen. '
+                  'Tippe auf 💾 zum Speichern.',
+              type: _StatusType.warning,
+            ),
+          )
+        : const SizedBox.shrink();
+
+    // Cards sammeln — plattformabhängig
+    final cards = <Widget>[
+      _buildAccountCard(),
+      _buildPocketBaseCard(),
+      if (!kIsWeb) _buildSyncCard(),
+      const BackupStatusWidget(),
+      if (!kIsWeb) _buildSecurityCard(),
+      if (!kIsWeb) _buildArtikelNummerCard(),
+      _buildDeveloperCard(),
+    ];
+
+    // Info-Card immer volle Breite (Abschluss)
+    final infoCard = _buildInfoCard();
+
+    if (isWide) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          banner,
+          _SettingsGrid(children: cards),
+          const SizedBox(height: AppConfig.spacingLarge),
+          infoCard,
+        ],
+      );
+    }
+
+    // Einspaltiges Layout (Mobile)
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        banner,
+        for (int i = 0; i < cards.length; i++) ...[
+          cards[i],
+          if (i < cards.length - 1)
+            const SizedBox(height: AppConfig.spacingLarge),
+        ],
+        const SizedBox(height: AppConfig.spacingLarge),
+        infoCard,
+      ],
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Cards
+  // ══════════════════════════════════════════════════════════════════════
 
   Widget _buildPocketBaseCard() {
     final colorScheme = Theme.of(context).colorScheme;
@@ -479,7 +559,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-// ── F-008: Sync-Einstellungen Card ──────────────────────────────────────
   Widget _buildSyncCard() {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -867,12 +946,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  // ── O-013: Entwickler-Einstellungen Card ────────────────────────────
   Widget _buildDeveloperCard() {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    // Level-Optionen (gleiche Reihenfolge wie im Log-Viewer)
     const levels = <String, String>{
       'trace':   '🔍 Trace',
       'debug':   '🐛 Debug',
@@ -943,7 +1020,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         value,
                       );
                       if (!mounted) return;
-                      setState(() {}); // FutureBuilder neu triggern
+                      setState(() {});
                       messenger.clearSnackBars();
                       messenger.showSnackBar(
                         SnackBar(
@@ -1036,9 +1113,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  // ── App-Info Card (erweitert: DB-Version + Kopieren) ──────────────
   Widget _buildInfoCard() {
     final pbUrl = PocketBaseService().url;
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final pbService = PocketBaseService();
 
     return Card(
@@ -1047,11 +1126,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'App-Information',
-              style: textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+            Row(
+              children: [
+                Icon(Icons.info_outline, color: colorScheme.primary),
+                const SizedBox(width: AppConfig.spacingSmall),
+                Text(
+                  'App-Information',
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _copyAppInfo,
+                  icon: const Icon(
+                    Icons.copy,
+                    size: AppConfig.iconSizeMedium,
+                  ),
+                  tooltip: 'App-Informationen kopieren',
+                ),
+              ],
             ),
             const SizedBox(height: AppConfig.spacingMedium),
             FutureBuilder<String>(
@@ -1061,6 +1155,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 return _infoRow('Version', version);
               },
             ),
+            _infoRow('DB-Version', '${AppConfig.dbVersion}'),
             _infoRow('Plattform', kIsWeb ? 'Web' : 'Mobile/Desktop'),
             _infoRow(
               'Datenbank',
@@ -1111,7 +1206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           Expanded(
-            child: Text(
+            child: SelectableText(
               value,
               style: textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
@@ -1178,6 +1273,53 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// F-011.6: Zweispaltiges Grid für Settings-Cards
+// ══════════════════════════════════════════════════════════════════════════
+
+class _SettingsGrid extends StatelessWidget {
+  const _SettingsGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    const columns = AppConfig.settingsGridColumnCount;
+    const spacing = AppConfig.spacingLarge;
+
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i += columns) {
+      final rowChildren = <Widget>[];
+      for (var col = 0; col < columns; col++) {
+        final index = i + col;
+        if (index < children.length) {
+          rowChildren.add(Expanded(child: children[index]));
+        } else {
+          rowChildren.add(const Expanded(child: SizedBox.shrink()));
+        }
+        if (col < columns - 1) {
+          rowChildren.add(const SizedBox(width: spacing));
+        }
+      }
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: i + columns < children.length ? spacing : 0,
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: rowChildren,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(children: rows);
   }
 }
 

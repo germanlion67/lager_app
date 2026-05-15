@@ -381,4 +381,10 @@ class AppConfig {
   static const double breakpointTablet = 1024.0;
   // > breakpointTablet = Desktop
 
+  // F-011.6: Anzahl Spalten für Settings-Grid auf Desktop
+  static const int settingsGridColumnCount = 2;
+
+  // Aktuelle SQLite-Schema-Version (muss mit artikel_db_service.dart übereinstimmen)
+  static const int dbVersion = 6;
+
 }

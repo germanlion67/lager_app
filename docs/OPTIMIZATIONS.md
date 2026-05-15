@@ -458,7 +458,7 @@ extrahieren. Alles hier Gebaute wird in Stufe 3 wiederverwendet.
   }
   ```
 
-- [ ] **F-011.6: Settings-Screen responsive machen**
+- [x] **F-011.6: Settings-Screen responsive machen**
   Einstellungen auf breiten Screens zweispaltig anordnen.
 
   **Wirkung Stufe 2 gesamt:** Deutlich bessere Desktop-Nutzbarkeit.
