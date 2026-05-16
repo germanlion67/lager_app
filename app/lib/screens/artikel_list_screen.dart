@@ -92,9 +92,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   String _letzterFilterKategorie = '';
   List<Artikel>? _letzteFilterBasis;
 
-  // F-011.7: Ausgewählter Artikel für Master-Detail (Desktop)
-  Artikel? _selectedArtikel;
-
+  // F-011.7 / F-011.9: Panel-Steuerung für Master-Detail (Desktop)
+  _PanelMode _panelMode = _PanelMode.none;
+  Artikel? _selectedArtikel; // nur relevant wenn _panelMode == detail
+  
   // F-011.7: GlobalKey für Detail-Content im Master-Detail-Panel
   final GlobalKey<ArtikelDetailContentState> _detailContentKey = GlobalKey();
 
@@ -216,22 +217,21 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       if (mounted) {
         _aktualisiereFilterOhneSetState();
 
-        // F-011.7: Wenn der ausgewählte Artikel nicht mehr in der Liste ist,
-        // Auswahl zurücksetzen.
-        if (_selectedArtikel != null) {
+        // F-011.7 / F-011.9: Ausgewählten Artikel nach Reload aktualisieren.
+        // Erfassen-Panel bleibt offen — wird nicht zurückgesetzt.
+        if (_panelMode == _PanelMode.detail && _selectedArtikel != null) {
           final stillExists = _artikelListe.any(
             (a) => a.uuid == _selectedArtikel!.uuid,
           );
           if (!stillExists) {
+            _panelMode = _PanelMode.none;
             _selectedArtikel = null;
           } else {
-            // Artikel-Daten könnten sich geändert haben → aktualisieren
             _selectedArtikel = _artikelListe.firstWhere(
               (a) => a.uuid == _selectedArtikel!.uuid,
             );
           }
         }
-
         setState(() => _isLoading = false);
       }
     }
@@ -371,7 +371,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   void _onArtikelTap(Artikel artikel, bool isDesktop) {
     if (isDesktop) {
-      setState(() => _selectedArtikel = artikel);
+      // F-011.9: Erfassen-Panel schließen wenn Artikel angetippt wird
+      setState(() {
+        _panelMode = _PanelMode.detail;
+        _selectedArtikel = artikel;
+      });
     } else {
       Navigator.push<Artikel?>(
         context,
@@ -390,7 +394,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   void _onDetailDeleted() {
-    setState(() => _selectedArtikel = null);
+    setState(() {
+      _panelMode = _PanelMode.none;
+      _selectedArtikel = null;
+    });
     _ladeArtikel();
     _showSnackBar('🗑️ Artikel gelöscht');
   }
@@ -646,7 +653,13 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ── F-011.7: Detail-Panel für Desktop ─────────────────────────────────────
 
   Widget _buildDetailPanel(ColorScheme colorScheme) {
-    if (_selectedArtikel == null) {
+    // F-011.9: Erfassen-Panel
+    if (_panelMode == _PanelMode.erfassen) {
+      return _buildErfassenPanel(colorScheme);
+    }
+
+    // F-011.7: Detail-Panel (unverändert, nur _selectedArtikel-Check angepasst)
+    if (_panelMode != _PanelMode.detail || _selectedArtikel == null) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -675,22 +688,40 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                     ),
                   ),
             ),
+            const SizedBox(height: AppConfig.spacingLarge),
+            // F-011.9: Hinweis auf ➕-Button
+            FilledButton.tonal(
+              onPressed: () => setState(() {
+                _panelMode = _PanelMode.erfassen;
+                _selectedArtikel = null;
+              }),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add, size: AppConfig.iconSizeSmall),
+                  SizedBox(width: AppConfig.spacingXSmall),
+                  Text('Neuen Artikel erfassen'),
+                ],
+              ),
+            ),
           ],
         ),
       );
     }
 
+    // Detail-Panel (F-011.7 — unverändert)
     return Column(
       children: [
-        // Detail-AppBar (als Container, nicht als echte AppBar)
         _DetailPanelHeader(
           contentKey: _detailContentKey,
           artikel: _selectedArtikel!,
           colorScheme: colorScheme,
-          onClose: () => setState(() => _selectedArtikel = null),
+          onClose: () => setState(() {
+            _panelMode = _PanelMode.none;
+            _selectedArtikel = null;
+          }),
         ),
         const Divider(height: 1),
-        // Detail-Content
         Expanded(
           child: ArtikelDetailContent(
             key: _detailContentKey,
@@ -698,6 +729,58 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             embedded: true,
             onSaved: _onDetailSaved,
             onDeleted: _onDetailDeleted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // F-011.9: Erfassen-Formular als Seitenpanel (nur Desktop)
+  Widget _buildErfassenPanel(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        // Panel-Header (konsistent mit Detail-Panel)
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConfig.spacingMedium,
+            vertical: AppConfig.spacingSmall,
+          ),
+          color: colorScheme.surfaceContainerLow,
+          child: Row(
+            children: [
+              const Icon(Icons.add_circle_outline, size: AppConfig.iconSizeMedium),
+              const SizedBox(width: AppConfig.spacingSmall),
+              Expanded(
+                child: Text(
+                  'Neuen Artikel erfassen',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: 'Schließen',
+                onPressed: () => setState(() {
+                  _panelMode = _PanelMode.none;
+                }),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // F-011.9: ArtikelErfassenScreen eingebettet als scrollbarer Inhalt
+        Expanded(
+          child: ArtikelErfassenScreen(
+            embedded: true,
+            onSaved: () {
+              setState(() => _panelMode = _PanelMode.none);
+              _ladeArtikel();
+              _showSnackBar('✅ Artikel gespeichert');
+            },
+            onCancelled: () => setState(() => _panelMode = _PanelMode.none),
           ),
         ),
       ],
@@ -755,12 +838,23 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             key: const Key('addArticleButton'),
             icon: const Icon(Icons.add),
             tooltip: 'Neuen Artikel erfassen',
-            onPressed: () => Navigator.push<void>(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => const ArtikelErfassenScreen(),
-              ),
-            ).then((_) => _ladeArtikel()),
+            onPressed: () {
+              // F-011.9: Desktop → Erfassen-Panel; Mobile → Navigator.push
+              final isDesktop = Responsive.of(context) == ScreenSize.desktop;
+              if (isDesktop) {
+                setState(() {
+                  _panelMode = _PanelMode.erfassen;
+                  _selectedArtikel = null; // Detail-Auswahl aufheben
+                });
+              } else {
+                Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ArtikelErfassenScreen(),
+                  ),
+                ).then((_) => _ladeArtikel());
+              }
+            },
           ),
           _isSyncRunning
               ? const Center(
@@ -928,7 +1022,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
     if (confirm == true) {
       await _db.resetDatabase();
-      setState(() => _selectedArtikel = null);
+      setState(() {
+        _panelMode = _PanelMode.none;  // ← war: _selectedArtikel = null
+        _selectedArtikel = null;
+      });
       await _ladeArtikel();
     }
   }
@@ -1166,4 +1263,5 @@ class _ArtikelInfoChip extends StatelessWidget {
   }
 }
 
+enum _PanelMode { none, detail, erfassen }
 enum _MenuAction { importExport, pdfReports, resetDb, showLog, settings }

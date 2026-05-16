@@ -3,7 +3,7 @@
 // v0.7.8: Punkt 3 — textCapitalization: sentences für Name, Beschreibung, Ort, Fach
 //         Punkt 4 — FocusNode für Menge: Vorauswahl beim Fokus
 //         Punkt 6 — Bild-Buttons als IconButton statt FilledButton.tonalIcon
-
+// F-011.9: embedded-Modus für Desktop-Seitenpanel (kein Scaffold/PopScope)
 
 import 'dart:typed_data';
 
@@ -20,7 +20,6 @@ import '../services/app_log_service.dart';
 import '../services/image_picker.dart';
 import '../utils/image_processing_utils.dart';
 
-
 import 'artikel_erfassen_io.dart'
     if (dart.library.html) 'artikel_erfassen_stub.dart' as platform;
 
@@ -28,9 +27,22 @@ class ArtikelErfassenScreen extends StatefulWidget {
   const ArtikelErfassenScreen({
     super.key,
     this.initialArtikelnummer,
+    this.embedded = false,
+    this.onSaved,
+    this.onCancelled,
   });
 
   final int? initialArtikelnummer;
+
+  /// true = Seitenpanel auf Desktop (kein Scaffold, kein PopScope,
+  /// kein Navigator.pop). Callbacks steuern den Fluss.
+  final bool embedded;
+
+  /// Wird nach erfolgreichem Speichern aufgerufen (nur embedded).
+  final VoidCallback? onSaved;
+
+  /// Wird nach Abbrechen aufgerufen (nur embedded).
+  final VoidCallback? onCancelled;
 
   @override
   State<ArtikelErfassenScreen> createState() => _ArtikelErfassenScreenState();
@@ -57,7 +69,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
   bool _isSaving = false;
   bool _hasUnsavedChanges = false;
-  bool _isInitializing = true;  // verhindert Dirty-State durch Initialwerte
+  bool _isInitializing = true;
 
   int? _suggestedArtikelnummer;
 
@@ -128,7 +140,6 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _mengeCtrl.dispose();
     _artikelnummerCtrl.dispose();
     _kategorieCtrl.dispose();
-    // v0.7.8 Punkt 4: FocusNode disposen
     _mengeFocus.dispose();
     super.dispose();
   }
@@ -336,7 +347,12 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   Future<void> _handleCancel() async {
     if (!_hasUnsavedChanges) {
       if (!mounted) return;
-      Navigator.pop(context);
+      // F-011.9: embedded → Callback statt Navigator.pop
+      if (widget.embedded) {
+        widget.onCancelled?.call();
+      } else {
+        Navigator.pop(context);
+      }
       return;
     }
 
@@ -361,7 +377,14 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       ),
     );
 
-    if (discard == true && mounted) Navigator.pop(context);
+    if (discard == true && mounted) {
+      // F-011.9: embedded → Callback statt Navigator.pop
+      if (widget.embedded) {
+        widget.onCancelled?.call();
+      } else {
+        Navigator.pop(context);
+      }
+    }
   }
 
   // ==================== SPEICHERN ====================
@@ -481,28 +504,26 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
 
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
-      Navigator.of(context).pop(
-        artikel.copyWith(
-          remotePath: record.id,
-          remoteBildPfad: record.data['bild'] as String? ?? '',
-        ),
-      );
+      // F-011.9: embedded → Callback statt Navigator.pop
+      if (widget.embedded) {
+        widget.onSaved?.call();
+      } else {
+        Navigator.of(context).pop(
+          artikel.copyWith(
+            remotePath: record.id,
+            remoteBildPfad: record.data['bild'] as String? ?? '',
+          ),
+        );
+      }
     }
   }
 
   Future<void> _saveMobile(Artikel artikel) async {
     _logger.d('_saveMobile() gestartet.');
 
-    // ── Schritt 1: Artikel ohne Bild einfügen → echte artikelId bekommen ──
-    // bildPfad ist hier bewusst leer. Der Artikel ist sofort pending (etag=null).
-    // Der Sync-Push liest bildPfad erst beim nächsten Zyklus — bis dahin
-    // ist Schritt 3 abgeschlossen.
     final artikelId = await _db.insertArtikel(artikel);
     _logger.d('_saveMobile() insertArtikel abgeschlossen. artikelId=$artikelId');
 
-    // ── Schritt 2: Bild lokal kopieren — MIT echter artikelId ──────────────
-    // Dateiname = '${artikelId}_$nameSlug.jpg' → ID muss bekannt sein.
-    // copyImageToLocalDirectory() gibt null zurück wenn kein Bild vorhanden.
     final String? quellPfad =
         _bildPfad != null && _isExternalPath(_bildPfad!) ? _bildPfad : null;
 
@@ -517,38 +538,301 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       _logger.d('_saveMobile() Bild lokal kopiert: $localImagePath');
     }
 
-    // ── Schritt 3: bildPfad in DB setzen — awaited ─────────────────────────
-    // updateBildPfad() setzt updated_at neu → Artikel bleibt pending.
-    // _buildFiles() liest bildPfad beim Sync-Push — der Pfad ist jetzt gesetzt.
-    // KEIN unawaited — der Sync darf erst nach diesem Schritt laufen.
     if (localImagePath != null) {
       await _db.updateBildPfad(artikelId, localImagePath);
       _logger.d('_saveMobile() updateBildPfad abgeschlossen.');
     }
 
-    // ── Schritt 4: UI aufräumen und zurücknavigieren ────────────────────────
     _resetBildState();
 
     if (mounted) {
       setState(() => _hasUnsavedChanges = false);
-      Navigator.of(context).pop(
-        artikel.copyWith(
-          id: artikelId,
-          bildPfad: localImagePath ?? '',
-          uuid: artikel.uuid,
-        ),
-      );
+      // F-011.9: embedded → Callback statt Navigator.pop
+      if (widget.embedded) {
+        widget.onSaved?.call();
+      } else {
+        Navigator.of(context).pop(
+          artikel.copyWith(
+            id: artikelId,
+            bildPfad: localImagePath ?? '',
+            uuid: artikel.uuid,
+          ),
+        );
+      }
     }
 
     _logger.d('_saveMobile() abgeschlossen. bildPfad=$localImagePath');
   }
 
+  // ==================== FORM CHILDREN ====================
 
+  /// Extrahiert für Wiederverwendung in embedded- und standalone-Modus.
+  List<Widget> _buildFormChildren(BuildContext context) {
+    return [
+      // ── Name ──────────────────────────────────────
+      TextFormField(
+        controller: _nameCtrl,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Name *',
+          border: OutlineInputBorder(),
+          helperText: 'Pflichtfeld',
+        ),
+        maxLength: AppConfig.inputMaxLengthName,
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) {
+            return 'Bitte einen Namen eingeben';
+          }
+          if (v.trim().length < 2) {
+            return 'Name muss mindestens 2 Zeichen lang sein';
+          }
+          return null;
+        },
+        textInputAction: TextInputAction.next,
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
 
-  // ==================== UI ====================
+      // ── Beschreibung ───────────────────────────────
+      TextFormField(
+        controller: _beschreibungCtrl,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Beschreibung',
+          border: OutlineInputBorder(),
+        ),
+        maxLines: 2,
+        maxLength: AppConfig.inputMaxLengthBeschreibung,
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
+
+      // ── Kategorie ─────────────────────────────────
+      TextFormField(
+        controller: _kategorieCtrl,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Kategorie',
+          border: OutlineInputBorder(),
+          prefixIcon: Icon(Icons.category_outlined),
+        ),
+        maxLength: AppConfig.inputMaxLengthKategorie,
+        textInputAction: TextInputAction.next,
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
+
+      // ── Ort ───────────────────────────────────────
+      TextFormField(
+        controller: _ortCtrl,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Ort *',
+          border: OutlineInputBorder(),
+          helperText: 'Pflichtfeld',
+        ),
+        maxLength: AppConfig.inputMaxLengthOrt,
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) {
+            return 'Bitte einen Ort eingeben';
+          }
+          return null;
+        },
+        textInputAction: TextInputAction.next,
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
+
+      // ── Fach ──────────────────────────────────────
+      TextFormField(
+        controller: _fachCtrl,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(
+          labelText: 'Fach *',
+          border: OutlineInputBorder(),
+          helperText: 'Pflichtfeld',
+        ),
+        maxLength: AppConfig.inputMaxLengthFach,
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) {
+            return 'Bitte ein Fach eingeben';
+          }
+          return null;
+        },
+        textInputAction: TextInputAction.next,
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
+
+      // ── Menge ─────────────────────────────────────
+      TextFormField(
+        controller: _mengeCtrl,
+        focusNode: _mengeFocus,
+        decoration: const InputDecoration(
+          labelText: 'Menge',
+          border: OutlineInputBorder(),
+          helperText: 'Nur positive Ganzzahlen (≥ 0)',
+        ),
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) {
+            return 'Bitte eine Menge eingeben';
+          }
+          final n = int.tryParse(v.trim());
+          if (n == null) return 'Bitte eine gültige Zahl eingeben';
+          if (n < 0) return 'Menge darf nicht negativ sein';
+          if (n > AppConfig.inputMaxMenge) {
+            return 'Menge darf maximal ${AppConfig.inputMaxMenge} betragen';
+          }
+          return null;
+        },
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
+
+      // ── Artikelnummer ─────────────────────────────
+      TextFormField(
+        controller: _artikelnummerCtrl,
+        decoration: const InputDecoration(
+          labelText: 'Artikelnummer',
+          border: OutlineInputBorder(),
+          helperText: 'Automatisch vergeben — kann geändert werden',
+          prefixIcon: Icon(Icons.tag),
+        ),
+        keyboardType: TextInputType.number,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+        ],
+        validator: (v) {
+          if (v == null || v.trim().isEmpty) {
+            return 'Bitte eine Artikelnummer eingeben';
+          }
+          final n = int.tryParse(v.trim());
+          if (n == null) {
+            return 'Bitte eine gültige Zahl eingeben';
+          }
+          if (n < 1000) {
+            return 'Artikelnummer muss mindestens 1000 sein';
+          }
+          return null;
+        },
+      ),
+      const SizedBox(height: AppConfig.spacingMedium),
+
+      // ── Bild-Auswahl ──────────────────────────────
+      Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.image),
+            tooltip: 'Bilddatei wählen',
+            onPressed: _pickImageFile,
+          ),
+          if (ImagePickerService.isCameraAvailable)
+            IconButton(
+              icon: const Icon(Icons.camera_alt),
+              tooltip: 'Kamera',
+              onPressed: _pickImageCamera,
+            ),
+          const SizedBox(width: AppConfig.spacingSmall),
+          Expanded(
+            child: Text(
+              _bildDateiname ?? 'Keine Datei ausgewählt',
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        ],
+      ),
+
+      if (_bildBytes != null) ...[
+        const SizedBox(height: AppConfig.spacingMedium),
+        AspectRatio(
+          aspectRatio: 16 / 9,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(
+              AppConfig.borderRadiusMedium,
+            ),
+            child: Image.memory(_bildBytes!, fit: BoxFit.cover),
+          ),
+        ),
+        const SizedBox(height: AppConfig.spacingSmall),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _isSaving ? null : _resetBildState,
+              icon: Icon(
+                Icons.image_not_supported_outlined,
+                color: _isSaving
+                    ? null
+                    : Theme.of(context).colorScheme.error,
+              ),
+              label: Text(
+                'Entfernen',
+                style: TextStyle(
+                  color: _isSaving
+                      ? null
+                      : Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ),
+            const SizedBox(width: AppConfig.spacingSmall),
+            OutlinedButton.icon(
+              onPressed: _isSaving ? null : _cropImage,
+              icon: const Icon(Icons.crop),
+              label: const Text('Zuschneiden'),
+            ),
+          ],
+        ),
+      ],
+      const SizedBox(height: AppConfig.spacingLarge),
+
+      // ── Buttons ───────────────────────────────────
+      Row(
+        children: [
+          Expanded(
+            child: OutlinedButton(
+              onPressed: _isSaving ? null : _handleCancel,
+              child: const Text('Abbrechen'),
+            ),
+          ),
+          const SizedBox(width: AppConfig.spacingMedium),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: _isSaving ? null : _save,
+              icon: _isSaving
+                  ? const SizedBox(
+                      width: AppConfig.iconSizeSmall,
+                      height: AppConfig.iconSizeSmall,
+                      child: CircularProgressIndicator(
+                        strokeWidth: AppConfig.strokeWidthMedium,
+                      ),
+                    )
+                  : const Icon(Icons.save),
+              label: const Text('Speichern'),
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  // ==================== BUILD ====================
 
   @override
   Widget build(BuildContext context) {
+    // F-011.9: Im embedded-Modus kein Scaffold/AppBar/PopScope —
+    // Header und Close-Button kommen vom ArtikelListScreen-Panel.
+    if (widget.embedded) {
+      return SafeArea(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(AppConfig.spacingLarge),
+            children: _buildFormChildren(context),
+          ),
+        ),
+      );
+    }
+
+    // Standalone-Modus (Mobile / Navigator.push) — unverändert
     return PopScope(
       canPop: !_hasUnsavedChanges,
       onPopInvokedWithResult: (didPop, _) async {
@@ -562,258 +846,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
             key: _formKey,
             child: ListView(
               padding: const EdgeInsets.all(AppConfig.spacingLarge),
-              children: [
-                // ── Name ──────────────────────────────────────
-                // v0.7.8 Punkt 3: textCapitalization ergänzt
-                TextFormField(
-                  controller: _nameCtrl,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'Name *',
-                    border: OutlineInputBorder(),
-                    helperText: 'Pflichtfeld',
-                  ),
-                  maxLength: AppConfig.inputMaxLengthName,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Bitte einen Namen eingeben';
-                    }
-                    if (v.trim().length < 2) {
-                      return 'Name muss mindestens 2 Zeichen lang sein';
-                    }
-                    return null;
-                  },
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: AppConfig.spacingMedium),
-
-                // ── Beschreibung ───────────────────────────────
-                // v0.7.8 Punkt 3: textCapitalization ergänzt
-                TextFormField(
-                  controller: _beschreibungCtrl,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'Beschreibung',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 2,
-                  maxLength: AppConfig.inputMaxLengthBeschreibung,
-                ),
-                const SizedBox(height: AppConfig.spacingMedium),
-
-                // ── Kategorie ─────────────────────────────────
-                TextFormField(
-                  controller: _kategorieCtrl,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'Kategorie',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.category_outlined),
-                  ),
-                  maxLength: AppConfig.inputMaxLengthKategorie,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: AppConfig.spacingMedium),
-
-                // ── Ort ───────────────────────────────────────
-                // v0.7.8 Punkt 3: textCapitalization ergänzt
-                TextFormField(
-                  controller: _ortCtrl,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'Ort *',
-                    border: OutlineInputBorder(),
-                    helperText: 'Pflichtfeld',
-                  ),
-                  maxLength: AppConfig.inputMaxLengthOrt,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Bitte einen Ort eingeben';
-                    }
-                    return null;
-                  },
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: AppConfig.spacingMedium),
-
-                // ── Fach ──────────────────────────────────────
-                // v0.7.8 Punkt 3: textCapitalization ergänzt
-                TextFormField(
-                  controller: _fachCtrl,
-                  textCapitalization: TextCapitalization.sentences,
-                  decoration: const InputDecoration(
-                    labelText: 'Fach *',
-                    border: OutlineInputBorder(),
-                    helperText: 'Pflichtfeld',
-                  ),
-                  maxLength: AppConfig.inputMaxLengthFach,
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Bitte ein Fach eingeben';
-                    }
-                    return null;
-                  },
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: AppConfig.spacingMedium),
-
-                // ── Menge ─────────────────────────────────────
-                // v0.7.8 Punkt 4: focusNode ergänzt
-                TextFormField(
-                  controller: _mengeCtrl,
-                  focusNode: _mengeFocus,
-                  decoration: const InputDecoration(
-                    labelText: 'Menge',
-                    border: OutlineInputBorder(),
-                    helperText: 'Nur positive Ganzzahlen (≥ 0)',
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Bitte eine Menge eingeben';
-                    }
-                    final n = int.tryParse(v.trim());
-                    if (n == null) return 'Bitte eine gültige Zahl eingeben';
-                    if (n < 0) return 'Menge darf nicht negativ sein';
-                    if (n > AppConfig.inputMaxMenge) {
-                      return 'Menge darf maximal ${AppConfig.inputMaxMenge} betragen';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppConfig.spacingMedium),
-
-                // ── Artikelnummer ─────────────────────────────
-                // Keine textCapitalization — numerisches Feld
-                TextFormField(
-                  controller: _artikelnummerCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Artikelnummer',
-                    border: OutlineInputBorder(),
-                    helperText: 'Automatisch vergeben — kann geändert werden',
-                    prefixIcon: Icon(Icons.tag),
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
-                  validator: (v) {
-                    if (v == null || v.trim().isEmpty) {
-                      return 'Bitte eine Artikelnummer eingeben';
-                    }
-                    final n = int.tryParse(v.trim());
-                    if (n == null) {
-                      return 'Bitte eine gültige Zahl eingeben';
-                    }
-                    if (n < 1000) {
-                      return 'Artikelnummer muss mindestens 1000 sein';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppConfig.spacingMedium),
-
-                // ── Bild-Auswahl ──────────────────────────────
-                // v0.7.8 Punkt 6: IconButton statt FilledButton.tonalIcon
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.image),
-                      tooltip: 'Bilddatei wählen',
-                      onPressed: _pickImageFile,
-                    ),
-                    if (ImagePickerService.isCameraAvailable)
-                      IconButton(
-                        icon: const Icon(Icons.camera_alt),
-                        tooltip: 'Kamera',
-                        onPressed: _pickImageCamera,
-                      ),
-                    const SizedBox(width: AppConfig.spacingSmall),
-                    Expanded(
-                      child: Text(
-                        _bildDateiname ?? 'Keine Datei ausgewählt',
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  ],
-                ),
-
-                if (_bildBytes != null) ...[
-                  const SizedBox(height: AppConfig.spacingMedium),
-                  AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        AppConfig.borderRadiusMedium,
-                      ),
-                      child: Image.memory(_bildBytes!, fit: BoxFit.cover),
-                    ),
-                  ),
-                  const SizedBox(height: AppConfig.spacingSmall),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      // M-013: Bild entfernen (nur RAM-Cleanup)
-                      OutlinedButton.icon(
-                        onPressed: _isSaving ? null : _resetBildState,
-                        icon: Icon(
-                          Icons.image_not_supported_outlined,
-                          color: _isSaving
-                              ? null
-                              : Theme.of(context).colorScheme.error,
-                        ),
-                        label: Text(
-                          'Entfernen',
-                          style: TextStyle(
-                            color: _isSaving
-                                ? null
-                                : Theme.of(context).colorScheme.error,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppConfig.spacingSmall),
-                      OutlinedButton.icon(
-                        onPressed: _isSaving ? null : _cropImage,
-                        icon: const Icon(Icons.crop),
-                        label: const Text('Zuschneiden'),
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: AppConfig.spacingLarge),
-
-                // ── Buttons ───────────────────────────────────
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: _isSaving ? null : _handleCancel,
-                        child: const Text('Abbrechen'),
-                      ),
-                    ),
-                    const SizedBox(width: AppConfig.spacingMedium),
-                    Expanded(
-                      child: FilledButton.icon(
-                        onPressed: _isSaving ? null : _save,
-                        icon: _isSaving
-                            ? const SizedBox(
-                                width: AppConfig.iconSizeSmall,
-                                height: AppConfig.iconSizeSmall,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: AppConfig.strokeWidthMedium,
-                                ),
-                              )
-                            : const Icon(Icons.save),
-                        label: const Text('Speichern'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+              children: _buildFormChildren(context),
             ),
           ),
         ),
