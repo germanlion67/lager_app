@@ -2,6 +2,77 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [v0.9.9+68] - refactor(main): O-020 – PocketBaseConflictAdapter ausgelagert - 2026-05-16
+
+### 🏗️ Architektur
+
+**O-020: `_PocketBaseConflictAdapter` aus `main.dart` ausgelagert**
+- Neue Datei `lib/services/pocketbase_conflict_adapter.dart`
+- Klasse ist jetzt public (`PocketBaseConflictAdapter`) und ohne
+  `main.dart`-Abhängigkeit wiederverwendbar
+- `main.dart`: Import ergänzt, `_`-Prefix entfernt, keine Logik geändert
+- `artikel_detail_screen.dart`: bereits aufgeteilt — kein Handlungsbedarf
+- `artikel_db_service.dart`: Singleton auf `_db` — Aufteilung würde
+  Komplexität erhöhen ohne Gewinn — kein Handlungsbedarf
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `lib/services/pocketbase_conflict_adapter.dart` | **Neu** — aus `main.dart` extrahiert |
+| `lib/main.dart` | Import ergänzt, `_PocketBaseConflictAdapter` → `PocketBaseConflictAdapter` |
+
+---
+
+## [v0.9.9+67] - refactor(config): O-019 – print() in AppConfig durch Logger ersetzt - 2026-05-16
+
+### 🔧 Änderungen
+
+**O-019: `print()` in `app_config.dart` durch Logger ersetzt**
+- `AppConfig.validateConfig()`: `print()` + `assert`-Wrapper entfernt,
+  durch `_logger.w()` ersetzt
+- Warnung erscheint jetzt auch im Release-Build — Placeholder-URL in
+  Produktion ist ein echtes Konfigurationsproblem, kein reines Debug-Signal
+- `// ignore: avoid_print`-Kommentar entfällt
+- Konsistent mit bestehendem `_logger`-Einsatz in `AppConfig.init()`
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `lib/config/app_config.dart` | `validateConfig()`: `assert` + `print()` → `_logger.w()` |
+
+---
+
+## [v0.9.9+66] - refactor(config): O-016 – Timeout-Konstanten in AppConfig zentralisiert - 2026-05-16
+
+### 🔧 Änderungen
+
+**O-016: Magic-Number-Timeouts durch `AppConfig`-Konstanten ersetzt**
+- `AppConfig`: vier neue Timeout-Konstanten ergänzt:
+  - `connectivityCheckTimeout` (3s) — TCP-Check im `ConnectivityService`
+  - `backupStatusTimeout` (5s) — HTTP-Requests im `BackupStatusService`
+  - `syncPushTimeout` (30s) — Push-Requests beim Sync (Metadaten/JSON)
+  - `syncUploadTimeout` (120s) — Upload-Requests beim Sync (Binärdaten/Bilder)
+- `ConnectivityService._tcpCheck()`: `Duration(seconds: 3)` →
+  `AppConfig.connectivityCheckTimeout`
+- `BackupStatusService.fetchStatus()`: beide `Duration(seconds: 5)` →
+  `AppConfig.backupStatusTimeout` (Versuch 1 + Versuch 2)
+- `syncPushTimeout` / `syncUploadTimeout` vorbereitet für O-014
+  (Nextcloud-Ablösung); lokale `_k*`-Konstanten existierten im
+  aktuellen `sync_service.dart` nicht mehr
+- Keine Wertänderungen — reine Konstantenverlagerung
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `lib/config/app_config.dart` | 4 neue Timeout-Konstanten |
+| `lib/services/connectivity_service.dart` | `Duration(seconds: 3)` → `AppConfig.connectivityCheckTimeout` |
+| `lib/services/backup_status_service.dart` | 2× `Duration(seconds: 5)` → `AppConfig.backupStatusTimeout` |
+
+--- 
+
 ## [v0.9.8+62] - feat(F-011.7): Master-Detail-Layout für Desktop - 2026-05-15
 
 ### ✨ Neue Features

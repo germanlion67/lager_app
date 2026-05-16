@@ -37,7 +37,7 @@ Sie unterstützt insbesondere:
 - **lokale Bild- und Dateiverwaltung**
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.8+62**
+- `pubspec.yaml`: **0.9.8+69**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
 - Branch: **feature/layoutDesktopWeb_v0.9.8**

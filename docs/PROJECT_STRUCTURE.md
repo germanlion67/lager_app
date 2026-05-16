@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v0.9.5+62 (15.05.2026)
+> Stand: v0.9.9+68 (16.05.2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -99,6 +99,7 @@ app/lib/
 │   ├── pdf_service_shared.dart       #     ↳ PDF: Gemeinsame Logik
 │   ├── pdf_service_stub.dart         #     ↳ PDF: Stub
 │   ├── pdf_service_web.dart          #     ↳ PDF: Web (Browser-Download)
+│   ├── pocketbase_conflict_adapter.dart  #   O-020: PocketBaseConflictAdapter (aus main.dart extrahiert)
 │   ├── orchestrator_sync_backend.dart #  Backend-Interface für SyncOrchestrator
 │   ├── pocketbase_service.dart       #   PocketBase REST-Client
 │   ├── pocketbase_sync_contracts.dart #  Sync-Verträge (Interfaces/Typedefs)
@@ -131,7 +132,7 @@ app/lib/
 │   ├── sync_conflict_handler.dart    #   Sync-Konflikt UI-Handler
 │   ├── sync_error_widgets.dart       #   Sync-Fehler Anzeige-Widgets
 │   └── sync_progress_widgets.dart    #   Sync-Fortschritt Anzeige
-├── main.dart                         # App-Einstiegspunkt, Auth, Lifecycle, Sync-Orchestrierung, PocketBase-Konflikt-UI
+├── main.dart                         # App-Einstiegspunkt, Auth, Lifecycle, Sync-Orchestrierung
 ├── main_io.dart                      # Einstiegspunkt: Native (dart:io)
 └── main_stub.dart                    # Einstiegspunkt: Web (kein dart:io)
 ```
@@ -308,7 +309,7 @@ lager_app/
 
 | Bereich                   | Anzahl             |
 | :------------------------ | :----------------- |
-| **Quellcode-Dateien** (`app/lib/`) | 94 |
+| **Quellcode-Dateien** (`app/lib/`) | 95 |
 | **Davon Conditional Imports** | 28 (14 Paare) |
 | **Test-Dateien** | 31 Testdateien + 3 Helpers + 2 Mocks |
 | **Tests gesamt** | 757 (754 bestanden, 2 skipped) |

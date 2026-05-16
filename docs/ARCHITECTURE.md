@@ -168,7 +168,7 @@ lager_app/
 │   │   ├── core/           # Plattform-Abstraktion (Logger, Exceptions, Responsive)
 │   │   ├── models/         # Datenklassen (Artikel, Attachment)
 │   │   ├── screens/        # UI-Pages (23 Dateien + Conditional Imports)
-│   │   ├── services/       # Business-Logik (40 Dateien + Conditional Imports)
+│   │   ├── services/       # Business-Logik (41 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
 │   │   └── widgets/        # Wiederverwendbare UI-Komponenten (13 Widgets)
 │   └── test/               # Testsuite
@@ -768,7 +768,9 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Uplo
 
 ## 19. Wartungs-Notiz
 
-> **Zuletzt aktualisiert:** F-011.7 / 0.9.8+62 (2026-05-15)
+> **Zuletzt aktualisiert:** O-020 / 0.9.9+68 (2026-05-16)
+> `PocketBaseConflictAdapter` aus `main.dart` extrahiert → `lib/services/pocketbase_conflict_adapter.dart`
+> Klasse ist jetzt public und ohne `main.dart`-Abhängigkeit wiederverwendbar
 > Responsive Breakpoints und Master-Detail-Layout dokumentiert (Abschnitt 14a)
 > ArtikelDetailContent als eigenständiges Widget dokumentiert
 > ArtikelDetailScreen als dünner Scaffold-Wrapper mit ValueNotifier-Rebuild
