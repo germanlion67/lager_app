@@ -37,9 +37,11 @@ Sie unterstützt insbesondere:
 - **lokale Bild- und Dateiverwaltung**
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.7+55**
+- `pubspec.yaml`: **0.9.8+69**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
+- Branch: **feature/layoutDesktopWeb_v0.9.8**
+- Layout: **Master-Detail ab Desktop (≥1024px), Mobile weiterhin Navigator.push**
 
 ---
 
@@ -201,7 +203,14 @@ Wichtige Services sind insbesondere:
 - `AppLogService`
 
 ## Zentrale UI-Bildschirme
-- `ArtikelListScreen` — Artikelliste mit Ort- und Kategorie-Filter (F-009)
+- `ArtikelListScreen` — Artikelliste mit Ort- und Kategorie-Filter (F-009),
+  Master-Detail-Layout auf Desktop (F-011.7)
+- `ArtikelDetailScreen` — dünner Scaffold-Wrapper für Mobile-Navigation,
+  delegiert an `ArtikelDetailContent`
+- `ArtikelDetailContent` — eigenständiges Widget mit gesamter Detail-Logik
+  (Anzeige, Edit, Speichern, Löschen, Bild, Anhänge, PDF),
+  einbettbar sowohl im Mobile-Scaffold als auch im Desktop-Detail-Panel
+- `ArtikelErfassenScreen`
 - `LoginScreen`
 - `SettingsScreen` — inkl. Entwickler-Card mit Log-Viewer Default-Level (O-013)
 - `ServerSetupScreen`
@@ -219,6 +228,48 @@ Zentral ist das Artikelmodell (`Artikel`), ergänzt u. a. um:
 Für genaue Felder und Persistenz gilt:
 - **`docs/DATABASE.md`**
 - aktueller Produktivcode in Modell- und DB-Dateien
+
+---
+
+# 8a. Responsive Layout und Master-Detail (F-011.7)
+
+## Breakpoints
+Die App verwendet drei Breakpoints, definiert in `lib/core/responsive.dart`:
+- **Mobile**: < 600px
+- **Tablet**: 600–1023px
+- **Desktop**: ≥ 1024px
+
+Die Breakpoint-Werte sind in `AppConfig` konfiguriert:
+- `breakpointTablet` = 600
+- `breakpointDesktop` = 1024
+
+## Desktop-Layout (≥ 1024px)
+Ab Desktop-Breite zeigt `ArtikelListScreen` ein Master-Detail-Layout:
+- **Links**: NavigationRail + Artikelliste (flex 2)
+- **Rechts**: Detail-Panel mit `ArtikelDetailContent` (flex 3)
+- Auswahl eines Artikels in der Liste zeigt ihn inline rechts
+- Kein `Navigator.push` — der Content wird direkt eingebettet (`embedded: true`)
+- Platzhalter wird angezeigt wenn kein Artikel ausgewählt ist
+
+## Mobile/Tablet-Layout (< 1024px)
+- Klassisches `Navigator.push` zum `ArtikelDetailScreen`
+- `ArtikelDetailScreen` ist ein dünner Scaffold-Wrapper
+- Delegiert gesamte Logik an `ArtikelDetailContent` (`embedded: false`)
+
+## ArtikelDetailContent — Architektur
+- Eigenständiges `StatefulWidget` in `lib/widgets/artikel_detail_content.dart`
+- Enthält alle Detail-Logik: Anzeige, Edit-Modus, Speichern, Löschen, Bild, Anhänge, PDF
+- `embedded`-Parameter steuert ob Scaffold-Elemente (AppBar) extern kommen
+- `onStateChanged`-Callback informiert den Wrapper über State-Änderungen (AppBar-Rebuild)
+- `buildActions(ColorScheme)` liefert AppBar-Actions als Liste
+- `titleText` liefert den aktuellen Titel
+- `hasUnsavedChanges` für PopScope/Verwerfen-Dialog
+- `didUpdateWidget` reinitialisiert bei Artikelwechsel (Desktop: anderer Artikel ausgewählt)
+
+## maxContentWidth
+- `AppConfig.maxContentWidth` = 1400 (erhöht von 800)
+- `ConstrainedBox` wird nur auf Mobile/Tablet angewendet
+- Desktop nutzt die volle Breite für Master-Detail
 
 ---
 
@@ -523,6 +574,14 @@ nicht nur den Prompt aktualisieren, sondern je nach Thema auch:
 - `docs/TESTING.md`
 - `docs/OPTIMIZATIONS.md`
 - relevante Produktivdateien
+
+## Layout / Responsive / Master-Detail
+- `lib/core/responsive.dart`
+- `lib/config/app_config.dart` (Breakpoints, Flex-Werte)
+- `lib/widgets/artikel_detail_content.dart`
+- `lib/screens/artikel_detail_screen.dart`
+- `lib/screens/artikel_list_screen.dart`
+- `lib/main.dart` (ConstrainedBox-Logik)
 
 ---
 

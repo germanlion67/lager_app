@@ -246,7 +246,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.text('Import/Export'), findsOneWidget);
-      expect(find.text('Einstellungen'), findsOneWidget);
+      // F-011.5: 'Einstellungen' erscheint jetzt auch in der NavigationRail
+      // (Desktop-Layout) → findsWidgets statt findsOneWidget.
+      expect(find.text('Einstellungen'), findsWidgets);
     });
   });
 

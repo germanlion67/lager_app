@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v0.9.5+50 (05.05.2026)
+> Stand: v0.9.9+68 (16.05.2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -34,17 +34,18 @@ app/lib/
 │   └── app_theme.dart                #   Material 3 Theme (Light/Dark)
 ├── core/                             # Plattform-Abstraktion
 │   ├── app_exception.dart            #   Typisierte Exceptions
-│   └── app_logger.dart               #   Logger-Konfiguration
+│   ├── app_logger.dart               #   Logger-Konfiguration
+│   └── responsive.dart               #   Breakpoints & ScreenSize (F-011.7)
 ├── models/                           # Datenklassen
 │   ├── artikel_model.dart            #   Artikel (CRUD, Sync, toMap/fromMap)
 │   └── attachment_model.dart         #   Dateianhänge (Limits, MIME-Whitelist)
 ├── screens/                          # UI-Pages
 │   ├── app_lock_screen.dart          #   F-001: Biometrie-Sperrbildschirm
-│   ├── artikel_detail_screen.dart    #   Artikel-Detail mit Tabs
+│   ├── artikel_detail_screen.dart    #   Scaffold-Wrapper für Mobile (delegiert an ArtikelDetailContent)
 │   ├── artikel_erfassen_screen.dart  #   Conditional Import Hub
 │   ├── artikel_erfassen_io.dart      #     ↳ Native: Kamera + Dateisystem
 │   ├── artikel_erfassen_stub.dart    #     ↳ Web: File-Upload
-│   ├── artikel_list_screen.dart      #   Hauptliste mit Suche/Filter
+│   ├── artikel_list_screen.dart      #   Hauptliste mit Suche/Filter, Master-Detail auf Desktop (F-011.7)
 │   ├── conflict_resolution_screen.dart   # Konfliktauflösungs-UI für Sync-Konflikte
 │   ├── detail_screen_io.dart         #   Detail: Native-Aktionen
 │   ├── detail_screen_stub.dart       #   Detail: Web-Aktionen
@@ -98,6 +99,7 @@ app/lib/
 │   ├── pdf_service_shared.dart       #     ↳ PDF: Gemeinsame Logik
 │   ├── pdf_service_stub.dart         #     ↳ PDF: Stub
 │   ├── pdf_service_web.dart          #     ↳ PDF: Web (Browser-Download)
+│   ├── pocketbase_conflict_adapter.dart  #   O-020: PocketBaseConflictAdapter (aus main.dart extrahiert)
 │   ├── orchestrator_sync_backend.dart #  Backend-Interface für SyncOrchestrator
 │   ├── pocketbase_service.dart       #   PocketBase REST-Client
 │   ├── pocketbase_sync_contracts.dart #  Sync-Verträge (Interfaces/Typedefs)
@@ -121,6 +123,7 @@ app/lib/
 │   ├── app_loading_overlay.dart      #   Lade-Overlay
 │   ├── article_icons.dart            #   Artikel-Status-Icons
 │   ├── artikel_bild_widget.dart      #   Bild-Anzeige (4-stufige Fallback-Kette)
+│   ├── artikel_detail_content.dart   #   F-011.7: Detail-Logik (Edit, Speichern, Löschen, Bild, Anhänge)
 │   ├── attachment_list_widget.dart   #   Attachment-Liste (Detail-Tab)
 │   ├── attachment_upload_widget.dart #   Attachment-Upload Dialog
 │   ├── backup_status_widget.dart     #   Backup-Status Anzeige
@@ -129,7 +132,7 @@ app/lib/
 │   ├── sync_conflict_handler.dart    #   Sync-Konflikt UI-Handler
 │   ├── sync_error_widgets.dart       #   Sync-Fehler Anzeige-Widgets
 │   └── sync_progress_widgets.dart    #   Sync-Fortschritt Anzeige
-├── main.dart                         # App-Einstiegspunkt, Auth, Lifecycle, Sync-Orchestrierung, PocketBase-Konflikt-UI
+├── main.dart                         # App-Einstiegspunkt, Auth, Lifecycle, Sync-Orchestrierung
 ├── main_io.dart                      # Einstiegspunkt: Native (dart:io)
 └── main_stub.dart                    # Einstiegspunkt: Web (kein dart:io)
 ```
@@ -250,11 +253,10 @@ docs/
 ├── OPTIMIZATIONS.md                  # Offene Optimierungsaufgaben
 ├── PORTAINER_PROD.md                 # Portainer Produktions-Setup
 ├── SETUP_BASHRC.md                   # Shell-Konfiguration
+├── SYNC.md                           # Sync-Referenz (Push/Pull, Konflikte, Invarianten)
 ├── TESTING.md                        # Test-Strategie & Übersicht
 ├── THEMING.md                        # AppConfig, AppTheme & Design-Tokens
 ├── prompt.txt                        # AI-Coding-Agent Prompt
-├── prompt_Datenbank.txt              # Datenbank-spezifischer Prompt
-├── prompt_deployment.txt             # Deployment-spezifischer Prompt
 ├── info._js                          # PocketBase Migration-Info
 └── .bashrc                           # Shell-Aliases für Entwicklung
 ```
@@ -307,12 +309,12 @@ lager_app/
 
 | Bereich                   | Anzahl             |
 | :------------------------ | :----------------- |
-| **Quellcode-Dateien** (`app/lib/`) | 92 |
+| **Quellcode-Dateien** (`app/lib/`) | 95 |
 | **Davon Conditional Imports** | 28 (14 Paare) |
 | **Test-Dateien** | 31 Testdateien + 3 Helpers + 2 Mocks |
-| **Tests gesamt** | 757 (754 bestanden, 3 skipped) |
+| **Tests gesamt** | 757 (754 bestanden, 2 skipped) |
 | **PocketBase Migrationen** | 7 |
-| **Dokumentations-Dateien** | 19 |
+| **Dokumentations-Dateien** | 18 |
 | **CI/CD Workflows** | 4 |
 | **Docker-Compose Varianten** | 4 |
 

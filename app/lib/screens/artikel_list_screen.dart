@@ -1,11 +1,8 @@
 // lib/screens/artikel_list_screen.dart
-
-//   B-008 — _buildArtikelTile(): Card-Layout mit allen Feldern wiederhergestellt.
-//            Artikelnummer (nullable int), Beschreibung, Ort, Fach, Menge als Chips.
-//   B-009 — Ort-Dropdown aus AppBar entfernt, in Body mit echten Daten implementiert.
-//            _aktualisiereFilter(): distinct, alphabetisch, aus _artikelListe.
-//   B-010 — _showSnackBar(): Zentrale Hilfsmethode. Feedback bei Sync-Start/-Erfolg/-Fehler.
-//   B-012 — Sync-Label: overflow + maxLines. titleSpacing + Padding gegen AppBar-Overflow.
+//
+// F-011.7: Master-Detail-Layout für Desktop.
+//          Liste links, Detail rechts (inline) ab breakpointTablet.
+//          Mobile: weiterhin Navigator.push() zum ArtikelDetailScreen.
 
 import 'dart:async';
 
@@ -27,11 +24,13 @@ import '../services/sync_status_provider.dart';
 import '../services/sync_orchestrator.dart' show SyncStatus;
 
 import '../widgets/artikel_bild_widget.dart';
+import '../widgets/artikel_detail_content.dart';
 
 import 'artikel_detail_screen.dart';
 import 'artikel_erfassen_screen.dart';
 import 'settings_screen.dart';
 import 'settings_state.dart';
+import '../core/responsive.dart';
 
 import 'list_screen_mobile_actions.dart'
     if (dart.library.html) 'list_screen_web_actions.dart'
@@ -84,9 +83,21 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   StreamSubscription<SyncStatus>? _syncSubscription;
   bool _isSyncRunning = false;
 
-  // B-009: Verfügbare Orte für den Filter — dynamisch aus _artikelListe
   List<String> _verfuegbareOrte = [];
   List<String> _verfuegbareKategorien = [];
+
+  // P-007.1: Cache für _gefilterteArtikel()
+  List<Artikel> _gefilterteArtikelCache = [];
+  String _letzterFilterOrt = '';
+  String _letzterFilterKategorie = '';
+  List<Artikel>? _letzteFilterBasis;
+
+  // F-011.7 / F-011.9: Panel-Steuerung für Master-Detail (Desktop)
+  _PanelMode _panelMode = _PanelMode.none;
+  Artikel? _selectedArtikel; // nur relevant wenn _panelMode == detail
+  
+  // F-011.7: GlobalKey für Detail-Content im Master-Detail-Panel
+  final GlobalKey<ArtikelDetailContentState> _detailContentKey = GlobalKey();
 
   @override
   void initState() {
@@ -98,8 +109,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     if (widget.initialArtikel != null) {
       _artikelListe = List<Artikel>.from(widget.initialArtikel!);
       _isLoading = false;
-      // B-009: Orte aus initialArtikel ableiten
-      _aktualisiereFilter();
+      _aktualisiereFilterOhneSetState();
     } else {
       _ladeArtikel();
     }
@@ -125,7 +135,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _isSyncRunning = (status == SyncStatus.running);
       });
 
-      // B-010: Snackbar-Feedback bei Sync-Ergebnis
       if (status == SyncStatus.success) {
         _ladeArtikel();
         _showSnackBar('✅ Synchronisierung abgeschlossen');
@@ -144,28 +153,23 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     super.dispose();
   }
 
-  // ── B-009: Orte und Kategorien aus den geladenen Listen ableiten ─────────────────────────
-  // Distinct, nicht-leere Werte, alphabetisch sortiert.
-  void _aktualisiereFilter() {
-    final orte = _artikelListe
+  // ── Filter ────────────────────────────────────────────────────────────────
+
+  void _aktualisiereFilterOhneSetState() {
+    _verfuegbareOrte = _artikelListe
         .map((a) => a.ort.trim())
         .where((o) => o.isNotEmpty)
         .toSet()
         .toList()
       ..sort();
-    final kategorien = _artikelListe
+    _verfuegbareKategorien = _artikelListe
         .map((a) => (a.kategorie ?? '').trim())
         .where((k) => k.isNotEmpty)
         .toSet()
         .toList()
       ..sort();
-    setState(() {
-      _verfuegbareOrte = orte;
-      _verfuegbareKategorien = kategorien;
-    });
   }
 
-  // ── B-010: Zentrale Snackbar-Hilfsmethode ────────────────────────────────
   void _showSnackBar(String message, {bool isError = false}) {
     if (!mounted) return;
     final colorScheme = Theme.of(context).colorScheme;
@@ -185,6 +189,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       _currentOffset = 0;
       _hasMore = true;
       _artikelListe = [];
+      _suchErgebnisse = [];
+      _isSuche = false;
     });
 
     try {
@@ -204,25 +210,42 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _currentOffset = seite.length;
         _hasMore = seite.length >= AppConfig.paginationPageSize;
       }
-      // B-009: Orte nach jedem Laden aktualisieren
-      _aktualisiereFilter();
-    } catch (e) {
-      _logger.e('Fehler beim Laden: $e');
+    } catch (e, st) {
+      _logger.e('Fehler beim Laden:', error: e, stackTrace: st);
       _showSnackBar('❌ Fehler beim Laden der Artikel', isError: true);
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) {
+        _aktualisiereFilterOhneSetState();
+
+        // F-011.7 / F-011.9: Ausgewählten Artikel nach Reload aktualisieren.
+        // Erfassen-Panel bleibt offen — wird nicht zurückgesetzt.
+        if (_panelMode == _PanelMode.detail && _selectedArtikel != null) {
+          final stillExists = _artikelListe.any(
+            (a) => a.uuid == _selectedArtikel!.uuid,
+          );
+          if (!stillExists) {
+            _panelMode = _PanelMode.none;
+            _selectedArtikel = null;
+          } else {
+            _selectedArtikel = _artikelListe.firstWhere(
+              (a) => a.uuid == _selectedArtikel!.uuid,
+            );
+          }
+        }
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> _handleManualSync() async {
     if (_isSyncRunning) return;
-    // B-010: Feedback beim Start des manuellen Syncs
     _showSnackBar('🔄 Synchronisierung gestartet…');
     await widget.syncStatusProvider?.runOnce();
   }
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
+    if (_isLoadingMore || !_hasMore) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 200) {
       _ladeNaechsteSeite();
@@ -241,17 +264,17 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         _artikelListe.addAll(seite);
         _currentOffset += seite.length;
         _hasMore = seite.length >= AppConfig.paginationPageSize;
+        _aktualisiereFilterOhneSetState();
       });
-      // B-009: Orte nach Nachladen aktualisieren
-      _aktualisiereFilter();
+    } catch (e, st) {
+      _logger.e('Fehler beim Nachladen:', error: e, stackTrace: st);
     } finally {
-      setState(() => _isLoadingMore = false);
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
   void _onSuchbegriffChanged(String value) {
     _debounceTimer?.cancel();
-    setState(() => _suchbegriff = value);
     _debounceTimer = Timer(
       const Duration(milliseconds: 500),
       () => _fuehreSucheAus(value),
@@ -260,19 +283,48 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
   Future<void> _fuehreSucheAus(String query) async {
     if (!mounted) return;
+
     if (query.isEmpty) {
       setState(() {
+        _suchbegriff = '';
         _isSuche = false;
         _suchErgebnisse = [];
       });
+      await _ladeArtikel();
       return;
     }
-    setState(() => _isSuche = true);
-    final results = await _db.searchArtikel(query);
+
+    setState(() {
+      _suchbegriff = query;
+      _isSuche = true;
+    });
+
+    List<Artikel> results;
+    if (kIsWeb) {
+      final pb = _pbService.client;
+      final trimmed = query.trim();
+      final isNumeric = int.tryParse(trimmed) != null;
+
+      final filterString = isNumeric
+          ? 'artikelnummer = ${int.parse(trimmed)} && deleted = false'
+          : '(name ~ "$trimmed" || beschreibung ~ "$trimmed" || '
+              'artikelnummer ~ "$trimmed") && deleted = false';
+
+      final records = await pb.collection('artikel').getFullList(
+            filter: filterString,
+            sort: '-created',
+          );
+      results =
+          records.map((r) => Artikel.fromPocketBase(r.data, r.id)).toList();
+    } else {
+      results = await _db.searchArtikel(query);
+    }
+
     if (!mounted) return;
     setState(() {
       _suchErgebnisse = results;
       _isSuche = false;
+      _hasMore = false;
     });
   }
 
@@ -282,17 +334,31 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   }
 
   List<Artikel> _gefilterteArtikel() {
-    final basis = _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
-    return basis.where((a) {
-      if (_filterOrt.isNotEmpty && a.ort.trim() != _filterOrt.trim()) {
+    final basis =
+        _suchbegriff.isNotEmpty ? _suchErgebnisse : _artikelListe;
+
+    if (identical(basis, _letzteFilterBasis) &&
+        _filterOrt == _letzterFilterOrt &&
+        _filterKategorie == _letzterFilterKategorie) {
+      return _gefilterteArtikelCache;
+    }
+
+    _letzteFilterBasis = basis;
+    _letzterFilterOrt = _filterOrt;
+    _letzterFilterKategorie = _filterKategorie;
+
+    _gefilterteArtikelCache = basis.where((a) {
+      if (_filterOrt.isNotEmpty && a.ort.trim() != _filterOrt) {
         return false;
       }
       if (_filterKategorie.isNotEmpty &&
-          (a.kategorie ?? '').trim() != _filterKategorie.trim()) {
+          (a.kategorie ?? '').trim() != _filterKategorie) {
         return false;
       }
       return true;
     }).toList();
+
+    return _gefilterteArtikelCache;
   }
 
   String _formatTime(DateTime dt) {
@@ -300,6 +366,428 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         '${dt.minute.toString().padLeft(2, '0')}:'
         '${dt.second.toString().padLeft(2, '0')}';
   }
+
+  // ── F-011.7: Artikel auswählen (Desktop) oder navigieren (Mobile) ────────
+
+  void _onArtikelTap(Artikel artikel, bool isDesktop) {
+    if (isDesktop) {
+      // F-011.9: Erfassen-Panel schließen wenn Artikel angetippt wird
+      setState(() {
+        _panelMode = _PanelMode.detail;
+        _selectedArtikel = artikel;
+      });
+    } else {
+      Navigator.push<Artikel?>(
+        context,
+        MaterialPageRoute<Artikel?>(
+          builder: (_) => ArtikelDetailScreen(artikel: artikel),
+        ),
+      ).then((_) => _ladeArtikel());
+    }
+  }
+
+  // ── F-011.7: Callbacks für embedded Detail-Content ────────────────────────
+
+  void _onDetailSaved(Artikel gespeicherterArtikel) {
+    _ladeArtikel();
+    _showSnackBar('✅ Artikel gespeichert');
+  }
+
+  void _onDetailDeleted() {
+    setState(() {
+      _panelMode = _PanelMode.none;
+      _selectedArtikel = null;
+    });
+    _ladeArtikel();
+    _showSnackBar('🗑️ Artikel gelöscht');
+  }
+
+  // ── NavigationRail ────────────────────────────────────────────────────────
+
+  Widget _buildNavigationRail(ColorScheme colorScheme) {
+    return NavigationRail(
+      selectedIndex: 0,
+      labelType: NavigationRailLabelType.all,
+      leading: const SizedBox(height: AppConfig.spacingSmall),
+      destinations: const [
+        NavigationRailDestination(
+          icon: Icon(Icons.inventory_2_outlined),
+          selectedIcon: Icon(Icons.inventory_2),
+          label: Text('Artikel'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.sync_outlined),
+          selectedIcon: Icon(Icons.sync),
+          label: Text('Sync'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.settings_outlined),
+          selectedIcon: Icon(Icons.settings),
+          label: Text('Einstellungen'),
+        ),
+      ],
+      onDestinationSelected: (index) {
+        switch (index) {
+          case 0:
+            break;
+          case 1:
+            _handleManualSync();
+          case 2:
+            Navigator.push<void>(
+              context,
+              MaterialPageRoute<void>(
+                builder: (_) => SettingsScreen(
+                  onLogout: widget.onLogout,
+                  onSyncIntervalChanged: widget.onSyncIntervalChanged,
+                ),
+              ),
+            );
+        }
+      },
+    );
+  }
+
+  // ── Artikelliste (Suchfeld + Filter + Liste/Grid) ─────────────────────────
+
+  Widget _buildListContent(
+    List<Artikel> gefiltert,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    bool isDesktop,
+  ) {
+    return Column(
+      children: [
+        // Suchleiste + Scanner
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppConfig.spacingSmall,
+            AppConfig.spacingSmall,
+            AppConfig.spacingSmall,
+            0,
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  key: const Key('articleSearchField'),
+                  decoration: const InputDecoration(
+                    labelText: 'Suche…',
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: _onSuchbegriffChanged,
+                ),
+              ),
+              const SizedBox(width: AppConfig.spacingSmall),
+              IconButton.filled(
+                key: const Key('qrScannerButton'),
+                icon: const Icon(Icons.qr_code_scanner),
+                onPressed: () => ScanService.scanArtikel(
+                  context,
+                  _artikelListe,
+                  _ladeArtikel,
+                  setState,
+                  _db,
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Ort- und Kategorie-Filter
+        if (_verfuegbareOrte.isNotEmpty || _verfuegbareKategorien.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppConfig.spacingSmall,
+              AppConfig.spacingXSmall,
+              AppConfig.spacingSmall,
+              0,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (_verfuegbareOrte.isNotEmpty)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.place_outlined, size: 18),
+                        const SizedBox(width: AppConfig.spacingXSmall),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            key: const Key('locationFilterDropdown'),
+                            value:
+                                _filterOrt.isEmpty ? null : _filterOrt,
+                            hint: const Text('Alle Orte'),
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            isDense: true,
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Alle Orte'),
+                              ),
+                              ..._verfuegbareOrte.map(
+                                (ort) => DropdownMenuItem<String>(
+                                  value: ort,
+                                  child: Text(
+                                    ort,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _filterOrt = v ?? ''),
+                          ),
+                        ),
+                        if (_filterOrt.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            tooltip: 'Ort-Filter zurücksetzen',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () =>
+                                setState(() => _filterOrt = ''),
+                          ),
+                      ],
+                    ),
+                  ),
+                if (_verfuegbareOrte.isNotEmpty &&
+                    _verfuegbareKategorien.isNotEmpty)
+                  const SizedBox(width: AppConfig.spacingSmall),
+                if (_verfuegbareKategorien.isNotEmpty)
+                  Expanded(
+                    child: Row(
+                      children: [
+                        const Icon(Icons.category_outlined, size: 18),
+                        const SizedBox(width: AppConfig.spacingXSmall),
+                        Expanded(
+                          child: DropdownButton<String>(
+                            key: const Key('categoryFilterDropdown'),
+                            value: _filterKategorie.isEmpty
+                                ? null
+                                : _filterKategorie,
+                            hint: const Text('Alle Kategorien'),
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            isDense: true,
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Alle Kategorien'),
+                              ),
+                              ..._verfuegbareKategorien.map(
+                                (kat) => DropdownMenuItem<String>(
+                                  value: kat,
+                                  child: Text(
+                                    kat,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ),
+                            ],
+                            onChanged: (v) =>
+                                setState(() => _filterKategorie = v ?? ''),
+                          ),
+                        ),
+                        if (_filterKategorie.isNotEmpty)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            tooltip: 'Kategorie-Filter zurücksetzen',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () =>
+                                setState(() => _filterKategorie = ''),
+                          ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+        const SizedBox(height: AppConfig.spacingXSmall),
+
+        // Artikelliste
+        Expanded(
+          child: _isLoading || _isSuche
+              ? const Center(child: CircularProgressIndicator())
+              : RefreshIndicator(
+                  onRefresh: _handleManualSync,
+                  child: gefiltert.isEmpty
+                      ? const SingleChildScrollView(
+                          physics: AlwaysScrollableScrollPhysics(),
+                          child: Center(
+                            child: Padding(
+                              padding: EdgeInsets.only(top: 100),
+                              child: Text('Keine Artikel gefunden.'),
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          itemCount: gefiltert.length +
+                              (_isLoadingMore ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == gefiltert.length) {
+                              return const Center(
+                                child: CircularProgressIndicator(),
+                              );
+                            }
+                            final artikel = gefiltert[index];
+                            return _ArtikelTile(
+                              artikel: artikel,
+                              isSelected: isDesktop &&
+                                  _selectedArtikel?.uuid == artikel.uuid,
+                              onTap: () =>
+                                  _onArtikelTap(artikel, isDesktop),
+                            );
+                          },
+                        ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  // ── F-011.7: Detail-Panel für Desktop ─────────────────────────────────────
+
+  Widget _buildDetailPanel(ColorScheme colorScheme) {
+    // F-011.9: Erfassen-Panel
+    if (_panelMode == _PanelMode.erfassen) {
+      return _buildErfassenPanel(colorScheme);
+    }
+
+    // F-011.7: Detail-Panel (unverändert, nur _selectedArtikel-Check angepasst)
+    if (_panelMode != _PanelMode.detail || _selectedArtikel == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.touch_app_outlined,
+              size: 64,
+              color: colorScheme.onSurfaceVariant.withValues(
+                alpha: AppConfig.opacityMedium,
+              ),
+            ),
+            const SizedBox(height: AppConfig.spacingMedium),
+            Text(
+              'Artikel auswählen',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+            ),
+            const SizedBox(height: AppConfig.spacingSmall),
+            Text(
+              'Wähle einen Artikel aus der Liste,\num Details anzuzeigen.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant.withValues(
+                      alpha: AppConfig.opacityMedium,
+                    ),
+                  ),
+            ),
+            const SizedBox(height: AppConfig.spacingLarge),
+            // F-011.9: Hinweis auf ➕-Button
+            FilledButton.tonal(
+              onPressed: () => setState(() {
+                _panelMode = _PanelMode.erfassen;
+                _selectedArtikel = null;
+              }),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add, size: AppConfig.iconSizeSmall),
+                  SizedBox(width: AppConfig.spacingXSmall),
+                  Text('Neuen Artikel erfassen'),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Detail-Panel (F-011.7 — unverändert)
+    return Column(
+      children: [
+        _DetailPanelHeader(
+          contentKey: _detailContentKey,
+          artikel: _selectedArtikel!,
+          colorScheme: colorScheme,
+          onClose: () => setState(() {
+            _panelMode = _PanelMode.none;
+            _selectedArtikel = null;
+          }),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ArtikelDetailContent(
+            key: _detailContentKey,
+            artikel: _selectedArtikel!,
+            embedded: true,
+            onSaved: _onDetailSaved,
+            onDeleted: _onDetailDeleted,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // F-011.9: Erfassen-Formular als Seitenpanel (nur Desktop)
+  Widget _buildErfassenPanel(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        // Panel-Header (konsistent mit Detail-Panel)
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConfig.spacingMedium,
+            vertical: AppConfig.spacingSmall,
+          ),
+          color: colorScheme.surfaceContainerLow,
+          child: Row(
+            children: [
+              const Icon(Icons.add_circle_outline, size: AppConfig.iconSizeMedium),
+              const SizedBox(width: AppConfig.spacingSmall),
+              Expanded(
+                child: Text(
+                  'Neuen Artikel erfassen',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: 'Schließen',
+                onPressed: () => setState(() {
+                  _panelMode = _PanelMode.none;
+                }),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        // F-011.9: ArtikelErfassenScreen eingebettet als scrollbarer Inhalt
+        Expanded(
+          child: ArtikelErfassenScreen(
+            embedded: true,
+            onSaved: () {
+              setState(() => _panelMode = _PanelMode.none);
+              _ladeArtikel();
+              _showSnackBar('✅ Artikel gespeichert');
+            },
+            onCancelled: () => setState(() => _panelMode = _PanelMode.none),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -309,7 +797,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        // B-012: Flexible title verhindert Overflow auf schmalen Displays
         titleSpacing: 0,
         title: Padding(
           padding: const EdgeInsets.only(left: AppConfig.spacingMedium),
@@ -324,12 +811,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   _buildConnectionStatusIcon(),
                 ],
               ),
-              // B-012 + F-007: overflow sichert Darstellung auf S20,
-              // ValueListenableBuilder reagiert sofort auf Toggle in Einstellungen
               ValueListenableBuilder<bool>(
                 valueListenable: showLastSyncNotifier,
                 builder: (context, showSync, _) {
-                  if (!showSync || widget.syncStatusProvider?.lastSyncTime == null) {
+                  if (!showSync ||
+                      widget.syncStatusProvider?.lastSyncTime == null) {
                     return const SizedBox.shrink();
                   }
                   return Text(
@@ -352,14 +838,24 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             key: const Key('addArticleButton'),
             icon: const Icon(Icons.add),
             tooltip: 'Neuen Artikel erfassen',
-            onPressed: () => Navigator.push<void>(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => const ArtikelErfassenScreen(),
-              ),
-            ).then((_) => _ladeArtikel()),
+            onPressed: () {
+              // F-011.9: Desktop → Erfassen-Panel; Mobile → Navigator.push
+              final isDesktop = Responsive.of(context) == ScreenSize.desktop;
+              if (isDesktop) {
+                setState(() {
+                  _panelMode = _PanelMode.erfassen;
+                  _selectedArtikel = null; // Detail-Auswahl aufheben
+                });
+              } else {
+                Navigator.push<void>(
+                  context,
+                  MaterialPageRoute<void>(
+                    builder: (_) => const ArtikelErfassenScreen(),
+                  ),
+                ).then((_) => _ladeArtikel());
+              }
+            },
           ),
-          // B-009: Dropdown aus actions ENTFERNT — jetzt im Body (siehe unten)
           _isSyncRunning
               ? const Center(
                   child: Padding(
@@ -387,351 +883,41 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // ── Suchleiste + Scanner ─────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-              AppConfig.spacingSmall,
-              AppConfig.spacingSmall,
-              AppConfig.spacingSmall,
-              0,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    key: const Key('articleSearchField'),
-                    decoration: const InputDecoration(
-                      labelText: 'Suche…',
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    onChanged: _onSuchbegriffChanged,
-                  ),
-                ),
-                const SizedBox(width: AppConfig.spacingSmall),
-                IconButton.filled(
-                  key: const Key('qrScannerButton'),
-                  icon: const Icon(Icons.qr_code_scanner),
-                  onPressed: () => ScanService.scanArtikel(
-                    context,
-                    _artikelListe,
-                    _ladeArtikel,
-                    setState,
-                    _db,
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          // ── B-009: Ort-Filter — im Body, mit echten Daten ───────────────
-          // ── F-009 / B-009: Ort- und Kategorie-Filter nebeneinander ────────
-          if (_verfuegbareOrte.isNotEmpty || _verfuegbareKategorien.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppConfig.spacingSmall,
-                AppConfig.spacingXSmall,
-                AppConfig.spacingSmall,
-                0,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  // ── Ort-Filter ──────────────────────────────────
-                  if (_verfuegbareOrte.isNotEmpty)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.place_outlined, size: 18),
-                          const SizedBox(width: AppConfig.spacingXSmall),
-                          Expanded(
-                            child: DropdownButton<String>(
-                              key: const Key('locationFilterDropdown'),
-                              value: _filterOrt.isEmpty ? null : _filterOrt,
-                              hint: const Text('Alle Orte'),
-                              isExpanded: true,
-                              underline: const SizedBox.shrink(),
-                              isDense: true,
-                              items: [
-                                const DropdownMenuItem<String>(
-                                  value: null,
-                                  child: Text('Alle Orte'),
-                                ),
-                                ..._verfuegbareOrte.map(
-                                  (ort) => DropdownMenuItem<String>(
-                                    value: ort,
-                                    child: Text(
-                                      ort,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (v) => setState(() => _filterOrt = v ?? ''),
-                            ),
-                          ),
-                          if (_filterOrt.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              tooltip: 'Ort-Filter zurücksetzen',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () => setState(() => _filterOrt = ''),
-                            ),
-                        ],
-                      ),
-                    ),
+      // F-011.7: LayoutBuilder → Desktop mit Master-Detail, Mobile ohne
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final screenSize = Responsive.fromConstraints(constraints);
+          final isDesktop = screenSize == ScreenSize.desktop;
 
-                  // ── Abstand zwischen den Filtern ────────────────
-                  if (_verfuegbareOrte.isNotEmpty &&
-                      _verfuegbareKategorien.isNotEmpty)
-                    const SizedBox(width: AppConfig.spacingSmall),
+          final listContent = _buildListContent(
+            gefiltert,
+            colorScheme,
+            textTheme,
+            isDesktop,
+          );
 
-                  // ── Kategorie-Filter ────────────────────────────
-                  if (_verfuegbareKategorien.isNotEmpty)
-                    Expanded(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.category_outlined, size: 18),
-                          const SizedBox(width: AppConfig.spacingXSmall),
-                          Expanded(
-                            child: DropdownButton<String>(
-                              key: const Key('categoryFilterDropdown'),
-                              value: _filterKategorie.isEmpty
-                                  ? null
-                                  : _filterKategorie,
-                              hint: const Text('Alle Kategorien'),
-                              isExpanded: true,
-                              underline: const SizedBox.shrink(),
-                              isDense: true,
-                              items: [
-                                const DropdownMenuItem<String>(
-                                  value: null,
-                                  child: Text('Alle Kategorien'),
-                                ),
-                                ..._verfuegbareKategorien.map(
-                                  (kat) => DropdownMenuItem<String>(
-                                    value: kat,
-                                    child: Text(
-                                      kat,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                              onChanged: (v) =>
-                                  setState(() => _filterKategorie = v ?? ''),
-                            ),
-                          ),
-                          if (_filterKategorie.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.clear, size: 18),
-                              tooltip: 'Kategorie-Filter zurücksetzen',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () =>
-                                  setState(() => _filterKategorie = ''),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          if (!isDesktop) return listContent;
 
-          const SizedBox(height: AppConfig.spacingXSmall),
-
-          // ── Artikelliste ─────────────────────────────────────────────────
-          Expanded(
-            child: _isLoading || _isSuche
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _handleManualSync,
-                    child: gefiltert.isEmpty
-                        ? const SingleChildScrollView(
-                            physics: AlwaysScrollableScrollPhysics(),
-                            child: Center(
-                              child: Padding(
-                                padding: EdgeInsets.only(top: 100),
-                                child: Text('Keine Artikel gefunden.'),
-                              ),
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            itemCount:
-                                gefiltert.length + (_isLoadingMore ? 1 : 0),
-                            itemBuilder: (context, index) {
-                              if (index == gefiltert.length) {
-                                return const Center(
-                                  child: CircularProgressIndicator(),
-                                );
-                              }
-                              return _buildArtikelTile(gefiltert[index]);
-                            },
-                          ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── B-008: Vollständiges Card-Layout wiederhergestellt ───────────────────
-  Widget _buildArtikelTile(Artikel artikel) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(
-        horizontal: AppConfig.spacingSmall,
-        vertical: AppConfig.spacingXSmall,
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusSmall),
-        onTap: () => Navigator.push<Artikel?>(
-          context,
-          MaterialPageRoute<Artikel?>(
-            builder: (_) => ArtikelDetailScreen(artikel: artikel),
-          ),
-        ).then((_) => _ladeArtikel()),
-        child: Padding(
-          padding: const EdgeInsets.all(AppConfig.spacingSmall),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          // Desktop: NavigationRail + Liste + Detail
+          return Row(
             children: [
-              // Bild
-              ArtikelListBild(artikel: artikel),
-              const SizedBox(width: AppConfig.spacingMedium),
-
-              // Textinfos
+              _buildNavigationRail(colorScheme),
+              const VerticalDivider(thickness: 1, width: 1),
+              // Master (Liste)
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Zeile 1: Artikelnummer + Name
-                    Row(
-                      children: [
-                        if (artikel.artikelnummer != null)
-                          Text(
-                            '#${artikel.artikelnummer}',
-                            style: textTheme.labelSmall?.copyWith(
-                              color: colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        if (artikel.artikelnummer != null)
-                          const SizedBox(width: AppConfig.spacingXSmall),
-                        Expanded(
-                          child: Text(
-                            artikel.name,
-                            style: textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    // Zeile 2: Beschreibung
-                    if (artikel.beschreibung.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        artikel.beschreibung,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 2,
-                      ),
-                    ],
-
-                    const SizedBox(height: AppConfig.spacingXSmall),
-
-                    // Zeile 3: Ort, Fach, Menge — als Chips
-                    Wrap(
-                      spacing: AppConfig.spacingXSmall,
-                      runSpacing: 2,
-                      children: [
-                        if (artikel.ort.isNotEmpty)
-                          _buildInfoChip(
-                            icon: Icons.place_outlined,
-                            label: artikel.ort,
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          ),
-                        if (artikel.kategorie != null && artikel.kategorie!.isNotEmpty)
-                          _buildInfoChip(
-                            icon: Icons.category_outlined,
-                            label: artikel.kategorie!,
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          ),
-                        if (artikel.fach.isNotEmpty)
-                          _buildInfoChip(
-                            icon: Icons.grid_view_outlined,
-                            label: artikel.fach,
-                            colorScheme: colorScheme,
-                            textTheme: textTheme,
-                          ),
-                        _buildInfoChip(
-                          icon: Icons.inventory_2_outlined,
-                          label: '${artikel.menge} Stk',
-                          colorScheme: colorScheme,
-                          textTheme: textTheme,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                flex: AppConfig.masterListFlex.toInt(),
+                child: listContent,
               ),
-
-              // Pfeil-Icon
-              Icon(
-                Icons.chevron_right,
-                color: colorScheme.onSurfaceVariant,
-                size: AppConfig.iconSizeMedium,
+              const VerticalDivider(thickness: 1, width: 1),
+              // Detail
+              Expanded(
+                flex: AppConfig.masterDetailFlex.toInt(),
+                child: _buildDetailPanel(colorScheme),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Hilfs-Widget: Info-Chip für Ort / Fach / Menge ───────────────────────
-  Widget _buildInfoChip({
-    required IconData icon,
-    required String label,
-    required ColorScheme colorScheme,
-    required TextTheme textTheme,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppConfig.spacingXSmall,
-        vertical: 2,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(AppConfig.borderRadiusXSmall),
-        border: Border.all(color: colorScheme.outlineVariant),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 12, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 3),
-          Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
@@ -836,9 +1022,246 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     );
     if (confirm == true) {
       await _db.resetDatabase();
+      setState(() {
+        _panelMode = _PanelMode.none;  // ← war: _selectedArtikel = null
+        _selectedArtikel = null;
+      });
       await _ladeArtikel();
     }
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════════
+// F-011.7: Detail-Panel Header (Titel + Actions + Close)
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _DetailPanelHeader extends StatelessWidget {
+  const _DetailPanelHeader({
+    required this.contentKey,
+    required this.artikel,
+    required this.colorScheme,
+    required this.onClose,
+  });
+
+  final GlobalKey<ArtikelDetailContentState> contentKey;
+  final Artikel artikel;
+  final ColorScheme colorScheme;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final contentState = contentKey.currentState;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingMedium,
+        vertical: AppConfig.spacingSmall,
+      ),
+      color: colorScheme.surfaceContainerLow,
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              contentState?.titleText ?? artikel.name,
+              style: textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (contentState != null)
+            ...contentState.buildActions(colorScheme),
+          const SizedBox(width: AppConfig.spacingSmall),
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Detail schließen',
+            onPressed: onClose,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ArtikelTile
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _ArtikelTile extends StatelessWidget {
+  const _ArtikelTile({
+    required this.artikel,
+    required this.onTap,
+    this.isSelected = false,
+  });
+
+  final Artikel artikel;
+  final VoidCallback onTap;
+  final bool isSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingSmall,
+        vertical: AppConfig.spacingXSmall,
+      ),
+      // F-011.7: Visuelles Feedback für ausgewählten Artikel
+      color: isSelected ? colorScheme.primaryContainer : null,
+      elevation: isSelected ? 0 : null,
+      shape: isSelected
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                AppConfig.cardBorderRadiusSmall,
+              ),
+              side: BorderSide(
+                color: colorScheme.primary,
+                width: 2,
+              ),
+            )
+          : null,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(AppConfig.cardBorderRadiusSmall),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppConfig.spacingSmall),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ArtikelListBild(artikel: artikel),
+              const SizedBox(width: AppConfig.spacingMedium),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        if (artikel.artikelnummer != null) ...[
+                          Text(
+                            '#${artikel.artikelnummer}',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: isSelected
+                                  ? colorScheme.onPrimaryContainer
+                                  : colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(width: AppConfig.spacingXSmall),
+                        ],
+                        Expanded(
+                          child: Text(
+                            artikel.name,
+                            style: textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (artikel.beschreibung.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        artikel.beschreibung,
+                        style: textTheme.bodySmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                      ),
+                    ],
+                    const SizedBox(height: AppConfig.spacingXSmall),
+                    Wrap(
+                      spacing: AppConfig.spacingXSmall,
+                      runSpacing: 2,
+                      children: [
+                        if (artikel.ort.isNotEmpty)
+                          _ArtikelInfoChip(
+                            icon: Icons.place_outlined,
+                            label: artikel.ort,
+                          ),
+                        if (artikel.kategorie != null &&
+                            artikel.kategorie!.isNotEmpty)
+                          _ArtikelInfoChip(
+                            icon: Icons.category_outlined,
+                            label: artikel.kategorie!,
+                          ),
+                        if (artikel.fach.isNotEmpty)
+                          _ArtikelInfoChip(
+                            icon: Icons.grid_view_outlined,
+                            label: artikel.fach,
+                          ),
+                        _ArtikelInfoChip(
+                          icon: Icons.inventory_2_outlined,
+                          label: '${artikel.menge} Stk',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurfaceVariant,
+                size: AppConfig.iconSizeMedium,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ArtikelInfoChip
+// ══════════════════════════════════════════════════════════════════════════════
+
+class _ArtikelInfoChip extends StatelessWidget {
+  const _ArtikelInfoChip({
+    required this.icon,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConfig.spacingXSmall,
+        vertical: 2,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppConfig.borderRadiusXSmall),
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: colorScheme.onSurfaceVariant),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: textTheme.labelSmall?.copyWith(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _PanelMode { none, detail, erfassen }
 enum _MenuAction { importExport, pdfReports, resetDb, showLog, settings }

@@ -2,6 +2,9 @@ name: Release - Build and Deploy
 
 permissions:
   contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true  
   
 on:
   workflow_dispatch:
@@ -24,7 +27,7 @@ jobs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
@@ -48,7 +51,7 @@ jobs:
     needs: create-tag
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
   
@@ -76,7 +79,7 @@ jobs:
     needs: [create-tag, test]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
@@ -150,7 +153,7 @@ jobs:
     needs: [create-tag, test]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
@@ -197,7 +200,7 @@ jobs:
       needs: [create-tag, test]
       steps:
         - name: Checkout code
-          uses: actions/checkout@v4
+          uses: actions/checkout@v6
           with:
             ref: ${{ needs.create-tag.outputs.tag_name }}
 
@@ -259,7 +262,7 @@ jobs:
     needs: [create-tag, test, build-android, build-windows, build-linux]
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
@@ -301,11 +304,11 @@ jobs:
           - **Web-App**: Verfügbar über Docker Image \`ghcr.io/germanlion67/lager_app_web:$TAG_NAME\`
           
           ### Weitere Plattformen
-          - **iOS/macOS**: Benötigt Apple Developer Account (siehe [MANUELLE_OPTIMIERUNGEN.md](docs/MANUELLE_OPTIMIERUNGEN.md))
+          - **iOS/macOS**: Benötigt Apple Developer Account (siehe [MANUELLE_OPTIMIERUNGEN.md](https://github.com/germanlion67/lager_app/docs/MANUELLE_OPTIMIERUNGEN.md))
           
           ## 📋 Änderungen
           
-          Siehe [CHANGELOG.md](CHANGELOG.md) für Details.
+          Siehe [CHANGELOG.md](https://github.com/germanlion67/lager_app/CHANGELOG.md) für Details.
           
           ## 🚀 Installation
           
@@ -328,7 +331,7 @@ jobs:
           5. Beim ersten Start: Server-URL eingeben
 
           ### Docker/Web
-          Siehe [PRODUCTION_DEPLOYMENT.md](docs/PRODUCTION_DEPLOYMENT.md) für vollständige Anweisungen.
+          Siehe [PRODUCTION_DEPLOYMENT.md](https://github.com/germanlion67/lager_app/docs/PRODUCTION_DEPLOYMENT.md) für vollständige Anweisungen.
           
           ## 🔧 Systemanforderungen
           
@@ -343,7 +346,7 @@ jobs:
           EOF
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.create-tag.outputs.tag_name }}
           name: Release ${{ github.event.inputs.version }}

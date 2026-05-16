@@ -1180,10 +1180,30 @@ Future<Artikel?> loadRemoteConflictSnapshot(String uuid) async {
   }) async {
     try {
       final db = await database;
+
+      // B-018: Artikelnummer in Suche einbeziehen
+      // Prüfe ob der Suchbegriff eine Zahl ist → exakte Artikelnummer-Suche
+      final artikelnummer = int.tryParse(query.trim());
+
+      final String where;
+      final List<dynamic> args;
+
+      if (artikelnummer != null) {
+        // Numerische Suche: auch Artikelnummer prüfen
+        where =
+            'deleted = 0 AND (name LIKE ? OR beschreibung LIKE ? OR artikelnummer = ?)';
+        args = ['%$query%', '%$query%', artikelnummer];
+      } else {
+        // Textsuche: nur Name und Beschreibung
+        where =
+            'deleted = 0 AND (name LIKE ? OR beschreibung LIKE ?)';
+        args = ['%$query%', '%$query%'];
+      }
+
       final maps = await db.query(
         'artikel',
-        where: 'deleted = 0 AND (name LIKE ? OR beschreibung LIKE ?)',
-        whereArgs: ['%$query%', '%$query%'],
+        where: where,
+        whereArgs: args,
         orderBy: 'name',
         limit: limit,
       );

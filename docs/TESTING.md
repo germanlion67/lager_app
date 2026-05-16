@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.9.5 | **Zuletzt aktualisiert:** 05.05.2026
+**Version:** 0.9.8 | **Zuletzt aktualisiert:** 15.05.2026
 
 ---
 
@@ -21,6 +21,9 @@ flutter test
 > Test-Binding-Reihenfolge (Singleton-State zwischen Testdateien). Einzeln ausgeführt
 > laufen alle 757 Tests ohne Skips. Es handelt sich nicht um fachliche Einschränkungen.
 
+F-011.7 Detail/List/Erfassen-Tests: 24 + 15 + 11 = 50 Widget-Tests grün nach
+Master-Detail-Refactoring (ArtikelDetailContent-Extraktion, Scaffold-Wrapper mit
+ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 ---
 
 ## 📋 Testübersicht
@@ -51,7 +54,7 @@ flutter test
 | `test/utils/attachment_utils_test.dart` | Unit | 43 | — |
 | `test/utils/image_processing_utils_test.dart` | Unit | 30 | O-002 |
 | `test/utils/uuid_generator_test.dart` | Unit | 23 | O-002 |
-| `test/widgets/artikel_detail_screen_test.dart` | Widget | 24 | O-006 |
+| `test/widgets/artikel_detail_screen_test.dart` | Widget | 24 | O-006 / F-011.7 |
 | `test/widgets/artikel_erfassen_test.dart` | Widget | 11 | O-006 |
 | `test/widgets/artikel_list_screen_test.dart` | Widget | 15 | O-009 |
 | `test/widgets/login_screen_test.dart` | Widget | 1 | — |
@@ -633,13 +636,17 @@ flutter test test/widgets/artikel_erfassen_test.dart
 
 ---
 
-### `widgets/artikel_detail_screen_test.dart` — O-006 (24 Widget-Tests)
+### `widgets/artikel_detail_screen_test.dart` — O-006 / F-011.7 (24 Widget-Tests)
 
-**Ziel:** Widget-Tests für `ArtikelDetailScreen`.
+**Ziel:** Widget-Tests für `ArtikelDetailScreen` und `ArtikelDetailContent`.
 
 **Strategie:**
 - `sqflite_common_ffi` In-Memory-DB via `injectDatabase()`
 - `pump(Duration)` statt `pumpAndSettle()`
+- `ArtikelDetailScreen` ist seit F-011.7 ein dünner Scaffold-Wrapper
+- Gesamte Detail-Logik liegt in `ArtikelDetailContent`
+- `ValueNotifier`-basierter Rebuild synchronisiert AppBar-Actions
+- `_ladeAnhangCount()` mit try/catch abgesichert (PocketBase nicht verfügbar in Tests)
 
 | Gruppe | Tests | Was wird geprüft |
 | :-- | :--: | :-- |
@@ -647,7 +654,7 @@ flutter test test/widgets/artikel_erfassen_test.dart
 | Name editierbar | ~4 | Inline-Edit, Speichern, Abbrechen |
 | Crop-Button | ~3 | Button vorhanden, Icon korrekt |
 | AppBar-Aktionen | ~5 | Bearbeiten, Löschen, Teilen |
-| Navigation | ~6 | Zurück-Navigation, Pop-Result |
+| Navigation | ~6 | Zurück-Navigation, Pop-Result, Verwerfen-Dialog |
 
 ```bash
 flutter test test/widgets/artikel_detail_screen_test.dart
@@ -665,6 +672,9 @@ flutter test test/widgets/artikel_detail_screen_test.dart
 - `initialArtikel: []` — überspringt async DB-Load, `_isLoading` sofort `false`
 - `pump()` reicht — kein `pumpAndSettle()`, kein `runAsync()`, kein Timer-Workaround
 - `syncStatusProvider: FakeSyncStatusProvider` für Sync-UI-Tests
+- Test-Viewport ist 1080px breit → Mobile-Modus → kein Master-Detail-Layout
+  (Desktop-Master-Detail wird bei ≥1024px aktiviert, benötigt dedizierte Tests)
+
 
 | Gruppe | Tests | Was wird geprüft |
 | :-- | :--: | :-- |
@@ -684,6 +694,22 @@ flutter test test/widgets/artikel_detail_screen_test.dart
 ```bash
 flutter test test/widgets/artikel_list_screen_test.dart
 ```
+
+--- 
+
+### Offene Test-Lücke: Desktop Master-Detail (F-011.7)
+
+Die bestehenden Widget-Tests für `ArtikelListScreen` laufen mit einem Viewport < 1024px
+und testen daher nur den Mobile-Modus. Dedizierte Tests für das Desktop-Master-Detail-Layout
+(≥1024px Viewport) sind noch nicht vorhanden.
+
+**Empfohlene zukünftige Testfälle:**
+- Viewport ≥1024px → Master-Detail-Layout wird angezeigt
+- Artikelauswahl in der Liste → Detail-Panel zeigt korrekten Artikel
+- Artikelwechsel → `didUpdateWidget` reinitialisiert Content
+- Close-Button im Detail-Panel → Platzhalter wird angezeigt
+- Ungespeicherte Änderungen → Verwerfen-Dialog bei Artikelwechsel
+- Viewport-Resize unter 1024px → Fallback auf Mobile-Layout
 
 ---
 
@@ -726,7 +752,7 @@ flutter test test/models/ test/utils/ test/services/
 # Nur Widget-Tests
 flutter test test/widgets/
 
-# Nur O-006 Widget-Tests
+# Nur O-006 / F-011.7 Widget-Tests
 flutter test test/widgets/artikel_erfassen_test.dart \
              test/widgets/artikel_detail_screen_test.dart \
              test/widgets/artikel_list_screen_test.dart

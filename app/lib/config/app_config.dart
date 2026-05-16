@@ -104,15 +104,11 @@ class AppConfig {
     // Placeholder-Warnung (kein Crash mehr)
     if (hasPlaceholderUrl) {
       // In Debug: nur Warnung, kein Crash
-      assert(() {
-        // ignore: avoid_print
-        print(
-          '⚠️ WARNUNG: PocketBase URL enthält einen Placeholder!\n'
-          'Aktuelle URL: $pocketBaseUrl\n'
-          'Die URL kann über den Setup-Screen konfiguriert werden.',
-        );
-        return true;
-      }());
+      _logger.w(
+        '[AppConfig] PocketBase URL enthält einen Placeholder!\n'
+        'Aktuelle URL: $pocketBaseUrl\n'
+        'Die URL kann über den Setup-Screen konfiguriert werden.',
+     );
     }
   }
 
@@ -137,6 +133,18 @@ class AppConfig {
 
   /// Spezifischer Timeout für den Login-Flow.
   static const Duration loginTimeout = networkTimeout;
+
+  /// Timeout für Push-Requests beim Sync (Metadaten/JSON).
+  static const Duration syncPushTimeout = Duration(seconds: 30);
+
+  /// Timeout für Upload-Requests beim Sync (Binärdaten/Bilder).
+  static const Duration syncUploadTimeout = Duration(seconds: 120);
+
+  /// Timeout für den TCP-Verbindungscheck im ConnectivityService.
+  static const Duration connectivityCheckTimeout = Duration(seconds: 3);
+
+  /// Timeout für HTTP-Requests im BackupStatusService.
+  static const Duration backupStatusTimeout = Duration(seconds: 5);
 
   /// Größe des Artikel-Thumbnails in der Listenansicht (quadratisch).
   static const double artikelListBildSize = 50.0;
@@ -324,17 +332,17 @@ class AppConfig {
   static const double uploadAreaIconSize = 40.0;
 
 
-// ── Input Validation ─────────────────────────────────────────────
-static const int inputMaxLengthName = 100;
-static const int inputMaxLengthBeschreibung = 500;
-static const int inputMaxLengthOrt = 60;
-static const int inputMaxLengthFach = 60;
-static const int inputMaxMenge = 999999;
-static const int inputMinArtikelnummer = 1000;
-static const int inputMaxLengthKategorie = 50;
+  // ── Input Validation ─────────────────────────────────────────────
+  static const int inputMaxLengthName = 100;
+  static const int inputMaxLengthBeschreibung = 500;
+  static const int inputMaxLengthOrt = 60;
+  static const int inputMaxLengthFach = 60;
+  static const int inputMaxMenge = 999999;
+  static const int inputMinArtikelnummer = 1000;
+  static const int inputMaxLengthKategorie = 50;
 
 
-// ── Kamera / Bildverarbeitung ─────────────────────────────────────
+  // ── Kamera / Bildverarbeitung ─────────────────────────────────────
 
   /// Maximale Breite (px) bei der Kameraaufnahme (image_picker maxWidth).
   static const int cameraTargetMaxWidth = 800;
@@ -345,17 +353,17 @@ static const int inputMaxLengthKategorie = 50;
   /// JPEG-Qualität (0–100) für Kameraaufnahmen.
   static const int cameraImageQuality = 85;
 
-// ── Loading & Skeleton (M-004) ────────────────────────────────────
-static const double overlayOpacity = 0.6;
-static const double cardElevationHigh = 8.0;
-static const double skeletonOpacityMin = 0.05;
-static const double skeletonOpacityMax = 0.15;
-static const double skeletonLeadingSize = 56.0;
-static const double skeletonTitleHeight = 14.0;
-static const double skeletonSubtitleHeight = 10.0;
-static const double skeletonSubtitleWidth = 120.0;
-static const double skeletonOrtFachWidth = 160.0;
-static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
+  // ── Loading & Skeleton (M-004) ────────────────────────────────────
+  static const double overlayOpacity = 0.6;
+  static const double cardElevationHigh = 8.0;
+  static const double skeletonOpacityMin = 0.05;
+  static const double skeletonOpacityMax = 0.15;
+  static const double skeletonLeadingSize = 56.0;
+  static const double skeletonTitleHeight = 14.0;
+  static const double skeletonSubtitleHeight = 10.0;
+  static const double skeletonSubtitleWidth = 120.0;
+  static const double skeletonOrtFachWidth = 160.0;
+  static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
 
 
   // ── Pagination (M-005) ────────────────────────────────────────────
@@ -371,5 +379,30 @@ static const Duration skeletonAnimationDuration = Duration(milliseconds: 900);
 
   /// Maximale Anzahl Suchergebnisse aus der DB.
   static const int searchResultLimit = 100;
+
+
+  // F-011.1: Maximale Inhaltsbreite für Desktop-Web
+  static const double maxContentWidth = 1400;
+
+  // F-011.2: Responsive Breakpoints
+  static const double breakpointMobile = 600.0;
+  static const double breakpointTablet = 1024.0;
+  // > breakpointTablet = Desktop
+
+  // F-011.6: Anzahl Spalten für Settings-Grid auf Desktop
+  static const int settingsGridColumnCount = 2;
+
+  // F-011.7: Master-Detail Layout
+  static const double masterDetailMinWidth = 1024.0;
+  static const double masterListFlex = 2;    // Flex-Anteil Liste
+  static const double masterDetailFlex = 3;  // Flex-Anteil Detail
+
+  // F-011.7: maxContentWidth für Desktop (Master-Detail braucht mehr Platz)
+  // War vorher 800 — jetzt 1400 für zweispaltiges Layout.
+  // Auf Mobile wird der Constraint in main.dart nicht angewendet.
+
+
+  // Aktuelle SQLite-Schema-Version (muss mit artikel_db_service.dart übereinstimmen)
+  static const int dbVersion = 6;
 
 }
