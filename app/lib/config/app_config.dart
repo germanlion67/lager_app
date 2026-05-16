@@ -104,15 +104,11 @@ class AppConfig {
     // Placeholder-Warnung (kein Crash mehr)
     if (hasPlaceholderUrl) {
       // In Debug: nur Warnung, kein Crash
-      assert(() {
-        // ignore: avoid_print
-        print(
-          '⚠️ WARNUNG: PocketBase URL enthält einen Placeholder!\n'
-          'Aktuelle URL: $pocketBaseUrl\n'
-          'Die URL kann über den Setup-Screen konfiguriert werden.',
-        );
-        return true;
-      }());
+      _logger.w(
+        '[AppConfig] PocketBase URL enthält einen Placeholder!\n'
+        'Aktuelle URL: $pocketBaseUrl\n'
+        'Die URL kann über den Setup-Screen konfiguriert werden.',
+     );
     }
   }
 
