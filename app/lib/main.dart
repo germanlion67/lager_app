@@ -23,6 +23,7 @@ import 'services/connectivity_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/pocketbase_conflict_adapter.dart';
 
 import 'config/app_config.dart';
 import 'config/app_theme.dart';
@@ -40,14 +41,8 @@ import 'services/pocketbase_service.dart';
 import 'services/app_lock_service.dart';
 import 'services/pocketbase_sync_service.dart';
 import 'services/sync_orchestrator.dart';
-import 'services/sync_service.dart';
-import 'services/conflict_resolution_utils.dart';
-import 'services/sync_progress_service.dart';
-import 'services/sync_error_recovery.dart';
 import 'core/responsive.dart';
-
 import 'main_io.dart' if (dart.library.html) 'main_stub.dart' as platform;
-
 final _log = AppLogService.logger;
 
 void main() async {
@@ -123,125 +118,6 @@ void main() async {
 // Begründung für eigene Klasse statt SyncService-Subclass:
 // SyncService hat required-Parameter (NextcloudClient, ArtikelDbService)
 // die wir nicht haben wollen. Der Adapter ist leichtgewichtiger.
-class _PocketBaseConflictAdapter implements SyncService {
-  final ArtikelDbService _db;
-
-  _PocketBaseConflictAdapter(this._db);
-
-  @override
-  final SyncProgressService progressService = SyncProgressService();
-
-  @override
-  final SyncErrorRecoveryService errorRecoveryService =
-      SyncErrorRecoveryService();
-
-  @override
-  Future<void> applyConflictResolution(
-    ConflictData conflict,
-    ConflictResolution resolution, {
-    Artikel? mergedVersion,
-  }) async {
-    switch (resolution) {
-      case ConflictResolution.useLocal:
-        // Bewusste Nutzerentscheidung:
-        // lokale Version beim nächsten Sync gezielt nach Remote pushen.
-        await _db.markForForceLocal(conflict.localVersion.uuid);
-        _log.i(
-          '[Conflict] Lokale Version behalten: ${conflict.localVersion.uuid}',
-        );
-        return;
-
-      case ConflictResolution.useRemote:
-        // Remote-Version lokal übernehmen und als synchronisierten Stand speichern.
-        // Als neue Baseline sind nur belastbare Remote-Versionsstände erlaubt.
-        final remoteEtag = requireRemoteBaselineEtag(conflict.remoteVersion);
-
-        await _db.upsertArtikel(
-          conflict.remoteVersion,
-          etag: remoteEtag,
-        );
-        await _db.clearPendingResolution(conflict.remoteVersion.uuid);
-        _log.i(
-          '[Conflict] Remote-Version übernommen: ${conflict.remoteVersion.uuid}',
-        );
-        return;
-
-      case ConflictResolution.merge:
-        if (mergedVersion != null) {
-          // Gemergte Version lokal speichern und bewusst für Force-Push markieren.
-          await _db.updateArtikel(mergedVersion);
-          await _db.markForForceMerge(mergedVersion.uuid);
-          _log.i(
-            '[Conflict] Zusammengeführte Version gespeichert: '
-            '${mergedVersion.uuid}',
-          );
-        } else {
-          _log.w(
-            '[Conflict] Merge gewählt, aber mergedVersion ist null: '
-            '${conflict.localVersion.uuid}',
-          );
-        }
-        return;
-
-      case ConflictResolution.skip:
-        // Absichtlich nichts ändern:
-        // Konflikt bleibt offen und wird beim nächsten Sync erneut erkannt.
-        _log.i(
-          '[Conflict] Übersprungen: ${conflict.localVersion.uuid}',
-        );
-        return;
-    }
-  }
-
-  @override
-  Future<List<ConflictData>> detectConflicts() async {
-    throw UnimplementedError(
-      '_PocketBaseConflictAdapter.detectConflicts ist nicht implementiert. '
-      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
-    );
-  }
-
-  @override
-  Future<String> getDeviceId() async {
-    throw UnimplementedError(
-      '_PocketBaseConflictAdapter.getDeviceId ist nicht implementiert. '
-      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
-    );
-  }
-
-  @override
-  Future<void> syncAttachments() async {
-    throw UnimplementedError(
-      '_PocketBaseConflictAdapter.syncAttachments ist nicht implementiert. '
-      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
-    );
-  }
-
-  @override
-  Future<SyncResult> syncOnce() async {
-    throw UnimplementedError(
-      '_PocketBaseConflictAdapter.syncOnce ist nicht implementiert. '
-      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
-    );
-  }
-
-  @override
-  Future<Map<String, dynamic>> syncWithConflictResolution() async {
-    throw UnimplementedError(
-      '_PocketBaseConflictAdapter.syncWithConflictResolution ist nicht '
-      'implementiert. Der ConflictResolutionScreen benötigt nur '
-      'applyConflictResolution().',
-    );
-  }
-
-  @override
-  Future<bool> testAndInitialize() async {
-    throw UnimplementedError(
-      '_PocketBaseConflictAdapter.testAndInitialize ist nicht implementiert. '
-      'Der ConflictResolutionScreen benötigt nur applyConflictResolution().',
-    );
-  }
-}
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -395,7 +271,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
         MaterialPageRoute(
           builder: (_) => ConflictResolutionScreen(
             conflicts: [conflictData],
-            syncService: _PocketBaseConflictAdapter(_db),
+            syncService: PocketBaseConflictAdapter(_db),
           ),
           fullscreenDialog: true,
         ),
