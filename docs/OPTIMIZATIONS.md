@@ -333,6 +333,177 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 --- 
 
 
+
+## 🟢 Priorität: Nice-to-Have
+
+
+### O-020: main.dart, artikel_detail_screen.dart, artikel_db_service.dart aufteilen
+
+### O-021: State Management modernisieren 
+
+### O-022: AppConfig modularisieren, flutter_local_notifications entfernen
+
+--- 
+
+### O-016: Timeouts in AppConfig zentralisieren
+**Beschreibung:**
+Timeout-Werte sind über 6+ Service-Dateien als lokale Konstanten oder
+Inline-Literals verstreut. `AppConfig.networkTimeout` (12s) existiert,
+wird aber von den meisten Services nicht genutzt.
+
+**Ziel:**
+Alle Timeout-Konstanten in `AppConfig` bündeln, ohne die Werte zu ändern:
+
+| Konstante | Wert | Ersetzt |
+|-----------|------|---------|
+| `networkTimeout` | 12s | Bereits vorhanden |
+| `syncPushTimeout` | 30s | `_kPushRequestTimeout` |
+| `syncUploadTimeout` | 120s | `_kPushUploadTimeout` |
+| `connectivityCheckTimeout` | 3s | Inline in `connectivity_service.dart` |
+| `backupStatusTimeout` | 5s | Inline in `backup_status_service.dart` |
+
+Nextcloud-Timeouts werden nicht migriert (entfallen mit O-014).
+
+**Aufwand:** ~1 Stunde
+**Risiko:** Sehr niedrig — nur Konstantenverlagerung, keine Wertänderung
+
+**Tasks:**
+- [ ] Timeout-Konstanten in `AppConfig` ergänzen
+- [ ] Services auf `AppConfig.*Timeout` umstellen
+- [ ] Lokale `_k*`-Konstanten entfernen
+- [ ] `flutter analyze` + `flutter test` grün
+
+---
+
+### O-015: Dependency-Hygiene
+**Beschreibung:**
+`flutter_local_notifications: ^21.0.0` wird nirgends im Code importiert
+(0 Treffer bei grep). Die Dependency kann entfernt werden.
+
+Weitere Kandidaten (`webdav_client`) werden mit O-014 adressiert.
+
+**Verifiziert per grep:**
+- `flutter_local_notifications` → 0 Treffer in `app/lib/` ✅
+- `google_fonts` → genutzt in `app_theme.dart` → behalten ✅
+- `provider` → genutzt in 8 Dateien → behalten ✅
+
+**Tasks:**
+- [ ] `flutter_local_notifications` aus pubspec.yaml entfernen
+- [ ] `flutter pub get` + `flutter test` grün
+
+**Aufwand:** 10 Minuten
+**Risiko:** Sehr niedrig
+
+--- 
+
+### F-010: Nutzerfreundliche Aktivitäts-Logs (UserLogService)
+**Beschreibung:**  
+Neben den bestehenden technischen Entwickler-Logs (AppLogService) soll eine zweite, menschenlesbare Log-Ebene eingeführt werden. Diese zeigt dem Nutzer verständliche Aktivitätsmeldungen wie „Artikel ‚LED Strip 5m' erstellt und synchronisiert", „Synchronisation abgeschlossen — 3 aktualisiert" oder „Verbindung zum Server verloren" statt technischer Debug-Ausgaben mit UUIDs und ETags.
+
+**Abgrenzung zu O-012:**  
+O-012 (Entwickler-Summary-Logs) bleibt unverändert bestehen. F-010 ist eine eigenständige, nutzerseitige Funktion.
+
+**Design-Entscheidungen**
+- Eigener `UserLogService` mit eigenem Datenmodell (`UserLogEntry`), getrennt von `AppLogService`
+- Viewer als eigener Dialog, erreichbar über den Settings-Screen
+- Umschaltung zwischen Entwickler-Log und Nutzer-Log per Einstellung im Settings-Screen
+- Sprache: Deutsch, aber lokalisierbar vorbereitet (Nachrichtentexte über Hilfsmethoden oder einfache l10n-Abstraktion, kein volles ARB/intl erforderlich)
+- Keine Feldänderungs-Diffs — geloggt wird auf Artikelebene (erstellt / geändert / gelöscht / synchronisiert), nicht auf Feldebene
+- Persistenz über App-Neustart hinweg (SQLite-Tabelle `user_log`)
+- Automatisches Löschen von Einträgen älter als X Tage (konfigurierbar, Default z. B. 14 Tage), Cleanup beim App-Start oder vor dem Anzeigen
+
+**Geplante Nutzer-Log-Quellen**
+- `PocketBaseSyncService` — Push-Ergebnisse (CREATE/UPDATE/DELETE ok/fail), Pull-Zusammenfassung, Verbindungsfehler
+- `SyncOrchestrator` — Sync gestartet / abgeschlossen / fehlgeschlagen
+- `main.dart` — Login / Logout
+- Optional später: Artikel-Erfassung, Einstellungsänderungen
+
+**Tasks**
+- [ ] `UserLogEntry`-Modell mit `timestamp`, `level`, `message`
+- [ ] `UserLogService` mit SQLite-Persistenz (`user_log`-Tabelle)
+- [ ] Auto-Cleanup: Einträge älter als X Tage beim Start löschen
+- [ ] DB-Migration für `user_log`-Tabelle
+- [ ] Nutzer-Log-Aufrufe in `PocketBaseSyncService` (neben bestehenden technischen Logs)
+- [ ] Nutzer-Log-Aufrufe in `SyncOrchestrator`
+- [ ] Nutzer-Log-Aufrufe in `main.dart` (Auth-Events)
+- [ ] Viewer-Dialog (`UserLogDialog`) mit Level-Filter und Löschen-Button
+- [ ] Settings-Screen: Umschaltung Entwickler-Log / Nutzer-Log
+- [ ] Lokalisierbare Nachrichtentexte vorbereiten
+- [ ] Unit-Tests für `UserLogService` (CRUD, Cleanup, Kapazitätsgrenze)
+- [ ] Widget-Test für Viewer-Dialog
+- [ ] `docs/LOGGER.md` um Nutzer-Log-Konzept ergänzen
+
+**Aufwandsschätzung:** ~5–6 Stunden
+
+**Abhängigkeiten:**  
+Keine Blocker. Greift nicht in bestehende Sync-Logik ein — nur additive Log-Aufrufe neben den bestehenden technischen Logs.
+
+--- 
+
+### O-019: `print()` in `app_config.dart` durch Logger ersetzen
+**Beschreibung:**
+Eine `print()`-Stelle in `app_config.dart:99` (innerhalb `assert`).
+Funktional harmlos (nur Debug), aber inkonsistent mit dem sonst
+durchgängig genutzten `AppLogService.logger`.
+
+**Aufwand:** 5 Minuten
+**Risiko:** Keins
+
+**Tasks:**
+- [ ] `print()` durch `AppLogService.logger.w()` ersetzen
+- [ ] `assert`-Wrapper ggf. entfernen (Logger hat eigenen Level-Filter)
+
+--- 
+
+## ⏭️ Future (nicht in Planung)
+
+### H-001: iOS/macOS Vorbereitung
+Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
+
+### N-006: Nextcloud-Workflow
+WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
+
+---
+
+## 📊 Fortschritts-Übersicht
+
+Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch nur dann belastbar, wenn sie aktiv mitgepflegt werden.  
+Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
+
+**Aktuell besonders relevante offene Themen**
+- optionaler Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback
+- Android-Kamera-Verifikation
+- konfigurierbares Sync-Intervall
+
+--- 
+
+### O-018: Hardcoded deutsche UI-Strings (Lokalisierungsvorbereitung)
+**Beschreibung:**
+20+ Stellen in Screens enthalten hardcoded deutsche Strings, vor allem
+Fehlermeldungen in SnackBars. Aktuell kein funktionales Problem, aber
+Hindernis für spätere Lokalisierung.
+
+**Betroffene Screens:**
+- `artikel_erfassen_screen.dart`
+- `artikel_detail_screen.dart`
+- `list_screen_mobile_actions.dart`
+- `list_screen_web_actions.dart`
+- `settings_screen.dart`
+
+**Empfehlung:** Erst umsetzen wenn Mehrsprachigkeit tatsächlich geplant wird.
+Bis dahin als dokumentierte technische Schuld belassen.
+
+**Aufwand:** ~4–6 Stunden (vollständige Extraktion in l10n)
+**Risiko:** Niedrig
+**Priorität:** Future — erst bei Mehrsprachigkeitsbedarf
+
+---
+
+## ✅ Abgeschlossen
+
+> **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
+> Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
 ### F-011: Responsive/Adaptive Layout für Desktop-Web
 **Beschreibung:**
 Die App ist für mobile Fenstergrößen konzipiert. Auf Desktop-Monitoren wird die UI
@@ -525,11 +696,11 @@ Aufwand halbiert sich durch Vorarbeit aus Stufe 2.
   }
   ```
 
-- [ ] **F-011.8: NavigationRail → Sidebar mit Labels erweitern**
+- [x] **F-011.8: NavigationRail → Sidebar mit Labels erweitern**
   Auf Desktop die NavigationRail zu einer vollständigen Sidebar mit Icons + Labels
   und ggf. Untermenüs erweitern.
 
-- [ ] **F-011.9: Dialoge → Seitenpanels auf Desktop**
+- [x] **F-011.9: Dialoge → Seitenpanels auf Desktop**
   Modale Dialoge (z.B. Artikel-Bearbeitung) auf Desktop als Seitenpanel statt
   Fullscreen-Dialog darstellen.
 
@@ -547,177 +718,8 @@ Aufwand halbiert sich durch Vorarbeit aus Stufe 2.
 
 **Hinweis:** Stufe 2 ist so konzipiert, dass alle Arbeit in Stufe 3 wiederverwendet wird.
 Der Aufwand für Stufe 3 halbiert sich durch die Vorarbeit aus Stufe 2.
---- 
-
-## 🟢 Priorität: Nice-to-Have
-
-
-### O-020: main.dart, artikel_detail_screen.dart, artikel_db_service.dart aufteilen
-
-### O-021: State Management modernisieren 
-
-### O-022: AppConfig modularisieren, flutter_local_notifications entfernen
 
 --- 
-
-### O-016: Timeouts in AppConfig zentralisieren
-**Beschreibung:**
-Timeout-Werte sind über 6+ Service-Dateien als lokale Konstanten oder
-Inline-Literals verstreut. `AppConfig.networkTimeout` (12s) existiert,
-wird aber von den meisten Services nicht genutzt.
-
-**Ziel:**
-Alle Timeout-Konstanten in `AppConfig` bündeln, ohne die Werte zu ändern:
-
-| Konstante | Wert | Ersetzt |
-|-----------|------|---------|
-| `networkTimeout` | 12s | Bereits vorhanden |
-| `syncPushTimeout` | 30s | `_kPushRequestTimeout` |
-| `syncUploadTimeout` | 120s | `_kPushUploadTimeout` |
-| `connectivityCheckTimeout` | 3s | Inline in `connectivity_service.dart` |
-| `backupStatusTimeout` | 5s | Inline in `backup_status_service.dart` |
-
-Nextcloud-Timeouts werden nicht migriert (entfallen mit O-014).
-
-**Aufwand:** ~1 Stunde
-**Risiko:** Sehr niedrig — nur Konstantenverlagerung, keine Wertänderung
-
-**Tasks:**
-- [ ] Timeout-Konstanten in `AppConfig` ergänzen
-- [ ] Services auf `AppConfig.*Timeout` umstellen
-- [ ] Lokale `_k*`-Konstanten entfernen
-- [ ] `flutter analyze` + `flutter test` grün
-
----
-
-### O-015: Dependency-Hygiene
-**Beschreibung:**
-`flutter_local_notifications: ^21.0.0` wird nirgends im Code importiert
-(0 Treffer bei grep). Die Dependency kann entfernt werden.
-
-Weitere Kandidaten (`webdav_client`) werden mit O-014 adressiert.
-
-**Verifiziert per grep:**
-- `flutter_local_notifications` → 0 Treffer in `app/lib/` ✅
-- `google_fonts` → genutzt in `app_theme.dart` → behalten ✅
-- `provider` → genutzt in 8 Dateien → behalten ✅
-
-**Tasks:**
-- [ ] `flutter_local_notifications` aus pubspec.yaml entfernen
-- [ ] `flutter pub get` + `flutter test` grün
-
-**Aufwand:** 10 Minuten
-**Risiko:** Sehr niedrig
-
---- 
-
-### F-010: Nutzerfreundliche Aktivitäts-Logs (UserLogService)
-**Beschreibung:**  
-Neben den bestehenden technischen Entwickler-Logs (AppLogService) soll eine zweite, menschenlesbare Log-Ebene eingeführt werden. Diese zeigt dem Nutzer verständliche Aktivitätsmeldungen wie „Artikel ‚LED Strip 5m' erstellt und synchronisiert", „Synchronisation abgeschlossen — 3 aktualisiert" oder „Verbindung zum Server verloren" statt technischer Debug-Ausgaben mit UUIDs und ETags.
-
-**Abgrenzung zu O-012:**  
-O-012 (Entwickler-Summary-Logs) bleibt unverändert bestehen. F-010 ist eine eigenständige, nutzerseitige Funktion.
-
-**Design-Entscheidungen**
-- Eigener `UserLogService` mit eigenem Datenmodell (`UserLogEntry`), getrennt von `AppLogService`
-- Viewer als eigener Dialog, erreichbar über den Settings-Screen
-- Umschaltung zwischen Entwickler-Log und Nutzer-Log per Einstellung im Settings-Screen
-- Sprache: Deutsch, aber lokalisierbar vorbereitet (Nachrichtentexte über Hilfsmethoden oder einfache l10n-Abstraktion, kein volles ARB/intl erforderlich)
-- Keine Feldänderungs-Diffs — geloggt wird auf Artikelebene (erstellt / geändert / gelöscht / synchronisiert), nicht auf Feldebene
-- Persistenz über App-Neustart hinweg (SQLite-Tabelle `user_log`)
-- Automatisches Löschen von Einträgen älter als X Tage (konfigurierbar, Default z. B. 14 Tage), Cleanup beim App-Start oder vor dem Anzeigen
-
-**Geplante Nutzer-Log-Quellen**
-- `PocketBaseSyncService` — Push-Ergebnisse (CREATE/UPDATE/DELETE ok/fail), Pull-Zusammenfassung, Verbindungsfehler
-- `SyncOrchestrator` — Sync gestartet / abgeschlossen / fehlgeschlagen
-- `main.dart` — Login / Logout
-- Optional später: Artikel-Erfassung, Einstellungsänderungen
-
-**Tasks**
-- [ ] `UserLogEntry`-Modell mit `timestamp`, `level`, `message`
-- [ ] `UserLogService` mit SQLite-Persistenz (`user_log`-Tabelle)
-- [ ] Auto-Cleanup: Einträge älter als X Tage beim Start löschen
-- [ ] DB-Migration für `user_log`-Tabelle
-- [ ] Nutzer-Log-Aufrufe in `PocketBaseSyncService` (neben bestehenden technischen Logs)
-- [ ] Nutzer-Log-Aufrufe in `SyncOrchestrator`
-- [ ] Nutzer-Log-Aufrufe in `main.dart` (Auth-Events)
-- [ ] Viewer-Dialog (`UserLogDialog`) mit Level-Filter und Löschen-Button
-- [ ] Settings-Screen: Umschaltung Entwickler-Log / Nutzer-Log
-- [ ] Lokalisierbare Nachrichtentexte vorbereiten
-- [ ] Unit-Tests für `UserLogService` (CRUD, Cleanup, Kapazitätsgrenze)
-- [ ] Widget-Test für Viewer-Dialog
-- [ ] `docs/LOGGER.md` um Nutzer-Log-Konzept ergänzen
-
-**Aufwandsschätzung:** ~5–6 Stunden
-
-**Abhängigkeiten:**  
-Keine Blocker. Greift nicht in bestehende Sync-Logik ein — nur additive Log-Aufrufe neben den bestehenden technischen Logs.
-
---- 
-
-### O-019: `print()` in `app_config.dart` durch Logger ersetzen
-**Beschreibung:**
-Eine `print()`-Stelle in `app_config.dart:99` (innerhalb `assert`).
-Funktional harmlos (nur Debug), aber inkonsistent mit dem sonst
-durchgängig genutzten `AppLogService.logger`.
-
-**Aufwand:** 5 Minuten
-**Risiko:** Keins
-
-**Tasks:**
-- [ ] `print()` durch `AppLogService.logger.w()` ersetzen
-- [ ] `assert`-Wrapper ggf. entfernen (Logger hat eigenen Level-Filter)
-
---- 
-
-## ⏭️ Future (nicht in Planung)
-
-### H-001: iOS/macOS Vorbereitung
-Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
-
-### N-006: Nextcloud-Workflow
-WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
-
----
-
-## 📊 Fortschritts-Übersicht
-
-Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch nur dann belastbar, wenn sie aktiv mitgepflegt werden.  
-Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
-
-**Aktuell besonders relevante offene Themen**
-- optionaler Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback
-- Android-Kamera-Verifikation
-- konfigurierbares Sync-Intervall
-
---- 
-
-### O-018: Hardcoded deutsche UI-Strings (Lokalisierungsvorbereitung)
-**Beschreibung:**
-20+ Stellen in Screens enthalten hardcoded deutsche Strings, vor allem
-Fehlermeldungen in SnackBars. Aktuell kein funktionales Problem, aber
-Hindernis für spätere Lokalisierung.
-
-**Betroffene Screens:**
-- `artikel_erfassen_screen.dart`
-- `artikel_detail_screen.dart`
-- `list_screen_mobile_actions.dart`
-- `list_screen_web_actions.dart`
-- `settings_screen.dart`
-
-**Empfehlung:** Erst umsetzen wenn Mehrsprachigkeit tatsächlich geplant wird.
-Bis dahin als dokumentierte technische Schuld belassen.
-
-**Aufwand:** ~4–6 Stunden (vollständige Extraktion in l10n)
-**Risiko:** Niedrig
-**Priorität:** Future — erst bei Mehrsprachigkeitsbedarf
-
----
-
-## ✅ Abgeschlossen
-
-> **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
-> Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
 ### O-017: `catch (e)` durch `catch (e, st)` ersetzen
 **Beschreibung:**

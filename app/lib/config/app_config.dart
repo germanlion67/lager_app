@@ -138,6 +138,18 @@ class AppConfig {
   /// Spezifischer Timeout für den Login-Flow.
   static const Duration loginTimeout = networkTimeout;
 
+  /// Timeout für Push-Requests beim Sync (Metadaten/JSON).
+  static const Duration syncPushTimeout = Duration(seconds: 30);
+
+  /// Timeout für Upload-Requests beim Sync (Binärdaten/Bilder).
+  static const Duration syncUploadTimeout = Duration(seconds: 120);
+
+  /// Timeout für den TCP-Verbindungscheck im ConnectivityService.
+  static const Duration connectivityCheckTimeout = Duration(seconds: 3);
+
+  /// Timeout für HTTP-Requests im BackupStatusService.
+  static const Duration backupStatusTimeout = Duration(seconds: 5);
+
   /// Größe des Artikel-Thumbnails in der Listenansicht (quadratisch).
   static const double artikelListBildSize = 50.0;
 

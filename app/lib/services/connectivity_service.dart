@@ -7,9 +7,10 @@
 
 import 'dart:async';
 import 'dart:io';
-
+import '../config/app_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
+
 
 class ConnectivityService {
   ConnectivityService._();
@@ -62,7 +63,7 @@ class ConnectivityService {
   static Future<bool> _tcpCheck() async {
     try {
       final result = await InternetAddress.lookup('8.8.8.8')
-          .timeout(const Duration(seconds: 3));
+          .timeout(AppConfig.connectivityCheckTimeout);
       return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
     } on SocketException {
       return false;

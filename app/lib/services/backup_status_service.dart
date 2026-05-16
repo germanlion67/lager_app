@@ -7,7 +7,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
-
+import '../config/app_config.dart';
 import 'app_log_service.dart';
 import 'pocketbase_service.dart';
 
@@ -140,7 +140,7 @@ class BackupStatusService {
 
       final response = await httpClient
           .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 5));
+          .timeout(AppConfig.backupStatusTimeout);
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -162,7 +162,7 @@ class BackupStatusService {
       final url = '$pbUrl/backups/last_backup.json';
       final response = await httpClient
           .get(Uri.parse(url))
-          .timeout(const Duration(seconds: 5));
+          .timeout(AppConfig.backupStatusTimeout);
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body) as Map<String, dynamic>;
