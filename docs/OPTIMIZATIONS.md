@@ -54,7 +54,7 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 |-----------|---------|-----------|--------|
 | 🔴 Hoch | `pocketbase_service.dart` | `initialize()` URL-Prioritäten, `updateUrl()` mit Health-Check, `login()`/`logout()`, `refreshAuthToken()`, `needsSetup`-Logik | ✅ 51 Tests |
 | 🟡 Mittel | `connectivity_service.dart` | WiFi-Erkennung, Timeout-Verhalten | ❌ offen |
-| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking | ❌ offen |
+| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking | ✅ 61 offen |
 | 🟡 Mittel | `sync_error_recovery.dart` | Recovery-Strategien, Retry-Logik | ✅ 87 Tests |
 | 🟢 Niedrig | `tag_service.dart` | CRUD | ❌ offen |
 | 🟢 Niedrig | `database_service.dart` | Init-Pfade | ❌ offen |
@@ -65,7 +65,10 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 **Tasks:**
 - [x] `test/services/pocketbase_service_test.dart` erstellen — 51 Tests, `0.9.9+71`
 - [x] `test/services/sync_error_recovery_test.dart` erstellen — 87 Tests, `0.9.9+71`
-- [ ] `test/services/connectivity_service_test.dart` erstellen
+- [x] `test/services/sync_progress_service_test.dart` erstellen — 61 Tests, `0.9.9+71`
+- [x] `test/services/connectivity_service_test.dart` erstellen — 14 Tests, `0.9.9+71`
+- [ ] `test/services/tag_service_test.dart` erstellen
+- [ ] `test/services/database_service_test.dart` erstellen
 - [ ] Weitere nach Bedarf
 
 ---
