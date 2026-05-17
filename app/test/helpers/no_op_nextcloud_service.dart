@@ -1,46 +1,28 @@
 // test/helpers/no_op_nextcloud_service.dart
 //
-// Test-Double für NextcloudServiceInterface.
-// Startet KEINE Timer, macht KEINE HTTP-Requests.
-// Stellt einen funktionierenden connectionStatus ValueNotifier bereit.
+// Test-Double für SyncStatusProvider.
+// Ersetzt den alten NoOpNextcloudService — kein Timer, kein HTTP.
 
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:lager_app/services/sync_status_provider.dart';
+import 'package:lager_app/services/sync_orchestrator.dart' show SyncStatus;
 
-import 'package:lager_app/services/nextcloud_connection_service.dart';
-import 'package:lager_app/services/nextcloud_service_interface.dart';
-
-class NoOpNextcloudService implements NextcloudServiceInterface {
-  final ValueNotifier<NextcloudConnectionStatus> _connectionStatus =
-      ValueNotifier<NextcloudConnectionStatus>(
-    NextcloudConnectionStatus.unknown,
-  );
+class NoOpNextcloudService implements SyncStatusProvider {
+  final _controller = StreamController<SyncStatus>.broadcast();
 
   @override
-  ValueNotifier<NextcloudConnectionStatus> get connectionStatus =>
-      _connectionStatus;
+  Stream<SyncStatus> get syncStatus => _controller.stream;
 
   @override
-  Future<void> startPeriodicCheck() async {
-    // No-Op: Im Test soll kein Timer laufen
-  }
+  bool get isSyncing => false;
 
   @override
-  void stopPeriodicCheck() {
-    // No-Op: Es gibt nichts zu stoppen
-  }
+  DateTime? get lastSyncTime => null;
 
   @override
-  Future<void> checkConnectionNow() async {
-    // No-Op: Kein HTTP-Request im Test
-  }
+  Future<void> runOnce() async {} // ← NEU — No-Op, kein Netzwerk
+  
+  void emitStatus(SyncStatus status) => _controller.add(status);
 
-  @override
-  Future<void> restartMonitoring() async {
-    // No-Op: Nichts neu zu starten
-  }
-
-  @override
-  void dispose() {
-    _connectionStatus.dispose();
-  }
+  void dispose() => _controller.close();
 }

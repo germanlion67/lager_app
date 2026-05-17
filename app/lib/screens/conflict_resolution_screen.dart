@@ -2,39 +2,16 @@
 //
 // O-004 Batch 2: Alle hardcodierten Farben durch colorScheme ersetzt,
 // alle Magic-Number-Abstände/Radien durch AppConfig-Tokens.
+// O-014: ConflictData, ConflictResolution nach conflict_types.dart extrahiert.
+//        SyncService → SyncServiceInterface.
 
 import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
 import '../models/artikel_model.dart';
-import '../services/sync_service.dart';
+import '../services/conflict_types.dart';
 import '../services/app_log_service.dart';
 
-// ─────────────────────────────────────────────
-// ConflictData
-// ─────────────────────────────────────────────
-
-/// Repräsentiert einen Sync-Konflikt zwischen lokaler und Remote-Version
-class ConflictData {
-  final Artikel localVersion;
-  final Artikel remoteVersion;
-  final String conflictReason;
-  final DateTime detectedAt;
-
-  const ConflictData({
-    required this.localVersion,
-    required this.remoteVersion,
-    required this.conflictReason,
-    required this.detectedAt,
-  });
-}
-
-// ─────────────────────────────────────────────
-// ConflictResolution Enum
-// ─────────────────────────────────────────────
-
-/// Enum für die möglichen Konfliktlösungen
-enum ConflictResolution { useLocal, useRemote, merge, skip }
 
 // ─────────────────────────────────────────────
 // ConflictResolutionScreen
@@ -42,7 +19,7 @@ enum ConflictResolution { useLocal, useRemote, merge, skip }
 
 class ConflictResolutionScreen extends StatefulWidget {
   final List<ConflictData> conflicts;
-  final SyncService syncService;
+  final SyncServiceInterface syncService;
 
   const ConflictResolutionScreen({
     super.key,

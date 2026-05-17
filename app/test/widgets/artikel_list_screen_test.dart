@@ -106,7 +106,7 @@ Future<void> _pumpScreen(WidgetTester tester) async {
   await tester.pumpWidget(
     MaterialApp(
       home: ArtikelListScreen(
-        nextcloudService: NoOpNextcloudService(),
+        syncStatusProvider: NoOpNextcloudService(),
         initialArtikel: const [], // Leere Liste → _isLoading sofort false
       ),
     ),
@@ -126,7 +126,7 @@ Future<void> _pumpScreenWithArtikel(WidgetTester tester) async {
   await tester.pumpWidget(
     MaterialApp(
       home: ArtikelListScreen(
-        nextcloudService: NoOpNextcloudService(),
+        syncStatusProvider: NoOpNextcloudService(),
         initialArtikel: _testArtikelMitOrt, // Ort vorhanden → Dropdown erscheint
       ),
     ),

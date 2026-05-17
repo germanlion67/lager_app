@@ -308,7 +308,7 @@ jobs:
           
           ## 📋 Änderungen
           
-          Siehe [CHANGELOG.md](https://github.com/germanlion67/lager_app/CHANGELOG.md) für Details.
+          Siehe [CHANGELOG.md](https://github.com/germanlion67/lager_app/blob/687c0b3d7ee1319e9761211767ff6fd8554ae38a/CHANGELOG.md) für Details.
           
           ## 🚀 Installation
           
@@ -331,7 +331,7 @@ jobs:
           5. Beim ersten Start: Server-URL eingeben
 
           ### Docker/Web
-          Siehe [PRODUCTION_DEPLOYMENT.md](https://github.com/germanlion67/lager_app/docs/PRODUCTION_DEPLOYMENT.md) für vollständige Anweisungen.
+          Siehe [INSTALL.md](https://github.com/germanlion67/lager_app/blob/687c0b3d7ee1319e9761211767ff6fd8554ae38a/INSTALL.md) für vollständige Anweisungen.
           
           ## 🔧 Systemanforderungen
           
