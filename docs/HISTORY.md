@@ -22,6 +22,64 @@ Einträge **ohne eindeutige Versionszuordnung** stehen gesammelt im Archivbereic
 
 ## 1. Versionshistorie
 
+### O-014: Nextcloud-Code entkoppeln und entfernen — abgeschlossen 2026-05-16 | `0.9.9+70`
+**Beschreibung:**
+~1.870 Zeilen Nextcloud-Code und die Dependency `webdav_client` sind im Projekt,
+obwohl Nextcloud unter „Future (nicht in Planung)" steht. Der Code ist jedoch
+nicht isoliert — Nextcloud-Imports existieren in:
+- `artikel_import_service.dart` (Nextcloud-Import-Pfad)
+- `artikel_export_service.dart` (Nextcloud-Export-Pfad)
+- `artikel_list_screen.dart` (vermutlich Menüpunkt/Button)
+- `sync_service.dart` (wird von 7 Dateien importiert für `ConflictData`,
+  `ConflictResolution`, `SyncService`-Interface, `SyncProgressService`,
+  `SyncErrorRecoveryService`)
+
+**Ziel:**
+1. `ConflictData`, `ConflictResolution`, `SyncResult` und das Adapter-Interface
+   in eigene Datei extrahieren (z. B. `lib/services/conflict_types.dart`)
+2. Nextcloud-Referenzen aus Import-/Export-Services entfernen
+   (Conditional Imports auf Stubs umleiten oder Nextcloud-Pfade entfernen)
+3. Nextcloud-Menüpunkt aus `artikel_list_screen.dart` entfernen
+4. Alle Nextcloud-Dateien entfernen
+5. `webdav_client` aus `pubspec.yaml` entfernen
+
+**Betroffene Dateien (Entkopplung):**
+- `lib/services/sync_service.dart` → Conflict-Types extrahieren, Rest entfernen
+- `lib/services/artikel_import_service.dart` → Nextcloud-Pfad entfernen
+- `lib/services/artikel_export_service.dart` → Nextcloud-Pfad entfernen
+- `lib/screens/artikel_list_screen.dart` → Nextcloud-UI entfernen
+- `lib/main.dart` → Import von `sync_service.dart` auf neue Datei umstellen
+
+**Zu löschende Dateien:**
+- `lib/services/nextcloud_client.dart`
+- `lib/services/nextcloud_webdav_client.dart`
+- `lib/services/nextcloud_sync_service.dart`
+- `lib/services/nextcloud_connection_service.dart`
+- `lib/services/nextcloud_credentials.dart`
+- `lib/services/nextcloud_service_interface.dart`
+- `lib/services/export_nextcloud.dart`
+- `lib/services/export_nextcloud_stub.dart`
+- `lib/services/import_nextcloud.dart`
+- `lib/screens/nextcloud_settings_screen.dart`
+- `lib/widgets/nextcloud_resync_dialog.dart`
+- `lib/services/sync_service.dart`
+
+**Aufwand:** ~3–4 Stunden (wegen Entkopplung)
+**Risiko:** Mittel — Import-/Export-Pfade und List-Screen betroffen
+
+**Tasks:**
+- [ ] `conflict_types.dart` mit ConflictData, ConflictResolution, SyncResult extrahieren
+- [ ] Alle 7 Dateien die `sync_service.dart` importieren auf neue Imports umstellen
+- [ ] Nextcloud-Pfade aus Import-/Export-Services entfernen
+- [ ] Nextcloud-UI aus `artikel_list_screen.dart` entfernen
+- [ ] 12 Nextcloud-Dateien + `sync_service.dart` löschen
+- [ ] `webdav_client` aus pubspec.yaml entfernen
+- [ ] Betroffene Tests anpassen
+- [ ] `flutter analyze` + `flutter test` grün
+- [ ] PROJECT_STRUCTURE.md aktualisieren
+
+---
+
 ### O-020: `_PocketBaseConflictAdapter` aus `main.dart` ausgelagert — abgeschlossen 2026-05-16 | `0.9.9+68`
 Neue Datei `lib/services/pocketbase_conflict_adapter.dart`. Klasse ist jetzt public
 (`PocketBaseConflictAdapter`) und ohne `main.dart`-Abhängigkeit wiederverwendbar.

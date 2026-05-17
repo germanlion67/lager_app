@@ -37,10 +37,10 @@ Sie unterstützt insbesondere:
 - **lokale Bild- und Dateiverwaltung**
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.8+69**
+- `pubspec.yaml`: **0.9.9+71**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
-- Branch: **feature/layoutDesktopWeb_v0.9.8**
+- Branch: **harding/v0.9.9**
 - Layout: **Master-Detail ab Desktop (≥1024px), Mobile weiterhin Navigator.push**
 
 ---
@@ -201,6 +201,7 @@ Wichtige Services sind insbesondere:
 - `AppLockService`
 - `ConnectivityService`
 - `AppLogService`
+- `NextcloudClient` (leichtgewichtiger HTTP-Client, ohne Sync-Logik)
 
 ## Zentrale UI-Bildschirme
 - `ArtikelListScreen` — Artikelliste mit Ort- und Kategorie-Filter (F-009),
@@ -629,6 +630,7 @@ Die Lager_app ist aktuell eine Flutter-basierte Offline-First-Lagerverwaltung mi
 - Bild- und Attachment-Unterstützung
 - Auth-/Setup-/App-Lock-Flow
 - deutlich gehärteter Sync- und Konfliktlogik
+- bereinigter Nextcloud-Codebasis (O-014: Sync-Code entfernt, HTTP-Client erhalten)
 
 Diese `prompt.txt` soll vor allem:
 - den allgemeinen Projektkontext sichern

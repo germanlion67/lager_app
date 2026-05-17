@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.9.8 | **Zuletzt aktualisiert:** 15.05.2026
+**Version:** 0.9.9 | **Zuletzt aktualisiert:** 17.05.2026
 
 ---
 
@@ -16,10 +16,10 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **755 Tests bestanden, 2 skipped, 0 Fehler**
+✅ **806 Tests bestanden, 2 skipped, 0 Fehler**
 > **Zu den 2 skipped Tests:** Diese entstehen ausschließlich im Gesamtlauf durch
 > Test-Binding-Reihenfolge (Singleton-State zwischen Testdateien). Einzeln ausgeführt
-> laufen alle 757 Tests ohne Skips. Es handelt sich nicht um fachliche Einschränkungen.
+> laufen alle 806 Tests ohne Skips. Es handelt sich nicht um fachliche Einschränkungen.
 
 F-011.7 Detail/List/Erfassen-Tests: 24 + 15 + 11 = 50 Widget-Tests grün nach
 Master-Detail-Refactoring (ArtikelDetailContent-Extraktion, Scaffold-Wrapper mit
@@ -48,6 +48,7 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/services/nextcloud_listfiles_test.dart` | Unit | 1 | — |
 | `test/services/pocketbase_sync_service_test.dart` | Unit | 66 | T-002 |
 | `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 7 | T-008 / T-001 |
+| `test/services/pocketbase_service_test.dart` | Unit | 51 | T-012 |
 | `test/services/settings_controller_test.dart` | Unit | 15 | O-010 / T-009 |
 | `test/services/sync_orchestrator_test.dart` | Unit | 13 | T-008 |
 | `test/services/sync_status_provider_test.dart` | Unit | 6 | K-006 |
@@ -65,14 +66,25 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/helpers/no_op_nextcloud_service.dart` | Test-Helper | — | O-006 |
 | `test/mocks/sync_service_mocks.dart` | Test-Helper | — | T-001 |
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
-| **Gesamt** |  | **757** |  |
+| **Gesamt** |  | **806** |  |
 
-> Hinweis: Der letzte verifizierte Gesamtlauf ergab **755 bestandene Tests** und **2 übersprungene Tests**.
+> Hinweis: Der letzte verifizierte Gesamtlauf ergab **806 bestandene Tests** und **2 übersprungene Tests**.
 > Die Dateisummen dienen der Übersicht und können bei zukünftigen kleineren Testumbauten leicht abweichen.
 
 ---
 
 ## 🔬 Test-Beschreibungen
+
+### `/services/pocketbase_service_test.dart` — T-012 (51 Tests)
+
+#### Strategie
+`PocketBaseService.testable()` + manuelle Fakes
+(`_HealthCheckCapturingService`, `_FakeAuthRecordService`).
+`PocketBaseService.dispose()` in `tearDown` für Singleton-Cleanup.
+Kein Netzwerk, kein `build_runner`.
+
+--- 
+
 
 ### `services/nextcloud_client_test.dart` — T-003 (39 Tests)
 

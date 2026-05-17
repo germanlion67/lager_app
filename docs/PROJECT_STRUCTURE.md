@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v0.9.9+68 (16.05.2026)
+> Stand: v0.9.9+70 (16.05.2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -78,6 +78,7 @@ app/lib/
 │   ├── attachment_service.dart       #   PocketBase Attachment CRUD
 │   ├── backup_status_service.dart    #   Backup-Status (last_backup.json)
 │   ├── conflict_resolution_utils.dart    #   Hilfslogik für Konfliktauflösung (z. B. Remote-Baseline-ETag)
+│   ├── conflict_types.dart           #   O-014: ConflictData, ConflictResolution, SyncResult
 │   ├── connectivity_service.dart     #   Online/Offline-Erkennung
 │   ├── database_service.dart         #   DB-Initialisierung & Injection
 │   ├── export_io.dart                #   Export: Native (Dateisystem)
@@ -88,12 +89,9 @@ app/lib/
 │   ├── import_io.dart                #   Import: Native (Dateisystem)
 │   ├── import_stub.dart              #   Import: Web (Upload)
 │   ├── import_nextcloud.dart         #   Import: Nextcloud-Download
-│   ├── nextcloud_client.dart         #   Nextcloud HTTP-Client
+│   ├── nextcloud_client.dart         #   Nextcloud HTTP-Client (testbar, ohne Sync-Logik)
 │   ├── nextcloud_connection_service.dart  # Nextcloud Verbindungstest
 │   ├── nextcloud_credentials.dart    #   Nextcloud Zugangsdaten-Modell
-│   ├── nextcloud_service_interface.dart  # Interface für Timer-freie Tests
-│   ├── nextcloud_sync_service.dart   #   Nextcloud Sync-Logik
-│   ├── nextcloud_webdav_client.dart  #   WebDAV-Client
 │   ├── pdf_service.dart              #   PDF-Erzeugung (Conditional Import)
 │   ├── pdf_service_io.dart           #     ↳ PDF: Native (dart:io)
 │   ├── pdf_service_shared.dart       #     ↳ PDF: Gemeinsame Logik
@@ -111,7 +109,6 @@ app/lib/
 │   ├── sync_error_recovery.dart      #   Sync-Fehlerbehandlung
 │   ├── sync_orchestrator.dart        #   Sync-Steuerung / Konflikt-Weitergabe
 │   ├── sync_progress_service.dart    #   Sync-Fortschritt Stream
-│   ├── sync_service.dart             #   Klassischer Sync-Service inkl. ConflictData/Resolution-Verträgen
 │   ├── sync_status_provider.dart     #   Interface: Sync-Status Stream
 │   └── tag_service.dart              #   Tag/Label-Verwaltung
 ├── utils/                            # Helfer
@@ -128,7 +125,6 @@ app/lib/
 │   ├── attachment_upload_widget.dart #   Attachment-Upload Dialog
 │   ├── backup_status_widget.dart     #   Backup-Status Anzeige
 │   ├── image_crop_dialog.dart        #   Bild-Zuschnitt Dialog
-│   ├── nextcloud_resync_dialog.dart  #   Nextcloud Re-Sync Dialog
 │   ├── sync_conflict_handler.dart    #   Sync-Konflikt UI-Handler
 │   ├── sync_error_widgets.dart       #   Sync-Fehler Anzeige-Widgets
 │   └── sync_progress_widgets.dart    #   Sync-Fortschritt Anzeige
@@ -158,7 +154,7 @@ app/lib/
 
 ---
 
-### app/test/ — Tests (757 Tests, 3 skipped, 31 Testdateien)
+### app/test/ — Tests (757 Tests, 2 skipped, 31 Testdateien)
 
 >  Testdateien, sowie alle Tests beschrieben — Ziele, Abdeckungen und lokaler Aufruf befinden sich hier: 🧪 **[TESTING.md](docs/TESTING.md):** 
 
@@ -309,10 +305,10 @@ lager_app/
 
 | Bereich                   | Anzahl             |
 | :------------------------ | :----------------- |
-| **Quellcode-Dateien** (`app/lib/`) | 95 |
+| **Quellcode-Dateien** (`app/lib/`) | 92 |
 | **Davon Conditional Imports** | 28 (14 Paare) |
 | **Test-Dateien** | 31 Testdateien + 3 Helpers + 2 Mocks |
-| **Tests gesamt** | 757 (754 bestanden, 2 skipped) |
+| **Tests gesamt** | 755 (753 bestanden, 2 skipped) |
 | **PocketBase Migrationen** | 7 |
 | **Dokumentations-Dateien** | 18 |
 | **CI/CD Workflows** | 4 |

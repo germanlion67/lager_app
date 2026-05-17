@@ -20,82 +20,127 @@ cp ~/lager_app/docs/.bashrc ~/.bashrc
 source ~/.bashrc
 ```
 
+> 💡 Bei jedem neuen Terminal wird die `.bashrc` automatisch geladen.
+> Änderungen werden erst in der nächsten Session wirksam — oder sofort
+> durch erneutes `source ~/.bashrc`.
+
 ---
 
 ## Enthaltene Features
 
 - **WSLg Fixes**  
-  Cursor-Fix, Schriftdarstellung
+  Cursor-Fix (`LIBGL_ALWAYS_SOFTWARE`), Schriftdarstellung (`GDK_DPI_SCALE`)
 
 - **History**  
-  10.000 Einträge, Timestamps, Auto-Save
+  10.000 Einträge, Timestamps, Duplikate werden entfernt, Auto-Save nach jedem Befehl
 
 - **Shell**  
-  Tippfehler-Korrektur, `globstar`
+  Tippfehler-Korrektur bei `cd`, rekursive Pfad-Expansion mit `**`
 
 - **Prompt**  
-  Git-Branch-Anzeige, Farben
+  Git-Branch-Anzeige in Gelb, Farben für User/Host/Pfad, Terminal-Titel in VS Code
 
 - **Farben**  
-  `ls`, `grep`, GCC farbig
+  `ls`, `grep` farbig
 
---- 
-## Shortcuts
+- **Docker**  
+  Automatischer Start falls `dockerd` nicht aktiv
 
-### Browser
+- **SSH Agent**  
+  Wird aus WSLg Runtime-Dir geladen (`/mnt/wslg/runtime-dir/ssh-agent.sock`)
+
+---
+
+## Verfügbare Befehle
+
+### Browser umschalten
 
 | Befehl | Funktion |
 |---|---|
-| `flutter-chromium` | öffnet den Linux Browser (ohne Desktopoberfläche wird keine Maus angezeigt) |
-| `flutter-chrome` | öfnet den Chrom-Browser direkt unter Windows |
-| `flutter-edge` | öffnet den Edge-Browser direkt unter Windows |
+| `flutter-chromium` | WSL2 Chromium (kein Mauszeiger ohne Desktop-Oberfläche) |
+| `flutter-chrome` | Windows Chrome (empfohlen — echtes WebGL) |
+| `flutter-edge` | Windows Edge (echtes WebGL) |
 
-Standard-Browser für Flutter
-`export CHROME_EXECUTABLE=/usr/bin/chromium`
+> ⚠️ Ohne GPU-Beschleunigung (WSL2 Chromium) werden Bilder nicht korrekt
+> angezeigt. Für die Entwicklung Windows-Browser verwenden.
+> Siehe [DEV_SETUP.md](DEV_SETUP.md) — Abschnitt 2.
+
+Standard beim Start: `CHROME_EXECUTABLE=/usr/bin/chromium`
+
 ---
-
-## Verfügbare Aliase
 
 ### Flutter
 
-| Alias | Befehl |
+| Befehl | Funktion |
 |---|---|
-| `frun` | `flutter run -d chrome` |
-| `fbuild` | `flutter build web` |
-| `fclean` | `flutter clean && flutter pub get` |
-| `ftest` | `flutter test` |
-| `fpub` | `flutter pub get` |
-| `fanalyze` | `flutter analyze` |
+| `flutter-run` | `flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0` |
+| `flutter-build` | `flutter build web` |
+| `flutter-clean` | `flutter clean && flutter pub get` |
+| `flutter-test` | `flutter test` |
+| `flutter-pub` | `flutter pub get` |
+| `flutter-analyze` | `flutter analyze` |
+
+> 💡 App danach im Windows-Browser öffnen: `http://localhost:8888`
+
+---
 
 ### Git
 
-| Alias | Befehl |
+| Befehl | Funktion |
 |---|---|
-| `gs` | `git status` |
-| `gl` | `git log --oneline -20` |
-| `gd` | `git diff` |
-| `gp` | `git push` |
-| `gpull` | `git pull` |
+| `git-status` | `git status` |
+| `git-log` | `git log --oneline --graph --decorate -20` |
+| `git-diff` | `git diff` |
+| `git-add` | `git add` |
+| `git-add-all` | `git add .` |
+| `git-commit` | `git commit -m` |
+| `git-pull` | `git pull` |
+| `git-branches` | `git branch -a` |
+| `git-push` | Push ohne VS Code Helper (verhindert `ECONNREFUSED`) |
+| `git-push-branch <name>` | Ersten Push eines neuen Branches mit `--set-upstream` |
+| `git-pat-reset` | Gespeicherten PAT löschen — beim nächsten Push neu eingeben |
+
+> ⚠️ `git-push` statt `git push` verwenden — VS Code injiziert einen
+> Socket-Helper der in WSL2 regelmäßig fehlschlägt.
+> Siehe [DEV_SETUP.md](DEV_SETUP.md) — Abschnitt 3.
+
+---
 
 ### Docker
 
-| Alias | Befehl |
+| Befehl | Funktion |
 |---|---|
-| `dcu` | `docker compose up -d` |
-| `dcd` | `docker compose down` |
-| `dcl` | `docker compose logs -f` |
-| `dcr` | `docker compose restart` |
-| `dps` | `docker ps` *(formatiert)* |
+| `docker-up` | `docker compose up -d` |
+| `docker-down` | `docker compose down` |
+| `docker-logs` | `docker compose logs -f` |
+| `docker-restart` | `docker compose restart` |
+| `docker-status` | `docker ps` *(formatiert)* |
+| `docker-clean` | `docker system prune -f` |
+
+---
 
 ### Projekt
 
-| Alias | Funktion |
+| Befehl | Funktion |
 |---|---|
 | `lager` | `cd ~/lager_app/app` |
 | `lager-root` | `cd ~/lager_app` |
-| `lager-run` | Ins Projekt wechseln + `flutter run -d chrome` |
+| `lager-run` | Ins Projekt wechseln + Web-Server starten (Port 8888) |
 | `lager-build` | Ins Projekt wechseln + `flutter build web` |
 
 ---
 
-`SETUP_DOC`
+### Allgemein
+
+| Befehl | Funktion |
+|---|---|
+| `ll` | `ls -alFh` (ausführliche Liste mit Größen) |
+| `la` | `ls -A` (alle Dateien inkl. versteckte) |
+| `..` | `cd ..` |
+| `...` | `cd ../..` |
+| `df` | Speicherplatz (lesbar formatiert) |
+| `du` | Verzeichnisgröße (lesbar formatiert) |
+| `rm` | Mit Bestätigung (Schutz vor versehentlichem Löschen) |
+| `cp` | Mit Bestätigung |
+| `mv` | Mit Bestätigung |
+| `mkcd <name>` | Verzeichnis erstellen und direkt hineinwechseln |

@@ -9,7 +9,38 @@
 
 ---
 
-## 1. PocketBase-Datenbank starten
+---
+
+## 1. Shell-Konfiguration (`.bashrc`)
+
+Die Datei `~/.bashrc` wird von Bash **automatisch geladen**, sobald ein neues
+interaktives Terminal in WSL2 geöffnet wird — also bei jedem neuen
+VS Code Terminal, jeder neuen WSL2-Session oder jedem `bash`-Aufruf.
+
+Sie muss **nicht manuell gestartet** werden. Änderungen an der Datei
+werden erst in der nächsten Session wirksam, oder sofort durch:
+
+```bash
+source ~/.bashrc
+```
+
+Die `.bashrc` dieses Projekts richtet automatisch ein:
+
+- Flutter- und Android-SDK-Pfade
+- Docker-Autostart (falls nicht aktiv)
+- Git-Aliase inkl. VS Code Helper Bypass (`git-push`, `git-pat-reset`)
+- Flutter-Aliase inkl. Browser-Umschaltung
+- Projekt-Aliase (`lager`, `lager-run` etc.)
+- Git-Branch im Prompt
+- Willkommensnachricht beim Start
+
+> 💡 Die aktuelle `.bashrc` liegt im Projekt unter `docs/.bashrc`
+> und kann bei einem Neu-Setup direkt nach `~/.bashrc` kopiert werden.
+> Hintergründe zur Konfiguration: [SETUP_BASHRC.md](SETUP_BASHRC.md)
+
+---
+
+## 2. PocketBase-Datenbank starten
 
 > ⚠️ **NICHT** wie in der alten Doku beschrieben mit
 > `cd server && ./pocketbase serve --http=0.0.0.0:8080` starten!
@@ -43,7 +74,7 @@ docker compose logs -f pocketbase
 
 ---
 
-## 2. Flutter-App starten (Web)
+## 3. Flutter-App starten (Web)
 
 > ⚠️ **Bekanntes Problem: WSL2 hat kein WebGL / keine GPU-Beschleunigung.**
 >
@@ -99,7 +130,67 @@ SQLite-/Sync-Pfaden gleichzusetzen.
 
 --- 
 
-## 3. Zusammenfassung: Typischer Entwicklungs-Workflow
+## 4. GitHub Push aus WSL2 (mit VS Code)
+
+> ⚠️ **Bekanntes Problem: VS Code injiziert `GIT_ASKPASS` in die WSL2-Shell.**
+>
+> VS Code verbindet sich über einen Unix-Socket mit dem Git-Helper. Wenn dieser
+> Socket nicht (mehr) erreichbar ist, schlägt jeder `git push` mit folgendem
+> Fehler fehl:
+>
+> `connect ECONNREFUSED /run/user/1000/vscode-git-xxxx.sock`
+>
+> Außerdem muss der verwendete GitHub PAT den Scope `workflow` besitzen,
+> wenn das Repository GitHub Actions (`.github/workflows/`) enthält.
+
+### Voraussetzung — PAT erstellen
+
+Einmalig auf GitHub einen **Personal Access Token (classic)** erstellen:
+
+**GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic) → Generate new token**
+
+Erforderliche Scopes:
+- ✅ `repo`
+- ✅ `workflow`
+
+> 💡 Unter **Expiration** kann **"No expiration"** gewählt werden, wenn der Token
+> sicher aufbewahrt wird und das Repository nur privat genutzt wird.
+
+### ✅ Push-Befehl (VS Code Helper umgehen)
+
+```bash
+env -u GIT_ASKPASS \
+    -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN \
+    -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    -u VSCODE_GIT_IPC_HANDLE \
+    git -c credential.helper=store \
+    push --set-upstream origin <branch-name>
+```
+Beim ersten Aufruf nach Username und Passwort (= PAT) fragen → danach automatisch gespeichert.
+
+### PAT abgelaufen oder ungültig — neu setzen
+
+```bash
+# Schritt 1: Alten PAT aus dem Store entfernen
+git credential reject <<EOF
+protocol=https
+host=github.com
+EOF
+
+# Schritt 2: Push erneut ausführen → neuen PAT eingeben
+env -u GIT_ASKPASS \
+    -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN \
+    -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    -u VSCODE_GIT_IPC_HANDLE \
+    git -c credential.helper=store \
+    push
+```
+
+--- 
+
+## 5. Zusammenfassung: Typischer Entwicklungs-Workflow
 
 ```bash
 # Terminal 1: Datenbank
@@ -115,15 +206,19 @@ flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0
 
 ---
 
-## 4. Häufige Fehler
+## 6. Häufige Fehler
 
 | Problem | Ursache | Lösung |
 |---------|---------|--------|
+| Push abgelehnt (workflow scope) | PAT hat keinen `workflow` Scope | Neuen PAT mit ✅ `repo` + ✅ `workflow` erstellen |
+| `git push` schlägt fehl (ECONNREFUSED) | VS Code Socket tot | `git-push` Alias verwenden (siehe Abschnitt 3) |
 | Bilder werden nicht angezeigt | WSL2 kein WebGL, CanvasKit CPU-Fallback | Web-Server-Modus + Windows-Browser |
 | pocketbase serve funktioniert nicht | PocketBase läuft nur via Docker | `docker compose up -d` |
 | config.js MIME-Type Fehler | Normale Dev-Server-Warnung | Kann ignoriert werden |
 | App verbindet nicht zur DB | PocketBase-Container nicht gestartet | `docker compose up -d` prüfen |
+| Aliase nicht verfügbar | `.bashrc` nach Änderung nicht neu geladen | `source ~/.bashrc` ausführen |
+| Docker startet nicht automatisch | `dockerd` nicht aktiv, sudo fehlt | `sudo service docker start` manuell ausführen |
 
 ---
 
-*Letzte Aktualisierung: März 2026*
+*Letzte Aktualisierung: Mai 2026*

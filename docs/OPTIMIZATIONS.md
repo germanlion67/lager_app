@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.9+68 | **Zuletzt aktualisiert:** 16.05.2026
+**Version:** 0.9.9+70 | **Zuletzt aktualisiert:** 16.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -42,64 +42,6 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 
 ## 🟡 Priorität: Mittel
 
-### O-014: Nextcloud-Code entkoppeln und entfernen
-**Beschreibung:**
-~1.870 Zeilen Nextcloud-Code und die Dependency `webdav_client` sind im Projekt,
-obwohl Nextcloud unter „Future (nicht in Planung)" steht. Der Code ist jedoch
-nicht isoliert — Nextcloud-Imports existieren in:
-- `artikel_import_service.dart` (Nextcloud-Import-Pfad)
-- `artikel_export_service.dart` (Nextcloud-Export-Pfad)
-- `artikel_list_screen.dart` (vermutlich Menüpunkt/Button)
-- `sync_service.dart` (wird von 7 Dateien importiert für `ConflictData`,
-  `ConflictResolution`, `SyncService`-Interface, `SyncProgressService`,
-  `SyncErrorRecoveryService`)
-
-**Ziel:**
-1. `ConflictData`, `ConflictResolution`, `SyncResult` und das Adapter-Interface
-   in eigene Datei extrahieren (z. B. `lib/services/conflict_types.dart`)
-2. Nextcloud-Referenzen aus Import-/Export-Services entfernen
-   (Conditional Imports auf Stubs umleiten oder Nextcloud-Pfade entfernen)
-3. Nextcloud-Menüpunkt aus `artikel_list_screen.dart` entfernen
-4. Alle Nextcloud-Dateien entfernen
-5. `webdav_client` aus `pubspec.yaml` entfernen
-
-**Betroffene Dateien (Entkopplung):**
-- `lib/services/sync_service.dart` → Conflict-Types extrahieren, Rest entfernen
-- `lib/services/artikel_import_service.dart` → Nextcloud-Pfad entfernen
-- `lib/services/artikel_export_service.dart` → Nextcloud-Pfad entfernen
-- `lib/screens/artikel_list_screen.dart` → Nextcloud-UI entfernen
-- `lib/main.dart` → Import von `sync_service.dart` auf neue Datei umstellen
-
-**Zu löschende Dateien:**
-- `lib/services/nextcloud_client.dart`
-- `lib/services/nextcloud_webdav_client.dart`
-- `lib/services/nextcloud_sync_service.dart`
-- `lib/services/nextcloud_connection_service.dart`
-- `lib/services/nextcloud_credentials.dart`
-- `lib/services/nextcloud_service_interface.dart`
-- `lib/services/export_nextcloud.dart`
-- `lib/services/export_nextcloud_stub.dart`
-- `lib/services/import_nextcloud.dart`
-- `lib/screens/nextcloud_settings_screen.dart`
-- `lib/widgets/nextcloud_resync_dialog.dart`
-- `lib/services/sync_service.dart`
-
-**Aufwand:** ~3–4 Stunden (wegen Entkopplung)
-**Risiko:** Mittel — Import-/Export-Pfade und List-Screen betroffen
-
-**Tasks:**
-- [ ] `conflict_types.dart` mit ConflictData, ConflictResolution, SyncResult extrahieren
-- [ ] Alle 7 Dateien die `sync_service.dart` importieren auf neue Imports umstellen
-- [ ] Nextcloud-Pfade aus Import-/Export-Services entfernen
-- [ ] Nextcloud-UI aus `artikel_list_screen.dart` entfernen
-- [ ] 12 Nextcloud-Dateien + `sync_service.dart` löschen
-- [ ] `webdav_client` aus pubspec.yaml entfernen
-- [ ] Betroffene Tests anpassen
-- [ ] `flutter analyze` + `flutter test` grün
-- [ ] PROJECT_STRUCTURE.md aktualisieren
-
----
-
 
 ### T-012: Testlücken bei produktiven Services schließen
 **Beschreibung:**
@@ -108,20 +50,21 @@ nicht isoliert — Nextcloud-Imports existieren in:
 
 **Priorisierte Testliste:**
 
-| Priorität | Service | Testfokus |
-|-----------|---------|-----------|
-| 🔴 Hoch | `pocketbase_service.dart` | `initialize()` URL-Prioritäten, `updateUrl()` mit Health-Check, `login()`/`logout()`, `refreshAuthToken()`, `needsSetup`-Logik |
-| 🟡 Mittel | `connectivity_service.dart` | WiFi-Erkennung, Timeout-Verhalten |
-| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking |
-| 🟡 Mittel | `sync_error_recovery.dart` | Recovery-Strategien, Retry-Logik |
-| 🟢 Niedrig | `tag_service.dart` | CRUD |
-| 🟢 Niedrig | `database_service.dart` | Init-Pfade |
+| Priorität | Service | Testfokus | Status |
+|-----------|---------|-----------|--------|
+| 🔴 Hoch | `pocketbase_service.dart` | `initialize()` URL-Prioritäten, `updateUrl()` mit Health-Check, `login()`/`logout()`, `refreshAuthToken()`, `needsSetup`-Logik | ✅ 51 Tests |
+| 🟡 Mittel | `connectivity_service.dart` | WiFi-Erkennung, Timeout-Verhalten | ❌ offen |
+| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking | ❌ offen |
+| 🟡 Mittel | `sync_error_recovery.dart` | Recovery-Strategien, Retry-Logik | ✅ 87 Tests |
+| 🟢 Niedrig | `tag_service.dart` | CRUD | ❌ offen |
+| 🟢 Niedrig | `database_service.dart` | Init-Pfade | ❌ offen |
 
 **Aufwand:** ~4–6 Stunden (alle), ~2 Stunden (nur pocketbase_service)
 **Risiko:** Keins — rein additiv
 
 **Tasks:**
-- [ ] `test/services/pocketbase_service_test.dart` erstellen
+- [x] `test/services/pocketbase_service_test.dart` erstellen — 51 Tests, `0.9.9+71`
+- [x] `test/services/sync_error_recovery_test.dart` erstellen — 87 Tests, `0.9.9+71`
 - [ ] `test/services/connectivity_service_test.dart` erstellen
 - [ ] Weitere nach Bedarf
 
@@ -461,6 +404,30 @@ Bis dahin als dokumentierte technische Schuld belassen.
 
 ## In History überführt
 
+### O-014: Nextcloud-Code entkoppeln und entfernen — abgeschlossen 2026-05-16 | `0.9.9+70`
+
+`ConflictData`, `ConflictResolution` und `SyncResult` aus `sync_service.dart` in neue
+Datei `lib/services/conflict_types.dart` extrahiert. Alle abhängigen Dateien auf die
+neuen Imports umgestellt.
+
+Nextcloud-Referenzen aus `conflict_resolution_screen.dart`, `sync_conflict_handler.dart`,
+`pocketbase_conflict_adapter.dart` und `main.dart` entfernt bzw. auf `conflict_types.dart`
+umgestellt.
+
+**Gelöschte Dateien:**
+- `lib/services/nextcloud_service_interface.dart`
+- `lib/services/nextcloud_sync_service.dart`
+- `lib/services/sync_service.dart` (Conflict-Types extrahiert, Rest obsolet)
+- `lib/widgets/nextcloud_resync_dialog.dart`
+
+**Neue Datei:**
+- `lib/services/conflict_types.dart`
+
+`webdav_client` aus `pubspec.yaml` entfernt.
+Tests und Mocks angepasst. `flutter analyze`: 0 Issues. `flutter test`: 755/755 (2 skipped).
+
+--- 
+
 ### O-020: `_PocketBaseConflictAdapter` aus `main.dart` ausgelagert — abgeschlossen 2026-05-16 | `0.9.9+68`
 Neue Datei `lib/services/pocketbase_conflict_adapter.dart`. Klasse ist jetzt public
 (`PocketBaseConflictAdapter`) und ohne `main.dart`-Abhängigkeit wiederverwendbar.
@@ -701,6 +668,8 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-17 | 0.9.9+71 | T-012 (anteilig): `pocketbase_service_test.dart` erstellt (51 Tests). Abdeckung: `initialize()` URL-Prioritäten, Race-Condition-Guard, `needsSetup`, `updateUrl()` mit Health-Check-Fake, `resetToDefault()`, URL-Validierung, `login()`/`logout()`, `LoginTimeoutException`, `refreshAuthToken()`, `requestPasswordReset()`, Auth-Getter, `checkHealth()`. Strategie: `PocketBaseService.testable()` + manuelle Fakes, kein build_runner. `sync_error_recovery_test.dart`: 87 Tests, Recovery-Strategien und Retry-Logik. Gesamt: 806 Tests grün (+2 skipped). |
+| 2026-05-16 | 0.9.9+70 | O-014 abgeschlossen: Nextcloud-Code vollständig entfernt. `ConflictData`/`ConflictResolution`/`SyncResult` in `conflict_types.dart` extrahiert. 4 Dateien gelöscht (`nextcloud_service_interface.dart`, `nextcloud_sync_service.dart`, `sync_service.dart`, `nextcloud_resync_dialog.dart`). `nextcloud_client.dart` neu implementiert (testbar). `webdav_client` aus pubspec.yaml entfernt. Tests angepasst. 755/755 grün. |
 | 2026-05-16 | 0.9.9+68 | O-016 abgeschlossen: Timeout-Konstanten in AppConfig zentralisiert (connectivityCheckTimeout, backupStatusTimeout, syncPushTimeout, syncUploadTimeout). O-019 abgeschlossen: print() in app_config.dart durch _logger.w() ersetzt, assert-Wrapper entfernt. O-020 abgeschlossen: _PocketBaseConflictAdapter in eigene Datei ausgelagert (pocketbase_conflict_adapter.dart), Klasse public. |
 | 2026-05-15 | 0.9.8+62 | F-011.7 abgeschlossen: Master-Detail-Layout für Desktop. `ArtikelDetailContent` als eigenständiges Widget extrahiert, `ArtikelDetailScreen` als dünner Scaffold-Wrapper mit ValueNotifier-Rebuild, Master-Detail in `ArtikelListScreen` ab ≥1024px (NavigationRail + Liste links, Detail rechts), `maxContentWidth` auf 1400 erhöht, `ConstrainedBox` nur Mobile/Tablet, `_ladeAnhangCount()` try/catch für Test-Kompatibilität, neue AppConfig-Konstanten für Breakpoints und Flex-Werte. 50 Widget-Tests grün (24 Detail + 15 List + 11 Erfassen). |
 | 2026-05-13 | 0.9.8+57 | P-007 abgeschlossen: `_gefilterteArtikel()` gecacht (P-007.1), setState() bei Keystroke entfernt (P-007.2), `_aktualisiereFilter()` ohne separates setState() (P-007.3), `_ArtikelTile` + `_ArtikelInfoChip` als StatelessWidgets extrahiert (P-007.4), Scroll-Guard früher im `_onScroll()`-Pfad (P-007.5). B-018 abgeschlossen: Artikelnummer in Suche (SQLite + PocketBase) und Scanner-Fallback einbezogen. O-017 abgeschlossen: catch (e, st) in scan_service_stub.dart, artikel_import_service.dart (2×), app_log_io.dart (4×) ergänzt; pdf_service_shared.dart war bereits korrekt. flutter analyze + flutter test grün. |

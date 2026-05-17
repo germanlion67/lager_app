@@ -1,7 +1,7 @@
 # ============================================================
-# .bashrc — Komplette Entwicklungsumgebung für WSL2
-# Lager-App Flutter/Docker/PocketBase
-# Version: 1.0 | Erstellt: 27.03.2026
+# ~/.bashrc — Entwicklungsumgebung WSL2
+# Lager-App | Flutter / Docker / PocketBase
+# Version: 2.0 | Aktualisiert: Mai 2026
 # ============================================================
 
 # Nicht-interaktive Shells sofort beenden
@@ -11,37 +11,22 @@ case $- in
 esac
 
 # ============================================================
-# 1. WSL2/WSLg FIXES
-# ============================================================
-
-# Behebt fehlenden Mauszeiger in GUI-Apps unter WSLg
-export LIBGL_ALWAYS_SOFTWARE=1
-
-# Bessere Schriftdarstellung in GUI-Apps
-export GDK_DPI_SCALE=1
-
-# ============================================================
-# 2. HISTORY KONFIGURATION
+# 1. HISTORY
 # ============================================================
 
 # Keine Duplikate, keine Leerzeichen-Einträge
 HISTCONTROL=ignoreboth:erasedups
-
-# History an Datei anhängen statt überschreiben
 shopt -s histappend
 
-# Große History
 HISTSIZE=10000
 HISTFILESIZE=20000
-
-# Timestamp in History
 HISTTIMEFORMAT="%d/%m/%y %T "
 
 # History sofort speichern (nicht erst bei Session-Ende)
 PROMPT_COMMAND="history -a;${PROMPT_COMMAND:-}"
 
 # ============================================================
-# 3. SHELL OPTIONEN
+# 2. SHELL OPTIONEN
 # ============================================================
 
 # Fenstergröße nach jedem Befehl aktualisieren
@@ -50,11 +35,11 @@ shopt -s checkwinsize
 # ** matcht rekursiv in Pfaden
 shopt -s globstar 2>/dev/null
 
-# Tippfehler bei cd korrigieren
+# Tippfehler bei cd automatisch korrigieren
 shopt -s cdspell 2>/dev/null
 
 # ============================================================
-# 4. CHROOT ERKENNUNG
+# 3. CHROOT ERKENNUNG (Ubuntu-Standard, nicht ändern)
 # ============================================================
 
 if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
@@ -62,18 +47,18 @@ if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
 fi
 
 # ============================================================
-# 5. PROMPT MIT GIT-BRANCH
+# 4. PROMPT MIT GIT-BRANCH
 # ============================================================
 
-# Git-Branch für Prompt auslesen
+# Aktuellen Git-Branch für den Prompt auslesen
 parse_git_branch() {
     git branch 2>/dev/null | sed -e '/^[^*]/d' -e 's/* \(.*\)/ (\1)/'
 }
 
-# Farbiger Prompt: user@host:~/pfad (branch)$
+# Format: user@host:~/pfad (branch)$
 export PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[33m\]$(parse_git_branch)\[\033[00m\]\$ '
 
-# Terminal-Titel setzen (für xterm/VSCode)
+# Terminal-Titel für VS Code / xterm setzen
 case "$TERM" in
 xterm*|rxvt*)
     PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
@@ -81,123 +66,43 @@ xterm*|rxvt*)
 esac
 
 # ============================================================
-# 6. FARBEN
+# 5. FARBEN
 # ============================================================
 
 if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
 fi
 
-export GCC_COLORS='error=01;31:warning=01;35:note=01;36:caret=01;32:locus=01:quote=01'
-
 # ============================================================
-# 7. ALLGEMEINE ALIASE
+# 6. WSL2 FIXES
 # ============================================================
 
-# Dateien & Verzeichnisse
-alias ls='ls --color=auto'
-alias ll='ls -alFh'
-alias la='ls -A'
-alias l='ls -CF'
-alias grep='grep --color=auto'
-alias fgrep='fgrep --color=auto'
-alias egrep='egrep --color=auto'
+# Verhindert fehlenden Mauszeiger in WSLg GUI-Apps
+export LIBGL_ALWAYS_SOFTWARE=1
 
-# Navigation
-alias ..='cd ..'
-alias ...='cd ../..'
-alias ....='cd ../../..'
+# Schriftdarstellung in GUI-Apps
+export GDK_DPI_SCALE=1
 
-# Speicher & System
-alias df='df -h'
-alias du='du -sh'
-alias free='free -h'
-
-# Sicherheits-Aliase (Bestätigung vor Überschreiben)
-alias rm='rm -i'
-alias cp='cp -i'
-alias mv='mv -i'
-
-# Verzeichnis erstellen und direkt wechseln
-mkcd() { mkdir -p "$1" && cd "$1"; }
+# SSH Agent aus WSLg verwenden
+export SSH_AUTH_SOCK=/mnt/wslg/runtime-dir/ssh-agent.sock
 
 # ============================================================
-# 8. GIT SHORTCUTS
+# 7. PFADE — Flutter / Android SDK
 # ============================================================
 
-alias gs='git status'
-alias gl='git log --oneline -20'
-alias gd='git diff'
-alias gp='git push'
-alias gpull='git pull'
-alias gc='git commit -m'
-alias ga='git add'
-alias gaa='git add .'
-alias gbr='git branch -a'
-alias glog='git log --oneline --graph --decorate -20'
-
-# ============================================================
-# 9. DOCKER SHORTCUTS
-# ============================================================
-
-alias dc='docker compose'
-alias dcu='docker compose up -d'
-alias dcd='docker compose down'
-alias dcl='docker compose logs -f'
-alias dcr='docker compose restart'
-alias dps='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
-alias dprune='docker system prune -f'
-
-# Docker automatisch starten falls nicht aktiv
-if ! pgrep dockerd > /dev/null; then
-    sudo service docker start > /dev/null 2>&1
-fi
-
-# ============================================================
-# 10. FLUTTER KONFIGURATION
-# ============================================================
-
-# Flutter Pfad
 export PATH=$PATH:/usr/local/flutter/bin
 export PATH="$PATH":"$HOME/.pub-cache/bin"
-
-# Standard-Browser für Flutter
-export CHROME_EXECUTABLE=/usr/bin/chromium
-
-# Browser-Aliase für schnellen Wechsel
-# Verwendung: flutter-edge && flutter run -d chrome
-alias flutter-chromium='export CHROME_EXECUTABLE=/usr/bin/chromium && echo "✔ Browser: WSL2 Chromium"'
-alias flutter-chrome='export CHROME_EXECUTABLE="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" && echo "✔ Browser: Windows Chrome"'
-alias flutter-edge='export CHROME_EXECUTABLE="/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" && echo "✔ Browser: Windows Edge"'
-
-# Flutter Shortcuts
-alias frun='flutter run -d chrome'
-alias fbuild='flutter build web'
-alias fclean='flutter clean && flutter pub get'
-alias ftest='flutter test'
-alias fpub='flutter pub get'
-alias fanalyze='flutter analyze'
-
-# ============================================================
-# 11. ANDROID SDK
-# ============================================================
 
 export ANDROID_HOME=$HOME/android-sdk
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin
 export PATH=$PATH:$ANDROID_HOME/platform-tools
 export PATH=$PATH:$ANDROID_HOME/build-tools/34.0.0
 
-# ============================================================
-# 12. PROJEKT-SHORTCUTS
-# ============================================================
-
-alias lager='cd ~/lager_app/app'
-alias lager-root='cd ~/lager_app'
-alias lager-run='cd ~/lager_app/app && flutter run -d chrome'
-alias lager-build='cd ~/lager_app/app && flutter build web'
+# Standard-Browser für Flutter (WSL2 Chromium)
+export CHROME_EXECUTABLE=/usr/bin/chromium
 
 # ============================================================
-# 13. DBUS / KEYRING (für Flutter/PocketBase Auth)
+# 8. DBUS / KEYRING (Flutter Auth in WSL2)
 # ============================================================
 
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
@@ -207,7 +112,15 @@ eval $(echo "" | gnome-keyring-daemon --start --components=secrets 2>/dev/null)
 export DBUS_SESSION_BUS_ADDRESS
 
 # ============================================================
-# 14. BASH COMPLETION
+# 9. DOCKER — automatisch starten falls nicht aktiv
+# ============================================================
+
+if ! pgrep dockerd > /dev/null; then
+    sudo service docker start > /dev/null 2>&1
+fi
+
+# ============================================================
+# 10. BASH COMPLETION
 # ============================================================
 
 if ! shopt -oq posix; then
@@ -224,14 +137,117 @@ if [ -f ~/.bash_aliases ]; then
 fi
 
 # ============================================================
-# 15. WILLKOMMENSNACHRICHT
+# 11. ALIASE — Dateien & Navigation
+# ============================================================
+
+alias ls='ls --color=auto'
+alias ll='ls -alFh'
+alias la='ls -A'
+alias grep='grep --color=auto'
+
+alias ..='cd ..'
+alias ...='cd ../..'
+
+alias df='df -h'
+alias du='du -sh'
+
+# Sicherheit: Bestätigung vor Überschreiben/Löschen
+alias rm='rm -i'
+alias cp='cp -i'
+alias mv='mv -i'
+
+# Verzeichnis erstellen und direkt hineinwechseln
+mkcd() { mkdir -p "$1" && cd "$1"; }
+
+# ============================================================
+# 12. ALIASE — Flutter
+# ============================================================
+
+# Browser für Flutter wechseln (in der aktuellen Shell-Session)
+alias flutter-chromium='export CHROME_EXECUTABLE=/usr/bin/chromium && echo "✔ Browser: WSL2 Chromium"'
+alias flutter-chrome='export CHROME_EXECUTABLE="/mnt/c/Program Files/Google/Chrome/Application/chrome.exe" && echo "✔ Browser: Windows Chrome"'
+alias flutter-edge='export CHROME_EXECUTABLE="/mnt/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" && echo "✔ Browser: Windows Edge"'
+
+alias flutter-run='flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0'
+alias flutter-build='flutter build web'
+alias flutter-clean='flutter clean && flutter pub get'
+alias flutter-test='flutter test'
+alias flutter-pub='flutter pub get'
+alias flutter-analyze='flutter analyze'
+
+# ============================================================
+# 13. ALIASE — Projekt (Lager-App)
+# ============================================================
+
+alias lager='cd ~/lager_app/app'
+alias lager-root='cd ~/lager_app'
+alias lager-run='cd ~/lager_app/app && flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0'
+alias lager-build='cd ~/lager_app/app && flutter build web'
+
+# ============================================================
+# 14. ALIASE — Git
+# ============================================================
+
+alias git-status='git status'
+alias git-log='git log --oneline --graph --decorate -20'
+alias git-diff='git diff'
+alias git-add='git add'
+alias git-add-all='git add .'
+alias git-commit='git commit -m'
+alias git-pull='git pull'
+alias git-branches='git branch -a'
+
+# Push ohne VS Code Helper (verhindert ECONNREFUSED in WSL2)
+# Beim ersten Aufruf: GitHub-Username + PAT als Passwort eingeben
+alias git-push='env -u GIT_ASKPASS \
+    -u VSCODE_GIT_ASKPASS_NODE \
+    -u VSCODE_GIT_ASKPASS_MAIN \
+    -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+    -u VSCODE_GIT_IPC_HANDLE \
+    git -c credential.helper=store push'
+
+# Neuen Branch erstellen und direkt pushen (mit Upstream setzen)
+# Verwendung: git-push-branch mein-branch-name
+git-push-branch() {
+    env -u GIT_ASKPASS \
+        -u VSCODE_GIT_ASKPASS_NODE \
+        -u VSCODE_GIT_ASKPASS_MAIN \
+        -u VSCODE_GIT_ASKPASS_EXTRA_ARGS \
+        -u VSCODE_GIT_IPC_HANDLE \
+        git -c credential.helper=store push --set-upstream origin "$1"
+}
+
+# PAT zurücksetzen wenn abgelaufen oder ungültig
+# Danach git-push erneut aufrufen und neuen PAT eingeben
+git-pat-reset() {
+    git credential reject <<EOF
+protocol=https
+host=github.com
+EOF
+    echo "✔ PAT gelöscht — beim nächsten git-push neu eingeben"
+}
+
+# ============================================================
+# 15. ALIASE — Docker
+# ============================================================
+
+alias docker-up='docker compose up -d'
+alias docker-down='docker compose down'
+alias docker-logs='docker compose logs -f'
+alias docker-restart='docker compose restart'
+alias docker-status='docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'
+alias docker-clean='docker system prune -f'
+
+# ============================================================
+# 16. WILLKOMMENSNACHRICHT
 # ============================================================
 
 echo "──────────────────────────────────────"
 echo " 🚀 Lager-App Entwicklungsumgebung"
-echo " Flutter Browser: $(basename $CHROME_EXECUTABLE)"
-echo " Shortcuts: lager, frun, fclean, gs"
-echo " Browser:   flutter-chromium | -chrome | -edge"
-echo " Docker:    dcu, dcd, dcl, dps"
+echo " Browser:  $(basename $CHROME_EXECUTABLE)"
+echo " Flutter:  flutter-run | flutter-clean | flutter-pub"
+echo " Browser:  flutter-chromium | flutter-chrome | flutter-edge"
+echo " Projekt:  lager | lager-root | lager-run"
+echo " Git:      git-status | git-push | git-pat-reset"
+echo " Docker:   docker-up | docker-down | docker-logs"
 echo "──────────────────────────────────────"
-BASHRC_FILE
