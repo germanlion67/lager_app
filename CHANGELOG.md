@@ -2,6 +2,72 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [v0.9.9+70] - refactor(O-014): Nextcloud-Code entkoppeln und entfernen - 2026-05-16
+
+### 🗑️ Entfernt
+
+**O-014: Nextcloud-Code vollständig entfernt**
+
+Gelöschte Dateien:
+- `lib/services/nextcloud_service_interface.dart`
+- `lib/services/nextcloud_sync_service.dart`
+- `lib/services/sync_service.dart` (Conflict-Types extrahiert, Rest obsolet)
+- `lib/widgets/nextcloud_resync_dialog.dart`
+
+### 🏗️ Architektur
+
+**Conflict-Types in eigene Datei extrahiert**
+- Neue Datei `lib/services/conflict_types.dart` mit `ConflictData`,
+  `ConflictResolution` und `SyncResult`
+- Alle abhängigen Dateien auf die neuen Imports umgestellt
+
+**`nextcloud_client.dart` neu implementiert**
+- Vollständig neu geschrieben — jetzt testbar via injizierbarem `http.Client`
+- Nextcloud-Sync-Logik entfernt, nur noch als leichtgewichtiger HTTP-Client
+
+### 🔧 Änderungen
+
+- `webdav_client` aus `pubspec.yaml` entfernt
+- Nextcloud-Referenzen aus `conflict_resolution_screen.dart`,
+  `sync_conflict_handler.dart`, `pocketbase_conflict_adapter.dart`
+  und `main.dart` entfernt
+- `nextcloud_settings_screen.dart` bereinigt (Sync-Referenzen entfernt,
+  Screen bleibt für Konfiguration erhalten)
+- `.github/workflows/release.yml`: Nextcloud-Build-Schritte entfernt
+- `lib/services/export_nextcloud_stub.dart`: Stub aktualisiert
+
+### 🧪 Tests
+
+- `test/conflict_resolution_test.dart` auf `conflict_types.dart` umgestellt
+- `test/helpers/no_op_nextcloud_service.dart` aktualisiert
+- `test/mocks/sync_service_mocks.dart` + `sync_service_mocks.mocks.dart`
+  neu generiert
+- `test/widgets/artikel_list_screen_test.dart` angepasst
+- `test/widgets/merge_dialog_test.dart` angepasst
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **755/755 bestanden** (2 skipped)
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `lib/services/conflict_types.dart` | **Neu** — ConflictData, ConflictResolution, SyncResult |
+| `lib/services/nextcloud_client.dart` | **Neu implementiert** — testbar, ohne Sync-Logik |
+| `lib/services/nextcloud_service_interface.dart` | **Gelöscht** |
+| `lib/services/nextcloud_sync_service.dart` | **Gelöscht** |
+| `lib/services/sync_service.dart` | **Gelöscht** |
+| `lib/widgets/nextcloud_resync_dialog.dart` | **Gelöscht** |
+| `lib/services/export_nextcloud_stub.dart` | Stub aktualisiert |
+| `lib/screens/conflict_resolution_screen.dart` | Import auf conflict_types.dart |
+| `lib/screens/nextcloud_settings_screen.dart` | Sync-Referenzen entfernt |
+| `lib/services/pocketbase_conflict_adapter.dart` | Import auf conflict_types.dart |
+| `lib/widgets/sync_conflict_handler.dart` | Import auf conflict_types.dart |
+| `lib/main.dart` | Nextcloud-Referenzen entfernt |
+| `.github/workflows/release.yml` | Nextcloud-Build-Schritte entfernt |
+| `pubspec.yaml` | `webdav_client` entfernt |
+
+--- 
+
 ## [v0.9.9+68] - refactor(main): O-020 – PocketBaseConflictAdapter ausgelagert - 2026-05-16
 
 ### 🏗️ Architektur
