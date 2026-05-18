@@ -124,7 +124,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
 
   **Wirkung:** `main.dart.js` etwas kleiner
 
-- [ ] **H-004.5: WASM-Build evaluieren**
+- [x] **H-004.5: WASM-Build evaluieren**
   Dart 3.11.5 unterstützt `flutter build web --wasm`. WebAssembly parst deutlich schneller
   als JavaScript → TBT sinkt signifikant.
 

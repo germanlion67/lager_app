@@ -113,6 +113,17 @@ Hot-Reload funktioniert im Web-Server-Modus:
 - `R` für Hot-Restart
 - `q` zum Beenden
 
+
+> # App-Container bauen und starten
+```bash
+docker compose up app -d --build
+```
+
+# Logs verfolgen
+```bash
+docker compose logs app -f
+```
+
 ---
 
 ## Plattformhinweis: Web vs. Native
