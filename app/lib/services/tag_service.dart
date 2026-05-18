@@ -8,19 +8,32 @@
 import 'dart:async';
 import 'artikel_db_service.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 class TagService {
   static final TagService _instance = TagService._internal();
   factory TagService() => _instance;
   TagService._internal();
 
+  // ── DB-Provider (mit Test-Hook) ──────────────────────────────────────────
+  Future<Database> Function()? _dbProviderOverride;
+
   Future<Database> _dbProvider() async {
+    if (_dbProviderOverride != null) return await _dbProviderOverride!();
     return await ArtikelDbService().database;
+  }
+
+  // ── Test-Hook ──────────────────────────────────────────────────────────────
+  /// Nur für Tests — überschreibt den DB-Provider mit einer In-Memory-DB.
+  @visibleForTesting
+  void injectDbProvider(Future<Database> Function() provider) {
+    _dbProviderOverride = provider;
   }
 
   // Fix: createTag entfernt — doppelte Funktionalität von addTag
   // Aufrufer sollen addTag(name) verwenden
 
+ // ── addTag ───────────────────────────────────────────────────────────────
   Future<int> addTag(String name) async {
     // Fix: Leerzeichen trimmen und Leerstring abfangen
     final trimmed = name.trim();
@@ -139,4 +152,7 @@ class TagService {
       ORDER BY t.name ASC
     ''', [artikelId],);
   }
+
+
+
 }

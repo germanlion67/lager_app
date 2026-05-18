@@ -16,7 +16,7 @@ flutter test
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
 
-✅ **806 Tests bestanden, 2 skipped, 0 Fehler**
+✅ **968 Tests bestanden, 2 skipped, 0 Fehler**
 > **Zu den 2 skipped Tests:** Diese entstehen ausschließlich im Gesamtlauf durch
 > Test-Binding-Reihenfolge (Singleton-State zwischen Testdateien). Einzeln ausgeführt
 > laufen alle 806 Tests ohne Skips. Es handelt sich nicht um fachliche Einschränkungen.
@@ -42,6 +42,7 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/services/attachment_service_test.dart` | Unit | 34 | T-005 |
 | `test/services/backup_status_service_test.dart` | Unit | 15 | — |
 | `test/services/backup_status_test.dart` | Unit | 23 | T-006 |
+| `test/services/connectivity_service_test.dart` | Unit | 14 | T-012 |
 | `test/services/conflict_resolution_utils_test.dart` | Unit | 8 | T-001 |
 | `test/services/image_picker_service_test.dart` | Unit + Widget | 15 | O-007 |
 | `test/services/nextcloud_client_test.dart` | Unit | 39 | T-003 |
@@ -49,6 +50,8 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/services/pocketbase_sync_service_test.dart` | Unit | 66 | T-002 |
 | `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 7 | T-008 / T-001 |
 | `test/services/pocketbase_service_test.dart` | Unit | 51 | T-012 |
+| `test/services/sync_error_recovery_test.dart` | Unit | 87 | T-012 |
+| `test/services/sync_progress_service_test.dart` | Unit | 61 | T-012 |
 | `test/services/settings_controller_test.dart` | Unit | 15 | O-010 / T-009 |
 | `test/services/sync_orchestrator_test.dart` | Unit | 13 | T-008 |
 | `test/services/sync_status_provider_test.dart` | Unit | 6 | K-006 |
@@ -82,6 +85,102 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 (`_HealthCheckCapturingService`, `_FakeAuthRecordService`).
 `PocketBaseService.dispose()` in `tearDown` für Singleton-Cleanup.
 Kein Netzwerk, kein `build_runner`.
+
+--- 
+
+### `services/connectivity_service_test.dart` — T-012 (14 Tests)
+
+**Ziel:** Unit-Tests für `ConnectivityService` — WiFi-Erkennung, Timeout-Verhalten und Fehlerbehandlung ohne Netzwerk, ohne `IOOverrides`.
+
+#### Strategie
+- `DnsLookup`-Typedef + `static dnsLookupOverride` (`@visibleForTesting`) im Service
+- Direkte Lambda-Fakes statt `IOOverrides` oder Zonen-Overhead
+- `tearDown` setzt `dnsLookupOverride = null` nach jedem Test zurück
+- Läuft vollständig auf Linux/WSL2 ohne NetworkManager-Abhängigkeit
+
+| Gruppe | Tests | Was wird geprüft |
+| :-- | :--: | :-- |
+| `isConnected()` | 5 | true bei Adresse, false bei leerer Liste, SocketException, Timeout, unbekannter Exception |
+| `isWifi()` | 5 | true bei Adresse, false bei leerer Liste, SocketException, Timeout, unbekannter Exception |
+| Konsistenz `isConnected` / `isWifi` | 2 | Beide true bei Netz, beide false bei SocketException |
+| Timeout-Verhalten | 2 | `isConnected()` + `isWifi()` hängen nicht bei Timeout |
+
+#### Produktionscode-Abhängigkeit
+- `ConnectivityService`: `typedef DnsLookup`, `static DnsLookup? dnsLookupOverride`, `_lookup()`-Wrapper
+- Alle `InternetAddress.lookup()`-Aufrufe laufen über `_lookup()` — im Test auf Fake umgeleitet
+
+```bash
+flutter test test/services/connectivity_service_test.dart
+```
+
+---
+
+### `services/sync_error_recovery_test.dart` — T-012 (87 Tests)
+
+**Ziel:** Unit-Tests für `SyncErrorRecoveryService` und `SyncError` — Fehlerklassifizierung, Recovery-Strategien, Retry-Logik und Batch-Recovery ohne Netzwerk.
+
+#### Strategie
+- `SyncErrorRecoveryService` mit `retryDelay: Duration.zero` und `exponentialBackoffBase: Duration.zero` — Tests laufen in < 1 s
+- `Logger(level: Level.off)` unterdrückt Log-Output im Testlauf
+- Kein Netzwerk, kein Dateisystem, kein `build_runner`
+- `SyncError.fromException()` direkt getestet — kein Fake nötig
+
+| Gruppe | Tests | Was wird geprüft |
+| :-- | :--: | :-- |
+| `SyncError.fromException()` — ErrorType | 12 | `SocketException` → network, `HttpException` → network, `TimeoutException` → timeout, `FileSystemException` → storage, 401/authentication → authentication, 409 → conflict, 500/503 → server, 400/404 → client, unbekannt → unknown |
+| `SyncError.fromException()` — Severity | 8 | authentication → critical, network → medium, server → high, conflict → medium, storage → high, timeout → low, client → high, unknown → medium |
+| `SyncError.fromException()` — User-Messages | 8 | Jeder ErrorType liefert deutschen Nutzertext (Netzwerkfehler, Authentifizierungsfehler, Serverfehler, Konflikt, Speicherfehler, Timeout, Client-Fehler, Unbekannter Fehler) |
+| `SyncError.fromException()` — SuggestedActions | 7 | network → checkConnection+retry, authentication → relogin+checkCredentials, server → retryLater+contactAdmin, conflict → resolveConflict+skipItem, storage → checkStorage+clearCache, timeout → retry+adjustTimeout, client → viewLogs+reportBug |
+| `SyncError.fromException()` — Felder | 6 | `id` Format `error_*`, `technicalDetails` enthält Original-Exception-String, `itemId`/`itemName`, `context`, `stackTrace`, `timestamp` |
+| `SyncError` Getter — `isRetryable` | 5 | network/timeout/server → true, authentication/conflict → false |
+| `SyncError` Getter — `requiresUserAction` | 3 | critical severity → true, conflict type → true, network → false |
+| `RecoveryAction` Extension | 5 | Alle Actions haben nicht-leere `title` + `description`, `retry`/`relogin` title korrekt, `resolveConflict` description enthält „Konflikt" |
+| `SyncErrorRecoveryService.handleError()` | 10 | Gibt `SyncErrorRecoveryResult` zurück, History-Akkumulation, `errorHistory` unmodifiable, network → canRetry, authentication → requiresUserInput + strategy requireUserAction, conflict → strategy resolveConflict, timeout → shouldSkip, itemId/itemName Weitergabe |
+| History-Limit | 2 | Maximal 500 Einträge, älteste werden entfernt |
+| `performRetry()` | 3 | Erfolgreicher Retry gibt Ergebnis zurück, Exception nach `maxRetries`, retryCount-Reset bei Erfolg |
+| `performBatchRecovery()` | 5 | Leere Liste → alles 0, low-severity → skipped, retryable Erfolg → successful, fehlschlagende Retries → remainingErrors, nicht-retryable conflict → failed |
+| `clearOldErrors()` | 2 | Entfernt Fehler älter als maxAge, `maxAge=Duration.zero` löscht alle |
+| `generateErrorReport()` | 6 | Leere History → totalErrors 0, enthält summary/errorsByType/errorsBySeverity/recentErrors, mostCommonType null/korrekt, criticalErrors gezählt, recentErrors max 10 |
+| `BatchRecoveryResult` | 5 | `total` = successful+failed+skipped, `hasRemainingErrors` true/false, `successRate` korrekt, Division-by-zero bei total=0 |
+
+```bash
+flutter test test/services/sync_error_recovery_test.dart
+```
+
+---
+
+### `services/sync_progress_service_test.dart` — T-012 (61 Tests)
+
+**Ziel:** Unit-Tests für `SyncProgressService` — Operation-Lifecycle, Stream-Events, Stats-Tracking, History-Limit und ChangeNotifier-Integration.
+
+#### Strategie
+- `SyncProgressService()` direkt instanziiert — kein Fake nötig
+- `service.dispose()` in `tearDown` für sauberen Stream-Cleanup
+- `Future.microtask(() {})` für Stream-Event-Assertions (kein `pumpAndSettle`)
+- Kein Netzwerk, kein Dateisystem, kein `build_runner`
+
+| Gruppe | Tests | Was wird geprüft |
+| :-- | :--: | :-- |
+| `startOperation()` | 6 | ID-Format `sync_<timestamp>`, `currentOperation` mit Status initializing, `isSyncing` true, Stats-Reset, Event auf `operationStream`, Event auf `statsStream` |
+| `updateOperation()` | 3 | Status/Progress/Message aktualisiert, kein Crash ohne aktive Operation, Event auf `operationStream` |
+| `completeOperation()` | 6 | `currentOperation` null + `isSyncing` false, History-Eintrag mit completed+progress 1.0, Standard-Nachricht enthält „erfolgreich", benutzerdefinierte Nachricht, kein Crash ohne aktive Operation, `totalDuration` in Stats gesetzt |
+| `failOperation()` | 5 | Status error in History, Error-Objekt gespeichert, Fehlermeldung in `stats.errors`, StackTrace gespeichert, kein Crash ohne aktive Operation |
+| `cancelOperation()` | 3 | Status cancelled in History, Standard-Nachricht enthält „abgebrochen", kein Crash ohne aktive Operation |
+| `setTotalItems()` | 3 | Korrekt gesetzt, negative Werte ignoriert, 0 akzeptiert |
+| `incrementStat()` | 7 | processed/uploaded/downloaded/conflict/error/skipped je +1, unbekannter Typ → `AssertionError` |
+| `decrementStat()` | 3 | processed dekrementiert, Underflow-Schutz bei 0, Underflow-Schutz für alle Typen |
+| `updateStats()` Progress-Berechnung | 4 | Progress aus processedItems/totalItems, clamp auf 1.0, kein Update bei totalItems=0, error-String zu `stats.errors` |
+| History-Limit | 2 | Max 100 Einträge, älteste werden entfernt (Op 0–4 weg, Op 5 ist erster) |
+| `clearHistory()` | 1 | History wird geleert |
+| `getLastOperationReport()` | 5 | Leere Map bei leerer History, enthält operation/statistics/performance, successRate 0% bei totalItems=0, itemsPerSecond 0 bei duration=0, successRate korrekt berechnet ((processed-errors)/total) |
+| `SyncOperation` Getter | 4 | `isActive` true bei laufender Op, `isCompleted` true nach complete, `isError` true nach fail, `statusText` gibt deutschen Text zurück |
+| `SyncStats` Getter | 5 | `progressPercentage` 0 bei totalItems=0, korrekt berechnet, `hasErrors` true bei errorItems>0, `hasConflicts` true bei conflictItems>0, `isCompleted` true bei processedItems≥totalItems |
+| `ChangeNotifier` | 2 | `notifyListeners` bei startOperation, `notifyListeners` bei completeOperation |
+| `dispose()` | 2 | Schließt StreamController ohne Fehler, Streams nach dispose geschlossen |
+
+```bash
+flutter test test/services/sync_progress_service_test.dart
+```
 
 --- 
 
@@ -796,7 +895,12 @@ flutter test --reporter expanded
 
 # Bei Fehlern: Stack-Trace anzeigen
 flutter test --reporter expanded --no-pub
-```
+
+# Nur Sync-Recovery + Progress (T-012)
+flutter test test/services/sync_error_recovery_test.dart \
+             test/services/sync_progress_service_test.dart
+
+``` 
 
 ---
 
