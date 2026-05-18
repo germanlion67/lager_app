@@ -1,22 +1,18 @@
-# Caddyfile — Flutter Web SPA Server
+# Caddyfile — REFERENZ-DOKUMENTATION
 #
-# Aufgaben:
-#   - Flutter Web Assets ausliefern (/srv)
-#   - SPA-Routing: unbekannte Pfade → /index.html
-#     (Flutter Router übernimmt clientseitig)
-#   - Security-Headers für grundlegenden Schutz
+# ⚠️  DIESE DATEI WIRD NICHT VERWENDET.
+# Das produktive Caddyfile wird zur Laufzeit durch docker-entrypoint.sh
+# generiert (/etc/caddy/Caddyfile). Änderungen hier haben keine Wirkung.
 #
-# Hinweis: Nginx Proxy Manager kann zusätzliche Header hinzufügen
-#   - SSL/HTTPS
-#   - Weitere Sicherheits-Header
-#   - Reverse Proxy zu PocketBase
+# Diese Datei dient als lesbare Referenz für die Caddy-Konfiguration.
+# Alle Änderungen müssen in docker-entrypoint.sh vorgenommen werden.
+
 
 :8081 {
 	root * /srv
 	encode gzip
 
 	# Security Headers
-	# Diese Header schützen vor gängigen Angriffen und verbessern die Sicherheit
 	header {
 		# Verhindert MIME-Type Sniffing
 		X-Content-Type-Options "nosniff"
@@ -33,21 +29,20 @@
 		# HTTP Strict Transport Security — erzwingt HTTPS für 1 Jahr
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 
-		# Content Security Policy - strikt für bessere Sicherheit
-		# Flutter Web benötigt 'unsafe-inline' für Styles und 'unsafe-eval' für Dart
+		# Content Security Policy
+		# Flutter Web benötigt 'unsafe-inline' für Styles und 'wasm-unsafe-eval' für Dart/WASM
 		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: {$POCKETBASE_URL}; font-src 'self' data:; connect-src 'self' https: ws: wss: {$POCKETBASE_URL}; frame-ancestors 'self';"
 
-		# Permissions Policy - schränkt Browser-Features ein
+		# Permissions Policy
 		Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
 
 		# Deaktiviert Browser-Features die nicht benötigt werden
 		X-Permitted-Cross-Domain-Policies "none"
 
-		# ✅ NEU: Cross-Origin Isolation für SharedArrayBuffer / Skwasm (LH-B-001)
-		# ⚠️  Testen: Kann externe Ressourcen (Fonts, PocketBase) blockieren
+		# Cross-Origin Isolation für SharedArrayBuffer / Skwasm (LH-B-001)
+		# ⚠️ Testen: Kann externe Ressourcen (Fonts, PocketBase) blockieren
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Embedder-Policy "require-corp"
-
 	}
 
 	# Cache-Control: index.html nie cachen
@@ -55,11 +50,21 @@
 	header /index.html Pragma "no-cache"
 	header /index.html Expires "0"
 
+	# Cache-Control: config.js nie cachen (dynamisch generiert, enthält POCKETBASE_URL)
+	header /config.js Cache-Control "no-cache, no-store, must-revalidate"
+	header /config.js Pragma "no-cache"
+	header /config.js Expires "0"
+
+	# Cache-Control: manifest.json kurz cachen (ändert sich selten)
+	header /manifest.json Cache-Control "public, max-age=86400"
+
 	# Cache-Control: statische Assets lange cachen
 	# Flutter verwendet Content-Hashes im Dateinamen → immutable sicher
+	# config.js und index.html sind explizit ausgenommen (siehe oben)
 	@static {
 		path *.js *.css *.png *.jpg *.jpeg *.gif *.ico *.svg \
- *.woff *.woff2 *.ttf *.eot *.wasm
+		     *.woff *.woff2 *.ttf *.eot *.wasm
+		not path /config.js
 	}
 	header @static Cache-Control "public, max-age=31536000, immutable"
 

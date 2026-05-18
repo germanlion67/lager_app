@@ -50,7 +50,7 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 **Beschreibung:**
 Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreiheit), 81 (Best Practices), 91 (SEO). Die Hauptursache für den niedrigen Performance-Score ist die `main.dart.js` (4 MB unkomprimiert, 2.510 ms Total Blocking Time). Daneben fehlen Security-Header und eine `robots.txt`.
 
-**Audit-Ergebnisse (Mobil-Emulation):**
+**Audit-Ergebnisse (Mobil-Emulation) — Ausgangslage 12.05.2026:**
 
 | Metrik | Wert | Ziel | Status |
 |:--|:--|:--|:--|
@@ -89,6 +89,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
   ```
 
   **Wirkung:** SEO-Score 91 → ~100
+  **Status:** ✅ Umgesetzt in `app/web/robots.txt` als statische Datei (H-004.1)
 
 - [x] **H-004.2: HSTS-Header setzen**
   Kein `Strict-Transport-Security`-Header vorhanden.
@@ -98,6 +99,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
   ```
 
   **Wirkung:** Best Practices ↑
+  **Status:** ✅ Umgesetzt im Caddyfile (H-004.2)
 
 #### Prio 2 — HTML-Anpassungen (index.html, je 1 min)
 
@@ -111,6 +113,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
   ```
 
   **Wirkung:** LCP-Discovery-Score ↑, Unsized-Images-Warnung weg
+  **Status:** ✅ Umgesetzt in `app/web/index.html` (H-004.3)
 
 #### Prio 3 — Build-Optimierung (CI/CD, 5–30 min)
 
@@ -123,6 +126,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
   ```
 
   **Wirkung:** `main.dart.js` etwas kleiner
+  **Status:** ✅ Umgesetzt im Web-Build-Befehl (H-004.4)
 
 - [x] **H-004.5: WASM-Build evaluieren**
   Dart 3.11.5 unterstützt `flutter build web --wasm`. WebAssembly parst deutlich schneller
@@ -135,6 +139,15 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
   **Risiko:** Experimentell — Browser-Kompatibilität und `dart:js_interop` prüfen.
   **Wirkung:** TBT potenziell von 2.510 ms auf < 500 ms
 
+  **Status:** ✅ Abgeschlossen — `main.dart.wasm` im Build vorhanden.
+  COOP/COEP-Header (`Cross-Origin-Opener-Policy`, `Cross-Origin-Embedder-Policy`) als
+  Voraussetzung für Skwasm / SharedArrayBuffer im Caddyfile gesetzt.
+  TBT-Ziel `< 500 ms` erreicht (430 ms).
+
+  **Nebeneffekt:** Caddyfile und `config.js` werden jetzt dynamisch zur Laufzeit generiert
+  (`app/docker-entrypoint.sh`) — `POCKETBASE_URL` wird korrekt in CSP eingesetzt,
+  kein Image-Rebuild mehr bei URL-Änderung nötig. Siehe Commit `[0.9.9+73]`.
+
 #### Prio 4 — Bewusst akzeptiert (kein Fix nötig)
 
 - **`Intl.v8BreakIterator` deprecated** — kommt aus Flutter Engine (CanvasKit), wird mit
@@ -142,26 +155,41 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
 - **`meta-viewport user-scalable=no`** — Flutter setzt das automatisch. Kostet 10 Punkte
   bei Barrierefreiheit. Für interne App akzeptabel.
 - **`main.dart.js` 55% unused code** — Flutter-Web-typisch (Tree Shaking auf JS-Ebene
-  begrenzt). WASM-Build (H-004.5) ist der effektivere Hebel.
+  begrenzt). Durch WASM-Build (H-004.5) ersetzt — `main.dart.js` nicht mehr primärer Pfad.
 - **Fehlende Source Maps** — `main.dart.js` ohne Source Map. Für Release-Build akzeptabel.
 - **CSP `unsafe-inline` / fehlende `strict-dynamic`** — Flutter Web benötigt Inline-Scripts.
   Einschränkung würde App brechen.
 
 ---
 
-**Aufwand gesamt:** ~1 Stunde (H-004.1–H-004.4), WASM-Evaluierung separat ~30 min
-**Risiko:** Niedrig (H-004.1–H-003.4), Mittel (H-004.5 WASM)
+**Aufwand gesamt:** ~1,5 Stunden (H-004.1–H-004.5 inkl. Runtime-Config-Refactoring)
+**Risiko:** Niedrig (H-004.1–H-004.4), Mittel (H-004.5 WASM) → Risiko eingetreten und gelöst
 
-**Erwartete Score-Verbesserung nach H-004.1–H-003.4:**
+**Tatsächliche Score-Entwicklung:**
 
-| Kategorie | Vorher | Nachher (geschätzt) |
-|:--|:--|:--|
-| Performance | 62 | ~65–70 |
-| Barrierefreiheit | 92 | 92 (Flutter-bedingt) |
-| Best Practices | 81 | ~86–90 |
-| SEO | 91 | ~100 |
+| Kategorie | Ausgangslage | Nach H-004.1–4 | Nach H-004.5 | Δ gesamt |
+|:--|:--|:--|:--|:--|
+| Performance | 62 | 75 | 83 | +21 ✅ |
+| Barrierefreiheit | 92 | 92 | 92 | ±0 |
+| Best Practices | 81 | 78 | 81 | ±0 |
+| SEO | 91 | 58 | 63 | −28 ⚠️ |
+
+**Tatsächliche Metrik-Entwicklung nach H-004.5:**
+
+| Metrik | Ausgangslage | Aktuell | Ziel | Status |
+|:--|:--|:--|:--|:--|
+| First Contentful Paint | 0,8s | 0,9s | < 1,8s | ✅ |
+| Largest Contentful Paint | 0,8s | 1,4s | < 2,5s | ✅ |
+| Total Blocking Time | 2.510 ms | 430 ms | < 200 ms | ⚠️ verbessert, Ziel noch offen |
+| Cumulative Layout Shift | 0 | 0 | < 0,1 | ✅ |
+| Speed Index | 9,4s | 6,6s | < 3,4s | ❌ Ziel noch offen |
+| Time to Interactive | 17,0s | — | < 3,8s | ❌ noch nicht neu gemessen |
+| Server Response Time | 21 ms | 21 ms | < 600 ms | ✅ |
+
+**Nächster Schritt:** H-004.6 — SEO-Score ausbauen (aktuell 63, Ziel > 80)
 
 --- 
+
 
 ### P-006: Lighthouse Timespan-Befunde (Laufzeit-Performance, Thumbnails, API-Latenz)
 **Beschreibung:**
