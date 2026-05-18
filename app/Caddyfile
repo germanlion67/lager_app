@@ -30,6 +30,9 @@
 		# Kontrolliert welche Referrer-Informationen gesendet werden
 		Referrer-Policy "strict-origin-when-cross-origin"
 
+		# HTTP Strict Transport Security — erzwingt HTTPS für 1 Jahr
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
 		# Content Security Policy - strikt für bessere Sicherheit
 		# Flutter Web benötigt 'unsafe-inline' für Styles und 'unsafe-eval' für Dart
 		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https: {$POCKETBASE_URL}; frame-ancestors 'self';"

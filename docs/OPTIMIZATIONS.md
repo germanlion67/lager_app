@@ -43,33 +43,6 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 ## 🟡 Priorität: Mittel
 
 
-### T-012: Testlücken bei produktiven Services schließen
-**Beschreibung:**
-6 produktiv genutzte Services haben keine Testdatei. Höchste Priorität hat
-`pocketbase_service.dart` (492 Zeilen, zentraler Client-Service).
-
-**Priorisierte Testliste:**
-
-| Priorität | Service | Testfokus | Status |
-|-----------|---------|-----------|--------|
-| 🔴 Hoch | `pocketbase_service.dart` | `initialize()` URL-Prioritäten, `updateUrl()` mit Health-Check, `login()`/`logout()`, `refreshAuthToken()`, `needsSetup`-Logik | ✅ 51 Tests |
-| 🟡 Mittel | `connectivity_service.dart` | WiFi-Erkennung, Timeout-Verhalten | ❌ offen |
-| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking | ✅ 61 offen |
-| 🟡 Mittel | `sync_error_recovery.dart` | Recovery-Strategien, Retry-Logik | ✅ 87 Tests |
-| 🟢 Niedrig | `tag_service.dart` | CRUD | ❌ offen |
-| 🟢 Niedrig | `database_service.dart` | Init-Pfade | ❌ offen |
-
-**Aufwand:** ~4–6 Stunden (alle), ~2 Stunden (nur pocketbase_service)
-**Risiko:** Keins — rein additiv
-
-**Tasks:**
-- [x] `test/services/pocketbase_service_test.dart` erstellen — 51 Tests, `0.9.9+71`
-- [x] `test/services/sync_error_recovery_test.dart` erstellen — 87 Tests, `0.9.9+71`
-- [x] `test/services/sync_progress_service_test.dart` erstellen — 61 Tests, `0.9.9+71`
-- [x] `test/services/connectivity_service_test.dart` erstellen — 14 Tests, `0.9.9+71`
-- [ ] `test/services/tag_service_test.dart` erstellen
-- [ ] `test/services/database_service_test.dart` erstellen
-- [ ] Weitere nach Bedarf
 
 ---
 
@@ -105,7 +78,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
 
 #### Prio 1 — Quick Fixes (Nginx-Config, je 2 min)
 
-- [ ] **H-004.1: `robots.txt` in Nginx bereitstellen**
+- [x] **H-004.1: `robots.txt` in Nginx bereitstellen**
   Nginx liefert `index.html` als Fallback für `/robots.txt` → 87 SEO-Fehler.
 
   ```nginx
@@ -117,7 +90,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
 
   **Wirkung:** SEO-Score 91 → ~100
 
-- [ ] **H-004.2: HSTS-Header setzen**
+- [x] **H-004.2: HSTS-Header setzen**
   Kein `Strict-Transport-Security`-Header vorhanden.
 
   ```nginx
@@ -128,7 +101,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
 
 #### Prio 2 — HTML-Anpassungen (index.html, je 1 min)
 
-- [ ] **H-004.3: Splash-Bild `width`/`height` und `fetchpriority` setzen**
+- [x] **H-004.3: Splash-Bild `width`/`height` und `fetchpriority` setzen**
   LCP-Bild (`splash/img/light-2x.png`) hat keine expliziten Dimensionen und kein Priority-Hint.
 
   ```html
@@ -141,7 +114,7 @@ Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreihe
 
 #### Prio 3 — Build-Optimierung (CI/CD, 5–30 min)
 
-- [ ] **H-004.4: `--tree-shake-icons` im Flutter-Build aktivieren**
+- [x] **H-004.4: `--tree-shake-icons` im Flutter-Build aktivieren**
   Ungenutzte Material-Icons werden aktuell mitgebaut.
 
   ```yaml
@@ -404,6 +377,37 @@ Bis dahin als dokumentierte technische Schuld belassen.
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+
+### T-012: Testlücken bei produktiven Services schließen
+**Beschreibung:**
+6 produktiv genutzte Services haben keine Testdatei. Höchste Priorität hat
+`pocketbase_service.dart` (492 Zeilen, zentraler Client-Service).
+
+**Priorisierte Testliste:**
+
+| Priorität | Service | Testfokus | Status |
+|-----------|---------|-----------|--------|
+| 🔴 Hoch | `pocketbase_service.dart` | `initialize()` URL-Prioritäten, `updateUrl()` mit Health-Check, `login()`/`logout()`, `refreshAuthToken()`, `needsSetup`-Logik | ✅ 51 Tests |
+| 🟡 Mittel | `connectivity_service.dart` | WiFi-Erkennung, Timeout-Verhalten | ❌ offen |
+| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking | ✅ 61 offen |
+| 🟡 Mittel | `sync_error_recovery.dart` | Recovery-Strategien, Retry-Logik | ✅ 87 Tests |
+| 🟢 Niedrig | `tag_service.dart` | CRUD | ❌ offen |
+| 🟢 Niedrig | `database_service.dart` | Init-Pfade | ❌ offen |
+
+**Aufwand:** ~4–6 Stunden (alle), ~2 Stunden (nur pocketbase_service)
+**Risiko:** Keins — rein additiv
+
+**Tasks:**
+- [x] `test/services/pocketbase_service_test.dart` erstellen — 51 Tests, `0.9.9+71`
+- [x] `test/services/sync_error_recovery_test.dart` erstellen — 87 Tests, `0.9.9+71`
+- [x] `test/services/sync_progress_service_test.dart` erstellen — 61 Tests, `0.9.9+71`
+- [x] `test/services/connectivity_service_test.dart` erstellen — 14 Tests, `0.9.9+71`
+- [x] `test/services/tag_service_test.dart` erstellen — 43 Tests, `0.9.9+72`
+- [x] `test/services/database_service_test.dart`  — ⏭️ Übersprungen, Shim ohne Logik
+- T-012 abgeschlossen — alle relevanten Services abgedeckt
+
+--- 
 
 ## In History überführt
 
