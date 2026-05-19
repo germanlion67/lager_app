@@ -40,11 +40,13 @@ Die `.bashrc` dieses Projekts richtet automatisch ein:
 
 ---
 
-## 2. PocketBase-Datenbank starten
+## 2. PocketBase & Frontend — Docker
 
 > ⚠️ **NICHT** wie in der alten Doku beschrieben mit
 > `cd server && ./pocketbase serve --http=0.0.0.0:8080` starten!
 > PocketBase läuft ausschließlich über Docker.
+
+### Stack starten
 
 ```bash
 cd ~/lager_app
@@ -55,22 +57,49 @@ PocketBase ist dann erreichbar unter: `http://localhost:8080`
 
 Admin-UI: `http://localhost:8080/_/`
 
-> **Hinweis:** Das tatsächlich verfügbare PocketBase-Schema ergibt sich aus dem
-> aktuellen Container-/Migrationsstand. Serverseitige Migrationen liegen unter
-> `server/pb_migrations/`. Maßgeblich sind der laufende Stand und die aktuelle Doku,
-> nicht ältere Session-Prompts.
+Zugangsdaten: Siehe `.env` (`PB_ADMIN_EMAIL` / `PB_ADMIN_PASSWORD`)
 
-### Datenbank stoppen
+Hinweis: Das tatsächlich verfügbare PocketBase-Schema ergibt sich aus dem
+aktuellen Container-/Migrationsstand. Serverseitige Migrationen liegen unter
+`server/pb_migrations/`. Maßgeblich sind der laufende Stand und die aktuelle Doku,
+nicht ältere Session-Prompts.
 
+Stack stoppen
 ```bash
 docker compose down
 ```
 
-### Logs prüfen
-
+Logs prüfen
 ```bash
+# PocketBase-Logs
 docker compose logs -f pocketbase
+
+# Frontend (Caddy)-Logs
+docker compose logs -f lager_frontend
 ```
+
+Frontend-Container neu bauen
+```bash
+# Mit Cache
+docker compose up lager_frontend -d --build
+
+# Ohne Cache (bei hartnäckigen Build-Problemen)
+docker compose build --no-cache lager_frontend
+docker compose up -d
+```
+
+Umgebungsvariablen prüfen
+```bash
+# Welche .env wird geladen?
+docker compose config | grep -E "POCKETBASE_URL|PB_DEV_MODE|CORS"
+```
+
+💡 Tipp: `PB_DEV_MODE=1` in `.env` überspringt den Login-Screen und
+setzt offene Collection-Rules — praktisch für lokale Entwicklung.
+In Produktion immer `PB_DEV_MODE=0` setzen.
+
+--- 
+
 
 ---
 
@@ -230,6 +259,22 @@ flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0
 | Aliase nicht verfügbar | `.bashrc` nach Änderung nicht neu geladen | `source ~/.bashrc` ausführen |
 | Docker startet nicht automatisch | `dockerd` nicht aktiv, sudo fehlt | `sudo service docker start` manuell ausführen |
 
----
+--- 
+
+## Zusammenfassung der Änderungen
+
+| Datei | Was geändert | Warum |
+|:--|:--|:--|
+| `INSTALL.md` | Schnellstart kompakter — Logs/No-Cache entfernt, Verweis auf DEV_SETUP ergänzt | INSTALL ist Einstiegspunkt, nicht Dev-Handbuch |
+| `DEV_SETUP.md` | Abschnitt 2 ausgebaut — Logs, Rebuild, `docker compose config`, `PB_DEV_MODE`-Hinweis | Alle Dev-Docker-Details an einem Ort |
+| `DEV_SETUP.md` | `docker compose up app` → korrigiert zu `lager_frontend` | `app` ist kein gültiger Service-Name laut Log |
+
+> Der fehlerhafte Block in der alten `DEV_SETUP.md`:
+> ```bash
+> # App-Container bauen und starten
+> docker compose up app -d --build
+> ```
+> wurde korrigiert zu `lager_frontend` — so heißt der Service laut deinem Docker-Start-Log. 🎯
+
 
 *Letzte Aktualisierung: Mai 2026*

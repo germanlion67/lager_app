@@ -31,7 +31,7 @@ cat > /etc/caddy/Caddyfile << CADDYEOF
         X-XSS-Protection "1; mode=block"
         Referrer-Policy "strict-origin-when-cross-origin"
         Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: $POCKETBASE_URL; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https: ws: wss: $POCKETBASE_URL; frame-ancestors 'self';"
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: $POCKETBASE_URL; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https: ws: wss: $POCKETBASE_URL; worker-src 'self' blob:; frame-ancestors 'self';"
         Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
         X-Permitted-Cross-Domain-Policies "none"
         Cross-Origin-Opener-Policy "same-origin"

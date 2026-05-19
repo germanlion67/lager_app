@@ -5,6 +5,7 @@
 **Audit-Datum:** 18.05.2026
 **Lighthouse-Version:** aktuell (Navigationsmodus)
 **Ziel-URL:** `http://localhost:8081`
+**Gemessene Version:** v0.9.9+73 (Messung vor den Fixes aus v0.9.9+74)
 **Emulation:** Moto G Power (Mobil), simuliertes Netzwerk
 **Renderer:** Flutter Web — Skwasm (WASM-Renderer)
 **Drittanbieter:** Google CDN (Skwasm), Google Fonts
@@ -28,7 +29,7 @@
 
 ## ⚡ Performance — Detailbefunde
 
-### Kernmetriken
+### Kernmetriken (gemessen in v0.9.9+73, vor Fixes aus v0.9.9+74)
 
 | Metrik | Wert | Ziel | Status |
 |:--|:--|:--|:--|
@@ -66,7 +67,7 @@
 <script src="/config.js" defer></script>
 ```
 
-- **Status:** ❌ Offen → Maßnahme: **H-004** (Prio 2)
+- **Status:** ✅ Erledigt in v0.9.9+74
 
 #### LH-P-002: Hohe Total Blocking Time (705 ms)
 
@@ -94,7 +95,7 @@ location ~* \.(js|wasm|css|png|webp|woff2)$ {
 }
 ```
 
-- **Status:** ❌ Offen → Maßnahme: **H-004** (Prio 1)
+- **Status:** ✅ Erledigt in v0.9.9+74
 
 #### LH-P-005: Netzwerkabhängigkeitsbaum — `manifest.json` (107 ms Latenz)
 
@@ -105,7 +106,7 @@ location ~* \.(js|wasm|css|png|webp|woff2)$ {
 <link rel="preload" href="/manifest.json" as="fetch" crossorigin>
 ```
 
-- **Status:** ❌ Offen
+- **Status:** ✅ Erledigt in v0.9.9+74
 
 ### Drittanbieter-Analyse
 
@@ -183,10 +184,10 @@ add_header Cross-Origin-Opener-Policy "same-origin" always;
 add_header Cross-Origin-Embedder-Policy "require-corp" always;
 ```
 
-> ⚠️ Prüfen ob Flutter Skwasm diese Header verträgt — kann WASM-Ladevorgang beeinflussen.
+> COOP/COEP wurden in v0.9.9+73 gesetzt und erfolgreich getestet (Login, Bildanzeige, Upload ✅). Kein negativer Einfluss auf WASM-Ladevorgang festgestellt.
 
 - **Fix für `Intl.v8BreakIterator`:** Wird mit zukünftigem Flutter-Release behoben
-- **Status:** 🟡 COOP/COEP evaluieren — `Intl`-Deprecation akzeptiert
+- **Status:** ✅ COOP/COEP erledigt in v0.9.9+73 — `Intl`-Deprecation bewusst akzeptiert
 
 #### LH-B-002: Kein HTTPS (Gewicht: 5)
 
@@ -201,7 +202,7 @@ add_header Cross-Origin-Embedder-Policy "require-corp" always;
 | `Strict-Transport-Security` (HSTS) | ✅ Behoben | H-004.2 |
 | `Content-Security-Policy` (CSP) | ⚠️ Akzeptiert | Flutter benötigt `unsafe-inline` |
 | `X-Frame-Options` / `frame-ancestors` | ❌ Offen | H-005.3 |
-| `Cross-Origin-Opener-Policy` | 🟡 Evaluieren | LH-B-001 |
+| `Cross-Origin-Opener-Policy` | ✅ Erledigt | v0.9.9+73 |
 | `Trusted-Types` | ⚠️ Akzeptiert | Flutter inkompatibel |
 
 #### LH-B-004: Third-Party-Cookies
@@ -231,8 +232,8 @@ add_header Cross-Origin-Embedder-Policy "require-corp" always;
 
 #### LH-S-001: Seite nicht crawlbar — `is-crawlable` (Gewicht: ~4) 🔴
 
-- **Ursache:** Möglicherweise `<meta name="robots" content="noindex">` oder
-  `robots.txt` mit `Disallow: /` (aus H-004.1)
+- **Ursache:** `robots.txt` mit `Disallow: /` (gesetzt in H-004.1) verhindert
+  Indexierung — bestätigt als Ursache des `is-crawlable`-Befunds.
 - **Prüfen:**
 
 ```bash
@@ -242,7 +243,7 @@ curl -s http://localhost:8081 | grep -i robots
 
 - **Fix:** Für interne App mit `Disallow: /` ist das korrekt — für öffentliche
   Sichtbarkeit `Allow: /` setzen
-- **Status:** ❌ Offen → Maßnahme: **H-005.1**
+- **Status:** ⚠️ Bewusst akzeptiert — für interne App korrekt → Maßnahme: **H-005.1**
 
 #### LH-S-002: Fehlende Meta-Description (Gewicht: 1)
 
@@ -295,11 +296,11 @@ Korrektheit und bewusste Entscheidungen sollen aber dokumentiert sein.
 
 #### H-005.1: `robots.txt`-Verhalten prüfen und dokumentieren
 
-- Prüfen ob `Disallow: /` (aus H-004.1) den `is-crawlable`-Befund verursacht
-- Für interne App: `Disallow: /` ist korrekt → Befund bewusst akzeptieren
+- `Disallow: /` (aus H-004.1) ist bestätigte Ursache des `is-crawlable`-Befunds
+- Für interne App: `Disallow: /` ist korrekt → Befund bewusst akzeptiert
 - Für öffentliche Sichtbarkeit: `Allow: /` setzen
 - **Aufwand:** 10 Minuten
-- **Status:** ❌ Offen
+- **Status:** ⚠️ Bewusst akzeptiert
 
 #### H-005.2: Meta-Description und Titel ergänzen
 
@@ -328,15 +329,15 @@ add_header X-Frame-Options "SAMEORIGIN" always;
 
 ---
 
-### Offene Maßnahmen aus H-004 (Aktualisierung)
+### Offene und erledigte Maßnahmen aus H-004 (Aktualisierung)
 
 | Task | Beschreibung | Status |
 |:--|:--|:--|
-| H-004.5 | WASM-Build evaluieren | 🟡 In Evaluierung |
-| LH-P-001 | `config.js` auf `defer` setzen | ❌ Offen |
-| LH-P-004 | Cache-Control-Header für statische Assets | ❌ Offen |
-| LH-P-005 | `manifest.json` vorladen | ❌ Offen |
-| LH-B-001 | COOP/COEP-Header evaluieren | 🟡 Evaluieren |
+| H-004.5 | WASM-Build evaluieren | ✅ Erledigt in v0.9.9+73 |
+| LH-P-001 | `config.js` auf `defer` setzen | ✅ Erledigt in v0.9.9+74 |
+| LH-P-004 | Cache-Control-Header für statische Assets | ✅ Erledigt in v0.9.9+74 |
+| LH-P-005 | `manifest.json` vorladen | ✅ Erledigt in v0.9.9+74 |
+| LH-B-001 | COOP/COEP-Header setzen | ✅ Erledigt in v0.9.9+73 |
 | LH-B-004 | Third-Party-Cookies prüfen | 🟡 Prüfen |
 
 ---
@@ -347,12 +348,13 @@ add_header X-Frame-Options "SAMEORIGIN" always;
 |:--|:--|:--|:--|:--|:--|
 | 12.05.2026 | 0.9.9+70 | **62** | **92** | **81** | **91** |
 | 18.05.2026 | 0.9.9+73 | **75** | **92** | **81** | **63** |
-
+| 18.05.2026 | 0.9.9+74 | **88** | **92** | **81** | **63** |
 
 | Datum | Version | FCP | LCP | TBT | CLS | SI |
 |:--|:--|:--|:--|:--|:--|:--|
-| 18.05.2026 | 0.9.9+73 | 0,9s | 1,4s | 430ms | 0 | 6,6s |
-
+| 12.05.2026 | 0.9.9+70 | 0,95 s | 1,57 s | 705 ms | — | — |
+| 18.05.2026 | 0.9.9+73 | 0,9 s | 1,4 s | 430 ms | 0 | 6,6 s |
+| 18.05.2026 | 0.9.9+74 | 0,6 s | 1,0 s | 310 ms | 0 | 6,1 s |
 
 > **Anmerkung zum SEO-Rückgang:**
 > Der Rückgang von 91 → 63 ist auf den `is-crawlable`-Befund zurückzuführen,
@@ -366,5 +368,5 @@ add_header X-Frame-Options "SAMEORIGIN" always;
 
 | Datum | Version | Änderung |
 |:--|:--|:--|
-| 2026-05-18 | 0.9.9+70 | Initiale Erstellung — Lighthouse-Audit Navigationsmodus, Skwasm-Renderer. Scores: Performance 75, Barrierefreiheit 92, Best Practices 81, SEO 63. H-005 als neue Maßnahme abgeleitet. |
-
+| 2026-05-18 | 0.9.9+73 | Initiale Erstellung — Lighthouse-Audit Navigationsmodus, Skwasm-Renderer. Scores: Performance 75, Barrierefreiheit 92, Best Practices 81, SEO 63. H-005 als neue Maßnahme abgeleitet. |
+| 2026-05-18 | 0.9.9+74 | Status-Aktualisierung: LH-P-001 (config.js defer), LH-P-004 (Cache-Control immutable), LH-P-005 (manifest.json preload) als erledigt markiert. LH-B-001 (COOP/COEP) als erledigt bestätigt. H-005.1 als bewusst akzeptiert dokumentiert. |

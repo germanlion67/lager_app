@@ -40,28 +40,27 @@ cd lager_app
 # 2. Umgebungsvariablen vorbereiten
 cp .env.example .env
 # Optional: .env anpassen (Standard: Ports 8081/8080)
+# ⚠️ Passwörter in .env vor dem ersten Start ändern!
 
 # 3. Container starten
 docker compose up -d --build
 
-# 4. Logs anzeigen
-docker compose logs -f pocketbase
-
-# 5. Container ohne Cache neu erstellen
-docker compose build --no-cache pocketbase
-
 # Web-App: http://localhost:8081
-# PocketBase Admin: http://localhost:8080/_/ (admin@example.com / changeme123)
-```
+# PocketBase Admin: http://localhost:8080/_/
+# Zugangsdaten: Siehe .env (PB_ADMIN_EMAIL / PB_ADMIN_PASSWORD)
+` ` `
 
 > 💡 **Hinweis:** PocketBase initialisiert sich beim ersten Start automatisch  
 > (Collections, Admin-User, Rules).  
-> Ändere das Admin-Passwort sofort!
+> Ändere das Admin-Passwort sofort nach dem ersten Login!
 
 > **Hinweis:** Das serverseitige PocketBase-Schema wird durch den aktuellen
 > Migrationsstand aufgebaut. Maßgeblich sind die produktiven Migrationen unter
 > `server/pb_migrations/`, der laufende Serverstand sowie die Fachdokumentation
 > in `docs/DATABASE.md`.
+
+> 💡 **Entwickler (WSL2):** Weitere Docker-Befehle (Logs, Rebuild, Container-Details)
+> und bekannte Stolperstellen findest du in [DEV_SETUP.md](docs/DEV_SETUP.md#2-pocketbase-datenbank-starten).
 
 ---
 
@@ -256,8 +255,12 @@ Für spezielle Betriebs- oder Entwicklungsfälle gelten ergänzend:
 - Die App hat `android:usesCleartextTraffic="true"` bereits gesetzt, sodass HTTP für LAN-Tests funktioniert.
 - Für Produktion wird dennoch **HTTPS** empfohlen.
 
-### Portainer-Stack startet nicht?
-- Prüfe, ob alle Pflicht-Variablen gesetzt sind (`PB_ADMIN_PASSWORD`, `POCKETBASE_URL`, `CORS_ALLOWED_ORIGINS`)
+- Prüfe, ob alle Pflicht-Variablen gesetzt sind:
+  - `PB_ADMIN_EMAIL` und `PB_ADMIN_PASSWORD`
+  - `POCKETBASE_URL` (öffentliche URL, vom Browser erreichbar)
+  - `CORS_ALLOWED_ORIGINS` (Domain des Frontends, kein `*` in Produktion!)
+  - `PB_DEV_MODE=0` (offene Regeln in Produktion verhindern)
+  - `PB_TEST_USER_ENABLED=0` (Test-User in Produktion deaktivieren)
 - Prüfe, ob die Docker-Images im Registry verfügbar sind (`ghcr.io/germanlion67/lager_app_*`)
 - Prüfe Container-Logs in Portainer unter **Containers → Logs**
 - Detaillierte Fehlerbehebung: [PORTAINER_PROD.md](docs/PORTAINER_PROD.md)
