@@ -7,7 +7,6 @@
 # Diese Datei dient als lesbare Referenz für die Caddy-Konfiguration.
 # Alle Änderungen müssen in docker-entrypoint.sh vorgenommen werden.
 
-
 :8081 {
 	root * /srv
 	encode gzip
@@ -31,7 +30,9 @@
 
 		# Content Security Policy
 		# Flutter Web benötigt 'unsafe-inline' für Styles und 'wasm-unsafe-eval' für Dart/WASM
-		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https: {$POCKETBASE_URL}; font-src 'self' data:; connect-src 'self' https: ws: wss: {$POCKETBASE_URL}; frame-ancestors 'self';"
+		# Google Fonts benötigt fonts.googleapis.com (style-src) und fonts.gstatic.com (font-src)
+		# Skwasm Web Worker benötigt worker-src 'self' blob:
+		Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: {$POCKETBASE_URL}; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https: ws: wss: {$POCKETBASE_URL}; worker-src 'self' blob:; frame-ancestors 'self';"
 
 		# Permissions Policy
 		Permissions-Policy "geolocation=(), microphone=(), camera=(self)"
@@ -40,7 +41,7 @@
 		X-Permitted-Cross-Domain-Policies "none"
 
 		# Cross-Origin Isolation für SharedArrayBuffer / Skwasm (LH-B-001)
-		# ⚠️ Testen: Kann externe Ressourcen (Fonts, PocketBase) blockieren
+		# ✅ Getestet in v0.9.9+73 — kein negativer Einfluss auf Fonts oder PocketBase-Verbindung
 		Cross-Origin-Opener-Policy "same-origin"
 		Cross-Origin-Embedder-Policy "require-corp"
 	}
