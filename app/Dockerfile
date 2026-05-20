@@ -65,6 +65,10 @@ FROM caddy:2.7.6-alpine
 # Flutter Web Build aus Stage 1 kopieren
 COPY --from=build-env /app/build/web /srv
 
+# Service Worker entfernen — wird nicht benötigt (--pwa-strategy=none)
+# Datei existiert trotzdem im Build-Output, muss explizit gelöscht werden
+RUN rm -f /srv/flutter_service_worker.js
+
 # Caddyfile für SPA-Routing (liegt im Repo unter app/Caddyfile)
 COPY app/Caddyfile /etc/caddy/Caddyfile
 

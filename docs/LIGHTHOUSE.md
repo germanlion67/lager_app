@@ -208,7 +208,7 @@ add_header Cross-Origin-Embedder-Policy "require-corp" always;
 #### LH-B-004: Third-Party-Cookies
 
 - **Ursache:** Google CDN / Google Fonts — möglicherweise Cookies gesetzt
-- **Status:** 🟡 Prüfen ob tatsächlich Cookies gesetzt werden
+- **Status:** ✅ Geprüft — keine Cookies gesetzt
 
 ### Bewusst akzeptiert (Best Practices)
 
@@ -307,7 +307,7 @@ Korrektheit und bewusste Entscheidungen sollen aber dokumentiert sein.
 - `<meta name="description">` und `<title>` in `index.html` ergänzen
 - Auch wenn Inhalte nicht indexierbar sind — technische Korrektheit
 - **Aufwand:** 5 Minuten
-- **Status:** ❌ Offen
+- **Status:** ✅ Erledigt in v0.9.9+75 — nur Doku aktualisieren
 
 #### H-005.3: `X-Frame-Options`-Header evaluieren
 
@@ -349,12 +349,24 @@ add_header X-Frame-Options "SAMEORIGIN" always;
 | 12.05.2026 | 0.9.9+70 | **62** | **92** | **81** | **91** |
 | 18.05.2026 | 0.9.9+73 | **75** | **92** | **81** | **63** |
 | 18.05.2026 | 0.9.9+74 | **88** | **92** | **81** | **63** |
+| 19.05.2026 | 0.9.9+75 | **56** | **92** | **77** | **63** |
+| 19.05.2026 | 0.9.9+75 | **58** | **92** | **77** | **63** |
+| 19.05.2026 | 0.9.9+75 | **55** | **92** | **77** | **63** |
+| 19.05.2026 | 0.9.9+75 | **58** | **92** | **81** | **63** |
+| 19.05.2026 | 0.9.9+75 | **72** | **92** | **81** | **63** |ohne Login
+| 19.05.2026 | 0.9.9+75 | **75** | **92** | **81** | **100** |ohne Login
 
 | Datum | Version | FCP | LCP | TBT | CLS | SI |
 |:--|:--|:--|:--|:--|:--|:--|
 | 12.05.2026 | 0.9.9+70 | 0,95 s | 1,57 s | 705 ms | — | — |
 | 18.05.2026 | 0.9.9+73 | 0,9 s | 1,4 s | 430 ms | 0 | 6,6 s |
 | 18.05.2026 | 0.9.9+74 | 0,6 s | 1,0 s | 310 ms | 0 | 6,1 s |
+| 19.05.2026 | 0.9.9+75 | 1,7 s | 2,6 s | 14760 ms | 0,015 | 227,0 s |
+| 19.05.2026 | 0.9.9+75 | 1,2 s | 2,3 s | 15380 ms | 0,007 | 173,2 s |
+| 19.05.2026 | 0.9.9+75 | 0,6 s | 2,9 s | 15300 ms | 0,007 | 205,1 s |
+| 19.05.2026 | 0.9.9+75 | 1,2 s | 2,3 s | 17470 ms | 0,015 | 231,6 s |
+| 19.05.2026 | 0.9.9+75 | 0,6 s | 1,2 s | 1030 ms | 0 | 6,7 s |ohne Login
+| 19.05.2026 | 0.9.9+75 | 0,8 s | 1,5 s | 780 ms | 0 | 6,6 s |ohne Login
 
 > **Anmerkung zum SEO-Rückgang:**
 > Der Rückgang von 91 → 63 ist auf den `is-crawlable`-Befund zurückzuführen,

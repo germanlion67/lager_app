@@ -24,7 +24,7 @@ jobs:
           channel: stable
           # Add this to avoid reusing a bad cached artifact
           cache: false
-          
+
       - name: Clear pub cache (fix sqlite3 native asset hash mismatch)
         run: |
           rm -rf ~/.pub-cache
@@ -41,3 +41,63 @@ jobs:
       - name: Run tests
         working-directory: ./app
         run: flutter test
+
+  build-web-verify:
+    name: Build Web (WASM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.41.7'
+          channel: stable
+          cache: false
+
+      - name: Clear pub cache
+        run: |
+          rm -rf ~/.pub-cache
+          flutter --version
+
+      - name: Install dependencies
+        working-directory: ./app
+        run: flutter pub get
+
+      - name: Build Web (WASM)
+        working-directory: ./app
+        run: |
+          flutter build web --release \
+            --wasm \
+            --dart-define=POCKETBASE_URL=http://localhost:8080 \
+            --dart-define=FLUTTER_WEB_AUTO_DETECT=true \
+            --no-source-maps \
+            --tree-shake-icons
+
+      - name: Verify WASM output
+        working-directory: ./app
+        run: |
+          echo "=== Build output ==="
+          ls -lh build/web/
+
+          echo "=== Checking required files ==="
+          test -f build/web/main.dart.wasm \
+            && echo "✅ main.dart.wasm found" \
+            || (echo "❌ main.dart.wasm MISSING" && exit 1)
+
+          test -f build/web/index.html \
+            && echo "✅ index.html found" \
+            || (echo "❌ index.html MISSING" && exit 1)
+
+          test -f build/web/flutter_bootstrap.js \
+            && echo "✅ flutter_bootstrap.js found" \
+            || (echo "❌ flutter_bootstrap.js MISSING" && exit 1)
+
+          echo "=== Checking service worker is absent ==="
+          test ! -f build/web/flutter_service_worker.js \
+            && echo "✅ flutter_service_worker.js absent (correct)" \
+            || echo "⚠️  flutter_service_worker.js present (unexpected)"

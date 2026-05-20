@@ -1,25 +1,30 @@
 <!DOCTYPE html>
-<html lang="de">
+<html>
 <head>
+  <base href="$FLUTTER_BASE_HREF">
+
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="viewport" content="width=device-width, initial-scale=1.0,
         maximum-scale=1.0, user-scalable=no">
-
+     
   <!-- 1. Preconnect zuerst — DNS/TLS so früh wie möglich -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 
+  <!-- ✅ LH-P-009.2: Modulepreload — JS-Loader früher parsen -->
+  <link rel="modulepreload" href="main.dart.mjs">
+
   <!-- 2. Basis-Metadaten -->
   <meta name="description"
-      content="Lagerverwaltung für Elektronik- und Bastelartikel – Bestände verwalten, Kategorien pflegen und Lagerorte im Überblick behalten.">
+        content="Lager_app — Interne Lagerverwaltung für Elektronik- und Bastelartikel.">
   <meta name="theme-color" content="#1976d2">
-  <title>Elektronik Verwaltung</title>
+  <title>Lager_app | Lagerverwaltung</title>
 
   <!-- 3. PWA / Apple -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="Elektronik Verwaltung">
+  <meta name="apple-mobile-web-app-title" content="Lager_app">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
   <link rel="icon" type="image/png" href="favicon.png">
   <link rel="manifest" href="manifest.json">
@@ -27,7 +32,12 @@
   <!-- 4. Nicht-blockierendes Script -->
   <script src="config.js" defer></script>
 
-  <!-- 5. Inline Styles (Splash) -->
+
+  <!-- ✅ LH-P-002: flutter_bootstrap.js im head mit defer -->
+  <script src="flutter_bootstrap.js" defer></script>
+
+
+
   <style id="splash-screen-style">
     html { height: 100% }
     body {
@@ -44,9 +54,9 @@
       -ms-transform: translate(-50%, -50%);
       transform: translate(-50%, -50%);
     }
-    .contain  { display: block; width: 100%; height: 100%; object-fit: contain; }
-    .stretch  { display: block; width: 100%; height: 100%; }
-    .cover    { display: block; width: 100%; height: 100%; object-fit: cover; }
+    .contain { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .stretch { display: block; width: 100%; height: 100%; }
+    .cover   { display: block; width: 100%; height: 100%; object-fit: cover; }
     .bottom {
       position: absolute; bottom: 0; left: 50%;
       -ms-transform: translate(-50%, 0);
@@ -59,7 +69,6 @@
     }
   </style>
 
-  <!-- 6. Inline Script (Splash-Removal-Funktion) -->
   <script id="splash-screen-script">
     function removeSplashFromWeb() {
       document.getElementById("splash")?.remove();
@@ -67,25 +76,28 @@
       document.body.style.background = "transparent";
     }
   </script>
-
-  <base href="$FLUTTER_BASE_HREF">
 </head>
 <body>
   <picture id="splash">
     <source
-      srcset="splash/img/light-1x.png 1x, splash/img/light-2x.png 2x,
-              splash/img/light-3x.png 3x, splash/img/light-4x.png 4x"
+      srcset="splash/img/light-1x.png 1x,
+              splash/img/light-2x.png 2x,
+              splash/img/light-3x.png 3x,
+              splash/img/light-4x.png 4x"
       media="(prefers-color-scheme: light)">
     <source
-      srcset="splash/img/dark-1x.png 1x, splash/img/dark-2x.png 2x,
-              splash/img/dark-3x.png 3x, splash/img/dark-4x.png 4x"
+      srcset="splash/img/dark-1x.png 1x,
+              splash/img/dark-2x.png 2x,
+              splash/img/dark-3x.png 3x,
+              splash/img/dark-4x.png 4x"
       media="(prefers-color-scheme: dark)">
-    <img class="center" aria-hidden="true"
-      src="splash/img/light-1x.png" alt=""
-      width="256" height="256"
-      fetchpriority="high" loading="eager">
+    <img class="center"
+         aria-hidden="true"
+         src="splash/img/light-1x.png"
+         alt=""
+         width="256"
+         height="256"
+         fetchpriority="high">
   </picture>
-
-  <script src="flutter_bootstrap.js" async=""></script>
 </body>
 </html>

@@ -22,6 +22,164 @@ Einträge **ohne eindeutige Versionszuordnung** stehen gesammelt im Archivbereic
 
 ## 1. Versionshistorie
 
+
+## 🔦 Lighthouse-Audit — 18./19.05.2026 | v0.9.9+73–75
+
+**Audit-Datum:** 18.05.2026 (Folgemessungen 19.05.2026)
+**Lighthouse-Version:** aktuell (Navigationsmodus)
+**Ziel-URL:** `http://localhost:8081`
+**Emulation:** Moto G Power (Mobil), simuliertes Netzwerk
+**Renderer:** Flutter Web — Skwasm (WASM-Renderer)
+**Drittanbieter:** Google CDN (Skwasm), Google Fonts
+
+---
+
+### 📊 Score-Entwicklung
+
+| Datum | Version | Performance | Barrierefreiheit | Best Practices | SEO | Anmerkung |
+|:--|:--|:--|:--|:--|:--|:--|
+| 12.05.2026 | 0.9.9+70 | **62** | **92** | **81** | **91** | Ausgangslage |
+| 18.05.2026 | 0.9.9+73 | **75** | **92** | **81** | **63** | Nach WASM-Build |
+| 18.05.2026 | 0.9.9+74 | **88** | **92** | **81** | **63** | Nach Performance-Fixes |
+| 19.05.2026 | 0.9.9+75 | **56** | **92** | **77** | **63** | Mit Login (schwankend) |
+| 19.05.2026 | 0.9.9+75 | **58** | **92** | **77** | **63** | Mit Login (schwankend) |
+| 19.05.2026 | 0.9.9+75 | **55** | **92** | **77** | **63** | Mit Login (schwankend) |
+| 19.05.2026 | 0.9.9+75 | **58** | **92** | **81** | **63** | Mit Login |
+| 19.05.2026 | 0.9.9+75 | **72** | **92** | **81** | **63** | Ohne Login |
+| 19.05.2026 | 0.9.9+75 | **75** | **92** | **81** | **100** | Ohne Login — Zielzustand ✅ |
+
+### 📐 Kernmetriken-Entwicklung
+
+| Datum | Version | FCP | LCP | TBT | CLS | SI | Anmerkung |
+|:--|:--|:--|:--|:--|:--|:--|:--|
+| 12.05.2026 | 0.9.9+70 | 0,95 s | 1,57 s | 705 ms | — | — | Ausgangslage |
+| 18.05.2026 | 0.9.9+73 | 0,9 s | 1,4 s | 430 ms | 0 | 6,6 s | Nach WASM-Build |
+| 18.05.2026 | 0.9.9+74 | 0,6 s | 1,0 s | 310 ms | 0 | 6,1 s | Nach Performance-Fixes |
+| 19.05.2026 | 0.9.9+75 | 1,7 s | 2,6 s | 14.760 ms | 0,015 | 227,0 s | Mit Login — TBT-Ausreißer |
+| 19.05.2026 | 0.9.9+75 | 1,2 s | 2,3 s | 15.380 ms | 0,007 | 173,2 s | Mit Login — TBT-Ausreißer |
+| 19.05.2026 | 0.9.9+75 | 0,6 s | 2,9 s | 15.300 ms | 0,007 | 205,1 s | Mit Login — TBT-Ausreißer |
+| 19.05.2026 | 0.9.9+75 | 1,2 s | 2,3 s | 17.470 ms | 0,015 | 231,6 s | Mit Login — TBT-Ausreißer |
+| 19.05.2026 | 0.9.9+75 | 0,6 s | 1,2 s | 1.030 ms | 0 | 6,7 s | Ohne Login ✅ |
+| 19.05.2026 | 0.9.9+75 | 0,8 s | 1,5 s | 780 ms | 0 | 6,6 s | Ohne Login ✅ |
+
+> **Anmerkung zu TBT-Ausreißern mit Login:**
+> Die massiv erhöhten TBT-Werte (14.000–17.000 ms) bei eingeloggtem Zustand sind auf
+> den initialen Sync-Vorgang nach Login zurückzuführen (PocketBase-Abfragen, SQLite-Writes,
+> WASM-Initialisierung parallel). Ohne Login entfällt dieser Overhead — TBT normalisiert
+> sich auf ~800–1.000 ms.
+
+---
+
+### ⚡ Performance — Detailbefunde
+
+#### Kritische Befunde
+
+| Kürzel | Befund | Ursache | Status |
+|:--|:--|:--|:--|
+| LH-P-001 | Render-blockierendes `config.js` (152 ms) | `<script>` ohne `defer` | ✅ Erledigt v0.9.9+74 |
+| LH-P-002 | Hohe TBT (705 ms) | Skwasm-WASM-Initialisierung | 🟡 Teilweise — WASM-Build hilft |
+| LH-P-003 | Speed Index > 3,4 s | Flutter Skwasm strukturell | ⚠️ Bewusst akzeptiert |
+| LH-P-004 | Fehlende Cache-Control-Header | Statische Assets ohne Cache | ✅ Erledigt v0.9.9+74 |
+| LH-P-005 | `manifest.json` 107 ms Latenz | Fehlender Preload-Hint | ✅ Erledigt v0.9.9+74 |
+
+#### Netzwerk-Übersicht (Ausgangslage v0.9.9+73)
+
+**Gesamtgröße:** 2.979 KB (Transfer)
+
+| Ressource | Typ | Größe (Transfer) | Entität |
+|:--|:--|:--|:--|
+| `skwasm.wasm` | WASM | ~1.180 KB | Google CDN |
+| `skwasm.js` | Script | ~15 KB | Google CDN |
+| Roboto + weitere Fonts | Font | ~174 KB | Google Fonts |
+| LCP-Bild (`splash/img/light-2x.png`) | Image | 256×256 px | Eigene App |
+
+#### Drittanbieter-Analyse
+
+| Anbieter | Übertragungsgröße | Hauptthread-Zeit | Bewertung |
+|:--|:--|:--|:--|
+| Google CDN (Skwasm) | ~1.195 KB | 119 ms | 🔴 Größter Verursacher |
+| Google Fonts (Roboto) | ~174 KB | 0 ms | 🟡 Lokal hostbar |
+
+#### Bewusst akzeptiert (Performance)
+
+| Befund | Begründung |
+|:--|:--|
+| Speed Index > 3,4 s | Flutter Skwasm strukturell — kein Fix ohne Renderer-Wechsel |
+| TTI > 3,8 s | WASM-Initialisierung — WASM-Build ist effektivster Hebel |
+| Unused Code in Skwasm | Flutter-Web-typisch, Tree Shaking auf JS-Ebene begrenzt |
+| Fehlende Source Maps | Release-Build-Standard, akzeptabel |
+| Google Fonts extern | Lokalisierung als optionale Optimierung (LH-P-006) |
+
+---
+
+### ♿ Barrierefreiheit — Detailbefunde
+
+**Score: 92 / 100** — strukturelle Decke durch Flutter Canvas-Rendering
+
+| Kürzel | Befund | Gewicht | Status |
+|:--|:--|:--|:--|
+| LH-A-001 | Kein `<main>`-Landmark | 3 | ⚠️ Strukturell — Flutter Canvas |
+| LH-A-002 | `meta-viewport user-scalable=no` | 10 | ⚠️ Bewusst akzeptiert — Flutter setzt automatisch |
+
+> Score 92 ist das realistische Maximum für Flutter Web mit Canvas-Rendering.
+
+---
+
+### ✅ Best Practices — Detailbefunde
+
+**Score: 81 / 100**
+
+| Kürzel | Befund | Status |
+|:--|:--|:--|
+| LH-B-001 | `SharedArrayBuffer` ohne Isolation / `Intl.v8BreakIterator` deprecated | COOP/COEP ✅ v0.9.9+73 — `Intl` ⚠️ bewusst akzeptiert |
+| LH-B-002 | Kein HTTPS (Entwicklungsumgebung) | ✅ In Produktion behoben (H-004.2) |
+| LH-B-003 | `X-Frame-Options` fehlt | ❌ Offen → H-005.3 |
+| LH-B-004 | Third-Party-Cookies (Google CDN/Fonts) | ✅ Geprüft — keine Cookies gesetzt |
+
+#### Bewusst akzeptiert (Best Practices)
+
+| Befund | Begründung |
+|:--|:--|
+| CSP `unsafe-inline` | Flutter Web benötigt Inline-Scripts — Fix würde App brechen |
+| `Trusted-Types` fehlt | Flutter Web inkompatibel |
+| `Intl.v8BreakIterator` deprecated | Flutter Engine — Fix kommt mit Flutter-Update |
+
+---
+
+### 🔍 SEO — Detailbefunde
+
+**Score: 63 → 100** (nach H-005.1 + H-005.2 in v0.9.9+75)
+
+| Kürzel | Befund | Gewicht | Status |
+|:--|:--|:--|:--|
+| LH-S-001 | `is-crawlable` — `robots.txt Disallow: /` | ~4 | ✅ Behoben v0.9.9+75 (H-005.1) |
+| LH-S-002 | Fehlende Meta-Description | 1 | ✅ Behoben v0.9.9+75 (H-005.2) |
+| LH-S-003 | Fehlender Dokument-Titel | 1 | ✅ Behoben v0.9.9+75 (H-005.2) |
+| LH-S-004 | Flutter Canvas — Inhalte nicht indexierbar | — | ⚠️ Strukturell akzeptiert |
+
+> **Wichtiger Hinweis:** Flutter Web rendert in `<canvas>`. Suchmaschinen können
+> App-Inhalte strukturell nicht lesen. SEO-Optimierungen betreffen primär technische
+> Crawlability, nicht inhaltliche Indexierung. Für eine interne App ist das akzeptabel.
+
+---
+
+### 🎯 Abgeleitete Maßnahmen (Übersicht)
+
+Alle Maßnahmen sind in `OPTIMIZATION.md` unter **H-004** und **H-005** vollständig dokumentiert.
+
+| Maßnahme | Beschreibung | Status |
+|:--|:--|:--|
+| H-004.1 | `robots.txt` bereitstellen | ✅ v0.9.9+73 |
+| H-004.2 | HSTS-Header setzen | ✅ v0.9.9+73 |
+| H-004.3 | Splash-Bild Dimensionen + `fetchpriority` | ✅ v0.9.9+74 |
+| H-004.4 | `--tree-shake-icons` im Build | ✅ v0.9.9+74 |
+| H-004.5 | WASM-Build (Skwasm) | ✅ v0.9.9+73 |
+| H-005.1 | `robots.txt` auf `Allow: /` | ✅ v0.9.9+75 |
+| H-005.2 | Meta-Description + Title | ✅ v0.9.9+75 |
+| H-005.3 | `X-Frame-Options`-Header | ❌ Offen |
+
+--- 
+
 ### O-014: Nextcloud-Code entkoppeln und entfernen — abgeschlossen 2026-05-16 | `0.9.9+70`
 **Beschreibung:**
 ~1.870 Zeilen Nextcloud-Code und die Dependency `webdav_client` sind im Projekt,

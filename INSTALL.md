@@ -48,7 +48,7 @@ docker compose up -d --build
 # Web-App: http://localhost:8081
 # PocketBase Admin: http://localhost:8080/_/
 # Zugangsdaten: Siehe .env (PB_ADMIN_EMAIL / PB_ADMIN_PASSWORD)
-` ` `
+``` 
 
 > 💡 **Hinweis:** PocketBase initialisiert sich beim ersten Start automatisch  
 > (Collections, Admin-User, Rules).  
@@ -75,7 +75,8 @@ Wenn du direkt am Dart-Code arbeitest, kannst du die App nativ starten.
 ```bash
 cd ~/lager_app
 docker compose up -d
-```
+``` 
+
 PocketBase ist dann erreichbar unter: http://localhost:8080
 Admin-UI: http://localhost:8080/_/
 

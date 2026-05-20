@@ -9,8 +9,6 @@
 
 ---
 
----
-
 ## 1. Shell-Konfiguration (`.bashrc`)
 
 Die Datei `~/.bashrc` wird von Bash **automatisch geladen**, sobald ein neues
@@ -75,16 +73,16 @@ Logs prüfen
 docker compose logs -f pocketbase
 
 # Frontend (Caddy)-Logs
-docker compose logs -f lager_frontend
+docker compose logs -f app
 ```
 
 Frontend-Container neu bauen
 ```bash
 # Mit Cache
-docker compose up lager_frontend -d --build
+docker compose up app -d --build
 
 # Ohne Cache (bei hartnäckigen Build-Problemen)
-docker compose build --no-cache lager_frontend
+docker compose build --no-cache app
 docker compose up -d
 ```
 
@@ -267,14 +265,6 @@ flutter run -d web-server --web-port 8888 --web-hostname 0.0.0.0
 |:--|:--|:--|
 | `INSTALL.md` | Schnellstart kompakter — Logs/No-Cache entfernt, Verweis auf DEV_SETUP ergänzt | INSTALL ist Einstiegspunkt, nicht Dev-Handbuch |
 | `DEV_SETUP.md` | Abschnitt 2 ausgebaut — Logs, Rebuild, `docker compose config`, `PB_DEV_MODE`-Hinweis | Alle Dev-Docker-Details an einem Ort |
-| `DEV_SETUP.md` | `docker compose up app` → korrigiert zu `lager_frontend` | `app` ist kein gültiger Service-Name laut Log |
-
-> Der fehlerhafte Block in der alten `DEV_SETUP.md`:
-> ```bash
-> # App-Container bauen und starten
-> docker compose up app -d --build
-> ```
-> wurde korrigiert zu `lager_frontend` — so heißt der Service laut deinem Docker-Start-Log. 🎯
 
 
 *Letzte Aktualisierung: Mai 2026*
