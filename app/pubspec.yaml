@@ -3,7 +3,7 @@ description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 
 publish_to: none
 
-version: 0.9.8+69
+version: 0.9.9+76
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -74,7 +74,7 @@ dependencies:
 
   http: ^1.2.2
   connectivity_plus: ^7.1.1
-  webdav_client: ^1.0.0
+  
   crypto: ^3.0.3
 
   # ==================== SYSTEM ====================

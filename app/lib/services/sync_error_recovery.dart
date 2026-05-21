@@ -1,3 +1,4 @@
+import 'package:logger/logger.dart';
 // lib/services/sync_error_recovery.dart
 
 import 'dart:async';
@@ -323,14 +324,25 @@ extension RecoveryActionExtension on RecoveryAction {
 
 /// Service für Error Recovery und Retry Logic
 class SyncErrorRecoveryService {
-  final _logger = AppLogService.logger;
+  final Logger _logger;
+
+  // ✅ NEU: injizierbar statt static const
+  final Duration retryDelay;
+  final Duration exponentialBackoffBase;
+
+  SyncErrorRecoveryService({
+    Logger? logger,
+    // ✅ Defaults bleiben identisch — kein Breaking Change
+    this.retryDelay = const Duration(seconds: 5),
+    this.exponentialBackoffBase = const Duration(seconds: 2),
+    })
+      : _logger = logger ?? AppLogService.logger;
+
   final List<SyncError> _errorHistory = [];
   final Map<String, int> _retryCount = {};
   final Map<String, DateTime> _lastRetryTime = {};
 
   static const int maxRetries = 3;
-  static const Duration retryDelay = Duration(seconds: 5);
-  static const Duration exponentialBackoffBase = Duration(seconds: 2);
 
   // Fix: Maximale History-Größe um Memory Leak zu verhindern
   static const int _maxHistorySize = 500;
@@ -413,7 +425,7 @@ class SyncErrorRecoveryService {
   /// Prüft ob ein Item übersprungen werden sollte
   bool _shouldSkip(SyncError error) {
     return error.severity == ErrorSeverity.low ||
-        (!error.isRetryable && error.severity != ErrorSeverity.critical);
+        (!error.isRetryable && error.severity != ErrorSeverity.critical && !error.requiresUserAction);
   }
 
   /// Prüft ob ein Item noch im Cooldown ist

@@ -16,10 +16,8 @@ import '../services/app_log_service.dart';
 import '../services/artikel_db_service.dart';
 import '../services/artikel_export_service.dart';
 import '../services/artikel_import_service.dart';
-import '../services/nextcloud_connection_service.dart';
 import '../services/pocketbase_service.dart';
 import '../services/scan_service.dart';
-import '../services/nextcloud_service_interface.dart';
 import '../services/sync_status_provider.dart';
 import '../services/sync_orchestrator.dart' show SyncStatus;
 
@@ -39,14 +37,12 @@ import 'list_screen_mobile_actions.dart'
 class ArtikelListScreen extends StatefulWidget {
   const ArtikelListScreen({
     super.key,
-    this.nextcloudService,
     this.initialArtikel,
     this.syncStatusProvider,
     this.onLogout,
     this.onSyncIntervalChanged,
   });
 
-  final NextcloudServiceInterface? nextcloudService;
   final List<Artikel>? initialArtikel;
   final SyncStatusProvider? syncStatusProvider;
   final VoidCallback? onLogout;
@@ -78,7 +74,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   late final ArtikelDbService _db;
   late final PocketBaseService _pbService;
 
-  NextcloudServiceInterface? _nextcloudService;
 
   StreamSubscription<SyncStatus>? _syncSubscription;
   bool _isSyncRunning = false;
@@ -116,13 +111,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
     if (!kIsWeb) {
       _checkPocketBaseConnection();
-      try {
-        _nextcloudService =
-            widget.nextcloudService ?? NextcloudConnectionService();
-        _nextcloudService!.startPeriodicCheck();
-      } catch (e, st) {
-        _logger.e('Nextcloud-Init fehlgeschlagen:', error: e, stackTrace: st);
-      }
     } else {
       _pbConnected = true;
     }
@@ -149,7 +137,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     _syncSubscription?.cancel();
     _debounceTimer?.cancel();
     _scrollController.dispose();
-    _nextcloudService?.dispose();
     super.dispose();
   }
 

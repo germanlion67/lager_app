@@ -9,11 +9,20 @@ import 'dart:async';
 import 'dart:io';
 import '../config/app_config.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 
+/// Typ-Alias für den injizierbaren DNS-Lookup (testbar ohne IOOverrides)
+typedef DnsLookup = Future<List<InternetAddress>> Function(String host);
 
 class ConnectivityService {
   ConnectivityService._();
+
+  /// Nur für Tests überschreibbar — im Produktivcode null (→ echter Lookup)
+  @visibleForTesting
+  static DnsLookup? dnsLookupOverride;
+
+  static Future<List<InternetAddress>> _lookup(String host) =>
+      (dnsLookupOverride ?? InternetAddress.lookup)(host);
 
   /// Gibt true zurück wenn eine Netzwerkverbindung besteht.
   ///
@@ -62,7 +71,7 @@ class ConnectivityService {
   /// Direkter TCP-Lookup — kein DBus, kein NetworkManager nötig.
   static Future<bool> _tcpCheck() async {
     try {
-      final result = await InternetAddress.lookup('8.8.8.8')
+      final result = await _lookup('8.8.8.8')
           .timeout(AppConfig.connectivityCheckTimeout);
       return result.isNotEmpty && result.first.rawAddress.isNotEmpty;
     } on SocketException {

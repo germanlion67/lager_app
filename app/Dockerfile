@@ -4,7 +4,7 @@
 # Pinned base image for reproducibility
 FROM debian:bookworm-20240513-slim AS build-env
 
-ARG FLUTTER_VERSION=3.41.4
+ARG FLUTTER_VERSION=3.41.7
 
 # Install dependencies and cleanup in one layer for smaller image
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -47,9 +47,11 @@ COPY app/ .
 ARG POCKETBASE_URL=http://localhost:8080
 
 RUN flutter build web --release \
+    --wasm \
     --dart-define=POCKETBASE_URL=${POCKETBASE_URL} \
     --dart-define=FLUTTER_WEB_AUTO_DETECT=true \
-    --no-source-maps
+    --no-source-maps \
+    --tree-shake-icons
 
 # ============================================================
 # Stage 2: Caddy Static File Server with Runtime Config
@@ -62,6 +64,10 @@ FROM caddy:2.7.6-alpine
 
 # Flutter Web Build aus Stage 1 kopieren
 COPY --from=build-env /app/build/web /srv
+
+# Service Worker entfernen — wird nicht benötigt (--pwa-strategy=none)
+# Datei existiert trotzdem im Build-Output, muss explizit gelöscht werden
+RUN rm -f /srv/flutter_service_worker.js
 
 # Caddyfile für SPA-Routing (liegt im Repo unter app/Caddyfile)
 COPY app/Caddyfile /etc/caddy/Caddyfile

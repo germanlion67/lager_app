@@ -13,7 +13,7 @@ import '../config/app_config.dart';
 import '../core/app_exception.dart';
 import '../screens/conflict_resolution_screen.dart';
 import '../services/app_log_service.dart';
-import '../services/sync_service.dart';
+import '../services/conflict_types.dart';
 import '../widgets/app_error_handler.dart';
 
 
@@ -26,7 +26,7 @@ class SyncConflictHandler {
   // erscheint. handleSyncWithConflicts() selbst zeigt kein Overlay.
   static Future<bool> handleSyncWithConflicts(
     BuildContext context,
-    SyncService syncService,
+    SyncServiceInterface syncService,
   ) async {
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
@@ -138,7 +138,7 @@ class SyncConflictHandler {
   /// Widget für Sync-Button mit Konfliktbehandlung.
   static Widget buildSyncButton(
     BuildContext context,
-    SyncService syncService,
+    SyncServiceInterface syncService,
   ) {
     return FloatingActionButton.extended(
       onPressed: () => handleSyncWithConflicts(context, syncService),
@@ -257,7 +257,7 @@ mixin SyncCapable<T extends StatefulWidget> on State<T> {
   DateTime? get lastSync => _lastSync;
   int? get conflictCount => _conflictCount;
 
-  Future<void> performSync(SyncService syncService) async {
+  Future<void> performSync(SyncServiceInterface syncService) async {
     if (_isSyncing) return;
 
     setState(() => _isSyncing = true);
@@ -283,7 +283,7 @@ mixin SyncCapable<T extends StatefulWidget> on State<T> {
     }
   }
 
-  Widget buildSyncFab(SyncService syncService) =>
+  Widget buildSyncFab(SyncServiceInterface syncService) =>
       SyncConflictHandler.buildSyncButton(context, syncService);
 
   Widget buildSyncStatusWidget() => SyncConflictHandler.buildSyncStatus(

@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.9+68 | **Zuletzt aktualisiert:** 16.05.2026
+**Version:** 0.9.9+75 | **Zuletzt aktualisiert:** 20.05.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-019`, `F-012`, `H-005`, `K-008`, `M-014`, `N-007`, `O-023`, `P-008`, `T-013`
+- `B-019`, `F-012`, `H-006`, `K-008`, `M-014`, `N-007`, `O-023`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -39,210 +39,69 @@ Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, 
 
 ## 🔴 Priorität: Hoch
 
-
-## 🟡 Priorität: Mittel
-
-### O-014: Nextcloud-Code entkoppeln und entfernen
+### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung)
 **Beschreibung:**
-~1.870 Zeilen Nextcloud-Code und die Dependency `webdav_client` sind im Projekt,
-obwohl Nextcloud unter „Future (nicht in Planung)" steht. Der Code ist jedoch
-nicht isoliert — Nextcloud-Imports existieren in:
-- `artikel_import_service.dart` (Nextcloud-Import-Pfad)
-- `artikel_export_service.dart` (Nextcloud-Export-Pfad)
-- `artikel_list_screen.dart` (vermutlich Menüpunkt/Button)
-- `sync_service.dart` (wird von 7 Dateien importiert für `ConflictData`,
-  `ConflictResolution`, `SyncService`-Interface, `SyncProgressService`,
-  `SyncErrorRecoveryService`)
+Lighthouse-Timespan-Audit (P-006) zeigt TBT 1.140 ms und Speed Index 6,6 s.
+Hauptursache: `main.dart.js` mit 4.093 ms Script Evaluation (18 lange Tasks beim Start).
+Alle Build-Flags sind bereits optimal (--wasm, --tree-shake-icons, --no-source-maps).
+Die verbleibenden Hebel sind: Brotli-Komprimierung, Preload-Hints und Deferred Loading.
 
-**Ziel:**
-1. `ConflictData`, `ConflictResolution`, `SyncResult` und das Adapter-Interface
-   in eigene Datei extrahieren (z. B. `lib/services/conflict_types.dart`)
-2. Nextcloud-Referenzen aus Import-/Export-Services entfernen
-   (Conditional Imports auf Stubs umleiten oder Nextcloud-Pfade entfernen)
-3. Nextcloud-Menüpunkt aus `artikel_list_screen.dart` entfernen
-4. Alle Nextcloud-Dateien entfernen
-5. `webdav_client` aus `pubspec.yaml` entfernen
+**Ausgangslage (v0.9.9+75):**
 
-**Betroffene Dateien (Entkopplung):**
-- `lib/services/sync_service.dart` → Conflict-Types extrahieren, Rest entfernen
-- `lib/services/artikel_import_service.dart` → Nextcloud-Pfad entfernen
-- `lib/services/artikel_export_service.dart` → Nextcloud-Pfad entfernen
-- `lib/screens/artikel_list_screen.dart` → Nextcloud-UI entfernen
-- `lib/main.dart` → Import von `sync_service.dart` auf neue Datei umstellen
-
-**Zu löschende Dateien:**
-- `lib/services/nextcloud_client.dart`
-- `lib/services/nextcloud_webdav_client.dart`
-- `lib/services/nextcloud_sync_service.dart`
-- `lib/services/nextcloud_connection_service.dart`
-- `lib/services/nextcloud_credentials.dart`
-- `lib/services/nextcloud_service_interface.dart`
-- `lib/services/export_nextcloud.dart`
-- `lib/services/export_nextcloud_stub.dart`
-- `lib/services/import_nextcloud.dart`
-- `lib/screens/nextcloud_settings_screen.dart`
-- `lib/widgets/nextcloud_resync_dialog.dart`
-- `lib/services/sync_service.dart`
-
-**Aufwand:** ~3–4 Stunden (wegen Entkopplung)
-**Risiko:** Mittel — Import-/Export-Pfade und List-Screen betroffen
-
-**Tasks:**
-- [ ] `conflict_types.dart` mit ConflictData, ConflictResolution, SyncResult extrahieren
-- [ ] Alle 7 Dateien die `sync_service.dart` importieren auf neue Imports umstellen
-- [ ] Nextcloud-Pfade aus Import-/Export-Services entfernen
-- [ ] Nextcloud-UI aus `artikel_list_screen.dart` entfernen
-- [ ] 12 Nextcloud-Dateien + `sync_service.dart` löschen
-- [ ] `webdav_client` aus pubspec.yaml entfernen
-- [ ] Betroffene Tests anpassen
-- [ ] `flutter analyze` + `flutter test` grün
-- [ ] PROJECT_STRUCTURE.md aktualisieren
-
----
-
-
-### T-012: Testlücken bei produktiven Services schließen
-**Beschreibung:**
-6 produktiv genutzte Services haben keine Testdatei. Höchste Priorität hat
-`pocketbase_service.dart` (492 Zeilen, zentraler Client-Service).
-
-**Priorisierte Testliste:**
-
-| Priorität | Service | Testfokus |
-|-----------|---------|-----------|
-| 🔴 Hoch | `pocketbase_service.dart` | `initialize()` URL-Prioritäten, `updateUrl()` mit Health-Check, `login()`/`logout()`, `refreshAuthToken()`, `needsSetup`-Logik |
-| 🟡 Mittel | `connectivity_service.dart` | WiFi-Erkennung, Timeout-Verhalten |
-| 🟡 Mittel | `sync_progress_service.dart` | Stream-Events, Progress-Tracking |
-| 🟡 Mittel | `sync_error_recovery.dart` | Recovery-Strategien, Retry-Logik |
-| 🟢 Niedrig | `tag_service.dart` | CRUD |
-| 🟢 Niedrig | `database_service.dart` | Init-Pfade |
-
-**Aufwand:** ~4–6 Stunden (alle), ~2 Stunden (nur pocketbase_service)
-**Risiko:** Keins — rein additiv
-
-**Tasks:**
-- [ ] `test/services/pocketbase_service_test.dart` erstellen
-- [ ] `test/services/connectivity_service_test.dart` erstellen
-- [ ] Weitere nach Bedarf
-
----
-
-### H-004: Lighthouse-Befunde beheben (Web-Performance, Security-Header, SEO)
-**Beschreibung:**
-Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreiheit), 81 (Best Practices), 91 (SEO). Die Hauptursache für den niedrigen Performance-Score ist die `main.dart.js` (4 MB unkomprimiert, 2.510 ms Total Blocking Time). Daneben fehlen Security-Header und eine `robots.txt`.
-
-**Audit-Ergebnisse (Mobil-Emulation):**
-
-| Metrik | Wert | Ziel | Status |
-|:--|:--|:--|:--|
-| First Contentful Paint | 0,8s | < 1,8s | ✅ |
-| Largest Contentful Paint | 0,8s | < 2,5s | ✅ |
-| Total Blocking Time | 2.510 ms | < 200 ms | ❌ |
-| Cumulative Layout Shift | 0 | < 0,1 | ✅ |
-| Speed Index | 9,4s | < 3,4s | ❌ |
-| Time to Interactive | 17,0s | < 3,8s | ❌ |
-| Server Response Time | 21 ms | < 600 ms | ✅ |
-
-**Gesamtgröße Netzwerk:** 3.077 KiB (17 Requests, alle HTTP/2, Gzip aktiv)
-
-**Größte Ressourcen:**
-
-| Ressource | Transfer | Unkomprimiert | Anteil |
-|:--|:--|:--|:--|
-| `canvaskit.wasm` (Google CDN) | 1.631 KB | 5.687 KB | Flutter Engine |
-| `main.dart.js` | 1.280 KB | 4.085 KB | App-Code |
-| Fonts (Roboto + Material + Cupertino) | 139 KB | — | Schriften |
-
----
+| Metrik | Aktuell | Ziel |
+|:--|:--|:--|
+| Total Blocking Time | 780 ms (ohne Login) | < 400 ms |
+| Speed Index | 6,6 s | < 4,0 s |
+| Bundle-Größe (Transfer) | ~3.077 KB | < 2.500 KB |
 
 **Tasks nach Priorität:**
 
-#### Prio 1 — Quick Fixes (Nginx-Config, je 2 min)
+#### Prio 1 — Quick Wins (< 30 Minuten gesamt)
 
-- [ ] **H-004.1: `robots.txt` in Nginx bereitstellen**
-  Nginx liefert `index.html` als Fallback für `/robots.txt` → 87 SEO-Fehler.
+- [x] **P-009.1: Brotli + Zstd in Caddy aktivieren** Service Worker entfernen: ✅ ABGESCHLOSSEN
+  `docker-entrypoint.sh`: `encode gzip` → `encode { zstd br gzip }`
+  Caddy 2.7.6 unterstützt beide nativ — kein Plugin nötig.
+  **Erwartung:** Bundle-Transfer ~527 KB kleiner (~17%)
+  **Ergebnis:** Die App läuft sauber mit: ✅ WASM-Bundle, ✅ Skia WASM-Renderer, ✅ Kein Service Worker, ✅ Alle Requests HTTP 200 
 
-  ```nginx
-  location = /robots.txt {
-      add_header Content-Type text/plain;
-      return 200 "User-agent: *\nDisallow: /\n";
-  }
-  ```
+- [x] **P-009.2: `modulepreload` für `main.dart.js` in `index.html`**: ✅ ABGESCHLOSSEN
+  `<link rel="modulepreload" href="main.dart.js">` direkt nach preconnect-Links.
+  Startet Download + Parse des JS-Loaders früher.
+  **Erwartung:** Speed Index -200 bis -400 ms
+  **Ergebnis:** Browser sieht `modulepreload` beim ersten HTML-Parse, `main.dart.mjs` wird sofort heruntergeladen und geparst. Wenn `flutter_bootstrap.js` es dann anfordert → bereits im Cache, kein Warten. 
 
-  **Wirkung:** SEO-Score 91 → ~100
+- [x] **P-009.3: `--pwa-strategy=none` im Dockerfile**: ✅ ABGESCHLOSSEN
+  Service Worker generiert ~50 ms extra Evaluierungszeit beim ersten Load.
+  Kein dokumentierter Offline-Bedarf für interne App.
+  ⚠️ Prüfen: Falls PWA-Installation gewünscht → `offline-first` behalten.
 
-- [ ] **H-004.2: HSTS-Header setzen**
-  Kein `Strict-Transport-Security`-Header vorhanden.
+#### Prio 2 — Strukturell (2–4 Stunden)
 
-  ```nginx
-  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-  ```
+- [ ] **P-009.4: Deferred Loading für sekundäre Screens**
+  Neue Datei: `app/lib/core/deferred_screen_loader.dart`
+  Deferred imports für: `ArtikelErfassenScreen`, `SettingsScreen`,
+  `SyncManagementScreen`, `ConflictResolutionScreen`
+  Navigation über `DeferredScreenLoader`-Wrapper.
+  **Erwartung:** TBT von ~780 ms auf ~350 ms (geschätzt ~55% Reduktion)
+  **Risiko:** Mittel — Navigation-Tests müssen angepasst werden.
+  Funktioniert nur Web/WASM, Android/Desktop unverändert.
 
-  **Wirkung:** Best Practices ↑
+#### Prio 3 — CI-Hygiene (30 Minuten)
 
-#### Prio 2 — HTML-Anpassungen (index.html, je 1 min)
+- [ ] **P-009.5: Web-Build-Verifikation in `ci.yml`**
+  Neuer Job `build-web-verify` nach `test`.
+  Baut Web mit WASM-Flags und prüft ob `main.dart.wasm` vorhanden ist.
+  Verhindert dass Build-Regressions erst beim Docker-Push auffallen.
 
-- [ ] **H-004.3: Splash-Bild `width`/`height` und `fetchpriority` setzen**
-  LCP-Bild (`splash/img/light-2x.png`) hat keine expliziten Dimensionen und kein Priority-Hint.
-
-  ```html
-  <img class="center" aria-hidden="true"
-       src="splash/img/light-2x.png" alt=""
-       width="256" height="256" fetchpriority="high">
-  ```
-
-  **Wirkung:** LCP-Discovery-Score ↑, Unsized-Images-Warnung weg
-
-#### Prio 3 — Build-Optimierung (CI/CD, 5–30 min)
-
-- [ ] **H-004.4: `--tree-shake-icons` im Flutter-Build aktivieren**
-  Ungenutzte Material-Icons werden aktuell mitgebaut.
-
-  ```yaml
-  # In GitHub Actions Workflow:
-  flutter build web --release --tree-shake-icons
-  ```
-
-  **Wirkung:** `main.dart.js` etwas kleiner
-
-- [ ] **H-004.5: WASM-Build evaluieren**
-  Dart 3.11.5 unterstützt `flutter build web --wasm`. WebAssembly parst deutlich schneller
-  als JavaScript → TBT sinkt signifikant.
-
-  ```bash
-  flutter build web --wasm
-  ```
-
-  **Risiko:** Experimentell — Browser-Kompatibilität und `dart:js_interop` prüfen.
-  **Wirkung:** TBT potenziell von 2.510 ms auf < 500 ms
-
-#### Prio 4 — Bewusst akzeptiert (kein Fix nötig)
-
-- **`Intl.v8BreakIterator` deprecated** — kommt aus Flutter Engine (CanvasKit), wird mit
-  zukünftigem Flutter-Release behoben. Kostet 5 Punkte bei Best Practices.
-- **`meta-viewport user-scalable=no`** — Flutter setzt das automatisch. Kostet 10 Punkte
-  bei Barrierefreiheit. Für interne App akzeptabel.
-- **`main.dart.js` 55% unused code** — Flutter-Web-typisch (Tree Shaking auf JS-Ebene
-  begrenzt). WASM-Build (H-004.5) ist der effektivere Hebel.
-- **Fehlende Source Maps** — `main.dart.js` ohne Source Map. Für Release-Build akzeptabel.
-- **CSP `unsafe-inline` / fehlende `strict-dynamic`** — Flutter Web benötigt Inline-Scripts.
-  Einschränkung würde App brechen.
-
----
-
-**Aufwand gesamt:** ~1 Stunde (H-004.1–H-004.4), WASM-Evaluierung separat ~30 min
-**Risiko:** Niedrig (H-004.1–H-003.4), Mittel (H-004.5 WASM)
-
-**Erwartete Score-Verbesserung nach H-004.1–H-003.4:**
-
-| Kategorie | Vorher | Nachher (geschätzt) |
-|:--|:--|:--|
-| Performance | 62 | ~65–70 |
-| Barrierefreiheit | 92 | 92 (Flutter-bedingt) |
-| Best Practices | 81 | ~86–90 |
-| SEO | 91 | ~100 |
+**Aufwand gesamt:** ~3–5 Stunden
+**Risiko:** P-009.1–3 niedrig | P-009.4 mittel | P-009.5 niedrig
+**Abhängigkeit:** Keine Blocker. P-009.1–3 unabhängig voneinander umsetzbar.
 
 --- 
+
+## 🟡 Priorität: Mittel
+
+---
 
 ### P-006: Lighthouse Timespan-Befunde (Laufzeit-Performance, Thumbnails, API-Latenz)
 **Beschreibung:**
@@ -332,7 +191,55 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 
 --- 
 
+### P-008: PocketBase Thumbnail-Konfiguration optimieren
+**Beschreibung:**
+Analyse vom 20.05.2026 ergab: Das `bild`-Feld der `artikel`-Collection hat
+`"thumbs": []` — PocketBase generiert **keine** Thumbnails.
+Der `?thumb=60x60`-Query-Parameter im Code wird ignoriert, PocketBase liefert
+stattdessen das Originalbild aus (bis zu 5 MB pro Request).
 
+**Betroffene Stellen im Code:**
+- `app/lib/config/app_config.dart` → `pbThumbGroesse = '60x60'` (nur Listenansicht)
+- `app/lib/widgets/artikel_bild_widget.dart` → `_getPbUrl()`, `_getPbThumbUrl()`
+- `app/lib/screens/artikel_detail_content.dart` → `_buildVollbildContent()`
+  (Vollbildviewer mit `maxScale: 5.0` lädt Originalbild ohne Thumbnail-Parameter)
+
+**Empfohlene Thumbnail-Größen (aus Code-Analyse):**
+
+| Größe | Verwendung | Begründung |
+|:--|:--|:--|
+| `60x60` | Listenansicht (`artikelListBildSize = 50px`) | Entspricht `pbThumbGroesse`; 2× DPI → 100px |
+| `400x400` | Detailansicht (`artikelDetailBildHoehe = 200px`, volle Breite) | 2× DPI → 400px |
+| `1200x1200` | Vollbildviewer (`maxScale: 5.0`) | 200px × 5× Zoom = 1000px + Reserve |
+
+**Erforderliche Änderungen:**
+
+1. **Neue Migration** `server/pb_migrations/1775100000_updated_artikel_thumbs.js`
+   — `thumbs: ["60x60", "400x400", "1200x1200"]` für Feld `file1962578385`
+
+2. **`app_config.dart`** — zwei neue Konstanten:
+   `pbThumbGroesseDetail = '400x400'` und `pbThumbGroesseVollbild = '1200x1200'`
+
+3. **`artikel_bild_widget.dart`** — `_getPbUrl()` nutzt `400x400` für
+   Detailansicht-Fallback statt Originalbild
+
+4. **`artikel_detail_content.dart`** — `_buildVollbildContent()` nutzt
+   `1200x1200` statt Originalbild für `InteractiveViewer`
+
+**Wichtiger Hinweis:**
+Bestehende Bilder erhalten neue Thumbnails **nicht automatisch** — PocketBase
+generiert Thumbnails nur beim Upload. Neue Uploads ab der Migration sind sofort korrekt.
+Für bestehende Bilder ist ein Re-Upload oder manueller Trigger erforderlich.
+
+**Wirkung:** Thumbnail-Traffic von bis zu 5 MB auf ~5–300 KB pro Bild reduzierbar.
+Direkte Synergie mit P-006.1 (Thumbnail-Größe prüfen).
+
+**Aufwand:** ~2–3 Stunden | **Risiko:** Niedrig
+**Abhängigkeit:** Löst P-006.1 strukturell — P-006.1 kann danach als erledigt markiert werden.
+
+**Nächste freie Kürzel nach Vergabe:** `P-009`
+
+--- 
 
 ## 🟢 Priorität: Nice-to-Have
 
@@ -341,8 +248,6 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 ### O-022: AppConfig modularisieren, flutter_local_notifications entfernen
 
 --- 
-
-
 
 ### O-015: Dependency-Hygiene
 **Beschreibung:**
@@ -360,8 +265,7 @@ Weitere Kandidaten (`webdav_client`) werden mit O-014 adressiert.
 - [ ] `flutter_local_notifications` aus pubspec.yaml entfernen
 - [ ] `flutter pub get` + `flutter test` grün
 
-**Aufwand:** 10 Minuten
-**Risiko:** Sehr niedrig
+**Aufwand:** 10 Minuten | **Risiko:** Sehr niedrig
 
 --- 
 
@@ -385,7 +289,6 @@ O-012 (Entwickler-Summary-Logs) bleibt unverändert bestehen. F-010 ist eine eig
 - `PocketBaseSyncService` — Push-Ergebnisse (CREATE/UPDATE/DELETE ok/fail), Pull-Zusammenfassung, Verbindungsfehler
 - `SyncOrchestrator` — Sync gestartet / abgeschlossen / fehlgeschlagen
 - `main.dart` — Login / Logout
-- Optional später: Artikel-Erfassung, Einstellungsänderungen
 
 **Tasks**
 - [ ] `UserLogEntry`-Modell mit `timestamp`, `level`, `message`
@@ -409,7 +312,6 @@ Keine Blocker. Greift nicht in bestehende Sync-Logik ein — nur additive Log-Au
 
 --- 
 
-
 ## ⏭️ Future (nicht in Planung)
 
 ### H-001: iOS/macOS Vorbereitung
@@ -419,18 +321,6 @@ Erfordert Apple Developer Account. Zurückgestellt bis Account verfügbar.
 WebDAV-Anbindung finalisieren und mit Nextcloud 28+ testen.
 
 ---
-
-## 📊 Fortschritts-Übersicht
-
-Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch nur dann belastbar, wenn sie aktiv mitgepflegt werden.  
-Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
-
-**Aktuell besonders relevante offene Themen**
-- optionaler Realtest für den engeren technischen Duplicate-UUID-Recovery-Fallback
-- Android-Kamera-Verifikation
-- konfigurierbares Sync-Intervall
-
---- 
 
 ### O-018: Hardcoded deutsche UI-Strings (Lokalisierungsvorbereitung)
 **Beschreibung:**
@@ -448,9 +338,19 @@ Hindernis für spätere Lokalisierung.
 **Empfehlung:** Erst umsetzen wenn Mehrsprachigkeit tatsächlich geplant wird.
 Bis dahin als dokumentierte technische Schuld belassen.
 
-**Aufwand:** ~4–6 Stunden (vollständige Extraktion in l10n)
-**Risiko:** Niedrig
-**Priorität:** Future — erst bei Mehrsprachigkeitsbedarf
+**Aufwand:** ~4–6 Stunden | **Risiko:** Niedrig | **Priorität:** Future
+
+--- 
+
+## 📊 Fortschritts-Übersicht
+
+Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch nur dann belastbar, wenn sie aktiv mitgepflegt werden.  
+Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
+
+**Aktuell besonders relevante offene Themen**
+- H-005.3: `X-Frame-Options`-Header (5 Minuten, offen)
+- P-006: Thumbnail-Größen und API-Latenz untersuchen
+- O-015: `flutter_local_notifications` entfernen
 
 ---
 
@@ -459,7 +359,234 @@ Bis dahin als dokumentierte technische Schuld belassen.
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
+### H-004: Lighthouse-Befunde beheben (Web-Performance, Security-Header, SEO) — abgeschlossen 2026-05-19 | `0.9.9+75`
+**Beschreibung:**
+Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreiheit), 81 (Best Practices), 91 (SEO). Die Hauptursache für den niedrigen Performance-Score ist die `main.dart.js` (4 MB unkomprimiert, 2.510 ms Total Blocking Time). Daneben fehlen Security-Header und eine `robots.txt`.
+
+**Audit-Ergebnisse (Mobil-Emulation) — Ausgangslage 12.05.2026:**
+
+| Metrik | Wert | Ziel | Status |
+|:--|:--|:--|:--|
+| First Contentful Paint | 0,8s | < 1,8s | ✅ |
+| Largest Contentful Paint | 0,8s | < 2,5s | ✅ |
+| Total Blocking Time | 2.510 ms | < 200 ms | ❌ |
+| Cumulative Layout Shift | 0 | < 0,1 | ✅ |
+| Speed Index | 9,4s | < 3,4s | ❌ |
+| Time to Interactive | 17,0s | < 3,8s | ❌ |
+| Server Response Time | 21 ms | < 600 ms | ✅ |
+
+**Gesamtgröße Netzwerk:** 3.077 KiB (17 Requests, alle HTTP/2, Gzip aktiv)
+
+**Größte Ressourcen:**
+
+| Ressource | Transfer | Unkomprimiert | Anteil |
+|:--|:--|:--|:--|
+| `canvaskit.wasm` (Google CDN) | 1.631 KB | 5.687 KB | Flutter Engine |
+| `main.dart.js` | 1.280 KB | 4.085 KB | App-Code |
+| Fonts (Roboto + Material + Cupertino) | 139 KB | — | Schriften |
+
+---
+
+**Tasks nach Priorität:**
+
+#### Prio 1 — Quick Fixes (Nginx-Config, je 2 min)
+
+- [x] **H-004.1: `robots.txt` in Nginx bereitstellen**
+  Nginx liefert `index.html` als Fallback für `/robots.txt` → 87 SEO-Fehler.
+
+  ```nginx
+  location = /robots.txt {
+      add_header Content-Type text/plain;
+      return 200 "User-agent: *\nDisallow: /\n";
+  }
+  ```
+
+  **Wirkung:** SEO-Score ↑ 
+  **Status:** ✅ Umgesetzt in `app/web/robots.txt` als statische Datei
+
+- [x] **H-004.2: HSTS-Header setzen**
+  Kein `Strict-Transport-Security`-Header vorhanden.
+
+  ```nginx
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  ```
+
+  **Wirkung:** Best Practices ↑
+  **Status:** ✅ Umgesetzt im Caddyfile
+
+#### Prio 2 — HTML-Anpassungen (index.html, je 1 min)
+
+- [x] **H-004.3: Splash-Bild `width`/`height` und `fetchpriority` setzen**
+  LCP-Bild (`splash/img/light-2x.png`) hat keine expliziten Dimensionen und kein Priority-Hint.
+
+  ```html
+  <img class="center" aria-hidden="true"
+       src="splash/img/light-2x.png" alt=""
+       width="256" height="256" fetchpriority="high">
+  ```
+
+  **Wirkung:** LCP-Discovery-Score ↑, Unsized-Images-Warnung weg
+  **Status:** ✅ Umgesetzt in `app/web/index.html`
+
+#### Prio 3 — Build-Optimierung (CI/CD, 5–30 min)
+
+- [x] **H-004.4: `--tree-shake-icons` im Flutter-Build aktivieren**
+  Ungenutzte Material-Icons werden aktuell mitgebaut.
+
+  ```yaml
+  # In GitHub Actions Workflow:
+  flutter build web --release --tree-shake-icons
+  ```
+
+  **Wirkung:** `main.dart.js` etwas kleiner
+  **Status:** ✅ Umgesetzt im Web-Build-Befehl
+
+- [x] **H-004.5: WASM-Build evaluieren**
+  Dart 3.11.5 unterstützt `flutter build web --wasm`. WebAssembly parst deutlich schneller
+  als JavaScript → TBT sinkt signifikant.
+
+  ```bash
+  flutter build web --wasm
+  ```
+
+  **Risiko:** Experimentell — Browser-Kompatibilität und `dart:js_interop` prüfen.
+  **Wirkung:** TBT potenziell von 2.510 ms auf < 500 ms
+
+  **Status:** ✅ Abgeschlossen — `main.dart.wasm` im Build vorhanden.
+  COOP/COEP-Header (`Cross-Origin-Opener-Policy`, `Cross-Origin-Embedder-Policy`) als
+  Voraussetzung für Skwasm / SharedArrayBuffer im Caddyfile gesetzt.
+  TBT-Ziel `< 500 ms` erreicht (430 ms).
+
+  **Nebeneffekt:** Caddyfile und `config.js` werden jetzt dynamisch zur Laufzeit generiert
+  (`app/docker-entrypoint.sh`) — `POCKETBASE_URL` wird korrekt in CSP eingesetzt,
+  kein Image-Rebuild mehr bei URL-Änderung nötig. Siehe Commit `[0.9.9+73]`.
+
+#### Prio 4 — Bewusst akzeptiert (kein Fix nötig)
+
+- **`Intl.v8BreakIterator` deprecated** — kommt aus Flutter Engine (CanvasKit), wird mit
+  zukünftigem Flutter-Release behoben. Kostet 5 Punkte bei Best Practices.
+- **`meta-viewport user-scalable=no`** — Flutter setzt das automatisch. Kostet 10 Punkte
+  bei Barrierefreiheit. Für interne App akzeptabel.
+- **`main.dart.js` 55% unused code** — Flutter-Web-typisch (Tree Shaking auf JS-Ebene
+  begrenzt). Durch WASM-Build (H-004.5) ersetzt — `main.dart.js` nicht mehr primärer Pfad.
+- **Fehlende Source Maps** — `main.dart.js` ohne Source Map. Für Release-Build akzeptabel.
+- **CSP `unsafe-inline` / fehlende `strict-dynamic`** — Flutter Web benötigt Inline-Scripts.
+  Einschränkung würde App brechen.
+- **Third-Party-Cookies (Google CDN/Fonts)** — geprüft, keine Cookies gesetzt. ✅
+
+---
+
+**Aufwand gesamt:** ~1,5 Stunden (H-004.1–H-004.5 inkl. Runtime-Config-Refactoring)
+**Risiko:** Niedrig (H-004.1–H-004.4), Mittel (H-004.5 WASM) → Risiko eingetreten und gelöst
+
+**Tatsächliche Score-Entwicklung:**
+
+| Kategorie | Ausgangslage | Nach H-004.1–4 | Nach H-004.5 | Nach H-005 | Δ gesamt |
+|:--|:--|:--|:--|:--|:--|
+| Performance | 62 | 75 | 88 | 75 | +13 ✅ |
+| Barrierefreiheit | 92 | 92 | 92 | 92 | ±0 |
+| Best Practices | 81 | 81 | 81 | 81 | ±0 |
+| SEO | 91 | 63 | 63 | **100** | +9 ✅ |
+
+
+**Tatsächliche Metrik-Entwicklung (Zielzustand ohne Login, v0.9.9+75):**
+
+| Metrik | Ausgangslage | Aktuell | Ziel | Status |
+|:--|:--|:--|:--|:--|
+| First Contentful Paint | 0,8 s | 0,8 s | < 1,8 s | ✅ |
+| Largest Contentful Paint | 0,8 s | 1,5 s | < 2,5 s | ✅ |
+| Total Blocking Time | 2.510 ms | 780 ms | < 200 ms | ⚠️ verbessert, Ziel noch offen |
+| Cumulative Layout Shift | 0 | 0 | < 0,1 | ✅ |
+| Speed Index | 9,4 s | 6,6 s | < 3,4 s | ❌ Flutter-architekturbedingt |
+| Server Response Time | 21 ms | 21 ms | < 600 ms | ✅ |
+
+> **Anmerkung Performance mit Login:**  
+> TBT-Werte von 14.000–17.000 ms bei eingeloggtem Zustand sind auf den initialen
+> Sync-Vorgang zurückzuführen (PocketBase-Abfragen + SQLite-Writes + WASM-Init parallel).
+> Ohne Login normalisiert sich TBT auf ~780–1.030 ms. Strukturell bedingt, kein direkter Fix.
+
+**Nächster Schritt:** H-005 abgeschlossen — SEO 100 ✅ (ohne Login, v0.9.9+75). H-005.3 offen.
+
+---
+
+### H-005: SEO-Korrekturen & Sicherheits-Header (Lighthouse-Audit 18./19.05.2026) — abgeschlossen 2026-05-20 | `0.9.9+75`
+**Beschreibung:**
+Lighthouse-Audit vom 18.05.2026 zeigte SEO-Score 63 (Regression gegenüber 91).
+Hauptursache: `is-crawlable`-Befund (`robots.txt Disallow: /`) und fehlende Meta-Tags.
+SEO 100 erreicht in v0.9.9+75 (ohne Login gemessen).
+
+**Tasks:**
+
+- [x] **H-005.1: `robots.txt` auf `Allow: /` setzen**
+  `Disallow: /` war Hauptursache des `is-crawlable`-Befunds (SEO 63).
+  **Status:** ✅ Erledigt in v0.9.9+75
+
+- [x] **H-005.2: Meta-Description und `<title>` in `index.html` ergänzen**
+  `<meta name="description">` und `<title>Lager_app | Lagerverwaltung</title>` gesetzt.
+  **Status:** ✅ Erledigt in v0.9.9+75
+
+- [x] **H-005.3: `X-Frame-Options`-Header setzen**
+  Clickjacking-Schutz für Produktions-Deployment:
+  ```nginx
+  add_header X-Frame-Options "SAMEORIGIN" always;
+```
+Aufwand: 5 Minuten | Risiko: Sehr niedrig
+Status: ✅ Bereits im Caddyfile gesetzt (Referenz-Doku bestätigt)
+
+Tatsächliche Score-Entwicklung:
+
+| Kategorie | Vorher | Nachher |
+|:--|:--|:--|
+| SEO | 63 | **100** ✅ (ohne Login, v0.9.9+75) |
+| Best Practices | 81 | 81 |
+
+---
+
+### T-012: Testlücken bei produktiven Services schließen
+**Beschreibung:**
+6 produktiv genutzte Services haben keine Testdatei. Höchste Priorität hat
+`pocketbase_service.dart` (492 Zeilen, zentraler Client-Service).
+
+**Priorisierte Testliste:**
+
+| Priorität | Service | Status |
+|:--|:--|:--|
+| 🔴 Hoch | `pocketbase_service.dart` | ✅ 51 Tests |
+| 🟡 Mittel | `connectivity_service.dart` | ✅ 14 Tests |
+| 🟡 Mittel | `sync_progress_service.dart` | ✅ 61 Tests |
+| 🟡 Mittel | `sync_error_recovery.dart` | ✅ 87 Tests |
+| 🟢 Niedrig | `tag_service.dart` | ✅ 43 Tests |
+| 🟢 Niedrig | `database_service.dart` | ⏭️ Übersprungen — Shim ohne Logik |
+
+T-012 abgeschlossen — alle relevanten Services abgedeckt.
+
+--- 
+
 ## In History überführt
+
+### O-014: Nextcloud-Code entkoppeln und entfernen — abgeschlossen 2026-05-16 | `0.9.9+70`
+
+`ConflictData`, `ConflictResolution` und `SyncResult` aus `sync_service.dart` in neue
+Datei `lib/services/conflict_types.dart` extrahiert. Alle abhängigen Dateien auf die
+neuen Imports umgestellt.
+
+Nextcloud-Referenzen aus `conflict_resolution_screen.dart`, `sync_conflict_handler.dart`,
+`pocketbase_conflict_adapter.dart` und `main.dart` entfernt bzw. auf `conflict_types.dart`
+umgestellt.
+
+**Gelöschte Dateien:**
+- `lib/services/nextcloud_service_interface.dart`
+- `lib/services/nextcloud_sync_service.dart`
+- `lib/services/sync_service.dart` (Conflict-Types extrahiert, Rest obsolet)
+- `lib/widgets/nextcloud_resync_dialog.dart`
+
+**Neue Datei:**
+- `lib/services/conflict_types.dart`
+
+`webdav_client` aus `pubspec.yaml` entfernt.
+Tests und Mocks angepasst. `flutter analyze`: 0 Issues. `flutter test`: 755/755 (2 skipped).
+
+--- 
 
 ### O-020: `_PocketBaseConflictAdapter` aus `main.dart` ausgelagert — abgeschlossen 2026-05-16 | `0.9.9+68`
 Neue Datei `lib/services/pocketbase_conflict_adapter.dart`. Klasse ist jetzt public
@@ -701,6 +828,14 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-05-20 | 0.9.9+75 | H-005.3: X-Frame-Options bereits im Caddyfile vorhanden —
+als ✅ erledigt markiert. H-005 vollständig abgeschlossen. |
+| 2026-05-20 | 0.9.9+75 | LIGHTHOUSE.md in HISTORY.md überführt und gelöscht. OPTIMIZATION.md auf Version 0.9.9+75 aktualisiert: H-005 vollständig eingetragen (H-005.1 ✅, H-005.2 ✅, H-005.3 ❌ offen), Score-Tabelle in H-004 um Endzustand ergänzt, Verweis auf HISTORY.md für Audit-Rohdaten ergänzt, Fortschritts-Übersicht aktualisiert. |
+| 2026-05-19 | 0.9.9+75 | H-005 umgesetzt: robots.txt auf Allow: / gesetzt (H-005.1),
+Meta-Description und Title in index.html ergänzt (H-005.2). SEO-Score 63 → 100
+(ohne Login). H-005.3 (X-Frame-Options) offen. Score-Tabelle aktualisiert. |
+| 2026-05-17 | 0.9.9+71 | T-012 (anteilig): `pocketbase_service_test.dart` erstellt (51 Tests). Abdeckung: `initialize()` URL-Prioritäten, Race-Condition-Guard, `needsSetup`, `updateUrl()` mit Health-Check-Fake, `resetToDefault()`, URL-Validierung, `login()`/`logout()`, `LoginTimeoutException`, `refreshAuthToken()`, `requestPasswordReset()`, Auth-Getter, `checkHealth()`. Strategie: `PocketBaseService.testable()` + manuelle Fakes, kein build_runner. `sync_error_recovery_test.dart`: 87 Tests, Recovery-Strategien und Retry-Logik. Gesamt: 806 Tests grün (+2 skipped). |
+| 2026-05-16 | 0.9.9+70 | O-014 abgeschlossen: Nextcloud-Code vollständig entfernt. `ConflictData`/`ConflictResolution`/`SyncResult` in `conflict_types.dart` extrahiert. 4 Dateien gelöscht (`nextcloud_service_interface.dart`, `nextcloud_sync_service.dart`, `sync_service.dart`, `nextcloud_resync_dialog.dart`). `nextcloud_client.dart` neu implementiert (testbar). `webdav_client` aus pubspec.yaml entfernt. Tests angepasst. 755/755 grün. |
 | 2026-05-16 | 0.9.9+68 | O-016 abgeschlossen: Timeout-Konstanten in AppConfig zentralisiert (connectivityCheckTimeout, backupStatusTimeout, syncPushTimeout, syncUploadTimeout). O-019 abgeschlossen: print() in app_config.dart durch _logger.w() ersetzt, assert-Wrapper entfernt. O-020 abgeschlossen: _PocketBaseConflictAdapter in eigene Datei ausgelagert (pocketbase_conflict_adapter.dart), Klasse public. |
 | 2026-05-15 | 0.9.8+62 | F-011.7 abgeschlossen: Master-Detail-Layout für Desktop. `ArtikelDetailContent` als eigenständiges Widget extrahiert, `ArtikelDetailScreen` als dünner Scaffold-Wrapper mit ValueNotifier-Rebuild, Master-Detail in `ArtikelListScreen` ab ≥1024px (NavigationRail + Liste links, Detail rechts), `maxContentWidth` auf 1400 erhöht, `ConstrainedBox` nur Mobile/Tablet, `_ladeAnhangCount()` try/catch für Test-Kompatibilität, neue AppConfig-Konstanten für Breakpoints und Flex-Werte. 50 Widget-Tests grün (24 Detail + 15 List + 11 Erfassen). |
 | 2026-05-13 | 0.9.8+57 | P-007 abgeschlossen: `_gefilterteArtikel()` gecacht (P-007.1), setState() bei Keystroke entfernt (P-007.2), `_aktualisiereFilter()` ohne separates setState() (P-007.3), `_ArtikelTile` + `_ArtikelInfoChip` als StatelessWidgets extrahiert (P-007.4), Scroll-Guard früher im `_onScroll()`-Pfad (P-007.5). B-018 abgeschlossen: Artikelnummer in Suche (SQLite + PocketBase) und Scanner-Fallback einbezogen. O-017 abgeschlossen: catch (e, st) in scan_service_stub.dart, artikel_import_service.dart (2×), app_log_io.dart (4×) ergänzt; pdf_service_shared.dart war bereits korrekt. flutter analyze + flutter test grün. |

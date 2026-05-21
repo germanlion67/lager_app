@@ -16,12 +16,12 @@ import 'package:lager_app/services/artikel_db_service.dart';
 import 'package:lager_app/services/conflict_resolution_utils.dart';
 import 'package:lager_app/services/sync_error_recovery.dart';
 import 'package:lager_app/services/sync_progress_service.dart';
-import 'package:lager_app/services/sync_service.dart';
-import 'package:lager_app/screens/conflict_resolution_screen.dart';
+import 'package:lager_app/services/conflict_types.dart';
+
 
 final _log = AppLogService.logger;
 
-class PocketBaseConflictAdapter implements SyncService {
+class PocketBaseConflictAdapter implements SyncServiceInterface {
   final ArtikelDbService _db;
 
   PocketBaseConflictAdapter(this._db);

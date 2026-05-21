@@ -18,6 +18,7 @@ import 'package:mockito/mockito.dart';
 
 import 'package:lager_app/models/artikel_model.dart';
 import 'package:lager_app/screens/conflict_resolution_screen.dart';
+import 'package:lager_app/services/conflict_types.dart';
 
 
 import 'mocks/sync_service_mocks.mocks.dart';

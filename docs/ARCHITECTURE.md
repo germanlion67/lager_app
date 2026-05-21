@@ -168,7 +168,7 @@ lager_app/
 │   │   ├── core/           # Plattform-Abstraktion (Logger, Exceptions, Responsive)
 │   │   ├── models/         # Datenklassen (Artikel, Attachment)
 │   │   ├── screens/        # UI-Pages (23 Dateien + Conditional Imports)
-│   │   ├── services/       # Business-Logik (41 Dateien + Conditional Imports)
+│   │   ├── services/       # Business-Logik (38 Dateien + Conditional Imports)
 │   │   ├── utils/          # Helfer (Validierung, UUID, Image-Tools)
 │   │   └── widgets/        # Wiederverwendbare UI-Komponenten (13 Widgets)
 │   └── test/               # Testsuite
@@ -179,6 +179,7 @@ lager_app/
 ```
 
 → **Vollständige Dateistruktur mit allen Dateien:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
+→ **Vollständige Testbeschreibungen mit allen Dateien:** [Testing](docs/TESTING.md)
 
 ---
 
@@ -768,9 +769,20 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Uplo
 
 ## 19. Wartungs-Notiz
 
-> **Zuletzt aktualisiert:** O-020 / 0.9.9+68 (2026-05-16)
-> `PocketBaseConflictAdapter` aus `main.dart` extrahiert → `lib/services/pocketbase_conflict_adapter.dart`
-> Klasse ist jetzt public und ohne `main.dart`-Abhängigkeit wiederverwendbar
+> **Zuletzt aktualisiert:** O-014 / 0.9.9+70 (2026-05-16)
+> Nextcloud-Sync-Code vollständig entfernt (`nextcloud_service_interface.dart`,
+> `nextcloud_sync_service.dart`, `sync_service.dart`, `nextcloud_webdav_client.dart`,
+> `nextcloud_resync_dialog.dart`)
+> `ConflictData`, `ConflictResolution`, `SyncResult` in neue Datei
+> `lib/services/conflict_types.dart` extrahiert
+> `nextcloud_client.dart` neu implementiert — testbar via injizierbarem `http.Client`,
+> ohne Sync-Logik
+> Alle abhängigen Dateien auf `conflict_types.dart` umgestellt
+> `webdav_client` aus `pubspec.yaml` entfernt
+> Teststand: 755 Tests bestanden, 2 skipped
+>
+> *Vorherige Einträge:*
+> O-020 / 0.9.9+68 (2026-05-16): `PocketBaseConflictAdapter` aus `main.dart` extrahiert
 > Responsive Breakpoints und Master-Detail-Layout dokumentiert (Abschnitt 14a)
 > ArtikelDetailContent als eigenständiges Widget dokumentiert
 > ArtikelDetailScreen als dünner Scaffold-Wrapper mit ValueNotifier-Rebuild
@@ -783,7 +795,6 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Uplo
 > Guard gegen doppelte Konflikt-UI-Öffnung berücksichtigt
 > Duplicate-UUID-Recovery im Create-Pfad dokumentiert
 > Serverseitige UUID-Absicherung (`required` + `unique`) nachgezogen
-> Logging für Duplicate-UUID-Recovery als aktueller Sync-Bestandteil berücksichtigt
 > Konflikt-Snapshot-Strategie (Pull→Snapshot, Push→Callback) ergänzt
 > `toPocketBaseMap()` — übertragene und ausgeschlossene Felder dokumentiert
 > `_extractBildName()` als einzige Normalisierungsstelle für PocketBase `bild` dokumentiert

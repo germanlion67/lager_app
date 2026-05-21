@@ -31,6 +31,7 @@ import 'config/app_images.dart';
 import 'models/artikel_model.dart';
 import 'screens/artikel_list_screen.dart';
 import 'screens/conflict_resolution_screen.dart';
+import 'services/conflict_types.dart';   // ← ConflictData
 import 'screens/login_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/app_lock_screen.dart';

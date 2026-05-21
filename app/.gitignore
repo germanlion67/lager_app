@@ -33,3 +33,4 @@ tool/Erklärung.txt # Wenn es sich um eine temporäre oder lokale Notiz handelt
 
 # VSCode spezifische Dateien
 .vscode/
+web/config.js

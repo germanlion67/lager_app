@@ -36,11 +36,35 @@ Sie unterstützt insbesondere:
 - **HTTP / Multipart**
 - **lokale Bild- und Dateiverwaltung**
 
+## Web-Deployment
+- Flutter Web wird als **Docker-Container** ausgeliefert
+- Webserver: **Caddy** (läuft auf Port 8081)
+- Renderer: **Skwasm** (primär, dart2wasm) mit CanvasKit-Fallback (dart2js)
+- Runtime-Konfiguration über `config.js` (wird bei Container-Start durch
+  `docker-entrypoint.sh` dynamisch generiert)
+- `window.ENV_CONFIG.POCKETBASE_URL` wird von `config.js` gesetzt und
+  im Dart-Code zur Laufzeit gelesen
+- `docker-entrypoint.sh` ist **Single Source of Truth** für das Caddyfile —
+  das statische `Caddyfile` im Repo ist nur Dokumentationsreferenz
+- Skwasm benötigt **COOP/COEP**-Header für Multi-Threading
+  (`Cross-Origin-Opener-Policy: same-origin` /
+  `Cross-Origin-Embedder-Policy: require-corp`)
+- `window.crossOriginIsolated` wird von `flutter_bootstrap.js` aktiv geprüft;
+  fehlen die Header, läuft Skwasm im Single-Threaded-Modus (messbar schlechtere Performance)
+- `config.js` wird mit `defer` geladen — sicher, da `flutter_bootstrap.js`
+  `window.ENV_CONFIG` nicht liest; der Dart-Code liest es erst nach
+  vollständigem Flutter-Start
+- `config.js` wird serverseitig **nie gecacht** (`no-cache, no-store`),
+  da sie bei jedem Container-Start neu generiert wird
+- statische Flutter-Assets (`.js`, `.wasm`, `.css` etc.) werden mit
+  `immutable` gecacht — sicher, da Flutter Content-Hashes im Dateinamen verwendet
+- `config.js` ist explizit vom `@static`-Matcher ausgenommen (`not path /config.js`)
+
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.8+69**
+- `pubspec.yaml`: **0.9.9+74**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
-- Branch: **feature/layoutDesktopWeb_v0.9.8**
+- Branch: **harding/v0.9.9**
 - Layout: **Master-Detail ab Desktop (≥1024px), Mobile weiterhin Navigator.push**
 
 ---
@@ -113,7 +137,9 @@ Bei Befunden möglichst sauber unterscheiden zwischen:
 
 ## Grundsätzliche Plattformbesonderheiten
 - **Web** nutzt keinen produktiven PocketBase-Sync-Lauf wie Mobile/Desktop
-- **Web** kann Server-/Runtime-Konfiguration zusätzlich über Web-Laufzeitmechanismen erhalten (z. B. Runtime-Config)
+- **Web** erhält Runtime-Konfiguration über `config.js` (`window.ENV_CONFIG`),
+  die bei Container-Start durch `docker-entrypoint.sh` generiert wird
+- **Web** benötigt COOP/COEP-Header für Skwasm Multi-Threading
 - **Mobile/Desktop** nutzen lokale DB, Sync-Orchestrierung, Bilddownload und App-Lock
 - **Mobile/Desktop** nutzen primär persistierte Einstellungen und/oder Build-Konfigurationen
 - **CORS** ist vor allem für Browser-/Web-Zugriffe relevant, nicht in gleicher Form für native Clients
@@ -201,6 +227,7 @@ Wichtige Services sind insbesondere:
 - `AppLockService`
 - `ConnectivityService`
 - `AppLogService`
+- `NextcloudClient` (leichtgewichtiger HTTP-Client, ohne Sync-Logik)
 
 ## Zentrale UI-Bildschirme
 - `ArtikelListScreen` — Artikelliste mit Ort- und Kategorie-Filter (F-009),
@@ -583,6 +610,13 @@ nicht nur den Prompt aktualisieren, sondern je nach Thema auch:
 - `lib/screens/artikel_list_screen.dart`
 - `lib/main.dart` (ConstrainedBox-Logik)
 
+## Web-Deployment / Caddy
+- `docker-entrypoint.sh` (Single Source of Truth für Laufzeitkonfiguration)
+- `Caddyfile` (nur Dokumentationsreferenz, nicht produktiv aktiv)
+- `app/web/index.html` (Flutter Entry Point, defer auf config.js)
+- `DEPLOYMENT.md`
+- `docs/PORTAINER_PROD.md`
+
 ---
 
 # 18. Empfohlene Vorgehensweise pro Session
@@ -629,6 +663,10 @@ Die Lager_app ist aktuell eine Flutter-basierte Offline-First-Lagerverwaltung mi
 - Bild- und Attachment-Unterstützung
 - Auth-/Setup-/App-Lock-Flow
 - deutlich gehärteter Sync- und Konfliktlogik
+- bereinigter Nextcloud-Codebasis (O-014: Sync-Code entfernt, HTTP-Client erhalten)
+- Docker-/Caddy-basiertem Web-Deployment mit Skwasm-Renderer,
+  Runtime-Config über `config.js` und gehärteten Security-Headern
+  (COOP/COEP, HSTS, CSP, Permissions-Policy)
 
 Diese `prompt.txt` soll vor allem:
 - den allgemeinen Projektkontext sichern

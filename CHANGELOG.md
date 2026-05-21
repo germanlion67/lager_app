@@ -2,6 +2,276 @@
 
 Alle wichtigen Änderungen am Projekt werden in dieser Datei dokumentiert.
 
+## [v0.9.9+74] - fix: config.js caching-bug + CSP font-src korrigiert - 2026-05-18
+
+### 🐛 Behoben
+
+**config.js Caching-Bug**
+- `docker-entrypoint.sh`: `config.js` explizit auf `no-cache, no-store` gesetzt
+  (wurde fälschlicherweise 1 Jahr lang gecacht, da `*.js` → `@static` matched)
+- `docker-entrypoint.sh`: `@static`-Matcher schließt `/config.js` aus (`not path`)
+- `docker-entrypoint.sh`: `fonts.gstatic.com` + `fonts.googleapis.com` in CSP
+  `font-src` ergänzt (Google Fonts wurden blockiert)
+- `docker-entrypoint.sh` als Single Source of Truth identifiziert —
+  statisches `Caddyfile` wird zur Laufzeit überschrieben
+- `Caddyfile`: als reine Dokumentationsreferenz markiert (⚠️ nicht aktiv)
+
+### ⚡ Performance
+
+- `index.html`: `config.js` mit `defer` geladen (LH-P-001, ~138ms FCP-Gewinn)
+  — sicher, da `flutter_bootstrap.js` `window.ENV_CONFIG` nicht liest;
+  Dart-Code liest `ENV_CONFIG` erst nach vollständigem Flutter-Start
+- `index.html`: `manifest.json` mit `rel=preload` ergänzt (LH-P-005)
+- `index.html`: doppelten `meta[name=viewport]` entfernt (Flutter-konformen behalten)
+- `docker-entrypoint.sh`: `Cache-Control: immutable` für statische Assets (LH-P-004)
+  — sicher, da Flutter Content-Hashes im Dateinamen verwendet
+- `docker-entrypoint.sh`: `manifest.json` kurzes Caching (`max-age=86400`)
+
+### 🔒 Security
+
+- `docker-entrypoint.sh`: HSTS ergänzt (`max-age=31536000, includeSubDomains`)
+- `docker-entrypoint.sh`: COOP/COEP ergänzt (`same-origin` / `require-corp`)
+  → Skwasm läuft ohne COOP/COEP im Single-Threaded-Modus (performance-kritisch)
+  → `window.crossOriginIsolated` wird von `flutter_bootstrap.js` aktiv geprüft
+- `docker-entrypoint.sh`: `Permissions-Policy` ergänzt
+- `docker-entrypoint.sh`: `X-Permitted-Cross-Domain-Policies` ergänzt
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `app/docker-entrypoint.sh` | Caching-Fix, CSP font-src, Security-Header, immutable Assets |
+| `app/web/index.html` | defer config.js, preload manifest.json, viewport bereinigt |
+| `app/Caddyfile` | Als Dokumentationsreferenz markiert (⚠️ nicht aktiv) |
+| `app/pubspec.yaml` | Version aktualisiert |
+| `docs/OPTIMIZATIONS.md` | Status aktualisiert |
+
+---
+
+## [v0.9.9+73] - fix(caddyfile): Caddyfile und config.js dynamisch zur Laufzeit generieren (H-004.5) - 2026-05-18
+
+### 🐛 Behoben / 🏗️ Architektur
+
+**H-004.5: Runtime-Konfiguration ohne hardcodierte URLs**
+
+Problem:
+- `Caddyfile` war statisch ins Image eingebaut — `POCKETBASE_URL` wurde nie eingesetzt
+- CSP-Header enthielt keine korrekte PocketBase-URL → Requests wurden blockiert
+- Bei URL-Änderung war ein vollständiger Image-Rebuild nötig
+- `docker-entrypoint.sh` (app/) und `entrypoint.sh` (server/) waren nicht klar getrennt
+
+Lösung:
+- `app/docker-entrypoint.sh` generiert `Caddyfile` und `config.js` zur Laufzeit
+- `POCKETBASE_URL` aus `.env` wird korrekt in CSP (`img-src`, `connect-src`) eingesetzt
+- Kein Rebuild mehr bei URL-Änderung — nur `docker compose restart app`
+- Zuordnung der Entrypoint-Scripts dokumentiert und verifiziert:
+  - `app/docker-entrypoint.sh` → `lager_frontend` (Caddy)
+  - `server/entrypoint.sh` → `pocketbase`
+- COOP/COEP-Header ergänzt → Voraussetzung für Skwasm / SharedArrayBuffer erfüllt
+
+### 📊 Lighthouse-Ergebnis nach H-004.5
+
+| Metrik | Vorher | Nachher | Δ |
+|:--|:--|:--|:--|
+| Performance | 75 | 83 | +8 |
+| Best Practices | 78 | 81 | +3 |
+| SEO | 58 | 63 | +5 |
+| Accessibility | 92 | 92 | ±0 |
+| FCP | 1,2s | 0,9s | -0,3s |
+| LCP | 2,1s | 1,4s | -0,7s |
+| TBT | 580ms | 430ms | -150ms ✅ |
+| SI | 8,2s | 6,6s | -1,6s |
+| CLS | 0 | 0 | ±0 |
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `app/docker-entrypoint.sh` | Generiert Caddyfile + config.js zur Laufzeit |
+| `app/Dockerfile` | Angepasst |
+| `app/Caddyfile` | Nur noch Dokumentationsreferenz |
+| `app/pubspec.yaml` | Version aktualisiert |
+| `docs/DEV_SETUP.md` | Entrypoint-Zuordnung dokumentiert |
+| `docs/LIGHTHOUSE.md` | **Neu** — Lighthouse-Befunde und Ergebnisse |
+| `docs/OPTIMIZATIONS.md` | H-004.5 abgeschlossen |
+
+---
+
+## [v0.9.9+72] - chore: H-004 Lighthouse-Befunde beheben - 2026-05-18
+
+### 🔧 Chore / ⚡ Performance / 🔒 Security
+
+**H-004: Lighthouse-Befunde beheben (robots.txt, HSTS, Splash, tree-shake-icons)**
+
+- **H-004.1**: `app/web/robots.txt` als statische Datei ergänzt (SEO-Score ↑)
+- **H-004.2**: HSTS-Header im `Caddyfile` ergänzt (Best Practices ↑)
+- **H-004.3**: `width`/`height`/`fetchpriority` am Splash-`<img>` gesetzt
+  (LCP-Discovery ↑)
+- **H-004.4**: `--tree-shake-icons` im Web-Build-Befehl ergänzt
+  (`main.dart.js` kleiner)
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `app/web/robots.txt` | **Neu** |
+| `app/Caddyfile` | HSTS-Header |
+| `app/web/index.html` | Splash `width`/`height`/`fetchpriority` |
+| `docs/OPTIMIZATIONS.md` | H-004.1–4 dokumentiert |
+
+---
+
+## [v0.9.9+72] - test(tag_service): T-012 – TagService vollständig testen - 2026-05-18
+
+### 🧪 Tests
+
+**T-012: TagService — 43 neue Tests**
+
+Neue Testdatei: `test/services/tag_service_test.dart`
+
+| Methode | Tests | Szenarien |
+|:--|:--|:--|
+| `addTag()` | — | Duplikat-Schutz, case-insensitive, Trim, Validierung |
+| `listTags()` | — | Sortierung, leere DB, Struktur |
+| `updateTag()` | — | Erfolg, nicht-existierende ID, Trim, Validierung |
+| `deleteTag()` | — | Cascade-Delete auf `artikel_tags`, Return-Werte |
+| `assignTagToArtikel()` | — | n:n-Zuweisung, Idempotenz, Multi-Artikel |
+| `removeTagFromArtikel()` | — | Selektives Entfernen, kein Fehler bei fehlendem Eintrag |
+| `getTagsForArtikel()` | — | Sortierung, Isolation, Typsicherheit |
+| `getTagMapsForArtikel()` | — | id+name Maps, Sortierung |
+
+- `lib/services/tag_service.dart`: `injectDbProvider()` Hook ergänzt
+- `database_service.dart`: kein Test — Shim ohne Logik
+- T-012 vollständig abgeschlossen ✅
+
+**Gesamtstand: 1011 Tests, alle grün ✅**
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `test/services/tag_service_test.dart` | **Neu** — 43 Tests |
+| `lib/services/tag_service.dart` | `injectDbProvider()` ergänzt |
+
+---
+
+## [v0.9.9+71] - test: T-012 (connectivity_service) – 14 Unit-Tests + DnsLookup-Injection - 2026-05-17
+
+### 🧪 Tests
+
+**T-012: ConnectivityService — 14 neue Tests**
+
+- `ConnectivityService` um injizierbaren `DnsLookup`-Typedef erweitert
+  (`dnsLookupOverride` als `@visibleForTesting` Static Field)
+  → `InternetAddress.lookup()` ohne `IOOverrides` mockbar
+- Neue Testdatei: `test/services/connectivity_service_test.dart`
+
+| Gruppe | Szenarien |
+|:--|:--|
+| `isConnected()` | `true`/`false` für alle Lookup-Ergebnisse |
+| `isWifi()` | `true`/`false` für alle Lookup-Ergebnisse |
+| Konsistenz | `isConnected()` und `isWifi()` konsistent |
+| Timeout | `AppConfig.connectivityCheckTimeout` |
+
+**Gesamtstand: 968 Tests, 0 Analyze-Issues ✅**
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `test/services/connectivity_service_test.dart` | **Neu** — 14 Tests |
+| `lib/services/connectivity_service.dart` | `dnsLookupOverride` ergänzt |
+| `docs/OPTIMIZATIONS.md` | T-012: connectivity_service ✅ |
+
+---
+
+## [v0.9.9+71] - docs: Architekturdoku, HISTORY, TESTING, DEV_SETUP, PROJECT_STRUCTURE aktualisieren - 2026-05-17
+
+### 📚 Dokumentation
+
+- `ARCHITECTURE.md`: Services-Anzahl 41 → 38, Wartungs-Notiz auf O-014/0.9.9+70
+- `DEV_SETUP.md`: Abschnitt Shell-Konfiguration (`.bashrc`) ergänzt
+- `HISTORY.md` / `TESTING.md`: Teststand auf 0.9.9+71 aktualisiert
+- `PROJECT_STRUCTURE.md` / `OPTIMIZATIONS.md`: O-014 abgeschlossen,
+  Version aktualisiert
+- `docs/.bashrc` / `SETUP_BASHRC.md` / `prompt.txt`: Projektdoku nachgezogen
+
+---
+
+## [v0.9.9+71] - chore: bump version to 0.9.9+71, CHANGELOG v0.9.9+70 nachtragen - 2026-05-17
+
+### 🔧 Chore
+
+- `pubspec.yaml`: 0.9.9+70 → 0.9.9+71
+- `CHANGELOG.md`: Eintrag für v0.9.9+70 (O-014 Nextcloud-Entfernung) ergänzt
+
+
+## [v0.9.9+70] - refactor(O-014): Nextcloud-Code entkoppeln und entfernen - 2026-05-16
+
+### 🗑️ Entfernt
+
+**O-014: Nextcloud-Code vollständig entfernt**
+
+Gelöschte Dateien:
+- `lib/services/nextcloud_service_interface.dart`
+- `lib/services/nextcloud_sync_service.dart`
+- `lib/services/sync_service.dart` (Conflict-Types extrahiert, Rest obsolet)
+- `lib/widgets/nextcloud_resync_dialog.dart`
+
+### 🏗️ Architektur
+
+**Conflict-Types in eigene Datei extrahiert**
+- Neue Datei `lib/services/conflict_types.dart` mit `ConflictData`,
+  `ConflictResolution` und `SyncResult`
+- Alle abhängigen Dateien auf die neuen Imports umgestellt
+
+**`nextcloud_client.dart` neu implementiert**
+- Vollständig neu geschrieben — jetzt testbar via injizierbarem `http.Client`
+- Nextcloud-Sync-Logik entfernt, nur noch als leichtgewichtiger HTTP-Client
+
+### 🔧 Änderungen
+
+- `webdav_client` aus `pubspec.yaml` entfernt
+- Nextcloud-Referenzen aus `conflict_resolution_screen.dart`,
+  `sync_conflict_handler.dart`, `pocketbase_conflict_adapter.dart`
+  und `main.dart` entfernt
+- `nextcloud_settings_screen.dart` bereinigt (Sync-Referenzen entfernt,
+  Screen bleibt für Konfiguration erhalten)
+- `.github/workflows/release.yml`: Nextcloud-Build-Schritte entfernt
+- `lib/services/export_nextcloud_stub.dart`: Stub aktualisiert
+
+### 🧪 Tests
+
+- `test/conflict_resolution_test.dart` auf `conflict_types.dart` umgestellt
+- `test/helpers/no_op_nextcloud_service.dart` aktualisiert
+- `test/mocks/sync_service_mocks.dart` + `sync_service_mocks.mocks.dart`
+  neu generiert
+- `test/widgets/artikel_list_screen_test.dart` angepasst
+- `test/widgets/merge_dialog_test.dart` angepasst
+- `flutter analyze`: **0 Issues**
+- `flutter test`: **755/755 bestanden** (2 skipped)
+
+### Betroffene Dateien
+
+| Datei | Änderung |
+|:--|:--|
+| `lib/services/conflict_types.dart` | **Neu** — ConflictData, ConflictResolution, SyncResult |
+| `lib/services/nextcloud_client.dart` | **Neu implementiert** — testbar, ohne Sync-Logik |
+| `lib/services/nextcloud_service_interface.dart` | **Gelöscht** |
+| `lib/services/nextcloud_sync_service.dart` | **Gelöscht** |
+| `lib/services/sync_service.dart` | **Gelöscht** |
+| `lib/widgets/nextcloud_resync_dialog.dart` | **Gelöscht** |
+| `lib/services/export_nextcloud_stub.dart` | Stub aktualisiert |
+| `lib/screens/conflict_resolution_screen.dart` | Import auf conflict_types.dart |
+| `lib/screens/nextcloud_settings_screen.dart` | Sync-Referenzen entfernt |
+| `lib/services/pocketbase_conflict_adapter.dart` | Import auf conflict_types.dart |
+| `lib/widgets/sync_conflict_handler.dart` | Import auf conflict_types.dart |
+| `lib/main.dart` | Nextcloud-Referenzen entfernt |
+| `.github/workflows/release.yml` | Nextcloud-Build-Schritte entfernt |
+| `pubspec.yaml` | `webdav_client` entfernt |
+
+--- 
+
 ## [v0.9.9+68] - refactor(main): O-020 – PocketBaseConflictAdapter ausgelagert - 2026-05-16
 
 ### 🏗️ Architektur

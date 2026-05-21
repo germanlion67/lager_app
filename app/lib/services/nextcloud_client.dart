@@ -1,14 +1,19 @@
 // lib/services/nextcloud_client.dart
+//
+// Schlanker WebDAV-Client für Nextcloud.
+// Designziele:
+// - http.Client wird per Konstruktor injiziert → testbar ohne Netzwerk
+// - Alle Methoden sind async und werfen nur bei echten Fehlern
+// - RemoteItemMeta kapselt Pfad, ETag und lastModified
 
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
-import 'package:lager_app/services/app_log_service.dart';
-import 'package:xml/xml.dart' as xml;
+import 'package:xml/xml.dart';
 
-/// Standard-Timeout für alle WebDAV-Operationen.
-const Duration _kRequestTimeout = Duration(seconds: 15);
+// ── RemoteItemMeta ────────────────────────────────────────────────────────────
 
-/// Metadaten für eine Remote-Datei.
+/// Metadaten eines remote gespeicherten Items (Datei auf Nextcloud).
 class RemoteItemMeta {
   final String path;
   final String etag;
@@ -20,6 +25,7 @@ class RemoteItemMeta {
     required this.lastModified,
   });
 
+  /// Equality basiert ausschließlich auf [path] und [etag].
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -44,72 +50,101 @@ class RemoteItemMeta {
 
   @override
   String toString() =>
-      'RemoteItemMeta(path: $path, etag: $etag, modified: $lastModified)';
+      'RemoteItemMeta(path: $path, etag: $etag, lastModified: $lastModified)';
 }
 
-/// WebDAV-Client für Nextcloud-Kommunikation.
+// ── NextcloudClient ───────────────────────────────────────────────────────────
+
+/// WebDAV-Client für Nextcloud.
+///
+/// [baseUrl] zeigt auf den App-Ordner, z.B.:
+///   https://cloud.example.com/remote.php/dav/files/user/app/
+///
+/// Der optionale [client] erlaubt Dependency Injection für Tests.
 class NextcloudClient {
   final Uri baseUrl;
   final String username;
+  final String appPassword;
   final http.Client _client;
-
-  final _logger = AppLogService.logger;
-
-  late final Map<String, String> _headers;
 
   NextcloudClient({
     required this.baseUrl,
     required this.username,
-    required String appPassword,
+    required this.appPassword,
     http.Client? client,
-  }) : _client = client ?? http.Client() {
-    _headers = {
-      'Authorization':
-          'Basic ${base64Encode(utf8.encode('$username:$appPassword'))}',
-      'User-Agent': 'ElektronikVerwaltung/1.0',
-    };
+  }) : _client = client ?? http.Client();
+
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
+  Map<String, String> get _authHeader => {
+        'Authorization':
+            'Basic ${base64Encode(utf8.encode('$username:$appPassword'))}',
+      };
+
+  Map<String, String> get _authJsonHeader => {
+        ..._authHeader,
+        'Content-Type': 'application/json; charset=utf-8',
+      };
+
+  // ── URI-Helpers ───────────────────────────────────────────────────────────
+
+  /// Löst einen relativen Pfad gegen [baseUrl] auf.
+  Uri _resolve(String relativePath) {
+    final base = baseUrl.toString();
+    final sep = base.endsWith('/') ? '' : '/';
+    return Uri.parse('$base$sep$relativePath');
   }
 
-  /// Testet die Verbindung zur Nextcloud.
+  Uri _itemUri(String filename) => _resolve('items/$filename');
+
+  Uri _attachmentUri(String itemUuid, String filename) =>
+      _resolve('attachments/$itemUuid/$filename');
+
+  Uri _folderUri(String folderPath) => _resolve(folderPath);
+
+  // ── testConnection ────────────────────────────────────────────────────────
+
+  /// Gibt [true] zurück wenn der Server erreichbar ist (Status < 500).
   Future<bool> testConnection() async {
     try {
-      final response = await _client
-          .head(baseUrl, headers: _headers)
-          .timeout(_kRequestTimeout);
-
-      _logger.d('Connection test response: ${response.statusCode}');
-      return [200, 201, 204, 404].contains(response.statusCode);
-    } catch (e) {
-      _logger.e('Connection test failed: $e');
+      final response = await _client.get(baseUrl, headers: _authHeader);
+      return response.statusCode < 500;
+    } catch (_) {
       return false;
     }
   }
 
-  /// Erstellt einen Ordner auf dem Server.
-  Future<bool> createFolder(String path) async {
+  // ── createFolder ──────────────────────────────────────────────────────────
+
+  /// Legt einen Ordner per MKCOL an.
+  /// Gibt [true] bei 201 (Created) oder 405 (Already Exists) zurück.
+  Future<bool> createFolder(String folderPath) async {
     try {
-      final request = http.Request('MKCOL', _resolveUri(path));
-      request.headers.addAll(_headers);
-
-      final streamedResponse = await _client
-          .send(request)
-          .timeout(_kRequestTimeout);
-
-      // 405 = Ordner existiert bereits — kein Fehler
-      final success = [201, 405].contains(streamedResponse.statusCode);
-      _logger.d('Create folder $path: ${streamedResponse.statusCode}');
-      return success;
-    } catch (e) {
-      _logger.e('Failed to create folder $path: $e');
+      final response = await _client.send(
+        http.Request('MKCOL', _folderUri(folderPath))
+          ..headers.addAll(_authHeader),
+      );
+      return response.statusCode == 201 || response.statusCode == 405;
+    } catch (_) {
       return false;
     }
   }
 
-  /// Listet alle Dateien im angegebenen [folderPath] mit ETags.
+  // ── listItemsEtags ────────────────────────────────────────────────────────
+
+  /// Listet alle JSON-Dateien im [folderPath] via PROPFIND.
+  /// Wirft eine [Exception] bei Status != 207.
   Future<List<RemoteItemMeta>> listItemsEtags({
     String folderPath = 'items/',
   }) async {
-    const propfindBody = '''<?xml version="1.0" encoding="utf-8"?>
+    final uri = _resolve(folderPath);
+    final request = http.Request('PROPFIND', uri)
+      ..headers.addAll({
+        ..._authHeader,
+        'Depth': '1',
+        'Content-Type': 'application/xml',
+      })
+      ..body = '''<?xml version="1.0" encoding="utf-8"?>
 <d:propfind xmlns:d="DAV:">
   <d:prop>
     <d:getetag/>
@@ -117,302 +152,215 @@ class NextcloudClient {
   </d:prop>
 </d:propfind>''';
 
-    try {
-      final request = http.Request('PROPFIND', _resolveUri(folderPath));
-      request.headers.addAll({
-        ..._headers,
-        'Depth': '1',
-        'Content-Type': 'application/xml',
-      });
-      request.body = propfindBody;
+    final streamed = await _client.send(request);
+    final response = await http.Response.fromStream(streamed);
 
-      final streamedResponse = await _client
-          .send(request)
-          .timeout(_kRequestTimeout);
-
-      if (streamedResponse.statusCode != 207) {
-        throw Exception(
-          'PROPFIND failed: ${streamedResponse.statusCode}',
-        );
-      }
-
-      final responseBody = await streamedResponse.stream.bytesToString();
-      return _parsePropfindResponse(responseBody);
-    } catch (e) {
-      _logger.e('Failed to list items: $e');
-      rethrow;
+    if (response.statusCode != 207) {
+      throw Exception('PROPFIND failed: ${response.statusCode}');
     }
+
+    return _parsePropfindResponse(response.body, folderPath);
   }
 
-  /// Parst die PROPFIND XML-Response.
-  List<RemoteItemMeta> _parsePropfindResponse(String xmlString) {
-    final items = <RemoteItemMeta>[];
-    try {
-      final doc = xml.XmlDocument.parse(xmlString);
-      final responses = doc.findAllElements('response', namespace: 'DAV:');
+  // ── downloadItem ──────────────────────────────────────────────────────────
 
-      for (final resp in responses) {
-        final hrefEl =
-            resp.findElements('href', namespace: 'DAV:').firstOrNull;
-        if (hrefEl == null) continue;
-        final href = hrefEl.innerText;
-        if (!href.endsWith('.json')) continue;
+  /// Lädt eine JSON-Datei herunter und gibt den Body zurück.
+  /// Wirft eine [Exception] bei Status != 200.
+  Future<String> downloadItem(String filename) async {
+    final response =
+        await _client.get(_itemUri(filename), headers: _authHeader);
 
-        String? etag;
-        DateTime? lastModified;
-
-        final propstats =
-            resp.findAllElements('propstat', namespace: 'DAV:');
-        for (final ps in propstats) {
-          final prop =
-              ps.findElements('prop', namespace: 'DAV:').firstOrNull;
-          if (prop == null) continue;
-
-          final etagEl =
-              prop.findElements('getetag', namespace: 'DAV:').firstOrNull;
-          final lmEl = prop
-              .findElements('getlastmodified', namespace: 'DAV:')
-              .firstOrNull;
-
-          if (etagEl != null) {
-            etag = etagEl.innerText.replaceAll('"', '');
-          }
-          if (lmEl != null) {
-            lastModified = _parseHttpDate(lmEl.innerText);
-          }
-        }
-
-        if (etag == null) continue;
-
-        final filename = href.split('/').lastWhere(
-          (s) => s.isNotEmpty,
-          orElse: () => href,
-        );
-
-        items.add(RemoteItemMeta(
-          path: filename,
-          etag: etag,
-          lastModified: lastModified ?? DateTime.now(),
-        ),);
-      }
-
-      _logger.i('Found ${items.length} items on server');
-      return items;
-    } catch (e) {
-      _logger.e('XML parse error: $e');
-      return [];
+    if (response.statusCode != 200) {
+      throw Exception('Download failed: ${response.statusCode}');
     }
+    return response.body;
   }
 
-  /// Parst RFC 7231 HTTP-Datumsformat zu [DateTime].
-  ///
-  /// WebDAV `getlastmodified` liefert RFC 7231, kein ISO 8601.
-  /// Beispiel: "Thu, 01 Jan 2026 12:00:00 GMT"
-  DateTime? _parseHttpDate(String value) {
-    try {
-      const months = {
-        'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
-        'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
-        'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
-      };
+  // ── uploadItem ────────────────────────────────────────────────────────────
 
-      // Format: "Thu, 01 Jan 2026 12:00:00 GMT"
-      final parts = value.trim().split(RegExp(r'[\s,]+'));
-      // parts: [Thu, 01, Jan, 2026, 12:00:00, GMT]
-      if (parts.length < 6) return null;
-
-      final day = int.tryParse(parts[1]);
-      final month = months[parts[2]];
-      final year = int.tryParse(parts[3]);
-      final timeParts = parts[4].split(':');
-
-      if (day == null || month == null || year == null ||
-          timeParts.length < 3) {
-        return null;
-      }
-
-      final hour = int.tryParse(timeParts[0]);
-      final minute = int.tryParse(timeParts[1]);
-      final second = int.tryParse(timeParts[2]);
-
-      if (hour == null || minute == null || second == null) return null;
-
-      return DateTime.utc(year, month, day, hour, minute, second);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  /// Lädt eine Datei vom Server herunter.
-  Future<String> downloadItem(String path) async {
-    try {
-      final response = await _client
-          .get(_resolveUri('items/$path'), headers: _headers)
-          .timeout(_kRequestTimeout);
-
-      if (response.statusCode == 200) {
-        _logger.d('Downloaded $path (${response.body.length} bytes)');
-        return response.body;
-      }
-
-      throw Exception(
-        'Download failed: ${response.statusCode} ${response.reasonPhrase}',
-      );
-    } catch (e) {
-      _logger.e('Failed to download $path: $e');
-      rethrow;
-    }
-  }
-
-  /// Lädt eine Datei zum Server hoch.
-  ///
-  /// Rückgabe:
-  /// - `String`: neues ETag bei Erfolg
-  /// - `null`: Konflikt (412 Precondition Failed) oder kein ETag
-  /// - `Exception`: anderer Fehler
+  /// Lädt eine JSON-Datei hoch (PUT).
+  /// - Gibt den ETag zurück (ohne Anführungszeichen) oder [null] wenn keiner
+  ///   geliefert wurde.
+  /// - Gibt [null] bei 412 Precondition Failed zurück (ETag-Konflikt).
+  /// - Wirft eine [Exception] bei anderen Fehler-Status.
   Future<String?> uploadItem(
-    String path,
+    String filename,
     String body, {
     String? ifMatch,
   }) async {
-    try {
-      final headers = <String, String>{
-        ..._headers,
-        'Content-Type': 'application/json',
-      };
-      if (ifMatch != null) {
-        headers['If-Match'] = ifMatch;
-      }
+    final headers = {
+      ..._authJsonHeader,
+      if (ifMatch != null) 'If-Match': ifMatch,
+    };
 
-      final response = await _client
-          .put(
-            _resolveUri('items/$path'),
-            headers: headers,
-            body: body,
-          )
-          .timeout(_kRequestTimeout);
+    final request = http.Request('PUT', _itemUri(filename))
+      ..headers.addAll(headers)
+      ..body = body;
 
-      if ([200, 201, 204].contains(response.statusCode)) {
-        final etag = response.headers['etag']?.replaceAll('"', '');
-        _logger.d('Uploaded $path (ETag: $etag)');
-        return etag;
-      }
+    final streamed = await _client.send(request);
+    final response = await http.Response.fromStream(streamed);
 
-      if (response.statusCode == 412) {
-        _logger.w('Upload conflict for $path: If-Match failed');
-        return null;
-      }
+    if (response.statusCode == 412) return null;
 
-      throw Exception(
-        'Upload failed: ${response.statusCode} ${response.reasonPhrase}',
-      );
-    } catch (e) {
-      _logger.e('Failed to upload $path: $e');
-      rethrow;
+    if (response.statusCode != 200 &&
+        response.statusCode != 201 &&
+        response.statusCode != 204) {
+      throw Exception('Upload failed: ${response.statusCode}');
     }
+
+    final rawEtag = response.headers['etag'];
+    if (rawEtag == null) return null;
+    // Entferne umschließende Anführungszeichen: "abc123" → abc123
+    return rawEtag.replaceAll('"', '');
   }
 
-  /// Löscht eine Datei vom Server.
-  Future<bool> deleteItem(String path) async {
-    try {
-      final response = await _client
-          .delete(_resolveUri('items/$path'), headers: _headers)
-          .timeout(_kRequestTimeout);
+  // ── deleteItem ────────────────────────────────────────────────────────────
 
-      // 404 ok — bereits gelöscht (idempotent)
-      final success = [200, 204, 404].contains(response.statusCode);
-      _logger.d('Delete $path: ${response.statusCode}');
-      return success;
-    } catch (e) {
-      _logger.e('Failed to delete $path: $e');
+  /// Löscht eine Datei (DELETE).
+  /// Gibt [true] bei 204 oder 404 (idempotent) zurück.
+  Future<bool> deleteItem(String filename) async {
+    try {
+      final request = http.Request('DELETE', _itemUri(filename))
+        ..headers.addAll(_authHeader);
+      final streamed = await _client.send(request);
+      return streamed.statusCode == 204 || streamed.statusCode == 404;
+    } catch (_) {
       return false;
     }
   }
 
-  /// Lädt einen Anhang/ein Bild zum Server hoch.
+  // ── uploadAttachment ──────────────────────────────────────────────────────
+
+  /// Lädt einen Anhang (Binärdaten) hoch.
+  /// Gibt den ETag zurück oder [null] wenn keiner geliefert wurde.
+  /// Wirft eine [Exception] bei Fehler-Status.
   Future<String?> uploadAttachment(
-    String itemUUID,
+    String itemUuid,
     String filename,
-    List<int> data, {
-    String? contentType,
+    List<int> bytes, {
+    String contentType = 'application/octet-stream',
   }) async {
-    try {
-      final uri = _resolveUriSegments(['attachments', itemUUID, filename]);
-      final headers = <String, String>{
-        ..._headers,
-        'Content-Type': contentType ?? 'application/octet-stream',
-      };
+    final request = http.Request('PUT', _attachmentUri(itemUuid, filename))
+      ..headers.addAll({
+        ..._authHeader,
+        'Content-Type': contentType,
+      })
+      ..bodyBytes = bytes;
 
-      final response = await _client
-          .put(uri, headers: headers, body: data)
-          .timeout(_kRequestTimeout);
+    final streamed = await _client.send(request);
+    final response = await http.Response.fromStream(streamed);
 
-      if ([200, 201, 204].contains(response.statusCode)) {
-        final etag = response.headers['etag']?.replaceAll('"', '');
-        _logger.d(
-          'Uploaded attachment $itemUUID/$filename '
-          '(${data.length} bytes, ETag: $etag)',
-        );
-        return etag;
-      }
-
-      throw Exception(
-        'Attachment upload failed: '
-        '${response.statusCode} ${response.reasonPhrase}',
-      );
-    } catch (e) {
-      _logger.e('Failed to upload attachment $itemUUID/$filename: $e');
-      rethrow;
+    if (response.statusCode != 200 &&
+        response.statusCode != 201 &&
+        response.statusCode != 204) {
+      throw Exception('Attachment upload failed: ${response.statusCode}');
     }
+
+    final rawEtag = response.headers['etag'];
+    if (rawEtag == null) return null;
+    return rawEtag.replaceAll('"', '');
   }
 
-  /// Lädt einen Anhang/ein Bild vom Server herunter.
+  // ── downloadAttachment ────────────────────────────────────────────────────
+
+  /// Lädt einen Anhang herunter und gibt die Bytes zurück.
+  /// Wirft eine [Exception] bei Status != 200.
   Future<List<int>> downloadAttachment(
-    String itemUUID,
+    String itemUuid,
     String filename,
   ) async {
-    try {
-      final uri = _resolveUriSegments(['attachments', itemUUID, filename]);
+    final response = await _client.get(
+      _attachmentUri(itemUuid, filename),
+      headers: _authHeader,
+    );
 
-      final response = await _client
-          .get(uri, headers: _headers)
-          .timeout(_kRequestTimeout);
+    if (response.statusCode != 200) {
+      throw Exception('Attachment download failed: ${response.statusCode}');
+    }
+    return response.bodyBytes;
+  }
 
-      if (response.statusCode == 200) {
-        _logger.d(
-          'Downloaded attachment $itemUUID/$filename '
-          '(${response.bodyBytes.length} bytes)',
-        );
-        return response.bodyBytes;
+  // ── Interne Helpers ───────────────────────────────────────────────────────
+
+  /// Parst eine PROPFIND-207-Response und gibt nur JSON-Dateien zurück.
+  /// Der erste Eintrag (der Ordner selbst) wird übersprungen.
+  List<RemoteItemMeta> _parsePropfindResponse(
+    String xmlBody,
+    String folderPath,
+  ) {
+    final document = XmlDocument.parse(xmlBody);
+    final responses = document.findAllElements('response',
+        namespace: 'DAV:',);
+
+    final result = <RemoteItemMeta>[];
+    bool first = true;
+
+    for (final response in responses) {
+      // Ersten Eintrag (Ordner selbst) überspringen
+      if (first) {
+        first = false;
+        continue;
       }
 
-      throw Exception(
-        'Attachment download failed: '
-        '${response.statusCode} ${response.reasonPhrase}',
-      );
-    } catch (e) {
-      _logger.e('Failed to download attachment $itemUUID/$filename: $e');
-      rethrow;
+      final href = response.findElements('href', namespace: 'DAV:').firstOrNull?.innerText ?? '';
+      final filename = href.split('/').last;
+
+      // Nur JSON-Dateien
+      if (!filename.endsWith('.json')) continue;
+
+      final etagRaw = response
+          .findAllElements('getetag', namespace: 'DAV:')
+          .firstOrNull
+          ?.innerText;
+
+      // Einträge ohne ETag überspringen
+      if (etagRaw == null || etagRaw.isEmpty) continue;
+
+      final etag = etagRaw.replaceAll('"', '');
+
+      final lastModifiedStr = response
+          .findAllElements('getlastmodified', namespace: 'DAV:')
+          .firstOrNull
+          ?.innerText;
+
+      final lastModified = lastModifiedStr != null
+          ? _parseHttpDate(lastModifiedStr)
+          : DateTime.now();
+
+      result.add(RemoteItemMeta(
+        path: filename,
+        etag: etag,
+        lastModified: lastModified,
+      ),);
     }
+
+    return result;
   }
 
-  // ---------------------------------------------------------------------------
-  // Hilfsmethoden
-  // ---------------------------------------------------------------------------
+  /// Parst ein RFC 7231 HTTP-Datum, z.B.:
+  ///   "Thu, 01 Jan 2026 12:00:00 GMT"
+  static DateTime _parseHttpDate(String value) {
+    const months = {
+      'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4,
+      'May': 5, 'Jun': 6, 'Jul': 7, 'Aug': 8,
+      'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12,
+    };
 
-  /// Löst einen relativen Pfad gegen [baseUrl] auf mit korrektem Encoding.
-  Uri _resolveUri(String relativePath) {
-    final encoded = Uri.encodeFull(relativePath);
-    return baseUrl.resolve(encoded);
-  }
+    // Format: "Thu, 01 Jan 2026 12:00:00 GMT"
+    try {
+      final parts = value.trim().split(RegExp(r'[\s,]+'));
+      // parts: [Thu, 01, Jan, 2026, 12:00:00, GMT]
+      final day = int.parse(parts[1]);
+      final month = months[parts[2]] ?? 1;
+      final year = int.parse(parts[3]);
+      final timeParts = parts[4].split(':');
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+      final second = int.parse(timeParts[2]);
 
-  /// Löst Pfad-Segmente gegen [baseUrl] auf — jedes Segment wird
-  /// einzeln encoded.
-  Uri _resolveUriSegments(List<String> segments) {
-    final basePath = baseUrl.path.endsWith('/')
-        ? baseUrl.path
-        : '${baseUrl.path}/';
-    final encodedSegments = segments.map(Uri.encodeComponent).join('/');
-    return baseUrl.replace(path: '$basePath$encodedSegments');
+      return DateTime.utc(year, month, day, hour, minute, second);
+    } catch (_) {
+      return DateTime.now();
+    }
   }
 }
