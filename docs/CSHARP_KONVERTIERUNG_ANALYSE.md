@@ -42,14 +42,14 @@ Sie entspricht einem **technischen Neubau mit fachlicher Übernahme**.
 
 ## 3) Erwartbare Probleme / Risiken
 
-## 3.1 Technische Risiken
+### 3.1 Technische Risiken
 
 - **Offline-First + Konfliktauflösung**: hoher Aufwand für korrekte Re-Implementierung.
 - **Plattformparität**: Android/Web/Linux/Windows müssen in .NET gleichwertig erreicht werden.
 - **Datei-/Bild-/Scanner-Workflows**: starke Plattformabhängigkeit, je Ziel-Framework unterschiedlich gut unterstützt.
 - **Web-Verhalten**: Flutter-Web-Besonderheiten (Runtime Config) müssen für Blazor/anderes Web-Frontend neu gedacht werden.
 
-## 3.2 Organisatorische Risiken
+### 3.2 Organisatorische Risiken
 
 - Doppelter Pflegeaufwand während Übergangsphase (Flutter + C# parallel)
 - Hoher Test-/Abnahmeaufwand wegen regressionskritischer Sync-Fälle
@@ -73,37 +73,37 @@ Sie entspricht einem **technischen Neubau mit fachlicher Übernahme**.
 
 ## 5) Empfohlener Ablaufplan
 
-## Phase 0 – Zielbild und Scope fixieren
+### Phase 0 – Zielbild und Scope fixieren
 
 - Zielplattform festlegen (z. B. .NET MAUI + Blazor Web + optional Desktop)
 - Muss-/Kann-Features priorisieren (Sync, Konflikte, Scanner, Attachments, App-Lock)
 - Entscheidung dokumentieren: PocketBase behalten oder später ablösen
 
-## Phase 1 – Fachliche Entkopplung vorbereiten
+### Phase 1 – Fachliche Entkopplung vorbereiten
 
 - API-Verträge und Datenformate aus Flutter-Code extrahieren und stabilisieren
 - Kritische Sync-Regeln und Konfliktfälle als fachliche Spezifikation festhalten
 - Bestehende Testfälle als Anforderungskatalog aufbereiten
 
-## Phase 2 – C#-Basis aufbauen
+### Phase 2 – C#-Basis aufbauen
 
 - C#-Solution mit klarer Schichtung (Domain, Application, Infrastructure, UI)
 - PocketBase-Client, Auth, Fehlerbehandlung, Logging implementieren
 - Lokale Persistenz (SQLite) und Synchronisationsbasis in C# erstellen
 
-## Phase 3 – Kernfunktionen migrieren
+### Phase 3 – Kernfunktionen migrieren
 
 - Artikelverwaltung + Anhänge + Import/Export
 - Sync inkl. Konflikterkennung/-auflösung
 - Einstellungen/Server-Setup/Runtime-Konfiguration
 
-## Phase 4 – Plattformfeatures und Parität
+### Phase 4 – Plattformfeatures und Parität
 
 - Scanner, Kamera, Biometrie, Notifications je Plattform integrieren
 - Web/Desktop/Mobile Verhalten angleichen
 - Performance-/Stabilitätsvergleich gegen Flutter-Stand
 
-## Phase 5 – Test, Pilot, Cutover
+### Phase 5 – Test, Pilot, Cutover
 
 - Vollständige Regression (funktional + offline/sync + Fehlerfälle)
 - Pilotbetrieb mit ausgewählten Nutzern
