@@ -174,6 +174,7 @@ Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 
 ### 🏗️ Entwicklung & Architektur
 - 📐 **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** Projektstruktur, Datenmodell und Design-Entscheidungen
+- 🧭 **[CSHARP_KONVERTIERUNG_ANALYSE.md](docs/CSHARP_KONVERTIERUNG_ANALYSE.md):** Machbarkeit, Risiken und Ablaufplan für eine C#-Migration
 - 🗄️ **[DATABASE.md](docs/DATABASE.md):** Datenbank-Design, Sync-Logik, Bild- und Dokumenten-Synchronisation
 - 🎨 **[THEMING.md](docs/THEMING.md):** Infos zu AppConfig, AppTheme und Design-Tokens
 - 📝 **[LOGGING.md](docs/LOGGER.md):** Details zum integrierten Logging-System
