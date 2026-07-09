@@ -150,7 +150,7 @@ jobs:
 
   build-windows:
     name: Build Windows
-    runs-on: windows-latest
+    runs-on: windows-2022
     needs: [create-tag, test]
     steps:
       - name: Checkout code
