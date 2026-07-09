@@ -247,9 +247,8 @@ jobs:
 
         - name: Create Linux Archive
           run: |
-            cd app/build/linux/x64/release/bundle
-            tar -czf ../../../../../linux-release-${{ github.event.inputs.version }}.tar.gz .
-            cd ../../../../../
+            tar -czf linux-release-${{ github.event.inputs.version }}.tar.gz \
+              -C app/build/linux/x64/release/bundle .
 
         - name: Upload Linux Build
           uses: actions/upload-artifact@v4
