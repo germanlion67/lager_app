@@ -571,6 +571,17 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
       final recordId = list.items.first.id;
       final now = DateTime.now().toUtc();
 
+      // Bild wurde entfernt → leeres bild-Feld an PocketBase senden
+      final bildEntfernt = _bildPfad == null &&
+          _pendingBytes == null &&
+          widget.artikel.remoteBildPfad != null &&
+          widget.artikel.remoteBildPfad!.isNotEmpty;
+
+      if (bildEntfernt && _remoteBildUrl != null) {
+        // Cache leeren — kein DB-Aufruf im Web
+        await CachedNetworkImage.evictFromCache(_remoteBildUrl!);
+      }
+
       final body = <String, dynamic>{
         'name': _nameController.text.trim(),
         'menge': _menge,
@@ -584,17 +595,10 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
         'updated_at': now.millisecondsSinceEpoch,
       };
 
-      final bildEntfernt = _bildPfad == null &&
-          _pendingBytes == null &&
-          widget.artikel.remoteBildPfad != null &&
-          widget.artikel.remoteBildPfad!.isNotEmpty;
-
+      // Bild entfernen: leeres bild-Feld senden
+      // PocketBase löscht das Bild wenn ein leerer String gesendet wird
       if (bildEntfernt) {
-        if (_remoteBildUrl != null) {
-          await CachedNetworkImage.evictFromCache(_remoteBildUrl!);
-        }
-        await _db.clearBildInfoByUuidSilent(widget.artikel.uuid);
-        await _db.markAsModified(widget.artikel.uuid);
+        body['bild'] = '';
       }
 
       final List<http.MultipartFile> files = [];
@@ -620,7 +624,7 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
           updatedRecord.data['bild']?.toString() ?? '';
 
       if (_remoteBildUrl != null) {
-        unawaited(CachedNetworkImage.evictFromCache(_remoteBildUrl!));
+        await CachedNetworkImage.evictFromCache(_remoteBildUrl!);
       }
 
       if (!mounted) return;
@@ -644,6 +648,13 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
         _hasChanged = false;
         _pendingBytes = null;
       });
+
+      // Remote-Bild-URL neu laden nach erfolgreichem Speichern
+      if (neuerBildPfad.isNotEmpty) {
+        unawaited(_loadRemoteBildUrl()); // ← Fire-and-forget ist hier korrekt
+      } else {
+        setState(() => _remoteBildUrl = null);
+      }
 
       _finishSave(gespeicherterArtikel);
     } catch (e, st) {

@@ -92,7 +92,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   Artikel? _selectedArtikel; // nur relevant wenn _panelMode == detail
   
   // F-011.7: GlobalKey für Detail-Content im Master-Detail-Panel
-  final GlobalKey<ArtikelDetailContentState> _detailContentKey = GlobalKey();
+  GlobalKey<ArtikelDetailContentState> _detailContentKey = GlobalKey();
 
   @override
   void initState() {
@@ -362,6 +362,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       setState(() {
         _panelMode = _PanelMode.detail;
         _selectedArtikel = artikel;
+        _detailContentKey = GlobalKey(); // ← NEU: frischer Key pro Artikel
       });
     } else {
       Navigator.push<Artikel?>(
@@ -389,6 +390,12 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     _showSnackBar('🗑️ Artikel gelöscht');
   }
 
+  // F-012.2: Callback damit _DetailPanelHeader sich rebuildet
+  // wenn sich der ArtikelDetailContent-State ändert (Edit-Modus, etc.)
+  void _onDetailStateChanged() {
+    if (mounted) setState(() {});
+  }
+
   // ── NavigationRail ────────────────────────────────────────────────────────
 
   Widget _buildNavigationRail(ColorScheme colorScheme) {
@@ -403,11 +410,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           label: Text('Artikel'),
         ),
         NavigationRailDestination(
-          icon: Icon(Icons.sync_outlined),
-          selectedIcon: Icon(Icons.sync),
-          label: Text('Sync'),
-        ),
-        NavigationRailDestination(
           icon: Icon(Icons.settings_outlined),
           selectedIcon: Icon(Icons.settings),
           label: Text('Einstellungen'),
@@ -415,11 +417,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       ],
       onDestinationSelected: (index) {
         switch (index) {
-          case 0:
-            break;
+          case 0: break;
           case 1:
-            _handleManualSync();
-          case 2:
             Navigator.push<void>(
               context,
               MaterialPageRoute<void>(
@@ -700,6 +699,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     return Column(
       children: [
         _DetailPanelHeader(
+          key: ValueKey(_selectedArtikel!.uuid), // ← NEU
           contentKey: _detailContentKey,
           artikel: _selectedArtikel!,
           colorScheme: colorScheme,
@@ -716,6 +716,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             embedded: true,
             onSaved: _onDetailSaved,
             onDeleted: _onDetailDeleted,
+            onStateChanged: _onDetailStateChanged,  // ← NEU
           ),
         ),
       ],
@@ -798,25 +799,26 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   _buildConnectionStatusIcon(),
                 ],
               ),
-              ValueListenableBuilder<bool>(
-                valueListenable: showLastSyncNotifier,
-                builder: (context, showSync, _) {
-                  if (!showSync ||
-                      widget.syncStatusProvider?.lastSyncTime == null) {
-                    return const SizedBox.shrink();
-                  }
-                  return Text(
-                    'Letzter Sync: '
-                    '${_formatTime(widget.syncStatusProvider!.lastSyncTime!)}',
-                    style: textTheme.labelSmall?.copyWith(
-                      color: colorScheme.onSurface,
-                      fontSize: 10,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  );
-                },
-              ),
+              if (!kIsWeb)
+                ValueListenableBuilder<bool>(
+                  valueListenable: showLastSyncNotifier,
+                  builder: (context, showSync, _) {
+                    if (!showSync ||
+                        widget.syncStatusProvider?.lastSyncTime == null) {
+                      return const SizedBox.shrink();
+                    }
+                    return Text(
+                      'Letzter Sync: '
+                      '${_formatTime(widget.syncStatusProvider!.lastSyncTime!)}',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: colorScheme.onSurface,
+                        fontSize: 10,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
+                    );
+                  },
+                ),
             ],
           ),
         ),
@@ -843,26 +845,27 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               }
             },
           ),
-          _isSyncRunning
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+          if (!kIsWeb)
+            _isSyncRunning
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
+                  )
+                : IconButton(
+                    key: const Key('refreshButton'),
+                    icon: const Icon(Icons.sync),
+                    tooltip: 'Aktualisieren',
+                    onPressed: _handleManualSync,
                   ),
-                )
-              : IconButton(
-                  key: const Key('refreshButton'),
-                  icon: const Icon(Icons.sync),
-                  tooltip: 'Aktualisieren',
-                  onPressed: _handleManualSync,
-                ),
           PopupMenuButton<_MenuAction>(
             key: const Key('menuButton'),
             onSelected: _handleMenuAction,
@@ -1020,10 +1023,14 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // F-011.7: Detail-Panel Header (Titel + Actions + Close)
+// F-012.2 / F-012.4: StatefulWidget mit addPostFrameCallback —
+// stellt sicher dass contentKey.currentState beim ersten Frame
+// verfügbar ist, bevor Actions gerendert werden.
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _DetailPanelHeader extends StatelessWidget {
+class _DetailPanelHeader extends StatefulWidget {
   const _DetailPanelHeader({
+    super.key, // ← NEU
     required this.contentKey,
     required this.artikel,
     required this.colorScheme,
@@ -1036,8 +1043,35 @@ class _DetailPanelHeader extends StatelessWidget {
   final VoidCallback onClose;
 
   @override
+  State<_DetailPanelHeader> createState() => _DetailPanelHeaderState();
+}
+
+class _DetailPanelHeaderState extends State<_DetailPanelHeader> {
+  @override
+  void initState() {
+    super.initState();
+    // F-012.2 / F-012.4: Nach dem ersten Frame neu bauen —
+    // zu diesem Zeitpunkt ist contentKey.currentState garantiert verfügbar,
+    // da ArtikelDetailContent bereits in den Tree eingehängt wurde.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _DetailPanelHeader oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Neuer Artikel ausgewählt → nach Frame neu bauen
+    if (oldWidget.artikel.uuid != widget.artikel.uuid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() {});
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final contentState = contentKey.currentState;
+    final contentState = widget.contentKey.currentState;
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
@@ -1045,12 +1079,12 @@ class _DetailPanelHeader extends StatelessWidget {
         horizontal: AppConfig.spacingMedium,
         vertical: AppConfig.spacingSmall,
       ),
-      color: colorScheme.surfaceContainerLow,
+      color: widget.colorScheme.surfaceContainerLow,
       child: Row(
         children: [
           Expanded(
             child: Text(
-              contentState?.titleText ?? artikel.name,
+              contentState?.titleText ?? widget.artikel.name,
               style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -1058,12 +1092,12 @@ class _DetailPanelHeader extends StatelessWidget {
             ),
           ),
           if (contentState != null)
-            ...contentState.buildActions(colorScheme),
+            ...contentState.buildActions(widget.colorScheme),
           const SizedBox(width: AppConfig.spacingSmall),
           IconButton(
             icon: const Icon(Icons.close),
             tooltip: 'Detail schließen',
-            onPressed: onClose,
+            onPressed: widget.onClose,
             visualDensity: VisualDensity.compact,
           ),
         ],

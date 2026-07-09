@@ -28,17 +28,154 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-019`, `F-012`, `H-006`, `K-008`, `M-014`, `N-007`, `O-023`, `P-010`, `T-013`
+- `B-019`, `F-013`, `H-006`, `K-008`, `M-014`, `N-007`, `O-022`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
 auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` verschoben wird.
 
-Commit-Meldungen  `fix:`- Neues Future,  `feat:`-Bugfix, `docs`- Dokumentation, `style`- Formatierung, `refactor`- Code-Umbau, Future/Fix, `test`- Test hinzugefügt, `chore`- Build, Config, Dependencies
+Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, `style`- Formatierung, `refactor`- Code-Umbau, Future/Fix, `test`- Test hinzugefügt, `chore`- Build, Config, Dependencies
 ---
 
 ## 🔴 Priorität: Hoch
 
+### F-012: Web-Version — UI/UX & Funktionsprobleme (Issue #67)
+**Beschreibung:**
+Sammlung von Bugs und UX-Problemen die ausschließlich die Web-Version betreffen,
+gemeldet in Issue #67. Alle Änderungen ausschließlich hinter `kIsWeb`-Guards oder
+in Web-spezifischen Layout-Zweigen — Mobile- und Desktop-Native-Verhalten bleibt
+unverändert.
+
+**Betroffene Bereiche:**
+- `app/lib/screens/` — Detail-, Erfassen-, Listen-, Settings-Screen
+- `app/lib/widgets/` — NavigationRail, Sync-Button, Scanner-Button
+- `app/lib/services/` — Auth-Persistenz (Web), Speicherpfad (Web)
+
+---
+
+#### 🔴 Prio 1 — Bugs (blockierend)
+
+- [x] **F-012.1: Speichern schlägt fehl — `ArtikelDbService` im Web nicht verfügbar**
+  **Symptom:**
+  ```
+  Speichern fehlgeschlagen: Unsupported operation: ArtikelDbServive ist im Web
+  nicht verfügbar. Nutze PocketBase direkt im Web.
+  ```
+  **Ursache:** Speichern-Pfad ruft `ArtikelDbService` (SQLite) auf — im Web nicht verfügbar.
+  **Lösung:** `kIsWeb`-Guard im Speichern-Pfad ergänzen — Web speichert direkt via
+  `PocketBaseService`, Mobile/Desktop weiterhin via lokale DB + Sync.
+  **Betroffene Datei(en):** Speichern-Logik in Detail-Screen / Controller
+  **Aufwand:** ~1–2 h | **Risiko:** Mittel
+  **Erledigt:** `_speichernWeb()` via `PocketBaseService` implementiert, `kIsWeb`-Guard in `_speichern()` ergänzt.
+
+- [x] **F-012.2: Speichern-Button nicht sichtbar beim Bearbeiten**
+  **Symptom:** Speichern-Button erscheint erst nach Wechsel zur Listenansicht und zurück.
+  **Ursache:** State-Rebuild-Problem — Edit-Modus wird gesetzt, aber Button-Bereich
+  wird nicht neu gerendert. Im Master-Detail-Layout (Desktop-Web) propagiert
+  `ValueNotifier` möglicherweise nicht korrekt über Widget-Tree-Grenzen.
+  **Lösung:** `setState(() { _isEditMode = true; })` sicherstellen; `ValueNotifier`-
+  Propagierung im Desktop-Layout prüfen.
+  **Betroffene Datei(en):** `artikel_detail_content.dart` (Web-Pfad)
+  **Aufwand:** ~30 min | **Risiko:** Niedrig
+  **Erledigt:** `onStateChanged`-Callback in `ArtikelDetailContent` ergänzt — Wrapper rebuildet AppBar-Actions bei jedem `setState` des Content-Widgets.
+
+- [x] **F-012.3: Sync-Elemente im Web ausblenden**
+  **Symptom:** Sync-Zeitstempel-Toggle hat keine sichtbare Wirkung im Web. Sync-Button und Spinner erscheinen im Web-Layout.
+  **Ursache:** `ValueListenableBuilder` für `showLastSyncNotifier` und Sync-Button/-Spinner nicht hinter `kIsWeb`-Guard.
+  **Lösung:** Sync-Button/-Spinner und `showLastSyncNotifier`-Block in AppBar hinter `if (!kIsWeb)` Guard. Sync-Destination aus NavigationRail entfernt, Index angepasst.
+  **Betroffene Datei(en):** AppBar-Widget, NavigationRail-Widget
+  **Aufwand:** ~30 min | **Risiko:** Niedrig
+  **Erledigt:** Alle drei Sync-Elemente (Button, Spinner, Zeitstempel) hinter `if (!kIsWeb)` Guard. NavigationRail-Index korrigiert.
+
+- [x] **F-012.4: Detailansicht — Titel und Buttons beim ersten Klick falsch**
+  **Symptom:** Beim ersten Klick auf einen Artikel bleibt der Titel auf dem vorherigen
+  Artikel stehen. Buttons (Bearbeiten, Anhang, PDF, Löschen) fehlen beim ersten Klick komplett.
+  **Ursache:** `_DetailPanelHeader` wird von Flutter recycelt (kein Widget-Neuaufbau bei
+  Artikel-Wechsel) — `contentKey.currentState` ist beim ersten Render `null`,
+  `didUpdateWidget` greift zu spät. `GlobalKey` wurde als `final` deklariert und für
+  verschiedene Artikel wiederverwendet.
+  **Lösung:** `ValueKey(uuid)` auf `_DetailPanelHeader` → erzwingt Neuinstanziierung bei
+  Artikel-Wechsel. `_detailContentKey` von `final` auf nicht-final geändert, wird bei
+  jedem `_onArtikelTap()` neu erzeugt. `super.key` in `_DetailPanelHeader`-Konstruktor ergänzt.
+  **Betroffene Datei(en):** `artikel_list_screen.dart`
+  **Aufwand:** ~1 h | **Risiko:** Niedrig
+  **Erledigt:** 3 Änderungen in `artikel_list_screen.dart` — `super.key` ergänzt, `final`
+  entfernt, `GlobalKey()` bei jedem Artikel-Wechsel neu erzeugt.
+
+- [ ] **F-012.5: NavigationRail verschwindet beim Wechsel zu Einstellungen**
+  **Symptom:** Die linke Button-Leiste mit „Artikel" und „Einstellungen" verschwindet
+  beim Wechsel zum Einstellungs-Screen.
+  **Ursache:** `SettingsScreen` wird als eigenständige `Navigator.push()`-Route
+  geöffnet und ersetzt den gesamten Screen inkl. `NavigationRail`. Im Desktop-Web-
+  Layout muss er stattdessen im Content-Bereich rechts gerendert werden.
+  **Lösung:** Web-Desktop: Settings als Content im bestehenden Layout rendern
+  (Index-basiert), nicht als neue Route pushen. Mobile: unverändert.
+  **Betroffene Datei(en):** Haupt-Navigation / Shell-Widget (Web-Pfad)
+  **Aufwand:** ~1 h | **Risiko:** Mittel
+
+---
+
+#### 🟡 Prio 2 — UX-Verbesserungen
+
+- [ ] **F-012.6: Session-Verlust bei Browser-Refresh (F5)**
+  **Symptom:** Bei jedem Tab-Refresh werden Zugangsdaten verworfen, Neuanmeldung
+  erforderlich.
+  **Ursache:** Auth-Token wird nur im Speicher gehalten, nicht in `localStorage`
+  persistiert.
+  **Lösung:** Web: Auth-Token + Model in `localStorage` persistieren und beim
+  App-Start wiederherstellen. Prüfen ob PocketBase Dart SDK `AsyncAuthStore`
+  für Web bereits nutzbar ist.
+  **Betroffene Datei(en):** Auth-Initialisierung / `pocketbase_service.dart` (Web-Pfad)
+  **Aufwand:** ~1–2 h | **Risiko:** Mittel
+
+- [ ] **F-012.7: Scanner-Button — kontextabhängige Funktion je nach Plattform**
+  **Symptom:** Scanner-Button im Web macht auf Desktop keinen Sinn (kein Kamera-
+  Scanner verfügbar).
+  **Gewünschtes Verhalten:**
+  - Mobil: Kamera-Scanner öffnen (unverändert)
+  - Desktop-Web: Texteingabe-Dialog für Artikelnummer-Suche
+  - Desktop-Web mit HID-Scanner (Nice-to-have): Scanner-Input direkt verarbeiten
+    (HID-Scanner sendet Tastatureingaben — schnelle Zeichenfolge + Enter erkennbar)
+  **Lösung Stufe 1:** `kIsWeb`-Guard → Texteingabe-Dialog statt Kamera.
+  **Lösung Stufe 2 (optional):** `FocusNode` + Keyboard-Listener für HID-Scanner-
+  Erkennung (Geschwindigkeit der Eingabe als Heuristik).
+  **Betroffene Datei(en):** Scanner-Button-Widget (Web-Pfad)
+  **Aufwand:** ~1–2 h (Stufe 1: ~30 min) | **Risiko:** Niedrig
+
+- [ ] **F-012.8: TAB-Navigation beim Erstellen neuer Artikel**
+  **Symptom:** Kein Weiterspringen per TAB-Taste zwischen Eingabefeldern im
+  Erfassen-Screen.
+  **Lösung:** `FocusNode`-Kette für alle Felder + `TextInputAction.next` +
+  `onSubmitted`-Handler der jeweils nächsten `FocusNode.requestFocus()` aufruft.
+  Gilt primär für Web/Desktop — Mobile-Verhalten unverändert.
+  **Betroffene Datei(en):** `artikel_erfassen_screen.dart` (Web-Pfad / Desktop)
+  **Aufwand:** ~30 min | **Risiko:** Sehr niedrig
+
+---
+
+#### 🟢 Prio 3 — Nice-to-Have
+
+- [ ] **F-012.9: Sync-Button im Web prüfen und ggf. ausblenden**
+  **Symptom:** Sync-Button in der Web-Version möglicherweise nicht benötigt, da
+  Web direkt gegen PocketBase arbeitet (kein lokaler SQLite-Cache).
+  **Lösung:** Nach Klärung von F-012.1 (Speicherpfad) entscheiden ob Sync-Button
+  im Web konzeptionell sinnvoll ist. Falls nicht: `if (!kIsWeb) SyncButton()`.
+  **Abhängigkeit:** F-012.1 muss zuerst abgeschlossen sein.
+  **Betroffene Datei(en):** Sync-Button-Widget
+  **Aufwand:** ~10 min | **Risiko:** Sehr niedrig
+
+---
+
+**Aufwand gesamt:** ~7–11 Stunden
+**Risiko gesamt:** Mittel (F-012.1, F-012.5, F-012.6) | Niedrig (Rest)
+**Abhängigkeiten:**
+- F-012.9 → F-012.1 zuerst abschließen
+- F-012.2 → F-012.1 zuerst prüfen (gleicher Speicherpfad betroffen)
+
+> ⚠️ **Regel für alle F-012-Änderungen:**
+> Ausschließlich Web-Codepfade anfassen — alle Änderungen hinter `kIsWeb`-Guards
+> oder in Web-spezifischen Layout-Zweigen.
+> Mobile- und Desktop-Native-Verhalten bleibt **unverändert**.
 ### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung)
 **Beschreibung:**
 Lighthouse-Timespan-Audit (P-006) zeigt TBT 1.140 ms und Speed Index 6,6 s.
@@ -245,7 +382,6 @@ Direkte Synergie mit P-006.1 (Thumbnail-Größe prüfen).
 
 ### O-021: State Management modernisieren 
 
-### O-022: AppConfig modularisieren, flutter_local_notifications entfernen
 
 --- 
 
@@ -348,7 +484,8 @@ Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch
 Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
 
 **Aktuell besonders relevante offene Themen**
-- H-005.3: `X-Frame-Options`-Header (5 Minuten, offen)
+- F-012.5: NavigationRail verschwindet bei Einstellungen
+- F-012.6: Session-Verlust bei Browser-Refresh
 - P-006: Thumbnail-Größen und API-Latenz untersuchen
 - O-015: `flutter_local_notifications` entfernen
 
@@ -358,6 +495,10 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
+
+
+
+--- 
 
 ### H-004: Lighthouse-Befunde beheben (Web-Performance, Security-Header, SEO) — abgeschlossen 2026-05-19 | `0.9.9+75`
 **Beschreibung:**
@@ -527,9 +668,11 @@ SEO 100 erreicht in v0.9.9+75 (ohne Login gemessen).
 
 - [x] **H-005.3: `X-Frame-Options`-Header setzen**
   Clickjacking-Schutz für Produktions-Deployment:
-  ```nginx
+
+```nginx
   add_header X-Frame-Options "SAMEORIGIN" always;
-```
+``` 
+
 Aufwand: 5 Minuten | Risiko: Sehr niedrig
 Status: ✅ Bereits im Caddyfile gesetzt (Referenz-Doku bestätigt)
 
@@ -876,6 +1019,7 @@ Meta-Description und Title in index.html ergänzt (H-005.2). SEO-Score 63 → 10
 | 2026-04-13 | 0.8.0+6 | T-007 abgeschlossen: Performance-Test self-contained |
 | 2026-04-13 | 0.8.0+5 | P-005 als erledigt markiert: Ziel-Versionen bereits in `pubspec.yaml`, `connectivity_plus`-Migration umgesetzt |
 | 2026-04-12 | 0.8.0+5 | T-002 abgeschlossen: 17 Unit-Tests `PocketBaseSyncService` |
+| 2026-07-09 | 0.9.9+75 | F-012.4 abgeschlossen: Titel und Buttons in Detailansicht beim ersten Klick korrekt. `super.key` in `_DetailPanelHeader`-Konstruktor ergänzt, `_detailContentKey` von `final` auf nicht-final geändert, `GlobalKey()` bei jedem `_onArtikelTap()` neu erzeugt, `ValueKey(uuid)` auf `_DetailPanelHeader` gesetzt. 3 Änderungen in `artikel_list_screen.dart`. |
 
 ---
 
