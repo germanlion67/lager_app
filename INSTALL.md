@@ -91,7 +91,7 @@ cd app
 flutter pub get
 ```
 
-## === Variante A: Ohne --dart-define (Setup-Screen beim ersten Start) ===
+### Variante A: Ohne `--dart-define` (Setup-Screen beim ersten Start)
 
 ### Web (Chrome)
 
@@ -111,7 +111,7 @@ flutter run -d chrome
 >
 > Dann im **Windows-Browser** öffnen: `http://localhost:8888`
 >
-> Siehe [DEV_SETUP.md](DEV_SETUP.md) für Details.
+> Siehe [DEV_SETUP.md](docs/DEV_SETUP.md) für Details.
 
 ### Linux Desktop
 ```bash
@@ -128,7 +128,7 @@ flutter run -d windows
 flutter run
 ```
 
-## === Variante B: Mit --dart-define (URL vorkonfiguriert) ===
+### Variante B: Mit `--dart-define` (URL vorkonfiguriert)
 
 ### Web (Chrome)
 ```bash
@@ -159,10 +159,12 @@ flutter run --dart-define=POCKETBASE_URL=http://<IP>:8080
 
 > 💡 **Tipp:** Wenn du die URL einmal über den Setup-Screen oder die Einstellungen eingegeben hast, wird sie lokal gespeichert.  
 > Beim nächsten Start ist kein `--dart-define` mehr nötig.
+
 > **Plattformhinweis:**  
 > Auf Web kann die Server-URL zusätzlich über Runtime-Konfiguration bereitgestellt werden.
 > Auf nativen Plattformen wird typischerweise mit gespeicherten Einstellungen oder
 > `--dart-define` gearbeitet. Welche Quelle effektiv verwendet wird, bestimmt der aktuelle Code.
+
 > 💡 **Kein Flutter installiert?** Die fertige APK findest du auf der
 > [Releases-Seite](https://github.com/germanlion67/lager_app/releases/latest).
 > Der folgende Abschnitt ist nur für Entwickler relevant, die die APK selbst bauen möchten.
@@ -256,6 +258,7 @@ Für spezielle Betriebs- oder Entwicklungsfälle gelten ergänzend:
 - Die App hat `android:usesCleartextTraffic="true"` bereits gesetzt, sodass HTTP für LAN-Tests funktioniert.
 - Für Produktion wird dennoch **HTTPS** empfohlen.
 
+### Portainer-Deployment schlägt fehl?
 - Prüfe, ob alle Pflicht-Variablen gesetzt sind:
   - `PB_ADMIN_EMAIL` und `PB_ADMIN_PASSWORD`
   - `POCKETBASE_URL` (öffentliche URL, vom Browser erreichbar)

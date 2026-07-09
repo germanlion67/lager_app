@@ -92,7 +92,8 @@ Wenn du das Web später unter `https://lager.germanlion67.de` nutzen willst:
 - `CORS_ALLOWED_ORIGINS` = `https://lager.germanlion67.de`
 
 Wenn du *noch kein* Web unter Domain hast und nur testen willst:
-- `CORS_ALLOWED_ORIGINS` = `*` (nicht ideal für Produktion, aber ok für Tests)
+- `CORS_ALLOWED_ORIGINS` = `*`
+> ⚠️ Nur für lokale Entwicklung — nicht für öffentlich erreichbare Server!
 
 > Hinweis: In deinem aktuellen Stack sind `PB_DATA_DIR`, `PB_MIGRATIONS_DIR`, `PB_DEV_MODE` bereits gesetzt/vernünftig.  
 > `PB_PORT`/`WEB_PORT` musst du nur setzen, wenn du Ports ändern willst.
@@ -135,12 +136,12 @@ Wenn du **bei der Erstinstallation** direkt einen Login-User für die App haben 
 Optional (empfohlen für “idempotent” Setup / Passwort später ändern ohne Volume-Reset):
 - `PB_TEST_USER_UPSERT` = `1`
 
-> Hinweis: Der PocketBase **Superuser** (`PB_ADMIN_*`) ist **nicht** automatisch ein 
+> **Hinweis:** Der PocketBase **Superuser** (`PB_ADMIN_*`) ist **nicht** automatisch
+> ein App-User. Die App authentifiziert sich gegen die Collection `users`.
 
 > **Technischer Hinweis:** Bei neueren PocketBase-Versionen werden Admins über die
 > System-Auth-Collection `_superusers` verwaltet. Historische ältere Admin-Endpunkte
-> oder Altdokumentation sind daher nicht automatisch auf den aktuellen Stand übertragbar.App-User.  
-> Die App authentifiziert sich gegen die Collection `users`.
+> oder Altdokumentation sind daher nicht automatisch auf den aktuellen Stand übertragbar.
 
 ### ⚠️ Wichtig: Sonderzeichen in Passwörtern (Portainer / Compose)
 Einige Zeichen werden bei Environment-Variablen in Docker/Portainer/Compose leicht “falsch” interpretiert:
@@ -187,7 +188,7 @@ In Portainer:
 
 ---
 
-## 4a) Verifiziertes Startverhalten
+### 4a) Verifiziertes Startverhalten
 
 Der Portainer-Stack-Betrieb ist für beide Szenarien verifiziert:
 
@@ -217,7 +218,7 @@ curl http://127.0.0.1:8080/api/health
 
 ---
 
-## 4b) Cold-Start-Verifikation (Neuinstallation simulieren)
+### 4b) Cold-Start-Verifikation (Neuinstallation simulieren)
 
 Damit lässt sich ein Erststart sicher testen, **ohne** die Produktionsdaten dauerhaft zu löschen:
 
@@ -243,7 +244,7 @@ Damit lässt sich ein Erststart sicher testen, **ohne** die Produktionsdaten dau
 
 ---
 
-## 4c) Fehlerbehebung: Alpine/BusyBox `sed`-Regex-Inkompatibilität
+### 4c) Fehlerbehebung: Alpine/BusyBox `sed`-Regex-Inkompatibilität
 
 Im Init-Script wird `sed` auf Alpine Linux (BusyBox) verwendet. BusyBox `sed` unterstützt
 **keine ERE-Quantoren mit `{}`** in Basis-Regex-Ausdrücken ohne `-E`-Flag.
@@ -360,10 +361,11 @@ Beispiel korrekt:
 
 ---
 
-## Empfehlung (Hardening, später)
+## 🛡️ Hardening (empfohlen für Produktion)
+
 Dein aktueller Stack published `8080/8081` öffentlich. Das funktioniert, aber „gehärtet“ ist besser:
 
 - PocketBase + Frontend nur intern (`expose:` statt `ports:`)
 - Nur NPM öffentlich (80/443)
 
-Im Repository ist dafür bereits ein „Portainer Stack (Produktion)“ Beispiel in `DEPLOYMENT.md`.
+👉 Siehe [DEPLOYMENT.md → Portainer Stack](../DEPLOYMENT.md)

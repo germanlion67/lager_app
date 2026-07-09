@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/germanlion67/lager_app?label=Version&logo=github)](https://github.com/germanlion67/lager_app/releases/latest)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![PocketBase](https://img.shields.io/badge/PocketBase-0.25-B8DBE4?logo=pocketbase)](https://pocketbase.io)
+[![PocketBase](https://img.shields.io/badge/PocketBase-0.36-B8DBE4?logo=pocketbase)](https://pocketbase.io)
 [![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20Web%20%7C%20Linux%20%7C%20Windows-blue)]()
 
 
@@ -87,8 +87,15 @@ docker compose up -d --build
 | PocketBase Admin | `admin@example.com` | `changeme123` |
 | App Test-User | `user@lager.app` | `changeme123` |
 
+> ⚠️ **Dev-Modus:** `PB_DEV_MODE=1` ist standardmäßig aktiv — der Login-Screen
+> wird übersprungen und Auth-Regeln sind offen. In Produktion auf `0` setzen!
+
 > ⚠️ **Sicherheitshinweis:** Diese Zugangsdaten sind nur für die lokale Entwicklung gedacht.
 > Ändere sie **sofort** in Produktionsumgebungen! Siehe [DEPLOYMENT.md](DEPLOYMENT.md).
+
+> ⚠️ **CORS:** `CORS_ALLOWED_ORIGINS=*` erlaubt standardmäßig alle Origins.
+> In Produktion auf deine Domain einschränken, z. B. `https://app.deine-domain.de`.
+> Siehe [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 

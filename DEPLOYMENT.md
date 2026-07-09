@@ -609,6 +609,13 @@ services:
       - BACKUP_CRON=${BACKUP_CRON:-0 3 * * *}
       - BACKUP_KEEP_DAYS=${BACKUP_KEEP_DAYS:-7}
       - BACKUP_NOTIFY=${BACKUP_NOTIFY:-none}
+      # Optional: nur wenn BACKUP_NOTIFY=email
+      # - BACKUP_SMTP_HOST=${BACKUP_SMTP_HOST:-}
+      # - BACKUP_SMTP_PORT=${BACKUP_SMTP_PORT:-587}
+      # - BACKUP_SMTP_USER=${BACKUP_SMTP_USER:-}
+      # - BACKUP_SMTP_PASS=${BACKUP_SMTP_PASS:-}
+      # - BACKUP_SMTP_FROM=${BACKUP_SMTP_FROM:-}
+      # - BACKUP_SMTP_TO=${BACKUP_SMTP_TO:-}
       - TZ=${TZ:-Europe/Berlin}
     volumes:
       - pb_data:/pb_data:ro
@@ -648,9 +655,12 @@ Beim Stack-Deployment in Portainer unter **Environment variables** setzen:
 
 ### Nginx Proxy Manager einrichten
 
-Nach dem ersten Start NPM Admin UI öffnen (`http://SERVER-IP:81`):
+> 💡 Port 81 ist nur lokal gebunden (`127.0.0.1:81`).
+> Zugriff via SSH-Tunnel: `ssh -L 81:localhost:81 user@server-ip`
+> Dann im Browser: `http://localhost:81`
 
 1. **Erstlogin:** `admin@example.com` / `changeme`
+   → Sofort E-Mail und Passwort ändern!
 2. **Proxy Host 1:** `lager.germanlion67.de` → `lager_frontend:8081` → SSL ✅
 3. **Proxy Host 2:** `api.germanlion67.de` → `lager_pocketbase:8080` → SSL ✅
 
