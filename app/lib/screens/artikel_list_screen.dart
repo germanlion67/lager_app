@@ -399,8 +399,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ── NavigationRail ────────────────────────────────────────────────────────
 
   Widget _buildNavigationRail(ColorScheme colorScheme) {
+    // F-012.5: selectedIndex spiegelt aktiven Panel-Modus wider
+    
     return NavigationRail(
-      selectedIndex: 0,
+      selectedIndex: _panelMode == _PanelMode.settings ? 1 : 0,
       labelType: NavigationRailLabelType.all,
       leading: const SizedBox(height: AppConfig.spacingSmall),
       destinations: const [
@@ -417,17 +419,22 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       ],
       onDestinationSelected: (index) {
         switch (index) {
-          case 0: break;
+          case 0:
+            // F-012.5: Settings-Panel schließen → zurück zur Artikelliste
+            if (_panelMode == _PanelMode.settings) {
+              setState(() {
+                _panelMode = _PanelMode.none;
+                });
+            }
           case 1:
-            Navigator.push<void>(
-              context,
-              MaterialPageRoute<void>(
-                builder: (_) => SettingsScreen(
-                  onLogout: widget.onLogout,
-                  onSyncIntervalChanged: widget.onSyncIntervalChanged,
-                ),
-              ),
-            );
+            // F-012.5: Desktop → Settings als Panel; Mobile → Navigator.push
+            // (NavigationRail wird nur auf Desktop gerendert, kein kIsWeb-Guard
+            //  nötig — Mobile sieht diese Rail nie)
+            setState(() {
+              _panelMode = _PanelMode.settings;
+              _selectedArtikel = null;
+            });
+           
         }
       },
     );
@@ -639,6 +646,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ── F-011.7: Detail-Panel für Desktop ─────────────────────────────────────
 
   Widget _buildDetailPanel(ColorScheme colorScheme) {
+      // F-012.5: Settings-Panel (Desktop-Web)
+      if (_panelMode == _PanelMode.settings) {
+        return _buildSettingsPanel(colorScheme);
+      }
+
     // F-011.9: Erfassen-Panel
     if (_panelMode == _PanelMode.erfassen) {
       return _buildErfassenPanel(colorScheme);
@@ -769,6 +781,52 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               _showSnackBar('✅ Artikel gespeichert');
             },
             onCancelled: () => setState(() => _panelMode = _PanelMode.none),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSettingsPanel(ColorScheme colorScheme) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppConfig.spacingMedium,
+            vertical: AppConfig.spacingSmall,
+          ),
+          color: colorScheme.surfaceContainerLow,
+          child: Row(
+            children: [
+              const Icon(Icons.settings_outlined,
+                  size: AppConfig.iconSizeMedium,),
+              const SizedBox(width: AppConfig.spacingSmall),
+              Expanded(
+                child: Text(
+                  'Einstellungen',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close),
+                tooltip: 'Schließen',
+                onPressed: () => setState(() {
+                  _panelMode = _PanelMode.none;
+                }),
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: SettingsScreen(
+            embedded: true, // ← kein Scaffold, kein AppBar
+            onLogout: widget.onLogout,
+            onSyncIntervalChanged: widget.onSyncIntervalChanged,
           ),
         ),
       ],
@@ -956,6 +1014,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       case _MenuAction.showLog:
         await AppLogService.showLogDialog(context);
       case _MenuAction.settings:
+      // F-012.5: Desktop → Settings als Panel im Content-Bereich
+      //          Mobile  → Navigator.push (unverändert)
+      final isDesktop = Responsive.of(context) == ScreenSize.desktop;
+      if (isDesktop) {
+        setState(() {
+          _panelMode = _PanelMode.settings;
+          _selectedArtikel = null;
+        });
+      } else {
         await Navigator.push<void>(
           context,
           MaterialPageRoute<void>(
@@ -965,8 +1032,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             ),
           ),
         );
-    }
+      }
   }
+}
 
   Future<void> _importExportDialog() async {
     await showDialog<void>(
@@ -1284,5 +1352,5 @@ class _ArtikelInfoChip extends StatelessWidget {
   }
 }
 
-enum _PanelMode { none, detail, erfassen }
+enum _PanelMode { none, detail, erfassen, settings }
 enum _MenuAction { importExport, pdfReports, resetDb, showLog, settings }

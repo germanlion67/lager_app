@@ -21,11 +21,14 @@ import 'settings_controller.dart';
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onLogout;
   final void Function(int seconds)? onSyncIntervalChanged;
+  // F-012.5: Im embedded-Modus kein Scaffold/AppBar — nur der Body
+  final bool embedded; // ← NEU
 
   const SettingsScreen({
     super.key,
     this.onLogout,
     this.onSyncIntervalChanged,
+    this.embedded = false, // ← Default false → kein Breaking Change
   });
 
   @override
@@ -314,15 +317,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
+        // F-012.5: Im embedded-Modus keinen Scaffold rendern —
+        // NavigationRail und Panel-Header kommen vom Wrapper.
+        if (widget.embedded) {
+          return PopScope(
+            canPop: !_controller.hasUnsavedChanges,
+            onPopInvokedWithResult: (didPop, _) async {
+              if (didPop) return;
+              final navigator = Navigator.of(context);
+              final shouldLeave = await _showUnsavedChangesDialog();
+              if (shouldLeave && mounted) navigator.pop();
+            },
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppConfig.spacingLarge),
+              child: Form(
+                key: _formKey,
+                child: _buildSettingsBody(context),
+              ),
+            ),
+          );
+        }
+
+        // Nicht-embedded: Scaffold mit AppBar (Mobile — unverändert)
         return PopScope(
           canPop: !_controller.hasUnsavedChanges,
           onPopInvokedWithResult: (didPop, _) async {
             if (didPop) return;
             final navigator = Navigator.of(context);
             final shouldLeave = await _showUnsavedChangesDialog();
-            if (shouldLeave && mounted) {
-              navigator.pop();
-            }
+            if (shouldLeave && mounted) navigator.pop();
           },
           child: Scaffold(
             appBar: AppBar(
