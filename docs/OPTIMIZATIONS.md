@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-019`, `F-013`, `H-006`, `K-008`, `M-014`, `N-007`, `O-022`, `P-010`, `T-013`
+- `B-020`, `F-013`, `H-006`, `K-008`, `M-014`, `N-007`, `O-022`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -134,8 +134,7 @@ unverändert.
   **Betroffene Datei(en):** Auth-Initialisierung / `pocketbase_service.dart` (Web-Pfad)
   **Aufwand:** ~1–2 h | **Risiko:** Mittel
   **Erledigt:**
-  ### F-012.6 ✅ Session-Verlust bei Browser-Refresh
-- auth_store_factory.dart: conditional export (Web/Native)
+ - auth_store_factory.dart: conditional export (Web/Native)
 - auth_store_factory_web.dart: package:web localStorage
 - auth_store_factory_native.dart: SharedPreferences
 - pocketbase_service.dart: _createClient() mit AsyncAuthStore
@@ -514,6 +513,36 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 
 --- 
+
+### B-019: Bild verschwindet nach Speichern im embedded Web-Modus — abgeschlossen 2026-07-10 | `0.9.9+75`
+**Beschreibung:**
+Nach dem Speichern eines Artikels im Master-Detail-Panel (Desktop-Web) verschwand
+das Artikelbild sofort — obwohl der Upload erfolgreich war.
+
+**Ursache:**
+Race Condition in zwei Stufen:
+1. `_onDetailSaved()` in `artikel_list_screen.dart` ignorierte `gespeicherterArtikel`
+   und rief nur `_ladeArtikel()` (async) auf. Währenddessen triggerte `onSaved` →
+   `didUpdateWidget` → `_reinitializeForNewArtikel()` mit dem **alten** `widget.artikel`
+   (ohne Bild-URL) — das Bild wurde sofort überschrieben.
+2. `_speichernWeb()` in `artikel_detail_content.dart` lud die neue Remote-URL per
+   Fire-and-forget (`unawaited(_loadRemoteBildUrl())`). Der Callback `_finishSave()`
+   wurde aufgerufen bevor die URL verfügbar war — `_remoteBildUrl` blieb `null`.
+
+**Fix:**
+- `_onDetailSaved()`: `_selectedArtikel` sofort synchron mit `gespeicherterArtikel`
+  aktualisieren (`setState`), bevor `_ladeArtikel()` async läuft.
+- `_speichernWeb()`: Remote-Bild-URL synchron aus `updatedRecord` via
+  `_pbService.client.files.getUrl()` auflösen und direkt im `setState` setzen.
+  Fire-and-forget `_loadRemoteBildUrl()` nach Speichern entfernt.
+
+**Betroffene Dateien:**
+- `app/lib/screens/artikel_list_screen.dart` (`_onDetailSaved`)
+- `app/lib/widgets/artikel_detail_content.dart` (`_speichernWeb`)
+
+**Aufwand:** ~30 min | **Risiko:** Niedrig (nur Web-Pfad)
+**Verifiziert:** `flutter analyze`: 0 Issues | `flutter test`: 1011/1011 ✅, 2 skipped
+
 
 ### H-004: Lighthouse-Befunde beheben (Web-Performance, Security-Header, SEO) — abgeschlossen 2026-05-19 | `0.9.9+75`
 **Beschreibung:**
@@ -986,6 +1015,8 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-07-10 | 0.9.9+75 | B-019 abgeschlossen: Bild verschwindet nach Speichern im embedded Web-Modus. Race Condition zwischen `_finishSave()` → `didUpdateWidget()` → `_reinitializeForNewArtikel()` geschlossen. Fix 1: `_onDetailSaved()` in `artikel_list_screen.dart` — `_selectedArtikel` sofort synchron mit `gespeicherterArtikel` aktualisiert, bevor `_ladeArtikel()` async läuft. Fix 2: `_speichernWeb()` in `artikel_detail_content.dart` — Remote-Bild-URL synchron aus `updatedRecord` aufgelöst und direkt im `setState` gesetzt, Fire-and-forget `_loadRemoteBildUrl()` entfernt. `flutter analyze`: 0 Issues. `flutter test`: 1011/1011 grün, 2 skipped. |
+| 2026-07-09 | 0.9.9+75 | F-012.4 abgeschlossen: Titel und Buttons in Detailansicht beim ersten Klick korrekt. `super.key` in `_DetailPanelHeader`-Konstruktor ergänzt, `_detailContentKey` von `final` auf nicht-final geändert, `GlobalKey()` bei jedem `_onArtikelTap()` neu erzeugt, `ValueKey(uuid)` auf `_DetailPanelHeader` gesetzt. 3 Änderungen in `artikel_list_screen.dart`. |
 | 2026-05-20 | 0.9.9+75 | H-005.3: X-Frame-Options bereits im Caddyfile vorhanden —
 als ✅ erledigt markiert. H-005 vollständig abgeschlossen. |
 | 2026-05-20 | 0.9.9+75 | LIGHTHOUSE.md in HISTORY.md überführt und gelöscht. OPTIMIZATION.md auf Version 0.9.9+75 aktualisiert: H-005 vollständig eingetragen (H-005.1 ✅, H-005.2 ✅, H-005.3 ❌ offen), Score-Tabelle in H-004 um Endzustand ergänzt, Verweis auf HISTORY.md für Audit-Rohdaten ergänzt, Fortschritts-Übersicht aktualisiert. |
@@ -1034,7 +1065,6 @@ Meta-Description und Title in index.html ergänzt (H-005.2). SEO-Score 63 → 10
 | 2026-04-13 | 0.8.0+6 | T-007 abgeschlossen: Performance-Test self-contained |
 | 2026-04-13 | 0.8.0+5 | P-005 als erledigt markiert: Ziel-Versionen bereits in `pubspec.yaml`, `connectivity_plus`-Migration umgesetzt |
 | 2026-04-12 | 0.8.0+5 | T-002 abgeschlossen: 17 Unit-Tests `PocketBaseSyncService` |
-| 2026-07-09 | 0.9.9+75 | F-012.4 abgeschlossen: Titel und Buttons in Detailansicht beim ersten Klick korrekt. `super.key` in `_DetailPanelHeader`-Konstruktor ergänzt, `_detailContentKey` von `final` auf nicht-final geändert, `GlobalKey()` bei jedem `_onArtikelTap()` neu erzeugt, `ValueKey(uuid)` auf `_DetailPanelHeader` gesetzt. 3 Änderungen in `artikel_list_screen.dart`. |
 
 ---
 
