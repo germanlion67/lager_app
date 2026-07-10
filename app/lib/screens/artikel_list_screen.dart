@@ -377,12 +377,6 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // ── F-011.7: Callbacks für embedded Detail-Content ────────────────────────
 
   void _onDetailSaved(Artikel gespeicherterArtikel) {
-    // Sofort _selectedArtikel aktualisieren — verhindert dass
-    // didUpdateWidget → _reinitializeForNewArtikel() das Bild
-    // mit dem alten widget.artikel (ohne Bild) überschreibt.
-    setState(() {
-      _selectedArtikel = gespeicherterArtikel;
-    });
     _ladeArtikel();
     _showSnackBar('✅ Artikel gespeichert');
   }

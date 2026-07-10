@@ -571,12 +571,14 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
       final recordId = list.items.first.id;
       final now = DateTime.now().toUtc();
 
+      // Bild wurde entfernt → leeres bild-Feld an PocketBase senden
       final bildEntfernt = _bildPfad == null &&
           _pendingBytes == null &&
           widget.artikel.remoteBildPfad != null &&
           widget.artikel.remoteBildPfad!.isNotEmpty;
 
       if (bildEntfernt && _remoteBildUrl != null) {
+        // Cache leeren — kein DB-Aufruf im Web
         await CachedNetworkImage.evictFromCache(_remoteBildUrl!);
       }
 
@@ -593,6 +595,8 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
         'updated_at': now.millisecondsSinceEpoch,
       };
 
+      // Bild entfernen: leeres bild-Feld senden
+      // PocketBase löscht das Bild wenn ein leerer String gesendet wird
       if (bildEntfernt) {
         body['bild'] = '';
       }
@@ -619,16 +623,6 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
       final neuerBildPfad =
           updatedRecord.data['bild']?.toString() ?? '';
 
-      // Neue Remote-URL sofort auflösen — BEVOR _finishSave() aufgerufen wird.
-      // Verhindert dass didUpdateWidget das Bild mit leerem remoteBildPfad
-      // überschreibt, während _loadRemoteBildUrl() noch läuft.
-      String? neueRemoteUrl;
-      if (neuerBildPfad.isNotEmpty) {
-        neueRemoteUrl = _pbService.client.files
-            .getUrl(updatedRecord, neuerBildPfad)
-            .toString();
-      }
-
       if (_remoteBildUrl != null) {
         await CachedNetworkImage.evictFromCache(_remoteBildUrl!);
       }
@@ -653,12 +647,12 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
         _isEditing = false;
         _hasChanged = false;
         _pendingBytes = null;
-        // Neue URL sofort setzen — kein Fire-and-forget mehr nötig
-        _remoteBildUrl = neueRemoteUrl;
       });
 
-      // Cache der alten URL leeren falls vorhanden
-      if (neueRemoteUrl == null) {
+      // Remote-Bild-URL neu laden nach erfolgreichem Speichern
+      if (neuerBildPfad.isNotEmpty) {
+        unawaited(_loadRemoteBildUrl()); // ← Fire-and-forget ist hier korrekt
+      } else {
         setState(() => _remoteBildUrl = null);
       }
 
