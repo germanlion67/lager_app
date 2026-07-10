@@ -102,7 +102,7 @@ unverändert.
   **Erledigt:** 3 Änderungen in `artikel_list_screen.dart` — `super.key` ergänzt, `final`
   entfernt, `GlobalKey()` bei jedem Artikel-Wechsel neu erzeugt.
 
-- [ ] **F-012.5: NavigationRail verschwindet beim Wechsel zu Einstellungen**
+- [x] **F-012.5: NavigationRail verschwindet beim Wechsel zu Einstellungen**
   **Symptom:** Die linke Button-Leiste mit „Artikel" und „Einstellungen" verschwindet
   beim Wechsel zum Einstellungs-Screen.
   **Ursache:** `SettingsScreen` wird als eigenständige `Navigator.push()`-Route
@@ -112,12 +112,18 @@ unverändert.
   (Index-basiert), nicht als neue Route pushen. Mobile: unverändert.
   **Betroffene Datei(en):** Haupt-Navigation / Shell-Widget (Web-Pfad)
   **Aufwand:** ~1 h | **Risiko:** Mittel
+  **Erledigt:** 
+- _PanelMode.settings ergänzt
+- _buildNavigationRail(): selectedIndex dynamisch, Desktop öffnet Panel
+- _handleMenuAction(): Desktop-Guard, Mobile unverändert
+- _buildSettingsPanel(): neues Panel konsistent mit Erfassen/Detail
+- SettingsScreen: embedded-Parameter (Default false, kein Breaking Change)
 
 ---
 
 #### 🟡 Prio 2 — UX-Verbesserungen
 
-- [ ] **F-012.6: Session-Verlust bei Browser-Refresh (F5)**
+- [x] **F-012.6: Session-Verlust bei Browser-Refresh (F5)**
   **Symptom:** Bei jedem Tab-Refresh werden Zugangsdaten verworfen, Neuanmeldung
   erforderlich.
   **Ursache:** Auth-Token wird nur im Speicher gehalten, nicht in `localStorage`
@@ -127,6 +133,15 @@ unverändert.
   für Web bereits nutzbar ist.
   **Betroffene Datei(en):** Auth-Initialisierung / `pocketbase_service.dart` (Web-Pfad)
   **Aufwand:** ~1–2 h | **Risiko:** Mittel
+  **Erledigt:**
+  ### F-012.6 ✅ Session-Verlust bei Browser-Refresh
+- auth_store_factory.dart: conditional export (Web/Native)
+- auth_store_factory_web.dart: package:web localStorage
+- auth_store_factory_native.dart: SharedPreferences
+- pocketbase_service.dart: _createClient() mit AsyncAuthStore
+- initialize() + updateUrl(): _createClient() statt PocketBase()
+- logout(): authStore.clear() löscht localStorage automatisch
+
 
 - [ ] **F-012.7: Scanner-Button — kontextabhängige Funktion je nach Plattform**
   **Symptom:** Scanner-Button im Web macht auf Desktop keinen Sinn (kein Kamera-

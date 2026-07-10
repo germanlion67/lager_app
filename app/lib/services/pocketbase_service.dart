@@ -11,6 +11,9 @@
 // Die App crasht nie bei fehlender URL. Stattdessen wird der
 // Setup-Screen angezeigt, bis eine gültige URL konfiguriert ist.
 
+// F-012.6: Plattformspezifische AuthStore-Factory (conditional import)
+import 'auth_store_factory.dart';                         // ← NEU
+
 import 'dart:async';
 import 'package:flutter/foundation.dart' show kIsWeb, visibleForTesting;
 import 'package:pocketbase/pocketbase.dart';
@@ -105,6 +108,9 @@ class PocketBaseService implements SyncPocketBaseService {
   ///
   /// Mehrfache parallele Aufrufe sind sicher — nur eine Initialisierung
   /// wird durchgeführt.
+
+
+
   Future<void> initialize() async {
     // Bereits vollständig initialisiert
     if (_initialized) return;
@@ -161,7 +167,8 @@ class PocketBaseService implements SyncPocketBaseService {
           _currentUrl = resolvedUrl == '/api'
               ? resolvedUrl
               : _normalizeUrl(resolvedUrl);
-          _client = PocketBase(_currentUrl);
+          // NACHHER — F-012.6
+          _client = await _createClient(_currentUrl);
           _logger.i('✅ PocketBase Client initialisiert: $_currentUrl');
         } else {
           _logger.w(
@@ -208,7 +215,8 @@ class PocketBaseService implements SyncPocketBaseService {
     final normalized = _normalizeUrl(trimmed);
 
     // Health-Check vor Client-Ersatz
-    final candidateClient = PocketBase(normalized);
+    // NACHHER — F-012.6
+    final candidateClient = await _createClient(normalized);
     try {
       await candidateClient.health.check();
       _logger.d('✅ Health-Check für neue URL OK: $normalized');
@@ -489,4 +497,10 @@ class PocketBaseService implements SyncPocketBaseService {
     _instance?._initialized = false;
     _instance = null;
   }
+}
+// F-012.6: Erstellt PocketBase-Client mit persistentem AuthStore.
+// Wird in initialize() und updateUrl() verwendet.
+Future<PocketBase> _createClient(String url) async {
+  final authStore = await buildAuthStore();
+  return PocketBase(url, authStore: authStore);
 }
