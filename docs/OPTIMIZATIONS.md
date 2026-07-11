@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 0.9.9+75 | **Zuletzt aktualisiert:** 20.05.2026
+**Version:** 1.0.0+78 | **Zuletzt aktualisiert:** 11.07.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-019`, `F-013`, `H-006`, `K-008`, `M-014`, `N-007`, `O-022`, `P-010`, `T-013`
+- `B-020`, `F-013`, `H-006`, `K-008`, `M-014`, `N-007`, `O-022`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -499,8 +499,6 @@ Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch
 Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
 
 **Aktuell besonders relevante offene Themen**
-- F-012.5: NavigationRail verschwindet bei Einstellungen
-- F-012.6: Session-Verlust bei Browser-Refresh
 - P-006: Thumbnail-Größen und API-Latenz untersuchen
 - O-015: `flutter_local_notifications` entfernen
 
@@ -789,6 +787,22 @@ Mobile-first UI auf Desktop-Monitore ausgeweitet. Drei Stufen umgesetzt.
 `app_log_io.dart` (4×) ersetzt. StackTrace an Logger-Aufrufe durchgereicht.
 `pdf_service_shared.dart` war bereits korrekt. Nextcloud-Stellen entfallen mit O-014.
 `flutter analyze` grün.
+
+---
+
+### B-019: Bild verschwindet nach Speichern im embedded Modus (Web) — abgeschlossen 2026-07-11 | `1.0.0+78`
+
+`bildEntfernt`-Bedingung in `_speichernWeb()` war im Web-Mode dauerhaft `true` sobald ein Artikel mit Bild gespeichert wurde — weil `_bildPfad` im Web immer `null` ist (kein lokales Dateisystem). Folge: `body['bild'] = ''` wurde an PocketBase gesendet → Bild gelöscht → Platzhalter angezeigt.
+
+**Root Cause:** `_bildPfad == null` kann im Web nicht als Signal für „Bild wurde entfernt" dienen.
+
+**Fix:** `_remoteBildUrl == null` als zusätzliche Bedingung in `bildEntfernt` — die URL ist nur `null` wenn der Nutzer das Bild explizit entfernt hat.
+
+**Weitere Verbesserungen im selben Commit:**
+- `_buildBildBereich`: Spinner nur wenn `_remoteBildUrl == null` — verhindert dass Lade-Indikator ein bereits sichtbares Bild überdeckt
+- `onStateChanged`-Callback via `addPostFrameCallback` verzögert — verhindert setState-during-build im AppBar-Rebuild
+
+Verifiziert: Web (Windows Chrome via `web-server`) ✅ | `flutter analyze` 0 Issues | `flutter test` 1011/1011 ✅
 
 ---
 
