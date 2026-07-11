@@ -1052,4 +1052,4 @@ Meta-Description und Title in index.html ergänzt (H-005.2). SEO-Score 63 → 10
 
 ---
 
-[Zurück zur README](../README.md) | [Zur HISTORY](../HISTORY.md) | [Zum Changelog](../CHANGELOG.md)
+[Zurück zur README](../README.md) | [Zur HISTORY](HISTORY.md) | [Zum Changelog](../CHANGELOG.md)

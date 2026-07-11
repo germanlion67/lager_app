@@ -179,7 +179,7 @@ lager_app/
 ```
 
 → **Vollständige Dateistruktur mit allen Dateien:** [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md)
-→ **Vollständige Testbeschreibungen mit allen Dateien:** [Testing](docs/TESTING.md)
+→ **Vollständige Testbeschreibungen mit allen Dateien:** [Testing](TESTING.md)
 
 ---
 

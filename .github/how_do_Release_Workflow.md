@@ -1,12 +1,12 @@
 # GitHub Actions Workflows
 
-Diese Dokumentation beschreibt die automatisierten Abläufe im Repository `lager_app`.Die CI/CD-Struktur konzentriert sich auf die Erstellung von Docker-Images, Plattform-spezifischen Binaries und die kontinuierliche Wartung.
+Diese Dokumentation beschreibt die automatisierten Abläufe im Repository `lager_app`. Die CI/CD-Struktur konzentriert sich auf die Erstellung von Docker-Images, Plattform-spezifischen Binaries und die kontinuierliche Wartung.
 
 ## Workflow-Übersicht
 
 | Workflow | Trigger (Wann?) | Hauptaufgabe |
 | :--- | :--- | :--- |
-| **`docker-build-push.yml`** | `push` auf `main`, Tags (`v*`), `pull_request` | Baut Docker-Images (Web & PocketBase) und pusht sie in die GHCR. |
+| **`docker-build-push_manuell.yml`** | Manuell (`workflow_dispatch`) | Baut Docker-Images (Web & PocketBase) für den ausgewählten Git-Ref und pusht sie in die GHCR. |
 | **`release.yml`** | Manuell (`workflow_dispatch`) | Erstellt Git-Tags, baut APKs, Windows- & Linux-Binaries und erstellt ein GitHub Release. |
 | **`flutter-maintenance.yml`** | Wöchentlich (Mo, 04:00) oder manuell | Führt `analyze` und `test` aus, prüft auf veraltete Pakete (`pub outdated`). |
 
@@ -44,14 +44,14 @@ Nach erfolgreichem Durchlauf stehen im Release folgende Dateien bereit:
 
 ## Docker & Container Registry
 
-Der Workflow **`docker-build-push.yml`** sorgt dafür, dass Web-Version und Backend (PocketBase) immer als aktuelle Docker-Images verfügbar sind.
+Der Workflow **`docker-build-push_manuell.yml`** stellt bei manuellem Start aktuelle Docker-Images für Web-Version und Backend (PocketBase) bereit.
 
 - **Registry:** `ghcr.io/germanlion67/lager_app_web` und `ghcr.io/germanlion67/lager_app_pocketbase`
 - **Tags:** 
-  - `latest`: Aktueller Stand des `main`-Branches.
-  - `sha-[commit]`: Spezifische Versionen für Rollbacks.
-  - `v[version]`: Entspricht den offiziellen Releases.
-- **Qualitätssicherung:** Bei Pull Requests wird ein Test-Deployment mit Docker Compose simuliert, um sicherzustellen, dass die Container korrekt starten (Health-Checks).
+  - Branch-Refs wie `main`
+  - `latest` auf dem Default-Branch
+  - Semver-Tags wie `1.0.0`, `1.0`, `1`, wenn der Workflow auf einem passenden Git-Tag-Ref ausgeführt wird
+- **Qualitätssicherung:** Code-Analyse, Tests und der WASM-Web-Build laufen im separaten Workflow **`ci.yml`**.
 
 ---
 

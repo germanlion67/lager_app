@@ -1,6 +1,6 @@
 # 🎨 Design-System & Theming
 
-> Stand: v0.8.9+24 (21.04.2026)
+> Stand: v1.0.0+78 (11.07.2026)
 > 
 > Dieses Dokument ist die aktive Entwicklungsreferenz für das Design-Token-System, Material 3 und die zentrale UI-Konfiguration der **Lager_app**.
 
