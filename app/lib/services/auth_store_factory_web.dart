@@ -9,13 +9,21 @@ import 'package:web/web.dart' as web;
 const _storageKey = 'pb_auth';
 
 Future<AsyncAuthStore> buildAuthStore() async {
+  // TODO: Nach Bestätigung des Fixes entfernen
+  // ignore: avoid_print
+  print('[AuthStore] ✅ Web-Implementierung aktiv (localStorage)');
+
   final stored = web.window.localStorage.getItem(_storageKey);
 
   return AsyncAuthStore(
     save: (data) async {
+      // ignore: avoid_print
+      print('[AuthStore] save → ${data.length} chars');
       web.window.localStorage.setItem(_storageKey, data);
     },
     clear: () async {
+      // ignore: avoid_print
+      print('[AuthStore] clear');
       web.window.localStorage.removeItem(_storageKey);
     },
     initial: stored,
