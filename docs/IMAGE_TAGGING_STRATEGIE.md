@@ -1,7 +1,7 @@
 # 🏷️ Image-Tagging-Strategie — Lager_app  
 
-**Letzte Aktualisierung:** 2026-05-21  
-**Geprüft gegen:** ci.yml, docker-images.yml, release.yml, docker-compose.prod.yml  
+**Letzte Aktualisierung:** 2026-07-11  
+**Geprüft gegen:** ci.yml, docker-build-push_manuell.yml, release.yml, docker-compose.prod.yml  
 
 ---
 
@@ -11,9 +11,9 @@ Docker-Images werden über zwei separate GitHub Actions Workflows gebaut und in 
 GitHub Container Registry (GHCR) veröffentlicht. Die Workflows sind **nicht automatisch  
 miteinander verknüpft** — der Docker-Build muss nach einem Release manuell ausgelöst werden.  
 
-> ⚠️ **Wichtig:** Flutter verwendet `version: 0.9.9+76` in `pubspec.yaml`.  
-> Das `+76` (Build-Nummer) ist **kein gültiges Docker-Tag-Zeichen** (`+` ist verboten).  
-> Docker-Tags verwenden daher nur `0.9.9` — ohne `v`-Präfix, ohne Build-Nummer.  
+> ⚠️ **Wichtig:** Flutter verwendet aktuell `version: 1.0.0+78` in `pubspec.yaml`.  
+> Das `+78` (Build-Nummer) ist **kein gültiges Docker-Tag-Zeichen** (`+` ist verboten).  
+> Docker-Tags verwenden daher nur `1.0.0` — ohne `v`-Präfix, ohne Build-Nummer.  
 
 ---
 
@@ -30,33 +30,33 @@ miteinander verknüpft** — der Docker-Build muss nach einem Release manuell au
 
 ### Wie Tags entstehen  
 
-Tags werden durch `docker/metadata-action` im Workflow `docker-images.yml` generiert.  
+Tags werden durch `docker/metadata-action` im Workflow `docker-build-push_manuell.yml` generiert.  
 Das Ergebnis hängt davon ab, **wie und von wo** der Workflow ausgelöst wird:  
 
 #### Auslösung via `workflow_dispatch` auf einem Branch  
-Branch: harding/v0.9.9  
-→ Tag: harding-v0.9.9 (Slashes → Bindestriche)  
+Branch: harding/v1.0.0  
+→ Tag: harding-v1.0.0 (Slashes → Bindestriche)  
 
 Branch: main  
 → Tag: main  
 → Tag: latest (nur auf Default-Branch)  
 
 #### Auslösung nach Git-Tag (z.B. nach release.yml)  
-Git-Tag: v0.9.9  
-→ Tag: 0.9.9 (semver, ohne "v")  
-→ Tag: 0.9 (major.minor)  
-→ Tag: 0 (major)  
+Git-Tag: v1.0.0  
+→ Tag: 1.0.0 (semver, ohne "v")  
+→ Tag: 1.0 (major.minor)  
+→ Tag: 1 (major)  
 → Tag: latest (nur wenn Default-Branch)  
 
 ### Vollständige Tag-Tabelle  
 
 | Tag-Format | Beispiel | Wann erzeugt | Verwendung |  
 |---|---|---|---|  
-| `<major>.<minor>.<patch>` | `0.9.9` | Git-Tag vorhanden + docker-images.yml ausgeführt | **Empfohlen für Produktion** |  
-| `<major>.<minor>` | `0.9` | Git-Tag vorhanden | Rolling Patch-Updates |  
-| `<major>` | `0` | Git-Tag vorhanden | Rolling Minor/Patch-Updates |  
+| `<major>.<minor>.<patch>` | `1.0.0` | Git-Tag vorhanden + docker-build-push_manuell.yml ausgeführt | **Empfohlen für Produktion** |  
+| `<major>.<minor>` | `1.0` | Git-Tag vorhanden | Rolling Patch-Updates |  
+| `<major>` | `1` | Git-Tag vorhanden | Rolling Minor/Patch-Updates |  
 | `latest` | `latest` | Nur auf Default-Branch (main) | Nur für Dev/Test |  
-| `<branch-name>` | `harding-v0.9.9` | workflow_dispatch auf Branch | Branch-Testing |  
+| `<branch-name>` | `harding-v1.0.0` | workflow_dispatch auf Branch | Branch-Testing |  
 
 > ℹ️ **Kein SHA-Tag:** Die aktuelle Konfiguration erzeugt keinen `<branch>-<sha>`-Tag.  
 > Nur der Branch-Name wird als Tag verwendet.  
@@ -79,7 +79,7 @@ Git-Tag: v0.9.9
 ┌─────────────────────────────────────────────────────────────┐
 │ release.yml │
 │ Trigger: workflow_dispatch (Version eingeben) │
-│ ├── create-tag → Git-Tag v0.9.9 erstellen │
+│ ├── create-tag → Git-Tag v1.0.0 erstellen │
 │ ├── test │
 │ ├── build-android │
 │ ├── build-windows │
@@ -91,10 +91,10 @@ Git-Tag: v0.9.9
 
 ````
 ┌─────────────────────────────────────────────────────────────┐
-│ docker-images.yml │
+│ docker-build-push_manuell.yml │
 │ Trigger: workflow_dispatch (manuell, separat!) │
 │ ├── build-and-push-web → ghcr.io lager_app_web │
-│ └── build-and-push-pocketbase → ghcr.io lager_app_pb │
+│ └── build-and-push-pocketbase → ghcr.io lager_app_pocketbase │
 │ ✅ Einziger Workflow der Images nach ghcr.io pusht │
 └─────────────────────────────────────────────────────────────┘
 ````
@@ -119,24 +119,24 @@ Git-Tag: v0.9.9
 
 # Schritt 2: release.yml manuell auslösen
 # GitHub → Actions → "Release - Build and Deploy" → Run workflow
-# Version eingeben: 0.9.9+76
-# → Git-Tag v0.9.9 wird erstellt
+# Version eingeben: 1.0.0
+# → Git-Tag v1.0.0 wird erstellt
 # → GitHub Release mit APK/Windows/Linux wird erstellt
 # → KEIN Docker-Image wird gebaut
 
-# Schritt 3: docker-images.yml manuell auslösen
+# Schritt 3: docker-build-push_manuell.yml manuell auslösen
 # GitHub → Actions → "Build and Push Docker Images" → Run workflow
 # Auf main ausführen (damit "latest" gesetzt wird)
-# → ghcr.io/germanlion67/lager_app_web:0.9.9
-# → ghcr.io/germanlion67/lager_app_web:0.9
-# → ghcr.io/germanlion67/lager_app_web:0
+# → ghcr.io/germanlion67/lager_app_web:1.0.0
+# → ghcr.io/germanlion67/lager_app_web:1.0
+# → ghcr.io/germanlion67/lager_app_web:1
 # → ghcr.io/germanlion67/lager_app_web:latest
 
 # Schritt 4: Image verifizieren
-docker pull ghcr.io/germanlion67/lager_app_web:0.9.9
+docker pull ghcr.io/germanlion67/lager_app_web:1.0.0
 
 # Schritt 5: Portainer Stack aktualisieren
-# VERSION=0.9.9 in .env.production setzen → Pull and redeploy
+# VERSION=1.0.0 in .env.production setzen → Pull and redeploy
 ```
 
 ---
@@ -149,7 +149,7 @@ docker pull ghcr.io/germanlion67/lager_app_web:0.9.9
 # .env.production
 DOCKER_REGISTRY: ghcr.io
 DOCKER_USERNAME: germanlion67
-VERSION: 0.9.9
+VERSION: 1.0.0
 
 POCKETBASE_URL=https://api.deine-domain.de
 PB_ADMIN_EMAIL=admin@deine-domain.de
@@ -200,7 +200,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.production restart app
 ### Update auf neue Version
 ```bash
 # 1. VERSION in .env.production setzen
-sed -i 's/VERSION=0.9.9/VERSION=0.9.10/' .env.production
+sed -i 's/VERSION=1.0.0/VERSION=1.0.1/' .env.production
 
 # 2. Image pullen
 docker compose -f docker-compose.prod.yml --env-file .env.production pull app
@@ -213,7 +213,7 @@ docker compose -f docker-compose.prod.yml ps
 curl https://deine-domain.de/
 
 # 5. Bei Problemen: Rollback
-sed -i 's/VERSION=0.9.10/VERSION=0.9.9/' .env.production
+sed -i 's/VERSION=1.0.1/VERSION=1.0.0/' .env.production
 docker compose -f docker-compose.prod.yml --env-file .env.production up -d app
 ```
 
@@ -223,7 +223,7 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d app
 echo $GITHUB_TOKEN | docker login ghcr.io -u germanlion67 --password-stdin
 
 # Verfügbare Tags auflisten
-curl -H "Authorization: Bearer$GITHUB_TOKEN" \
+curl -H "Authorization: ******" \
   "https://ghcr.io/v2/germanlion67/lager_app_web/tags/list" | jq
 
 # Laufende Version prüfen
@@ -238,9 +238,9 @@ docker ps --format "table {{.Names}}\t{{.Image}}"
 ### Image nicht gefunden
 ```bash
 # 1. Prüfen ob Image existiert
-docker pull ghcr.io/germanlion67/lager_app_web:0.9.9
+docker pull ghcr.io/germanlion67/lager_app_web:1.0.0
 
-# 2. Wenn nicht gefunden: docker-images.yml wurde nicht ausgeführt
+# 2. Wenn nicht gefunden: docker-build-push_manuell.yml wurde nicht ausgeführt
 #    → GitHub Actions → "Build and Push Docker Images" → Run workflow
 
 # 3. Wenn Authentifizierungsfehler: Image ist privat
@@ -252,19 +252,19 @@ docker pull ghcr.io/germanlion67/lager_app_web:0.9.9
 
 ```bash
 # ❌ Funktioniert nicht (+ ist kein gültiges Docker-Tag-Zeichen)
-image: ghcr.io/germanlion67/lager_app_web:v0.9.9+76
+image: ghcr.io/germanlion67/lager_app_web:v1.0.0+78
 
 # ✅ Korrekt
-image: ghcr.io/germanlion67/lager_app_web:0.9.9
+image: ghcr.io/germanlion67/lager_app_web:1.0.0
 
 # ✅ Oder über .env.production
 image: ${DOCKER_REGISTRY}/${DOCKER_USERNAME}/lager_app_web:${VERSION}
-# mit VERSION=0.9.9
+# mit VERSION=1.0.0
 ```
 
-### CI läuft nicht auf Feature-Branch`
+### CI läuft nicht auf Feature-Branches
 
-`ci.yml` ist auf `main` und PRs gegen `main beschränkt:
+`ci.yml` ist auf `main` und PRs gegen `main` beschränkt:
 
 ```yaml
 on:
@@ -273,31 +273,31 @@ on:
   pull_request:
     branches: [main]
 ```
-Auf `harding/v0.9.9` läuft CI nicht automatisch — erst nach dem Merge in `main`.
+Auf `harding/v1.0.0` läuft CI nicht automatisch — erst nach dem Merge in `main`.
 
 ---
 
 ## ✅ Release-Checkliste
 
 ### Vorbereitung
-  [ ] Version in pubspec.yaml gesetzt (z.B. 0.9.9+76)
+  [ ] Version in pubspec.yaml gesetzt (z.B. 1.0.0+78)
   [ ] CHANGELOG.md aktualisiert
   [ ] Branch in main gemergt (PR)
   [ ] ci.yml auf main grün ✅
 
 ### Release erstellen
-  [ ] release.yml ausgelöst (Version: 0.9.9+76)
-      → Git-Tag v0.9.9 erstellt
+  [ ] release.yml ausgelöst (Version: 1.0.0)
+      → Git-Tag v1.0.0 erstellt
       → GitHub Release mit APK/Windows/Linux vorhanden
 
 ### Docker-Images bauen
-  [ ] docker-images.yml auf main ausgelöst
-      → lager_app_web:0.9.9 in GHCR vorhanden
-      → lager_app_pocketbase:0.9.9 in GHCR vorhanden
-  [ ] docker pull ghcr.io/germanlion67/lager_app_web:0.9.9 ✅
+  [ ] docker-build-push_manuell.yml auf main ausgelöst
+      → lager_app_web:1.0.0 in GHCR vorhanden
+      → lager_app_pocketbase:1.0.0 in GHCR vorhanden
+  [ ] docker pull ghcr.io/germanlion67/lager_app_web:1.0.0 ✅
 
 ### Deployment
-  [ ] VERSION=0.9.9 in .env.production gesetzt
+  [ ] VERSION=1.0.0 in .env.production gesetzt
   [ ] Portainer Stack: Pull and redeploy
   [ ] Healthchecks grün (nginx-proxy-manager, pocketbase, app)
   [ ] https://deine-domain.de/ erreichbar ✅
@@ -307,7 +307,7 @@ Auf `harding/v0.9.9` läuft CI nicht automatisch — erst nach dem Merge in `mai
 
 ## 🛠️ Offene Punkte (TODOs)
 
-### TODO-1: docker-images.yml automatisch nach release.yml auslösen
+### TODO-1: docker-build-push_manuell.yml automatisch nach release.yml auslösen
 
 Problem: Docker-Images müssen nach jedem Release manuell gebaut werden.
 Wird vergessen → Portainer findet Image nicht.
@@ -318,8 +318,8 @@ Lösung: `release.yml` um `build-web-docker` Job erweitern:
 # In release.yml ergänzen:
 build-web-docker:
   needs: [create-tag, test]
-  uses: ./.github/workflows/docker-images.yml
-  # ODER: Job direkt inline ergänzen (siehe docker-images.yml)
+  uses: ./.github/workflows/docker-build-push_manuell.yml
+  # ODER: Job direkt inline ergänzen (siehe docker-build-push_manuell.yml)
   permissions:
     packages: write
 ```
@@ -337,10 +337,10 @@ backup:
 Das widerspricht dem Prinzip "keine lokalen Build-Tools auf dem Produktionsserver"
 und verlängert den Stack-Start.
 
-Lösung: Backup-Image in `docker-images.yml` bauen und pushen:
+Lösung: Backup-Image in `docker-build-push_manuell.yml` bauen und pushen:
 
 ```yaml
-# In docker-images.yml ergänzen:
+# In docker-build-push_manuell.yml ergänzen:
 build-and-push-backup:
   # analog zu build-and-push-pocketbase
   # image: ghcr.io/germanlion67/lager_app_backup:<tag>
@@ -362,15 +362,15 @@ on:
 
 ### TODO-4: `v`-Präfix im Git-Tag mit Docker-Tag harmonisieren
 
-Problem: Git-Tag ist `v0.9.9`, Docker-Tag ist `0.9.9` (ohne `v`).
-Release Notes schreiben `v0.9.9+76` — keines davon existiert als Docker-Tag.
+Problem: Git-Tag ist `v1.0.0`, Docker-Tag ist `1.0.0` (ohne `v`).
+Release Notes schreiben `v1.0.0+78` — keines davon existiert als Docker-Tag.
 
 Lösung A: `metadata-action` mit v-Präfix konfigurieren:
 ```yaml
 tags: |
-  type=semver,pattern=v{{version}}   # → v0.9.9
+  type=semver,pattern=v{{version}}   # → v1.0.0
 ```
-Lösung B: Dokumentation und Release Notes konsequent auf `0.9.9` (ohne v)
+Lösung B: Dokumentation und Release Notes konsequent auf `1.0.0` (ohne v)
 vereinheitlichen.
 
 ---

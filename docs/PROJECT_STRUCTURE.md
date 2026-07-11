@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v0.9.9+70 (16.05.2026)
+> Stand: v1.0.0+78 (11.07.2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -154,9 +154,9 @@ app/lib/
 
 ---
 
-### app/test/ — Tests (757 Tests, 2 skipped, 31 Testdateien)
+### app/test/ — Tests (36 ausführbare Testdateien + 5 Hilfsdateien)
 
->  Testdateien, sowie alle Tests beschrieben — Ziele, Abdeckungen und lokaler Aufruf befinden sich hier: 🧪 **[TESTING.md](docs/TESTING.md):** 
+> Testdateien, Hilfsdateien und der lokale Aufruf sind in 🧪 **[TESTING.md](TESTING.md)** dokumentiert.
 
 
 ### app/ — Weitere Dateien
@@ -253,7 +253,6 @@ docs/
 ├── TESTING.md                        # Test-Strategie & Übersicht
 ├── THEMING.md                        # AppConfig, AppTheme & Design-Tokens
 ├── prompt.txt                        # AI-Coding-Agent Prompt
-├── info._js                          # PocketBase Migration-Info
 └── .bashrc                           # Shell-Aliases für Entwicklung
 ```
 
@@ -265,9 +264,9 @@ docs/
 .github/
 ├── how_do_Release_Workflow.md        # Release-Workflow Anleitung
 └── workflows/
-    ├── ci.yml                        # Push/PR auf main: analyze + flutter test
-    ├── docker-build-push.yml         # Manual: Flutter Web + PocketBase → ghcr.io
-    ├── flutter-maintenance.yml       # Wöchentlich Mo 04:00 UTC: outdated + builds
+    ├── ci.yml                        # Push/PR auf main: analyze + flutter test + WASM-Web-Build
+    ├── docker-build-push_manuell.yml # Manual: Flutter Web + PocketBase → ghcr.io
+    ├── flutter-maintenance.yml       # Wöchentlich Mo 04:00 UTC: Wartung, outdated-Checks, Debug-Builds
     └── release.yml                   # Manual: Tag + APK + AAB + Win + Linux + GH-Release
 ```
 
@@ -305,12 +304,12 @@ lager_app/
 
 | Bereich                   | Anzahl             |
 | :------------------------ | :----------------- |
-| **Quellcode-Dateien** (`app/lib/`) | 92 |
-| **Davon Conditional Imports** | 28 (14 Paare) |
-| **Test-Dateien** | 31 Testdateien + 3 Helpers + 2 Mocks |
-| **Tests gesamt** | 755 (753 bestanden, 2 skipped) |
+| **Quellcode-Dateien** (`app/lib/`) | 100 Dart-Dateien |
+| **Davon Conditional Imports** | 13 Bedingungen in 11 Dateien |
+| **Test-Dateien** | 41 Dart-Dateien (36 ausführbar + 5 Hilfsdateien) |
+| **Tests gesamt** | Siehe [TESTING.md](TESTING.md) für die aktuelle Aufstellung |
 | **PocketBase Migrationen** | 7 |
-| **Dokumentations-Dateien** | 18 |
+| **Markdown-Dateien** (Repository-weit) | 30 |
 | **CI/CD Workflows** | 4 |
 | **Docker-Compose Varianten** | 4 |
 

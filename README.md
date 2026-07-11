@@ -2,7 +2,7 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/germanlion67/lager_app/ci.yml?branch=main&label=CI&logo=github)](https://github.com/germanlion67/lager_app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/germanlion67/lager_app?label=Version&logo=github)](https://github.com/germanlion67/lager_app/releases/latest)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Licenses](https://img.shields.io/badge/Licenses-documented-blueviolet.svg)](licenses/README.md)
 [![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![PocketBase](https://img.shields.io/badge/PocketBase-0.36-B8DBE4?logo=pocketbase)](https://pocketbase.io)
 [![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20Web%20%7C%20Linux%20%7C%20Windows-blue)]()
@@ -11,7 +11,7 @@
 Eine professionelle, plattformübergreifende Lagerverwaltung für Elektronikbauteile und Kleinteile.  
 Gebaut mit **Flutter** für maximale Portabilität und **PocketBase** als schlankes, performantes Backend.
 
-**Technologien:** Flutter · PocketBase · Docker · MIT License
+**Technologien:** Flutter · PocketBase · Docker
 
 ---
 
@@ -158,7 +158,7 @@ Beim ersten Start erscheint ein Einrichtungsbildschirm, in dem die Server-URL ei
 Die URL wird lokal gespeichert und muss nicht erneut eingegeben werden.
 
 > ⚠️ **WSL2-Nutzer:** `flutter run -d chrome` zeigt keine Bilder an (kein WebGL in WSL2).
-> Nutze stattdessen den Web-Server-Modus + Windows-Browser. Siehe [DEV_SETUP.md](DEV_SETUP.md).
+> Nutze stattdessen den Web-Server-Modus + Windows-Browser. Siehe [DEV_SETUP.md](docs/DEV_SETUP.md).
 
 > 💡 **Tipp:** Alternativ kann die URL weiterhin per Build-Argument vorkonfiguriert werden:
 
@@ -176,15 +176,15 @@ Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 - 🖥️ **[DEV_SETUP.md](docs/DEV_SETUP.md):** Entwicklungsumgebung (WSL2, bekannte Probleme)
 - 📘 **[INSTALL.md](INSTALL.md):** Detaillierte Installationsanleitung für alle Plattformen
 - 🚀 **[DEPLOYMENT.md](DEPLOYMENT.md):** Produktions-Setup, Nginx Proxy Manager & SSL
-- 💾 **[BACKUP.md](BACKUP.md):** Sicherungsverfahren und Wiederherstellung
-- 🔑 **[ANDROID_RELEASE_KEYSTORE.md](ANDROID_RELEASE_KEYSTORE.md):** Einrichtung eines stabilen Android Release-Keystores für GitHub Actions.
+- 💾 **Backups:** Produktions-Backups und Wiederherstellung sind in [DEPLOYMENT.md](DEPLOYMENT.md) dokumentiert.
+- 🔑 **[ANDROID_RELEASE_KEYSTORE.md](docs/ANDROID_RELEASE_KEYSTORE.md):** Einrichtung eines stabilen Android Release-Keystores für GitHub Actions.
 
 ### 🏗️ Entwicklung & Architektur
 - 📐 **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** Projektstruktur, Datenmodell und Design-Entscheidungen
 - 🧭 **[CSHARP_KONVERTIERUNG_ANALYSE.md](docs/CSHARP_KONVERTIERUNG_ANALYSE.md):** Machbarkeit, Risiken und Ablaufplan für eine C#-Migration
 - 🗄️ **[DATABASE.md](docs/DATABASE.md):** Datenbank-Design, Sync-Logik, Bild- und Dokumenten-Synchronisation
 - 🎨 **[THEMING.md](docs/THEMING.md):** Infos zu AppConfig, AppTheme und Design-Tokens
-- 📝 **[LOGGING.md](docs/LOGGER.md):** Details zum integrierten Logging-System
+- 📝 **[LOGGER.md](docs/LOGGER.md):** Details zum integrierten Logging-System
 - 🧪 **[TESTING.md](docs/TESTING.md):** Alle Tests beschrieben — Ziele, Abdeckung und lokaler Aufruf
 - 🔄 **[SYNC.md](docs/SYNC.md):** Technische Referenz für Push/Pull, Konflikterkennung, Bild-Sync, Edge Cases und Änderungsregeln
 
@@ -197,7 +197,7 @@ Informationen zu Code-Styles, Pull Requests und Lizenzierung findest du hier:
 
 - 📜 **[CHANGELOG.md](CHANGELOG.md):** Versionshistorie
 - 📜 **[HISTORY.md](docs/HISTORY.md):** Projekthistorie und Meilensteine
-- ⚖️ **[LICENSE](LICENSE):** MIT-Lizenz
+- ⚖️ **[licenses/README.md](licenses/README.md):** Überblick über Lizenz-Audit und Drittanbieter-Lizenzen
 
 ---
 
