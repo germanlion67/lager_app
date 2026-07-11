@@ -7,9 +7,9 @@
 
 ## Übersicht  
 
-Docker-Images werden über zwei separate GitHub Actions Workflows gebaut und in der  
-GitHub Container Registry (GHCR) veröffentlicht. Die Workflows sind **nicht automatisch  
-miteinander verknüpft** — der Docker-Build muss nach einem Release manuell ausgelöst werden.  
+Docker-Images wird über ein GitHub Actions Workflows gebaut und in der  
+GitHub Container Registry (GHCR) veröffentlicht. Der Workflow ist **nicht automatisch  
+verknüpft** — der Docker-Build muss nach einem Release manuell ausgelöst werden.  
 
 > ⚠️ **Wichtig:** Flutter verwendet `version: 0.9.9+76` in `pubspec.yaml`.  
 > Das `+76` (Build-Nummer) ist **kein gültiges Docker-Tag-Zeichen** (`+` ist verboten).  
