@@ -1,0 +1,6 @@
+{
+  "dart.analysisExcludedFolders": [
+    "packages/runtime_env_config/example",
+    "packages/runtime_env_config"
+  ]
+}

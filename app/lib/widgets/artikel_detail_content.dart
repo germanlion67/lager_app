@@ -73,7 +73,11 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
   void setState(VoidCallback fn) {
     super.setState(fn);
     // F-011.7: Wrapper über State-Änderung informieren (für AppBar-Rebuild)
-    widget.onStateChanged?.call();
+    // addPostFrameCallback verhindert setState-during-build Fehler,
+    // da der Callback erst nach dem aktuellen Frame aufgerufen wird.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onStateChanged?.call();
+    });
   }
 
   late final TextEditingController _nameController;
@@ -571,9 +575,12 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
       final recordId = list.items.first.id;
       final now = DateTime.now().toUtc();
 
-      // Bild wurde entfernt → leeres bild-Feld an PocketBase senden
+      // Bild wurde entfernt → leeres bild-Feld an PocketBase senden.
+      // Im Web-Mode ist _bildPfad immer null — daher zusätzlich _remoteBildUrl == null
+      // prüfen: URL ist nur null wenn der Nutzer das Bild explizit entfernt hat.
       final bildEntfernt = _bildPfad == null &&
           _pendingBytes == null &&
+          _remoteBildUrl == null &&
           widget.artikel.remoteBildPfad != null &&
           widget.artikel.remoteBildPfad!.isNotEmpty;
 
@@ -1088,7 +1095,7 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
   }
 
   Widget _buildBildBereich(Artikel artikel, ColorScheme colorScheme) {
-    if (_isLoadingRemoteBild) {
+    if (_isLoadingRemoteBild && _remoteBildUrl == null && _pendingBytes == null) {
       return Container(
         height: AppConfig.artikelDetailBildHoehe,
         width: double.infinity,
