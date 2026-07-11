@@ -1277,4 +1277,4 @@ Bei Unsicherheit gilt:
 
 ---
 
-[Allgemeiner Projektkontext](../prompt.txt) · [Architektur](ARCHITECTURE.md) · [Datenbank](DATABASE.md) · [Testing](TESTING.md) · [Optimizations](OPTIMIZATIONS.md) · [Logger](LOGGER.md)
+[Allgemeiner Projektkontext](prompt.txt) · [Architektur](ARCHITECTURE.md) · [Datenbank](DATABASE.md) · [Testing](TESTING.md) · [Optimizations](OPTIMIZATIONS.md) · [Logger](LOGGER.md)

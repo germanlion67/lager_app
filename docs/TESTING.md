@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 0.9.9 | **Zuletzt aktualisiert:** 17.05.2026
+**Version:** 1.0.0+78 | **Zuletzt aktualisiert:** 11.07.2026
 
 ---
 
@@ -15,11 +15,13 @@ flutter test
 ```
 
 > 💡 Beim ersten Aufruf einmalig `flutter pub get` ausführen.
-
-✅ **968 Tests bestanden, 2 skipped, 0 Fehler**
-> **Zu den 2 skipped Tests:** Diese entstehen ausschließlich im Gesamtlauf durch
-> Test-Binding-Reihenfolge (Singleton-State zwischen Testdateien). Einzeln ausgeführt
-> laufen alle 806 Tests ohne Skips. Es handelt sich nicht um fachliche Einschränkungen.
+>
+> Die aktuelle Testbasis im Repository umfasst **36 ausführbare Testdateien**
+> plus **5 Hilfsdateien**. Die Zahlen in der Tabelle unten basieren auf den im
+> Quelltext vorhandenen `test()`-/`testWidgets()`-Definitionen.
+>
+> CI verwendet `flutter test`; der Release-Workflow nutzt
+> `flutter test --exclude-tags performance`.
 
 F-011.7 Detail/List/Erfassen-Tests: 24 + 15 + 11 = 50 Widget-Tests grün nach
 Master-Detail-Refactoring (ArtikelDetailContent-Extraktion, Scaffold-Wrapper mit
@@ -36,10 +38,11 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/models/nextcloud_credentials_test.dart` | Unit | 4 | — |
 | `test/services/app_lock_service_test.dart` | Unit | 13 | O-011 |
 | `test/services/artikel_db_service_test.dart` | Integration | 116 | O-002 / T-001 |
-| `test/services/artikel_export_service_test.dart` | Unit + Widget | 3 | — |
+| `test/services/artikel_db_service_test_helper.dart` | Test-Helper | — | ArtikelDbService-Testdaten & Fixtures |
+| `test/services/artikel_export_service_test.dart` | Unit + Widget | 2 | — |
 | `test/services/artikel_import_service_test.dart` | Unit | 4 | — |
 | `test/services/app_log_service_test.dart` | Unit | 14 | — |
-| `test/services/attachment_service_test.dart` | Unit | 34 | T-005 |
+| `test/services/attachment_service_test.dart` | Unit | 35 | T-005 |
 | `test/services/backup_status_service_test.dart` | Unit | 15 | — |
 | `test/services/backup_status_test.dart` | Unit | 23 | T-006 |
 | `test/services/connectivity_service_test.dart` | Unit | 14 | T-012 |
@@ -49,12 +52,13 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/services/nextcloud_listfiles_test.dart` | Unit | 1 | — |
 | `test/services/pocketbase_sync_service_test.dart` | Unit | 66 | T-002 |
 | `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 7 | T-008 / T-001 |
-| `test/services/pocketbase_service_test.dart` | Unit | 51 | T-012 |
+| `test/services/pocketbase_service_test.dart` | Unit | 42 | T-012 |
 | `test/services/sync_error_recovery_test.dart` | Unit | 87 | T-012 |
 | `test/services/sync_progress_service_test.dart` | Unit | 61 | T-012 |
 | `test/services/settings_controller_test.dart` | Unit | 15 | O-010 / T-009 |
 | `test/services/sync_orchestrator_test.dart` | Unit | 13 | T-008 |
 | `test/services/sync_status_provider_test.dart` | Unit | 6 | K-006 |
+| `test/services/tag_service_test.dart` | Unit | 43 | — |
 | `test/utils/attachment_utils_test.dart` | Unit | 43 | — |
 | `test/utils/image_processing_utils_test.dart` | Unit | 30 | O-002 |
 | `test/utils/uuid_generator_test.dart` | Unit | 23 | O-002 |
@@ -69,10 +73,11 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/helpers/no_op_nextcloud_service.dart` | Test-Helper | — | O-006 |
 | `test/mocks/sync_service_mocks.dart` | Test-Helper | — | T-001 |
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
-| **Gesamt** |  | **806** |  |
+| **Gesamt (statisch gezählte Testdefinitionen)** |  | **1005** |  |
 
-> Hinweis: Der letzte verifizierte Gesamtlauf ergab **806 bestandene Tests** und **2 übersprungene Tests**.
-> Die Dateisummen dienen der Übersicht und können bei zukünftigen kleineren Testumbauten leicht abweichen.
+> Hinweis: Die Dateisummen dienen der Übersicht und können sich bei Testumbauten
+> ändern. Maßgeblich für den tatsächlichen Lauf bleibt die Ausgabe von
+> `flutter test` in der jeweils verwendeten Flutter-Version.
 
 ---
 
