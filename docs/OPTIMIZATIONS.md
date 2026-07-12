@@ -611,6 +611,22 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 --- 
 
+### B-019: Bild verschwindet nach Speichern im embedded Modus (Web) — abgeschlossen 2026-07-11 | `1.0.0+78`
+
+`bildEntfernt`-Bedingung in `_speichernWeb()` war im Web-Mode dauerhaft `true` sobald ein Artikel mit Bild gespeichert wurde — weil `_bildPfad` im Web immer `null` ist (kein lokales Dateisystem). Folge: `body['bild'] = ''` wurde an PocketBase gesendet → Bild gelöscht → Platzhalter angezeigt.
+
+**Root Cause:** `_bildPfad == null` kann im Web nicht als Signal für „Bild wurde entfernt" dienen.
+
+**Fix:** `_remoteBildUrl == null` als zusätzliche Bedingung in `bildEntfernt` — die URL ist nur `null` wenn der Nutzer das Bild explizit entfernt hat.
+
+**Weitere Verbesserungen im selben Commit:**
+- `_buildBildBereich`: Spinner nur wenn `_remoteBildUrl == null` — verhindert dass Lade-Indikator ein bereits sichtbares Bild überdeckt
+- `onStateChanged`-Callback via `addPostFrameCallback` verzögert — verhindert setState-during-build im AppBar-Rebuild
+
+Verifiziert: Web (Windows Chrome via `web-server`) ✅ | `flutter analyze` 0 Issues | `flutter test` 1011/1011 ✅
+
+---
+
 ### H-004: Lighthouse-Befunde beheben (Web-Performance, Security-Header, SEO) — abgeschlossen 2026-05-19 | `0.9.9+75`
 **Beschreibung:**
 Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreiheit), 81 (Best Practices), 91 (SEO). Die Hauptursache für den niedrigen Performance-Score ist die `main.dart.js` (4 MB unkomprimiert, 2.510 ms Total Blocking Time). Daneben fehlen Security-Header und eine `robots.txt`.
@@ -888,21 +904,7 @@ Mobile-first UI auf Desktop-Monitore ausgeweitet. Drei Stufen umgesetzt.
 
 ---
 
-### B-019: Bild verschwindet nach Speichern im embedded Modus (Web) — abgeschlossen 2026-07-11 | `1.0.0+78`
 
-`bildEntfernt`-Bedingung in `_speichernWeb()` war im Web-Mode dauerhaft `true` sobald ein Artikel mit Bild gespeichert wurde — weil `_bildPfad` im Web immer `null` ist (kein lokales Dateisystem). Folge: `body['bild'] = ''` wurde an PocketBase gesendet → Bild gelöscht → Platzhalter angezeigt.
-
-**Root Cause:** `_bildPfad == null` kann im Web nicht als Signal für „Bild wurde entfernt" dienen.
-
-**Fix:** `_remoteBildUrl == null` als zusätzliche Bedingung in `bildEntfernt` — die URL ist nur `null` wenn der Nutzer das Bild explizit entfernt hat.
-
-**Weitere Verbesserungen im selben Commit:**
-- `_buildBildBereich`: Spinner nur wenn `_remoteBildUrl == null` — verhindert dass Lade-Indikator ein bereits sichtbares Bild überdeckt
-- `onStateChanged`-Callback via `addPostFrameCallback` verzögert — verhindert setState-during-build im AppBar-Rebuild
-
-Verifiziert: Web (Windows Chrome via `web-server`) ✅ | `flutter analyze` 0 Issues | `flutter test` 1011/1011 ✅
-
----
 
 ### B-018: Artikelnummer wird bei Suche/Scan nicht gefunden — abgeschlossen 2026-05-13 | `0.9.8+57`
 Artikelnummer-Feld in SQLite-Suche, PocketBase-Suche und Scanner-Fallback einbezogen.

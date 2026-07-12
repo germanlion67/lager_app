@@ -73,11 +73,7 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
   void setState(VoidCallback fn) {
     super.setState(fn);
     // F-011.7: Wrapper über State-Änderung informieren (für AppBar-Rebuild)
-    // addPostFrameCallback verhindert setState-during-build Fehler,
-    // da der Callback erst nach dem aktuellen Frame aufgerufen wird.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.onStateChanged?.call();
-    });
+    widget.onStateChanged?.call();
   }
 
   late final TextEditingController _nameController;
