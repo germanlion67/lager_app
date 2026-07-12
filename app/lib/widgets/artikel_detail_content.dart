@@ -108,6 +108,9 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
   /// Ob ungespeicherte Änderungen vorliegen — für PopScope im Wrapper.
   bool get hasUnsavedChanges => _isEditing && _hasChanged;
 
+  /// Öffentlich: Artikel speichern (z.B. aus dem Close-Dialog heraus).
+  Future<void> speichern() => _speichern();
+
   @override
   void initState() {
     super.initState();

@@ -1137,6 +1137,40 @@ class _DetailPanelHeaderState extends State<_DetailPanelHeader> {
     }
   }
 
+  Future<void> _handleClose(BuildContext context) async {
+    final contentState = widget.contentKey.currentState;
+    if (contentState?.hasUnsavedChanges == true) {
+      final result = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Ungespeicherte Änderungen'),
+          content: const Text(
+            'Der Bearbeitungsmodus wird ohne Speichern beendet.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'verwerfen'),
+              child: const Text('Verwerfen'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, 'speichern'),
+              child: const Text('Speichern'),
+            ),
+          ],
+        ),
+      );
+      if (!context.mounted) return;
+      if (result == 'speichern') {
+        await contentState?.speichern();
+        if (!context.mounted) return;
+      } else if (result == null) {
+        return; // Dialog abgebrochen (außerhalb tippen)
+      }
+      // result == 'verwerfen' → weiter zu onClose
+    }
+    widget.onClose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final contentState = widget.contentKey.currentState;
@@ -1165,7 +1199,7 @@ class _DetailPanelHeaderState extends State<_DetailPanelHeader> {
           IconButton(
             icon: const Icon(Icons.close),
             tooltip: 'Detail schließen',
-            onPressed: widget.onClose,
+            onPressed: () => _handleClose(context),
             visualDensity: VisualDensity.compact,
           ),
         ],
