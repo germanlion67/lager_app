@@ -11,7 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
 import '../core/app_exception.dart';
-import '../screens/conflict_resolution_screen.dart';
+import '../screens/conflict_resolution_screen.dart' deferred as conflict_lib; // P-009.4
 import '../services/app_log_service.dart';
 import '../services/conflict_types.dart';
 import '../widgets/app_error_handler.dart';
@@ -57,15 +57,15 @@ class SyncConflictHandler {
       } else if (result.containsKey('conflictData')) {
         final conflicts = result['conflictData'] as List<ConflictData>;
 
+        await conflict_lib.loadLibrary(); // P-009.4
         final resolutionResult = await nav.push<Map<String, int>>(
           MaterialPageRoute(
-            builder: (_) => ConflictResolutionScreen(
+            builder: (_) => conflict_lib.ConflictResolutionScreen(
               conflicts: conflicts,
               syncService: syncService,
             ),
           ),
         );
-
         if (!context.mounted) return false;
 
         if (resolutionResult != null) {

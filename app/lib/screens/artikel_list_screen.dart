@@ -25,8 +25,8 @@ import '../widgets/artikel_bild_widget.dart';
 import '../widgets/artikel_detail_content.dart';
 
 import 'artikel_detail_screen.dart';
-import 'artikel_erfassen_screen.dart';
-import 'settings_screen.dart';
+import 'artikel_erfassen_screen.dart' deferred as erfassen_lib; // P-009.4
+import 'settings_screen.dart' deferred as settings_lib; // P-009.4
 import 'settings_state.dart';
 import '../core/responsive.dart';
 
@@ -90,6 +90,10 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
   // F-011.7 / F-011.9: Panel-Steuerung für Master-Detail (Desktop)
   _PanelMode _panelMode = _PanelMode.none;
   Artikel? _selectedArtikel; // nur relevant wenn _panelMode == detail
+
+  // P-009.4: Deferred-Loading-Futures (einmalig beim ersten Öffnen gesetzt)
+  Future<void>? _erfassenFuture;
+  Future<void>? _settingsFuture;
   
   // F-011.7: GlobalKey für Detail-Content im Master-Detail-Panel
   GlobalKey<ArtikelDetailContentState> _detailContentKey = GlobalKey();
@@ -433,6 +437,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
             setState(() {
               _panelMode = _PanelMode.settings;
               _selectedArtikel = null;
+              _settingsFuture ??= settings_lib.loadLibrary(); // P-009.4
             });
            
         }
@@ -693,6 +698,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 onPressed: () => setState(() {
                   _panelMode = _PanelMode.erfassen;
                   _selectedArtikel = null;
+                  _erfassenFuture ??= erfassen_lib.loadLibrary(); // P-009.4
                 }),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -773,15 +779,24 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         ),
         const Divider(height: 1),
         // F-011.9: ArtikelErfassenScreen eingebettet als scrollbarer Inhalt
+        // P-009.4: Deferred – zeige Spinner bis Library geladen
         Expanded(
-          child: ArtikelErfassenScreen(
-            embedded: true,
-            onSaved: () {
-              setState(() => _panelMode = _PanelMode.none);
-              _ladeArtikel();
-              _showSnackBar('✅ Artikel gespeichert');
+          child: FutureBuilder<void>(
+            future: _erfassenFuture,
+            builder: (ctx, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator.adaptive());
+              }
+              return erfassen_lib.ArtikelErfassenScreen(
+                embedded: true,
+                onSaved: () {
+                  setState(() => _panelMode = _PanelMode.none);
+                  _ladeArtikel();
+                  _showSnackBar('✅ Artikel gespeichert');
+                },
+                onCancelled: () => setState(() => _panelMode = _PanelMode.none),
+              );
             },
-            onCancelled: () => setState(() => _panelMode = _PanelMode.none),
           ),
         ),
       ],
@@ -823,11 +838,20 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ),
         const Divider(height: 1),
+        // P-009.4: Deferred – zeige Spinner bis Library geladen
         Expanded(
-          child: SettingsScreen(
-            embedded: true, // ← kein Scaffold, kein AppBar
-            onLogout: widget.onLogout,
-            onSyncIntervalChanged: widget.onSyncIntervalChanged,
+          child: FutureBuilder<void>(
+            future: _settingsFuture,
+            builder: (ctx, snap) {
+              if (snap.connectionState != ConnectionState.done) {
+                return const Center(child: CircularProgressIndicator.adaptive());
+              }
+              return settings_lib.SettingsScreen(
+                embedded: true, // ← kein Scaffold, kein AppBar
+                onLogout: widget.onLogout,
+                onSyncIntervalChanged: widget.onSyncIntervalChanged,
+              );
+            },
           ),
         ),
       ],
@@ -887,21 +911,25 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
               key: const Key('addArticleButton'),
               icon: const Icon(Icons.add),
               tooltip: 'Neuen Artikel erfassen',
-              onPressed: () {
+              onPressed: () async {
                 // F-011.9: Desktop → Erfassen-Panel; Mobile → Navigator.push
                 final isDesktop = Responsive.of(context) == ScreenSize.desktop;
                 if (isDesktop) {
                   setState(() {
                     _panelMode = _PanelMode.erfassen;
                     _selectedArtikel = null; // Detail-Auswahl aufheben
+                    _erfassenFuture ??= erfassen_lib.loadLibrary(); // P-009.4
                   });
                 } else {
-                  Navigator.push<void>(
-                    context,
+                  final nav = Navigator.of(context);
+                  await erfassen_lib.loadLibrary(); // P-009.4
+                  if (!mounted) return;
+                  await nav.push<void>(
                     MaterialPageRoute<void>(
-                      builder: (_) => const ArtikelErfassenScreen(),
+                      builder: (_) => erfassen_lib.ArtikelErfassenScreen(),
                     ),
-                  ).then((_) => _ladeArtikel());
+                  );
+                  unawaited(_ladeArtikel());
                 }
               },
             ),
@@ -1023,12 +1051,15 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         setState(() {
           _panelMode = _PanelMode.settings;
           _selectedArtikel = null;
+          _settingsFuture ??= settings_lib.loadLibrary(); // P-009.4
         });
       } else {
-        await Navigator.push<void>(
-          context,
+        final nav = Navigator.of(context);
+        await settings_lib.loadLibrary(); // P-009.4
+        if (!mounted) return;
+        await nav.push<void>(
           MaterialPageRoute<void>(
-            builder: (_) => SettingsScreen(
+            builder: (_) => settings_lib.SettingsScreen(
               onLogout: widget.onLogout,
               onSyncIntervalChanged: widget.onSyncIntervalChanged,
             ),

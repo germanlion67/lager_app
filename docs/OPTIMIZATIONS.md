@@ -231,18 +231,18 @@ Die verbleibenden Hebel sind: Brotli-Komprimierung, Preload-Hints und Deferred L
 
 #### Prio 2 — Strukturell (2–4 Stunden)
 
-- [ ] **P-009.4: Deferred Loading für sekundäre Screens**
-  Neue Datei: `app/lib/core/deferred_screen_loader.dart`
-  Deferred imports für: `ArtikelErfassenScreen`, `SettingsScreen`,
-  `SyncManagementScreen`, `ConflictResolutionScreen`
-  Navigation über `DeferredScreenLoader`-Wrapper.
-  **Erwartung:** TBT von ~780 ms auf ~350 ms (geschätzt ~55% Reduktion)
+- [x] **P-009.4: Deferred Loading für sekundäre Screens**
+  Deferred imports für: `ArtikelErfassenScreen`, `SettingsScreen`, `ConflictResolutionScreen`
+  (`SyncManagementScreen` wird nirgends importiert → übersprungen)
+  Inline deferred imports in `artikel_list_screen.dart`, `main.dart`, `sync_conflict_handler.dart`.
+  Embedded Panels (Desktop) via `FutureBuilder` + `CircularProgressIndicator.adaptive()`.
+  Mobile/Route-Navigation: navigator vor await capturen + `await loadLibrary()`.
   **Risiko:** Mittel — Navigation-Tests müssen angepasst werden.
   Funktioniert nur Web/WASM, Android/Desktop unverändert.
 
 #### Prio 3 — CI-Hygiene (30 Minuten)
 
-- [ ] **P-009.5: Web-Build-Verifikation in `ci.yml`**
+- [x] **P-009.5: Web-Build-Verifikation in `ci.yml`**
   Neuer Job `build-web-verify` nach `test`.
   Baut Web mit WASM-Flags und prüft ob `main.dart.wasm` vorhanden ist.
   Verhindert dass Build-Regressions erst beim Docker-Push auffallen.

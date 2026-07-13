@@ -30,10 +30,10 @@ import 'config/app_theme.dart';
 import 'config/app_images.dart';
 import 'models/artikel_model.dart';
 import 'screens/artikel_list_screen.dart';
-import 'screens/conflict_resolution_screen.dart';
+import 'screens/conflict_resolution_screen.dart' deferred as conflict_lib; // P-009.4
 import 'services/conflict_types.dart';   // ← ConflictData
 import 'screens/login_screen.dart';
-import 'screens/settings_screen.dart';
+import 'screens/settings_screen.dart' deferred as settings_lib; // P-009.4
 import 'screens/app_lock_screen.dart';
 import 'screens/server_setup_screen.dart';
 import 'services/app_log_service.dart';
@@ -149,6 +149,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isConflictScreenOpen = false;
   final Set<String> _activeConflictUuids = {}; // NEU: UUID-basierter Guard
   bool _conflictCallbackRegistered = false; // NEU: Guard gegen Mehrfach-Registrierung
+
+  // P-009.4: Deferred-Loading-Futures (einmalig beim ersten Aufruf gesetzt)
+  Future<void>? _conflictLibFuture;
+  Future<void>? _settingsLibFuture;
 
   bool _needsSetup = false;
   bool _isCheckingAuth = true;
@@ -268,9 +272,11 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     );
 
     try {
+      _conflictLibFuture ??= conflict_lib.loadLibrary(); // P-009.4
+      await _conflictLibFuture;
       await navigator.push<void>(
         MaterialPageRoute(
-          builder: (_) => ConflictResolutionScreen(
+          builder: (_) => conflict_lib.ConflictResolutionScreen(
             conflicts: [conflictData],
             syncService: PocketBaseConflictAdapter(_db),
           ),
@@ -599,10 +605,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/settings':
+            _settingsLibFuture ??= settings_lib.loadLibrary(); // P-009.4
             return MaterialPageRoute(
-              builder: (_) => SettingsScreen(
-                onLogout: _onLogout,
-                onSyncIntervalChanged: _onSyncIntervalChanged,
+              builder: (_) => FutureBuilder<void>(
+                future: _settingsLibFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Scaffold(
+                      body: Center(child: CircularProgressIndicator.adaptive()),
+                    );
+                  }
+                  return settings_lib.SettingsScreen(
+                    onLogout: _onLogout,
+                    onSyncIntervalChanged: _onSyncIntervalChanged,
+                  );
+                },
               ),
             );
           default:
