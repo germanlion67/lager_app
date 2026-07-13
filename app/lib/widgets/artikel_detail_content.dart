@@ -541,6 +541,16 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
   // ══════════════════════════════════════════════════════════════════════
 
   Future<void> _speichern() async {
+    if (!_hasChanged) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Keine Änderungen zum Speichern gefunden'),
+          ),
+        );
+      }
+      return;
+    }
     if (mounted) setState(() => _isSaving = true);
     try {
       if (kIsWeb) {
