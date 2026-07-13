@@ -60,8 +60,15 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   final _artikelnummerCtrl = TextEditingController();
   final _kategorieCtrl = TextEditingController();
 
-  // v0.7.8 Punkt 4: FocusNode für Menge-Feld
+  // F-012.8: FocusNode-Kette für TAB/Enter-Navigation (Web & Desktop)
+  final FocusNode _nameFocus = FocusNode();
+  final FocusNode _beschreibungFocus = FocusNode();
+  final FocusNode _kategorieFocus = FocusNode();
+  final FocusNode _ortFocus = FocusNode();
+  final FocusNode _fachFocus = FocusNode();
+  // v0.7.8 Punkt 4: FocusNode für Menge-Feld (Vorauswahl beim Fokus)
   final FocusNode _mengeFocus = FocusNode();
+  final FocusNode _artikelnummerFocus = FocusNode();
 
   String? _bildPfad;
   Uint8List? _bildBytes;
@@ -140,7 +147,13 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
     _mengeCtrl.dispose();
     _artikelnummerCtrl.dispose();
     _kategorieCtrl.dispose();
+    _nameFocus.dispose();
+    _beschreibungFocus.dispose();
+    _kategorieFocus.dispose();
+    _ortFocus.dispose();
+    _fachFocus.dispose();
     _mengeFocus.dispose();
+    _artikelnummerFocus.dispose();
     super.dispose();
   }
 
@@ -572,6 +585,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
       // ── Name ──────────────────────────────────────
       TextFormField(
         controller: _nameCtrl,
+        focusNode: _nameFocus,
         textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(
           labelText: 'Name *',
@@ -589,12 +603,14 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           return null;
         },
         textInputAction: TextInputAction.next,
+        onFieldSubmitted: (_) => _beschreibungFocus.requestFocus(),
       ),
       const SizedBox(height: AppConfig.spacingMedium),
 
       // ── Beschreibung ───────────────────────────────
       TextFormField(
         controller: _beschreibungCtrl,
+        focusNode: _beschreibungFocus,
         textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(
           labelText: 'Beschreibung',
@@ -602,12 +618,15 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         ),
         maxLines: 2,
         maxLength: AppConfig.inputMaxLengthBeschreibung,
+        textInputAction: kIsWeb ? TextInputAction.next : TextInputAction.newline,
+        onFieldSubmitted: kIsWeb ? (_) => _kategorieFocus.requestFocus() : null,
       ),
       const SizedBox(height: AppConfig.spacingMedium),
 
       // ── Kategorie ─────────────────────────────────
       TextFormField(
         controller: _kategorieCtrl,
+        focusNode: _kategorieFocus,
         textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(
           labelText: 'Kategorie',
@@ -616,12 +635,14 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
         ),
         maxLength: AppConfig.inputMaxLengthKategorie,
         textInputAction: TextInputAction.next,
+        onFieldSubmitted: (_) => _ortFocus.requestFocus(),
       ),
       const SizedBox(height: AppConfig.spacingMedium),
 
       // ── Ort ───────────────────────────────────────
       TextFormField(
         controller: _ortCtrl,
+        focusNode: _ortFocus,
         textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(
           labelText: 'Ort *',
@@ -636,12 +657,14 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           return null;
         },
         textInputAction: TextInputAction.next,
+        onFieldSubmitted: (_) => _fachFocus.requestFocus(),
       ),
       const SizedBox(height: AppConfig.spacingMedium),
 
       // ── Fach ──────────────────────────────────────
       TextFormField(
         controller: _fachCtrl,
+        focusNode: _fachFocus,
         textCapitalization: TextCapitalization.sentences,
         decoration: const InputDecoration(
           labelText: 'Fach *',
@@ -656,6 +679,7 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           return null;
         },
         textInputAction: TextInputAction.next,
+        onFieldSubmitted: (_) => _mengeFocus.requestFocus(),
       ),
       const SizedBox(height: AppConfig.spacingMedium),
 
@@ -684,12 +708,15 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           }
           return null;
         },
+        textInputAction: TextInputAction.next,
+        onFieldSubmitted: (_) => _artikelnummerFocus.requestFocus(),
       ),
       const SizedBox(height: AppConfig.spacingMedium),
 
       // ── Artikelnummer ─────────────────────────────
       TextFormField(
         controller: _artikelnummerCtrl,
+        focusNode: _artikelnummerFocus,
         decoration: const InputDecoration(
           labelText: 'Artikelnummer',
           border: OutlineInputBorder(),
@@ -713,6 +740,8 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
           }
           return null;
         },
+        textInputAction: TextInputAction.done,
+        onFieldSubmitted: (_) => _save(),
       ),
       const SizedBox(height: AppConfig.spacingMedium),
 

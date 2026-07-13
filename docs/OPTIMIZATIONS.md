@@ -143,7 +143,7 @@ unverändert.
 - logout(): authStore.clear() löscht localStorage automatisch
 
 
-- [ ] **F-012.7: Scanner-Button — kontextabhängige Funktion je nach Plattform**
+- [x] **F-012.7: Scanner-Button — kontextabhängige Funktion je nach Plattform**
   **Symptom:** Scanner-Button im Web macht auf Desktop keinen Sinn (kein Kamera-
   Scanner verfügbar).
   **Gewünschtes Verhalten:**
@@ -157,7 +157,7 @@ unverändert.
   **Betroffene Datei(en):** Scanner-Button-Widget (Web-Pfad)
   **Aufwand:** ~1–2 h (Stufe 1: ~30 min) | **Risiko:** Niedrig
 
-- [ ] **F-012.8: TAB-Navigation beim Erstellen neuer Artikel**
+- [x] **F-012.8: TAB-Navigation beim Erstellen neuer Artikel**
   **Symptom:** Kein Weiterspringen per TAB-Taste zwischen Eingabefeldern im
   Erfassen-Screen.
   **Lösung:** `FocusNode`-Kette für alle Felder + `TextInputAction.next` +
@@ -191,6 +191,8 @@ unverändert.
 > Ausschließlich Web-Codepfade anfassen — alle Änderungen hinter `kIsWeb`-Guards
 > oder in Web-spezifischen Layout-Zweigen.
 > Mobile- und Desktop-Native-Verhalten bleibt **unverändert**.
+
+
 ### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung)
 **Beschreibung:**
 Lighthouse-Timespan-Audit (P-006) zeigt TBT 1.140 ms und Speed Index 6,6 s.
