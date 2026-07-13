@@ -61,10 +61,10 @@ Sie unterstützt insbesondere:
 - `config.js` ist explizit vom `@static`-Matcher ausgenommen (`not path /config.js`)
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **0.9.9+74**
+- `pubspec.yaml`: **1.0.4+86**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
-- Branch: **harding/v0.9.9**
+- Branch: **main**
 - Layout: **Master-Detail ab Desktop (≥1024px), Mobile weiterhin Navigator.push**
 
 ---
@@ -150,18 +150,18 @@ Bei Befunden möglichst sauber unterscheiden zwischen:
 
 # 5. Start- und App-Lifecycle
 
-## `main()`
-Die App initialisiert in der aktuellen Produktivstruktur u. a.:
-- `WidgetsFlutterBinding.ensureInitialized()`
-- `AppConfig.init()`
-- `AppConfig.validateForRelease()`
-- `AppConfig.validateConfig()`
-- globale Flutter-/Dart-Fehlerbehandlung
-- Desktop-DB-Initialisierung außerhalb von Web
-- `PocketBaseService().initialize()`
-- optionalen PocketBase-Health-Check
-- `AppLockService().init()` außerhalb von Web
-- anschließend `runApp(MyApp())`
+## `main.dart` bestätigt aktuell
+- `GlobalKey<NavigatorState>` für konfliktbezogene Navigation ohne direkten `BuildContext`
+- Konflikt-Callback-Registrierung per `addPostFrameCallback`
+- Guard gegen mehrfache Callback-Registrierung
+- App-Lock-Overlay im Vordergrund
+- DB-Reopen bei Resume
+- periodischer Sync per `Timer.periodic`
+- WLAN-only-Sync-Einstellung vor periodischem Sync
+- **M-014**: `ConflictResolutionScreen` und `SettingsScreen` als `deferred`-Bibliotheken
+  importiert (`conflict_lib` / `settings_lib`) — separater WASM-Chunk, wird erst
+  beim ersten Öffnen geladen (`_conflictLibFuture`, `_settingsLibFuture` als Cache)
+- `onGenerateRoute('/settings')` gibt einen `FutureBuilder`-basierten Builder zurück
 
 ## Home-/App-Gate-Logik
 Die App entscheidet im Startfluss zwischen:
@@ -231,17 +231,21 @@ Wichtige Services sind insbesondere:
 
 ## Zentrale UI-Bildschirme
 - `ArtikelListScreen` — Artikelliste mit Ort- und Kategorie-Filter (F-009),
-  Master-Detail-Layout auf Desktop (F-011.7)
+  Master-Detail-Layout auf Desktop (F-011.7);
+  `ArtikelErfassenScreen` und `SettingsScreen` als deferred-Panels eingebettet (P-009.4)
 - `ArtikelDetailScreen` — dünner Scaffold-Wrapper für Mobile-Navigation,
   delegiert an `ArtikelDetailContent`
 - `ArtikelDetailContent` — eigenständiges Widget mit gesamter Detail-Logik
   (Anzeige, Edit, Speichern, Löschen, Bild, Anhänge, PDF),
-  einbettbar sowohl im Mobile-Scaffold als auch im Desktop-Detail-Panel
-- `ArtikelErfassenScreen`
+  einbettbar sowohl im Mobile-Scaffold als auch im Desktop-Detail-Panel;
+  **M-014**: Edit-, Speichern-, Löschen- und Bild-Buttons per `isReadonlyUser`-Guard
+  ausgeblendet für Readonly-Nutzer
+- `ArtikelErfassenScreen` — deferred geladen (P-009.4)
 - `LoginScreen`
-- `SettingsScreen` — inkl. Entwickler-Card mit Log-Viewer Default-Level (O-013)
+- `SettingsScreen` — inkl. Entwickler-Card mit Log-Viewer Default-Level (O-013);
+  deferred geladen (P-009.4)
 - `ServerSetupScreen`
-- `ConflictResolutionScreen`
+- `ConflictResolutionScreen` — deferred geladen (P-009.4)
 - `AppLockScreen`
 
 ## Datenmodell
@@ -293,10 +297,44 @@ Ab Desktop-Breite zeigt `ArtikelListScreen` ein Master-Detail-Layout:
 - `hasUnsavedChanges` für PopScope/Verwerfen-Dialog
 - `didUpdateWidget` reinitialisiert bei Artikelwechsel (Desktop: anderer Artikel ausgewählt)
 
+## Deferred Loading in Desktop-Panels (P-009.4)
+Die eingebetteten Screens `ArtikelErfassenScreen` und `SettingsScreen` werden
+per `deferred as` importiert. `_buildErfassenPanel()` / `_buildSettingsPanel()`
+wrappen den eigentlichen Screen in einen `FutureBuilder` mit
+`CircularProgressIndicator.adaptive()` als Fallback bis die Library geladen ist.
+`loadLibrary()` wird beim ersten `setState`-Aufruf mit `_PanelMode.erfassen`
+bzw. `_PanelMode.settings` getriggert und im State gecacht
+(`_erfassenFuture`, `_settingsFuture`).
+
 ## maxContentWidth
 - `AppConfig.maxContentWidth` = 1400 (erhöht von 800)
 - `ConstrainedBox` wird nur auf Mobile/Tablet angewendet
 - Desktop nutzt die volle Breite für Master-Detail
+
+
+---
+
+# 8b. Readonly-User-Rolle (M-014)
+
+## Konzept
+PocketBase kennt ein optionales `role`-Feld am `users`-Record.
+Nutzer mit `role == "readonly"` dürfen die App nur lesend nutzen.
+
+## Flutter-Seite
+`PocketBaseService.isReadonlyUser` (Getter):
+- liest `authStore.record?.getStringValue('role')`
+- gibt `true` zurück wenn `role == 'readonly'`
+- gibt `false` zurück wenn kein Client, nicht eingeloggt oder andere Rolle
+
+Alle schreibenden UI-Elemente prüfen diesen Getter:
+- Edit-, Speichern-, Löschen- und Bild-Buttons in `ArtikelDetailContent`
+- ➕-Button und „Neuen Artikel erfassen"-Button in `ArtikelListScreen`
+
+## PocketBase-Seite
+Migration `server/pb_migrations/1783987200_readonly_role_m014.js`:
+- fügt `role`-Textfeld zur `users`-Collection hinzu (idempotent)
+- verschärft `createRule`/`updateRule`/`deleteRule` für `artikel` und `attachments`
+  auf: `@request.auth.id != "" && @request.auth.record.role != "readonly"`
 
 ---
 

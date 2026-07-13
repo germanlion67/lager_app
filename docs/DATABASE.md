@@ -22,7 +22,8 @@ Für die Lager_app sind fachlich vor allem folgende Collection-Typen relevant:
 
 - **`artikel`** — zentrale fachliche Artikeldaten
 - **`attachments`** — Dateianhänge pro Artikel
-- **`users`** — Nutzerverwaltung / Auth-Collection
+- **`users`** — Nutzerverwaltung / Auth-Collection; enthält seit M-014 ein optionales
+  `role`-Textfeld (`""` / `"user"` = Vollzugriff, `"readonly"` = nur Lesezugriff)
 - **PocketBase-System-Collections** wie z. B. `_superusers`, `_mfas`, `_otps`, `_externalAuths`, `_authOrigins`
 
 **Wichtig:**  
@@ -236,7 +237,11 @@ Dateianhänge pro Artikel. Diese werden in PocketBase verwaltet.
 `text/plain`, `text/csv`
 
 **Limits:** Max 20 Anhänge pro Artikel, max 10 MB pro Datei.  
-**API-Regeln:** Auth-pflichtig seit v0.7.3 (`@request.auth.id != ''` für alle Operationen).
+**API-Regeln:** Auth-pflichtig seit v0.7.3. Seit M-014 (`1.0.4+86`) gelten für
+`createRule`/`updateRule`/`deleteRule` zusätzlich Readonly-Guards:
+`@request.auth.id != "" && @request.auth.record.role != "readonly"`.
+Gleiche Regel wie bei `artikel` — Readonly-User dürfen keine Anhänge anlegen,
+ändern oder löschen.
 
 ---
 

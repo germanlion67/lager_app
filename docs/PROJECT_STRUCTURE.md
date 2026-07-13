@@ -1,6 +1,6 @@
 # 📂 Vollständige Projektstruktur
 
-> Stand: v1.0.0+78 (11.07.2026)
+> Stand: v1.0.4+86 (13.07.2026)
 >
 > Dieses Dokument listet alle Dateien und Verzeichnisse des Repositories.
 > Für Architektur-Entscheidungen und Design-Patterns siehe [ARCHITECTURE.md](ARCHITECTURE.md).
@@ -99,7 +99,7 @@ app/lib/
 │   ├── pdf_service_web.dart          #     ↳ PDF: Web (Browser-Download)
 │   ├── pocketbase_conflict_adapter.dart  #   O-020: PocketBaseConflictAdapter (aus main.dart extrahiert)
 │   ├── orchestrator_sync_backend.dart #  Backend-Interface für SyncOrchestrator
-│   ├── pocketbase_service.dart       #   PocketBase REST-Client
+│   ├── pocketbase_service.dart       #   PocketBase REST-Client; M-014: isReadonlyUser-Getter
 │   ├── pocketbase_sync_contracts.dart #  Sync-Verträge (Interfaces/Typedefs)
 │   ├── pocketbase_sync_service.dart  #   PocketBase Sync (Push/Pull, Konflikt-Callback)
 │   ├── scan_result.dart              #   Scan-Ergebnis Modell
@@ -151,6 +151,19 @@ app/lib/
 | `pdf_service.dart`         | `pdf_service_io.dart`                     | `pdf_service_stub.dart` / `pdf_service_web.dart` | PDF-Erzeugung             |
 | `scan_service.dart`        | `scan_service_io.dart`                    | `scan_service_stub.dart`                  | QR/Barcode-Scanner        |
 | `main.dart`                | `main_io.dart`                            | `main_stub.dart`                          | App-Einstiegspunkt        |
+
+### Deferred Imports — Übersicht (P-009.4)
+
+Separate WASM/JS-Chunks, die erst beim ersten Öffnen geladen werden.
+Die Bibliothek wird einmalig je State-Instanz gecacht.
+
+| Importiert in                   | Deferred Screen               | Prefix          | Lademuster                         |
+| :------------------------------ | :---------------------------- | :-------------- | :--------------------------------- |
+| `artikel_list_screen.dart`      | `artikel_erfassen_screen.dart`| `erfassen_lib`  | FutureBuilder im Desktop-Panel     |
+| `artikel_list_screen.dart`      | `settings_screen.dart`        | `settings_lib`  | FutureBuilder im Desktop-Panel     |
+| `main.dart`                     | `settings_screen.dart`        | `settings_lib`  | FutureBuilder in onGenerateRoute   |
+| `main.dart`                     | `conflict_resolution_screen.dart` | `conflict_lib` | await vor Navigator.push          |
+| `sync_conflict_handler.dart`    | `conflict_resolution_screen.dart` | `conflict_lib` | await vor nav.push                |
 
 ---
 
@@ -221,6 +234,7 @@ server/
 │   ├── 1774200000_created_attachments.js
 │   ├── 1774811640_updated_attachments.js
 │   ├── 1775000000_set_auth_rules.js
+│   ├── 1783987200_readonly_role_m014.js  # M-014: role-Feld + Readonly-Regeln
 │   └── pb_schema.json                # Aktuelles Schema-Snapshot
 ├── pb_data/                          # PocketBase-Datenbank & Uploads (gitignored)
 ├── pb_public/                        # Öffentliche PocketBase-Dateien
@@ -308,7 +322,7 @@ lager_app/
 | **Davon Conditional Imports** | 13 Bedingungen in 11 Dateien |
 | **Test-Dateien** | 41 Dart-Dateien (36 ausführbar + 5 Hilfsdateien) |
 | **Tests gesamt** | Siehe [TESTING.md](TESTING.md) für die aktuelle Aufstellung |
-| **PocketBase Migrationen** | 7 |
+| **PocketBase Migrationen** | 8 |
 | **Markdown-Dateien** (Repository-weit) | 30 |
 | **CI/CD Workflows** | 4 |
 | **Docker-Compose Varianten** | 4 |

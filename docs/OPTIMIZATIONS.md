@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 1.0.0+78 | **Zuletzt aktualisiert:** 11.07.2026
+**Version:** 1.0.4+86 | **Zuletzt aktualisiert:** 13.07.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -134,7 +134,7 @@ unverändert.
   **Betroffene Datei(en):** Auth-Initialisierung / `pocketbase_service.dart` (Web-Pfad)
   **Aufwand:** ~1–2 h | **Risiko:** Mittel
   **Erledigt:**
-  ### F-012.6 ✅ Session-Verlust bei Browser-Refresh
+- [x] **F-012.6 ✅ Session-Verlust bei Browser-Refresh
 - auth_store_factory.dart: conditional export (Web/Native)
 - auth_store_factory_web.dart: package:web localStorage
 - auth_store_factory_native.dart: SharedPreferences
@@ -395,102 +395,6 @@ Direkte Synergie mit P-006.1 (Thumbnail-Größe prüfen).
 
 --- 
 
-### M-014: Readonly-User-Rolle — PocketBase API Rules + App-UI-Integration
-
-**Beschreibung:**
-Einführung einer serverseitigen Readonly-Rolle für PocketBase-User kombiniert mit
-einer UI-seitigen Anpassung der Lager_app (Web). Ziel: Bestimmte User dürfen alle
-Artikel lesen, aber keine Änderungen (Create/Update/Delete) vornehmen.
-Die Sperre greift serverseitig (PocketBase API Rules) — die App-UI blendet
-Aktions-Buttons für Readonly-User zusätzlich aus (saubere UX).
-
-**Hintergrund:**
-Aktuell darf jeder authentifizierte User alle CRUD-Operationen ausführen:
-`createRule / updateRule / deleteRule = "@request.auth.id != \"\""`.
-Es gibt keine Rollenunterscheidung. Ein Readonly-User sieht aktuell alle
-Bearbeitungs-Buttons, die dann serverseitig mit einem Fehler abgewiesen werden.
-
----
-
-#### Teil 1 — PocketBase: Rolle und API Rules (serverseitig)
-
-**Schritt 1: `role`-Feld in `users`-Collection ergänzen**
-- PocketBase Admin → Collections → `users` → Edit
-- Neues Feld: `role` (Typ: `text`, nicht required, Default: leer)
-- Mögliche Werte: `""` / `"user"` → Vollzugriff | `"readonly"` → Nur Lesen
-
-**Schritt 2: API Rules in `artikel`-Collection anpassen**
-
-| Regel | Aktuell | Neu |
-|---|---|---|
-| `listRule` | `@request.auth.id != ""` | `@request.auth.id != ""` *(unverändert)* |
-| `viewRule` | `@request.auth.id != ""` | `@request.auth.id != ""` *(unverändert)* |
-| `createRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
-| `updateRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
-| `deleteRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
-
-> ⚠️ Gleiches Schema für alle weiteren Collections mit Schreibzugriff wiederholen
-> (z. B. Anhänge, Dokumente — je nach vorhandenem Collection-Set).
-
-**Schritt 3: Readonly-User anlegen**
-- PocketBase Admin → Collections → `users` → New record
-- E-Mail + Passwort setzen
-- Feld `role` = `"readonly"` eintragen → Speichern ✅
-
----
-
-#### Teil 2 — App-UI: Readonly-Modus (Flutter / Web)
-
-**Ziel:** App liest `role` des eingeloggten Users nach dem Login aus und
-blendet Aktions-Buttons (Speichern, Löschen, Bild ändern, Anhang hinzufügen)
-für Readonly-User aus — statt sie mit einem Serverfehler abzuweisen.
-
-**Betroffene Bereiche:**
-- `app/lib/services/pocketbase_service.dart` — `role`-Getter aus `authStore.model`
-- `app/lib/providers/` oder `app/lib/core/` — neuer `isReadonly`-Accessor
-- `app/lib/screens/artikel_detail_content.dart` — Bearbeiten/Löschen/Bild-Buttons
-- `app/lib/screens/artikel_erfassen_screen.dart` — Speichern-Button / Zugriff sperren
-- `app/lib/widgets/` — Sync-Button, Anhang-Button (falls vorhanden)
-
-**Implementierungsvorschlag:**
-
-```dart
-// pocketbase_service.dart — neuer Getter
-bool get isReadonlyUser {
-  final role = _client.authStore.record?.getStringValue('role') ?? '';
-  return role == 'readonly';
-}
-// In ArtikelDetailContent — Beispiel für Button-Guard
-if (!pocketBaseService.isReadonlyUser)
-  IconButton(
-    icon: const Icon(Icons.edit),
-    onPressed: _startEditMode,
-  ),
-```
-Wichtig: Alle UI-Guards ausschließlich additiv — kein Entfernen bestehender
-Logik, nur if (!isReadonly) vor betroffenen Widgets.
-Serverseitige Sperre (Teil 1) bleibt die primäre Sicherheitsebene.
-
-Tasks:
-
-role-Feld in users-Collection in PocketBase anlegen
-API Rules für artikel (und weitere Collections) anpassen
-Readonly-User in PocketBase anlegen und testen (serverseitig verifizieren)
-isReadonlyUser-Getter in pocketbase_service.dart ergänzen
-artikel_detail_content.dart: Bearbeiten/Löschen/Bild-Buttons hinter Readonly-Guard
-artikel_erfassen_screen.dart: Speichern-Button / Screen-Zugang für Readonly sperren
-Anhang- und Dokument-Buttons prüfen und ggf. ausblenden
-Manueller E2E-Test: Readonly-User Web — Lesen ✅, Schreiben ❌ (Buttons ausgeblendet)
-Manueller E2E-Test: normaler User — alle Funktionen unverändert ✅
-Unit-Test: isReadonlyUser-Getter (role = "readonly", role = "", role = "user")
-Aufwand: ~3–5 Stunden | Risiko: Niedrig
-Plattform: Primär Web — Mobile/Desktop-Native-Verhalten unverändert (kein kIsWeb-Guard
-erforderlich, da Readonly-Logik plattformunabhängig sinnvoll ist)
-Abhängigkeiten: Keine Blocker. Unabhängig von F-012 und P-009 umsetzbar.
-
-Commit-Vorschlag: feat: readonly user role — PocketBase API rules + app UI guards (M-014)
-
---- 
 
 
 ## 🟢 Priorität: Nice-to-Have
@@ -612,6 +516,123 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 
 --- 
+
+### M-014: Readonly-User-Rolle — PocketBase API Rules + App-UI-Integration  — abgeschlossen 2026-07-13 | `1.0.4+86`
+
+**Beschreibung:**
+Einführung einer serverseitigen Readonly-Rolle für PocketBase-User kombiniert mit
+einer UI-seitigen Anpassung der Lager_app (Web). Ziel: Bestimmte User dürfen alle
+Artikel lesen, aber keine Änderungen (Create/Update/Delete) vornehmen.
+Die Sperre greift serverseitig (PocketBase API Rules) — die App-UI blendet
+Aktions-Buttons für Readonly-User zusätzlich aus (saubere UX).
+
+**Hintergrund:**
+Aktuell darf jeder authentifizierte User alle CRUD-Operationen ausführen:
+`createRule / updateRule / deleteRule = "@request.auth.id != \"\""`.
+Es gibt keine Rollenunterscheidung. Ein Readonly-User sieht aktuell alle
+Bearbeitungs-Buttons, die dann serverseitig mit einem Fehler abgewiesen werden.
+
+---
+
+#### Teil 1 — PocketBase: Rolle und API Rules (serverseitig)
+
+**Schritt 1: `role`-Feld in `users`-Collection ergänzen**
+- PocketBase Admin → Collections → `users` → Edit
+- Neues Feld: `role` (Typ: `text`, nicht required, Default: leer)
+- Mögliche Werte: `""` / `"user"` → Vollzugriff | `"readonly"` → Nur Lesen
+
+**Schritt 2: API Rules in `artikel`-Collection anpassen**
+
+| Regel | Aktuell | Neu |
+|---|---|---|
+| `listRule` | `@request.auth.id != ""` | `@request.auth.id != ""` *(unverändert)* |
+| `viewRule` | `@request.auth.id != ""` | `@request.auth.id != ""` *(unverändert)* |
+| `createRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
+| `updateRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
+| `deleteRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
+
+> ⚠️ Gleiches Schema für alle weiteren Collections mit Schreibzugriff wiederholen
+> (z. B. Anhänge, Dokumente — je nach vorhandenem Collection-Set).
+
+**Schritt 3: Readonly-User anlegen**
+- PocketBase Admin → Collections → `users` → New record
+- E-Mail + Passwort setzen
+- Feld `role` = `"readonly"` eintragen → Speichern ✅
+
+---
+
+#### Teil 2 — App-UI: Readonly-Modus (Flutter / Web)
+
+**Ziel:** App liest `role` des eingeloggten Users nach dem Login aus und
+blendet Aktions-Buttons (Speichern, Löschen, Bild ändern, Anhang hinzufügen)
+für Readonly-User aus — statt sie mit einem Serverfehler abzuweisen.
+
+**Betroffene Bereiche:**
+- `app/lib/services/pocketbase_service.dart` — `role`-Getter aus `authStore.model`
+- `app/lib/providers/` oder `app/lib/core/` — neuer `isReadonly`-Accessor
+- `app/lib/screens/artikel_detail_content.dart` — Bearbeiten/Löschen/Bild-Buttons
+- `app/lib/screens/artikel_erfassen_screen.dart` — Speichern-Button / Zugriff sperren
+- `app/lib/widgets/` — Sync-Button, Anhang-Button (falls vorhanden)
+
+**Implementierungsvorschlag:**
+
+```dart
+// pocketbase_service.dart — neuer Getter
+bool get isReadonlyUser {
+  final role = _client.authStore.record?.getStringValue('role') ?? '';
+  return role == 'readonly';
+}
+// In ArtikelDetailContent — Beispiel für Button-Guard
+if (!pocketBaseService.isReadonlyUser)
+  IconButton(
+    icon: const Icon(Icons.edit),
+    onPressed: _startEditMode,
+  ),
+```
+Wichtig: Alle UI-Guards ausschließlich additiv — kein Entfernen bestehender
+Logik, nur if (!isReadonly) vor betroffenen Widgets.
+Serverseitige Sperre (Teil 1) bleibt die primäre Sicherheitsebene.
+
+Tasks:
+
+role-Feld in users-Collection in PocketBase anlegen
+API Rules für artikel (und weitere Collections) anpassen
+Readonly-User in PocketBase anlegen und testen (serverseitig verifizieren)
+isReadonlyUser-Getter in pocketbase_service.dart ergänzen
+artikel_detail_content.dart: Bearbeiten/Löschen/Bild-Buttons hinter Readonly-Guard
+artikel_erfassen_screen.dart: Speichern-Button / Screen-Zugang für Readonly sperren
+Anhang- und Dokument-Buttons prüfen und ggf. ausblenden
+Manueller E2E-Test: Readonly-User Web — Lesen ✅, Schreiben ❌ (Buttons ausgeblendet)
+Manueller E2E-Test: normaler User — alle Funktionen unverändert ✅
+Unit-Test: isReadonlyUser-Getter (role = "readonly", role = "", role = "user")
+Aufwand: ~3–5 Stunden | Risiko: Niedrig
+Plattform: Primär Web — Mobile/Desktop-Native-Verhalten unverändert (kein kIsWeb-Guard
+erforderlich, da Readonly-Logik plattformunabhängig sinnvoll ist)
+Abhängigkeiten: Keine Blocker. Unabhängig von F-012 und P-009 umsetzbar.
+
+Commit-Vorschlag: feat: readonly user role — PocketBase API rules + app UI guards (M-014)
+
+
+Readonly-Rolle für PocketBase-User mit zweigeteilter Absicherung:
+
+**PocketBase (serverseitig):**  
+Migration `1783987200_readonly_role_m014.js` fügt `role`-Textfeld
+zur `users`-Collection hinzu (idempotent).  
+`createRule`/`updateRule`/`deleteRule` für `artikel` und `attachments`:  
+`@request.auth.id != "" && @request.auth.record.role != "readonly"`
+
+**Flutter App (UI-seitig):**  
+`PocketBaseService.isReadonlyUser`-Getter liest `authStore.record?.getStringValue('role')`.  
+Guards in:
+- `ArtikelDetailContent`: Edit-, Speichern-, Löschen- und Bild-Buttons ausgeblendet
+- `ArtikelListScreen`: ➕-Button und „Neuen Artikel erfassen"-Button ausgeblendet
+
+5 Unit-Tests (T-012.41–45): `isReadonlyUser` mit role=`"readonly"` → true,
+role=`""` → false, role=`"user"` → false, kein Client → false, nicht eingeloggt → false ✅
+
+Verifiziert: `flutter analyze` 0 Issues | `flutter test` 1016/1016 ✅ 
+
+---
 
 ### B-019: Bild verschwindet nach Speichern im embedded Modus (Web) — abgeschlossen 2026-07-11 | `1.0.0+78`
 
@@ -1102,6 +1123,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-07-13 | 1.0.4+86 | M-014: Readonly-User-Rolle — PocketBase API Rules + App-UI-Integration - Abgeschlossen |
 | 2026-07-11 | 1.0.0+78 | M-014 neu: Readonly-User-Rolle — PocketBase API Rules + App-UI-Guards dokumentiert. |
 | 2026-05-20 | 0.9.9+75 | H-005.3: X-Frame-Options bereits im Caddyfile vorhanden —
 als ✅ erledigt markiert. H-005 vollständig abgeschlossen. |
