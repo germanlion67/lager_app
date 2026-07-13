@@ -1409,9 +1409,10 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
   /// verwendet.
   List<Widget> buildActions(ColorScheme colorScheme) {
     final bool isBlocked = _isSaving || _isDeleting;
+    final bool isReadonly = _pbService.isReadonlyUser; // M-014
 
     return [
-      if (_isEditing)
+      if (_isEditing && !isReadonly)
         IconButton(
           icon: Icon(_hatBild ? Icons.image : Icons.add_photo_alternate),
           tooltip: _hatBild ? 'Bild ändern' : 'Bild hinzufügen',
@@ -1459,29 +1460,31 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
             ),
         ],
       ),
-      IconButton(
-        icon: Icon(!_isEditing ? Icons.edit : Icons.save),
-        tooltip: !_isEditing
-            ? 'Ändern'
-            : (_hasChanged ? 'Speichern' : 'Keine Änderungen'),
-        onPressed: isBlocked
-            ? null
-            : !_isEditing
-                ? _enableEdit
-                : (_hasChanged ? _speichern : null),
-      ),
+      if (!isReadonly)
+        IconButton(
+          icon: Icon(!_isEditing ? Icons.edit : Icons.save),
+          tooltip: !_isEditing
+              ? 'Ändern'
+              : (_hasChanged ? 'Speichern' : 'Keine Änderungen'),
+          onPressed: isBlocked
+              ? null
+              : !_isEditing
+                  ? _enableEdit
+                  : (_hasChanged ? _speichern : null),
+        ),
       IconButton(
         icon: const Icon(Icons.picture_as_pdf),
         onPressed: isBlocked ? null : _generateArtikelDetailPdf,
         tooltip: 'Als PDF exportieren',
       ),
-      IconButton(
-        icon: const Icon(Icons.delete),
-        onPressed: (_isEditing || isBlocked) ? null : _loeschen,
-        tooltip: _isEditing
-            ? 'Erst speichern oder Bearbeitung abbrechen'
-            : 'Artikel löschen',
-      ),
+      if (!isReadonly)
+        IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: (_isEditing || isBlocked) ? null : _loeschen,
+          tooltip: _isEditing
+              ? 'Erst speichern oder Bearbeitung abbrechen'
+              : 'Artikel löschen',
+        ),
     ];
   }
 

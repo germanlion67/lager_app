@@ -170,7 +170,7 @@ unverändert.
 
 #### 🟢 Prio 3 — Nice-to-Have
 
-- [ ] **F-012.9: Sync-Button im Web prüfen und ggf. ausblenden**
+- [x] **F-012.9: Sync-Button im Web prüfen und ggf. ausblenden**
   **Symptom:** Sync-Button in der Web-Version möglicherweise nicht benötigt, da
   Web direkt gegen PocketBase arbeitet (kein lokaler SQLite-Cache).
   **Lösung:** Nach Klärung von F-012.1 (Speicherpfad) entscheiden ob Sync-Button

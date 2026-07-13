@@ -687,21 +687,22 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                   ),
             ),
             const SizedBox(height: AppConfig.spacingLarge),
-            // F-011.9: Hinweis auf ➕-Button
-            FilledButton.tonal(
-              onPressed: () => setState(() {
-                _panelMode = _PanelMode.erfassen;
-                _selectedArtikel = null;
-              }),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add, size: AppConfig.iconSizeSmall),
-                  SizedBox(width: AppConfig.spacingXSmall),
-                  Text('Neuen Artikel erfassen'),
-                ],
+            // F-011.9: Hinweis auf ➕-Button (M-014: nur für nicht-readonly User)
+            if (!_pbService.isReadonlyUser)
+              FilledButton.tonal(
+                onPressed: () => setState(() {
+                  _panelMode = _PanelMode.erfassen;
+                  _selectedArtikel = null;
+                }),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.add, size: AppConfig.iconSizeSmall),
+                    SizedBox(width: AppConfig.spacingXSmall),
+                    Text('Neuen Artikel erfassen'),
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       );
@@ -881,28 +882,29 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            key: const Key('addArticleButton'),
-            icon: const Icon(Icons.add),
-            tooltip: 'Neuen Artikel erfassen',
-            onPressed: () {
-              // F-011.9: Desktop → Erfassen-Panel; Mobile → Navigator.push
-              final isDesktop = Responsive.of(context) == ScreenSize.desktop;
-              if (isDesktop) {
-                setState(() {
-                  _panelMode = _PanelMode.erfassen;
-                  _selectedArtikel = null; // Detail-Auswahl aufheben
-                });
-              } else {
-                Navigator.push<void>(
-                  context,
-                  MaterialPageRoute<void>(
-                    builder: (_) => const ArtikelErfassenScreen(),
-                  ),
-                ).then((_) => _ladeArtikel());
-              }
-            },
-          ),
+          if (!_pbService.isReadonlyUser)
+            IconButton(
+              key: const Key('addArticleButton'),
+              icon: const Icon(Icons.add),
+              tooltip: 'Neuen Artikel erfassen',
+              onPressed: () {
+                // F-011.9: Desktop → Erfassen-Panel; Mobile → Navigator.push
+                final isDesktop = Responsive.of(context) == ScreenSize.desktop;
+                if (isDesktop) {
+                  setState(() {
+                    _panelMode = _PanelMode.erfassen;
+                    _selectedArtikel = null; // Detail-Auswahl aufheben
+                  });
+                } else {
+                  Navigator.push<void>(
+                    context,
+                    MaterialPageRoute<void>(
+                      builder: (_) => const ArtikelErfassenScreen(),
+                    ),
+                  ).then((_) => _ladeArtikel());
+                }
+              },
+            ),
           if (!kIsWeb)
             _isSyncRunning
                 ? const Center(

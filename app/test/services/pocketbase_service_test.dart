@@ -1000,4 +1000,84 @@ void main() {
       },
     );
   });
+
+  // =========================================================================
+  // isReadonlyUser — M-014
+  // =========================================================================
+
+  group('isReadonlyUser — M-014', () {
+    const token =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4OTM0NTI0NjF9.yVr-4JxMz6qUf1MIlGx8iW2ktUrQaFecjY_TMm7Bo4o';
+
+    test('T-012.41: isReadonlyUser ohne Client → false', () async {
+      SharedPreferences.setMockInitialValues({});
+      final svc = PocketBaseService.testable();
+      await svc.initialize();
+      expect(svc.isReadonlyUser, isFalse);
+    });
+
+    test('T-012.42: isReadonlyUser ohne eingeloggten User → false', () {
+      final fakePb = _FakePocketBaseForAuth();
+      PocketBaseService.overrideForTesting(fakePb);
+      final svc = PocketBaseService();
+      expect(svc.isReadonlyUser, isFalse);
+    });
+
+    test('T-012.43: isReadonlyUser mit role = "readonly" → true', () {
+      final fakePb = _FakePocketBaseForAuth();
+      PocketBaseService.overrideForTesting(fakePb);
+
+      final record = RecordModel.fromJson({
+        'id': 'user-ro-001',
+        'collectionId': '_pb_users_auth_',
+        'collectionName': 'users',
+        'email': 'readonly@example.com',
+        'role': 'readonly',
+        'created': '2026-01-01 00:00:00.000Z',
+        'updated': '2026-01-01 00:00:00.000Z',
+      });
+      fakePb.authStore.save(token, record);
+
+      final svc = PocketBaseService();
+      expect(svc.isReadonlyUser, isTrue);
+    });
+
+    test('T-012.44: isReadonlyUser mit role = "" (normaler User) → false', () {
+      final fakePb = _FakePocketBaseForAuth();
+      PocketBaseService.overrideForTesting(fakePb);
+
+      final record = RecordModel.fromJson({
+        'id': 'user-001',
+        'collectionId': '_pb_users_auth_',
+        'collectionName': 'users',
+        'email': 'user@example.com',
+        'role': '',
+        'created': '2026-01-01 00:00:00.000Z',
+        'updated': '2026-01-01 00:00:00.000Z',
+      });
+      fakePb.authStore.save(token, record);
+
+      final svc = PocketBaseService();
+      expect(svc.isReadonlyUser, isFalse);
+    });
+
+    test('T-012.45: isReadonlyUser mit role = "user" → false', () {
+      final fakePb = _FakePocketBaseForAuth();
+      PocketBaseService.overrideForTesting(fakePb);
+
+      final record = RecordModel.fromJson({
+        'id': 'user-002',
+        'collectionId': '_pb_users_auth_',
+        'collectionName': 'users',
+        'email': 'user2@example.com',
+        'role': 'user',
+        'created': '2026-01-01 00:00:00.000Z',
+        'updated': '2026-01-01 00:00:00.000Z',
+      });
+      fakePb.authStore.save(token, record);
+
+      final svc = PocketBaseService();
+      expect(svc.isReadonlyUser, isFalse);
+    });
+  });
 }

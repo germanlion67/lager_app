@@ -8,9 +8,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 const _storageKey = 'pb_auth';
 
 Future<AsyncAuthStore> buildAuthStore() async {
-  // TODO: Nach Bestätigung des Fixes entfernen
-  // ignore: avoid_print
-  print('[AuthStore] ⚠️ Native-Implementierung aktiv (SharedPreferences)');
 
   final prefs = await SharedPreferences.getInstance();
 

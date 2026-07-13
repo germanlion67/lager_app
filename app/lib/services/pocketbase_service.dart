@@ -364,6 +364,15 @@ class PocketBaseService implements SyncPocketBaseService {
     return c.authStore.record?.getStringValue('email');
   }
 
+  /// M-014: True wenn der eingeloggte Benutzer die Readonly-Rolle hat.
+  /// UI-Guard zusätzlich zur serverseitigen API-Regelprüfung.
+  bool get isReadonlyUser {
+    final c = _client;
+    if (c == null) return false;
+    final role = c.authStore.record?.getStringValue('role') ?? '';
+    return role == 'readonly';
+  }
+
   /// Loggt einen Benutzer mit E-Mail und Passwort ein.
   Future<bool> login(String email, String password) async {
     final c = _client;
