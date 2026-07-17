@@ -541,7 +541,13 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
   // ══════════════════════════════════════════════════════════════════════
 
   Future<void> _speichern() async {
+    _logger.i(
+      '[Speichern] gestartet — kIsWeb=$kIsWeb '
+      '_hasChanged=$_hasChanged _isEditing=$_isEditing '
+      'uuid=${widget.artikel.uuid}',
+    );
     if (!_hasChanged) {
+      _logger.w('[Speichern] abgebrochen — keine Änderungen');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -553,11 +559,16 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
     }
     if (mounted) setState(() => _isSaving = true);
     try {
+      _logger.i('[Speichern] Pfad: ${kIsWeb ? "Web→_speichernWeb()" : "Mobile→_speichernMobile()"}');
       if (kIsWeb) {
         await _speichernWeb();
       } else {
         await _speichernMobile();
       }
+      _logger.i('[Speichern] erfolgreich abgeschlossen');
+    } catch (e, st) {
+      _logger.e('[Speichern] ungefangener Fehler', error: e, stackTrace: st);
+      rethrow;
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
