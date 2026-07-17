@@ -849,13 +849,17 @@ class _ArtikelErfassenScreenState extends State<ArtikelErfassenScreen> {
   Widget build(BuildContext context) {
     // F-011.9: Im embedded-Modus kein Scaffold/AppBar/PopScope —
     // Header und Close-Button kommen vom ArtikelListScreen-Panel.
+    // F-012.8: FocusTraversalGroup isoliert TAB-Navigation auf das rechte Panel
     if (widget.embedded) {
-      return SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(AppConfig.spacingLarge),
-            children: _buildFormChildren(context),
+      return FocusTraversalGroup(
+        policy: WidgetOrderTraversalPolicy(),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(AppConfig.spacingLarge),
+              children: _buildFormChildren(context),
+            ),
           ),
         ),
       );
