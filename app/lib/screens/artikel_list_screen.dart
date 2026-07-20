@@ -1124,14 +1124,14 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
 
 // ══════════════════════════════════════════════════════════════════════════════
 // F-011.7: Detail-Panel Header (Titel + Actions + Close)
-// F-012.2 / F-012.4: StatefulWidget mit addPostFrameCallback —
-// stellt sicher dass contentKey.currentState beim ersten Frame
-// verfügbar ist, bevor Actions gerendert werden.
+// F-012: StatelessWidget — Rebuild kommt zuverlässig vom Parent via
+//         onStateChanged → _onDetailStateChanged() → setState().
+//         addPostFrameCallback-Workaround nicht mehr nötig.
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _DetailPanelHeader extends StatefulWidget {
+class _DetailPanelHeader extends StatelessWidget {
   const _DetailPanelHeader({
-    super.key, // ← NEU
+    super.key,
     required this.contentKey,
     required this.artikel,
     required this.colorScheme,
@@ -1143,35 +1143,8 @@ class _DetailPanelHeader extends StatefulWidget {
   final ColorScheme colorScheme;
   final VoidCallback onClose;
 
-  @override
-  State<_DetailPanelHeader> createState() => _DetailPanelHeaderState();
-}
-
-class _DetailPanelHeaderState extends State<_DetailPanelHeader> {
-  @override
-  void initState() {
-    super.initState();
-    // F-012.2 / F-012.4: Nach dem ersten Frame neu bauen —
-    // zu diesem Zeitpunkt ist contentKey.currentState garantiert verfügbar,
-    // da ArtikelDetailContent bereits in den Tree eingehängt wurde.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void didUpdateWidget(covariant _DetailPanelHeader oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Neuer Artikel ausgewählt → nach Frame neu bauen
-    if (oldWidget.artikel.uuid != widget.artikel.uuid) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() {});
-      });
-    }
-  }
-
   Future<void> _handleClose(BuildContext context) async {
-    final contentState = widget.contentKey.currentState;
+    final contentState = contentKey.currentState;
     if (contentState?.hasUnsavedChanges == true) {
       final result = await showDialog<String>(
         context: context,
@@ -1197,16 +1170,16 @@ class _DetailPanelHeaderState extends State<_DetailPanelHeader> {
         await contentState?.speichern();
         if (!context.mounted) return;
       } else if (result == null) {
-        return; // Dialog abgebrochen (außerhalb tippen)
+        return; // Dialog abgebrochen
       }
       // result == 'verwerfen' → weiter zu onClose
     }
-    widget.onClose();
+    onClose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final contentState = widget.contentKey.currentState;
+    final contentState = contentKey.currentState;
     final textTheme = Theme.of(context).textTheme;
 
     return Container(
@@ -1214,12 +1187,12 @@ class _DetailPanelHeaderState extends State<_DetailPanelHeader> {
         horizontal: AppConfig.spacingMedium,
         vertical: AppConfig.spacingSmall,
       ),
-      color: widget.colorScheme.surfaceContainerLow,
+      color: colorScheme.surfaceContainerLow,
       child: Row(
         children: [
           Expanded(
             child: Text(
-              contentState?.titleText ?? widget.artikel.name,
+              contentState?.titleText ?? artikel.name,
               style: textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.bold,
               ),
@@ -1227,7 +1200,7 @@ class _DetailPanelHeaderState extends State<_DetailPanelHeader> {
             ),
           ),
           if (contentState != null)
-            ...contentState.buildActions(widget.colorScheme),
+            ...contentState.buildActions(colorScheme),
           const SizedBox(width: AppConfig.spacingSmall),
           IconButton(
             icon: const Icon(Icons.close),
