@@ -437,7 +437,8 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
           final url = _pbService.client.files
               .getUrl(record, bildField.toString())
               .toString();
-          if (mounted) setState(() => _remoteBildUrl = url);
+          // P-008: Detail-Thumb (400x400) speichern — spart ~90% Traffic vs. Original
+          if (mounted) setState(() => _remoteBildUrl = '$url?thumb=${AppConfig.pbThumbGroesseDetail}');
         }
       }
     } catch (e, st) {
@@ -1026,8 +1027,13 @@ class ArtikelDetailContentState extends State<ArtikelDetailContent> {
       return Image.memory(_pendingBytes!, fit: BoxFit.contain);
     }
     if (kIsWeb && _remoteBildUrl != null) {
+      // P-008: 1200x1200 für Vollbildviewer (5× Zoom = 1000px + Reserve)
+      final vollbildUrl = _remoteBildUrl!.replaceFirst(
+        AppConfig.pbThumbGroesseDetail,
+        AppConfig.pbThumbGroesseVollbild,
+      );
       return CachedNetworkImage(
-        imageUrl: _remoteBildUrl!,
+        imageUrl: vollbildUrl,
         fit: BoxFit.contain,
         placeholder: (_, __) =>
             const Center(child: CircularProgressIndicator()),

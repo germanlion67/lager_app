@@ -158,8 +158,14 @@ class AppConfig {
   /// BoxFit für Artikel-Bilder in der Detailansicht.
   static const BoxFit artikelDetailBildFit = BoxFit.contain;
 
-  /// PocketBase Thumbnail-Größe (Query-Parameter ?thumb=WxH).
+  /// PocketBase Thumbnail-Größe für die Listenansicht (Query-Parameter ?thumb=WxH).
   static const String pbThumbGroesse = '60x60';
+
+  /// PocketBase Thumbnail-Größe für die Detailansicht (P-008).
+  static const String pbThumbGroesseDetail = '400x400';
+
+  /// PocketBase Thumbnail-Größe für den Vollbildviewer (P-008).
+  static const String pbThumbGroesseVollbild = '1200x1200';
 
   /// Border-Radius für kleine Cards.
   static const double cardBorderRadiusSmall = 6.0;

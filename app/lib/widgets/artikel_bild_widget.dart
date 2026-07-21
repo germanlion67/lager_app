@@ -132,7 +132,7 @@ class ArtikelDetailBild extends StatelessWidget {
   }
 
   Widget _buildPbDetailFallback() {
-    final url = _getPbUrl(isThumb: false);
+    final url = _getPbUrl(isThumb: true); // P-008: 400x400 statt Originalbild
     if (url == null) return _Placeholder(height: height);
     return _buildCachedImage(url, isDetail: true);
   }
@@ -162,8 +162,8 @@ class ArtikelDetailBild extends StatelessWidget {
 
     final baseUri = Uri.parse(pbService.url);
     var urlPath = '/api/files/artikel/$recordId/${Uri.encodeComponent(bildField)}';
-    if (isThumb) urlPath += '?thumb=${AppConfig.pbThumbGroesse}';
-    
+    if (isThumb) urlPath += '?thumb=${AppConfig.pbThumbGroesseDetail}'; // P-008
+
     return baseUri.resolve(urlPath).toString();
   }
 }

@@ -80,18 +80,10 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 
 #### Prio 1 — Thumbnail-Größe prüfen und optimieren
 
-- [ ] **P-006.1: PocketBase Thumbnail-Generierung prüfen**
-  Prüfen ob `?thumb=60x60` tatsächlich auf 60×60 Pixel skaliert oder das Originalbild
-  mit hoher Qualität ausliefert. Ggf. JPEG-Qualität in PocketBase-Settings reduzieren
-  oder Thumbnails clientseitig mit `CachedNetworkImage` + `memCacheWidth`/`memCacheHeight`
-  begrenzen.
-
-  ```bash
-  # Prüfe tatsächliche Bildgröße:
-  curl -s "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60" | identify -
-  ```
-
-  **Wirkung:** Thumbnail-Traffic von ~160 KB auf ~10–15 KB reduzierbar (90%+ Einsparung)
+- [x] **P-006.1: PocketBase Thumbnail-Generierung prüfen** ✅ — durch P-008 strukturell gelöst
+  Befund bestätigt: `thumbs: []` → PocketBase lieferte Originalbild aus.
+  Behoben durch Migration `1786000000_updated_artikel_thumbs_p008.js` (P-008).
+  Thumbs `60x60`, `400x400`, `1200x1200` konfiguriert.
 
 - [ ] **P-006.2: Bilder vor Upload verkleinern**
   Prüfen ob `AppConfig.maxWidth`/`maxHeight` für Uploads ausreichend niedrig sind.
@@ -129,53 +121,30 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 
 --- 
 
-### P-008: PocketBase Thumbnail-Konfiguration optimieren
+### P-008: PocketBase Thumbnail-Konfiguration optimieren — abgeschlossen 2026-07-21 | `1.0.6+93`
 **Beschreibung:**
 Analyse vom 20.05.2026 ergab: Das `bild`-Feld der `artikel`-Collection hat
 `"thumbs": []` — PocketBase generiert **keine** Thumbnails.
 Der `?thumb=60x60`-Query-Parameter im Code wird ignoriert, PocketBase liefert
 stattdessen das Originalbild aus (bis zu 5 MB pro Request).
 
-**Betroffene Stellen im Code:**
-- `app/lib/config/app_config.dart` → `pbThumbGroesse = '60x60'` (nur Listenansicht)
-- `app/lib/widgets/artikel_bild_widget.dart` → `_getPbUrl()`, `_getPbThumbUrl()`
-- `app/lib/screens/artikel_detail_content.dart` → `_buildVollbildContent()`
-  (Vollbildviewer mit `maxScale: 5.0` lädt Originalbild ohne Thumbnail-Parameter)
+**Thumbnail-Größen:**
 
-**Empfohlene Thumbnail-Größen (aus Code-Analyse):**
+| Größe | Verwendung |
+|:--|:--|
+| `60x60` | Listenansicht |
+| `400x400` | Detailansicht |
+| `1200x1200` | Vollbildviewer (5× Zoom = 1000px + Reserve) |
 
-| Größe | Verwendung | Begründung |
-|:--|:--|:--|
-| `60x60` | Listenansicht (`artikelListBildSize = 50px`) | Entspricht `pbThumbGroesse`; 2× DPI → 100px |
-| `400x400` | Detailansicht (`artikelDetailBildHoehe = 200px`, volle Breite) | 2× DPI → 400px |
-| `1200x1200` | Vollbildviewer (`maxScale: 5.0`) | 200px × 5× Zoom = 1000px + Reserve |
+**Umgesetzt:**
+- [x] Migration `1786000000_updated_artikel_thumbs_p008.js` — `thumbs: ["60x60", "400x400", "1200x1200"]` für Feld `file1962578385` ✅
+- [x] `app_config.dart` — `pbThumbGroesseDetail = '400x400'`, `pbThumbGroesseVollbild = '1200x1200'` ✅
+- [x] `artikel_bild_widget.dart` — Detail-Fallback nutzt `400x400` statt Originalbild ✅
+- [x] `artikel_detail_content.dart` — `_loadRemoteBildUrl()` speichert 400x400-URL; Vollbildviewer nutzt 1200x1200 ✅
 
-**Erforderliche Änderungen:**
-
-1. **Neue Migration** `server/pb_migrations/1775100000_updated_artikel_thumbs.js`
-   — `thumbs: ["60x60", "400x400", "1200x1200"]` für Feld `file1962578385`
-
-2. **`app_config.dart`** — zwei neue Konstanten:
-   `pbThumbGroesseDetail = '400x400'` und `pbThumbGroesseVollbild = '1200x1200'`
-
-3. **`artikel_bild_widget.dart`** — `_getPbUrl()` nutzt `400x400` für
-   Detailansicht-Fallback statt Originalbild
-
-4. **`artikel_detail_content.dart`** — `_buildVollbildContent()` nutzt
-   `1200x1200` statt Originalbild für `InteractiveViewer`
-
-**Wichtiger Hinweis:**
-Bestehende Bilder erhalten neue Thumbnails **nicht automatisch** — PocketBase
-generiert Thumbnails nur beim Upload. Neue Uploads ab der Migration sind sofort korrekt.
-Für bestehende Bilder ist ein Re-Upload oder manueller Trigger erforderlich.
+**Hinweis:** Bestehende Bilder erhalten neue Thumbnails erst beim nächsten Upload.
 
 **Wirkung:** Thumbnail-Traffic von bis zu 5 MB auf ~5–300 KB pro Bild reduzierbar.
-Direkte Synergie mit P-006.1 (Thumbnail-Größe prüfen).
-
-**Aufwand:** ~2–3 Stunden | **Risiko:** Niedrig
-**Abhängigkeit:** Löst P-006.1 strukturell — P-006.1 kann danach als erledigt markiert werden.
-
-**Nächste freie Kürzel nach Vergabe:** `P-009`
 
 --- 
 
@@ -1102,6 +1071,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-07-21 | 1.0.6+93 | P-008: PocketBase Thumbnail-Konfiguration — abgeschlossen. Migration + AppConfig-Konstanten + Widget-Anpassungen. P-006.1 damit gelöst. |
 | 2026-07-21 | 1.0.6+93 | P-009: TBT & Speed Index reduzieren — abgeschlossen. Nachbefund: Brotli (`br`) in Caddy ergänzt, `--pwa-strategy=none` in Dockerfile + ci.yml nachgezogen. |
 | 2026-07-14 | 1.0.5+88 | F-012: Web-Version — UI/UX & Funktionsprobleme (Issue #67)  — abgeschlossen |
 | 2026-07-13 | 1.0.4+86 | M-014: Readonly-User-Rolle — PocketBase API Rules + App-UI-Integration - Abgeschlossen |
