@@ -3,8 +3,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/germanlion67/lager_app/ci.yml?branch=main&label=CI&logo=github)](https://github.com/germanlion67/lager_app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/germanlion67/lager_app?label=Version&logo=github)](https://github.com/germanlion67/lager_app/releases/latest)
 [![Licenses](https://img.shields.io/badge/Licenses-documented-blueviolet.svg)](licenses/README.md)
-[![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
-[![PocketBase](https://img.shields.io/badge/PocketBase-0.36-B8DBE4?logo=pocketbase)](https://pocketbase.io)
+[![Flutter](https://img.shields.io/badge/Flutter-3.41.4-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![PocketBase](https://img.shields.io/badge/PocketBase-0.36.6-B8DBE4?logo=pocketbase)](https://pocketbase.io)
 [![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20Web%20%7C%20Linux%20%7C%20Windows-blue)]()
 
 
@@ -80,12 +80,15 @@ docker compose up -d --build
 - **Web-App:** `http://localhost:8081`
 - **PocketBase Admin:** `http://localhost:8080/_/`
 
-**Standard-Zugangsdaten (nur Entwicklung!):**
+**Standard-Zugangsdaten (nur Entwicklung, sofern in `.env` nicht geändert):**
 
 | Zugang | E-Mail | Passwort |
 |---|---|---|
 | PocketBase Admin | `admin@example.com` | `changeme123` |
 | App Test-User | `user@lager.app` | `changeme123` |
+
+> ℹ️ Maßgeblich sind die Werte in deiner lokalen `.env`
+> (`PB_ADMIN_EMAIL`, `PB_ADMIN_PASSWORD`, `PB_TEST_USER_EMAIL`, `PB_TEST_USER_PASSWORD`).
 
 > ⚠️ **Dev-Modus:** `PB_DEV_MODE=1` ist standardmäßig aktiv — der Login-Screen
 > wird übersprungen und Auth-Regeln sind offen. In Produktion auf `0` setzen!
@@ -178,6 +181,7 @@ Um die Übersichtlichkeit zu wahren, ist die Dokumentation modular aufgebaut.
 - 🚀 **[DEPLOYMENT.md](DEPLOYMENT.md):** Produktions-Setup, Nginx Proxy Manager & SSL
 - 💾 **Backups:** Produktions-Backups und Wiederherstellung sind in [DEPLOYMENT.md](DEPLOYMENT.md) dokumentiert.
 - 🔑 **[ANDROID_RELEASE_KEYSTORE.md](docs/ANDROID_RELEASE_KEYSTORE.md):** Einrichtung eines stabilen Android Release-Keystores für GitHub Actions.
+- 🐳 **[PORTAINER_PROD.md](docs/PORTAINER_PROD.md):** Produktionsbetrieb mit Portainer und Proxy-Setup
 
 ### 🏗️ Entwicklung & Architektur
 - 📐 **[ARCHITECTURE.md](docs/ARCHITECTURE.md):** Projektstruktur, Datenmodell und Design-Entscheidungen
