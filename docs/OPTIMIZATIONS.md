@@ -121,34 +121,6 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 
 --- 
 
-### P-008: PocketBase Thumbnail-Konfiguration optimieren — abgeschlossen 2026-07-21 | `1.0.7+94`
-**Beschreibung:**
-Analyse vom 20.05.2026 ergab: Das `bild`-Feld der `artikel`-Collection hat
-`"thumbs": []` — PocketBase generiert **keine** Thumbnails.
-Der `?thumb=60x60`-Query-Parameter im Code wird ignoriert, PocketBase liefert
-stattdessen das Originalbild aus (bis zu 5 MB pro Request).
-
-**Thumbnail-Größen:**
-
-| Größe | Verwendung |
-|:--|:--|
-| `60x60` | Listenansicht |
-| `400x400` | Detailansicht |
-| `1200x1200` | Vollbildviewer (5× Zoom = 1000px + Reserve) |
-
-**Umgesetzt:**
-- [x] Migration `1786000000_updated_artikel_thumbs_p008.js` — `thumbs: ["60x60", "400x400", "1200x1200"]` für Feld `file1962578385` ✅
-- [x] `app_config.dart` — `pbThumbGroesseDetail = '400x400'`, `pbThumbGroesseVollbild = '1200x1200'` ✅
-- [x] `artikel_bild_widget.dart` — Detail-Fallback nutzt `400x400` statt Originalbild ✅
-- [x] `artikel_detail_content.dart` — `_loadRemoteBildUrl()` speichert 400x400-URL; Vollbildviewer nutzt 1200x1200 ✅
-
-**Hinweis:** Bestehende Bilder erhalten neue Thumbnails erst beim nächsten Upload.
-
-**Wirkung:** Thumbnail-Traffic von bis zu 5 MB auf ~5–300 KB pro Bild reduzierbar.
-
---- 
-
-
 
 ## 🟢 Priorität: Nice-to-Have
 
@@ -266,9 +238,35 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
 
-
 --- 
 
+### P-008: PocketBase Thumbnail-Konfiguration optimieren — abgeschlossen 2026-07-21 | `1.0.7+94`
+**Beschreibung:**
+Analyse vom 20.05.2026 ergab: Das `bild`-Feld der `artikel`-Collection hat
+`"thumbs": []` — PocketBase generiert **keine** Thumbnails.
+Der `?thumb=60x60`-Query-Parameter im Code wird ignoriert, PocketBase liefert
+stattdessen das Originalbild aus (bis zu 5 MB pro Request).
+
+**Thumbnail-Größen:**
+
+| Größe | Verwendung |
+|:--|:--|
+| `60x60` | Listenansicht |
+| `400x400` | Detailansicht |
+| `1200x1200` | Vollbildviewer (5× Zoom = 1000px + Reserve) |
+
+**Umgesetzt:**
+- [x] Migration `1786000000_updated_artikel_thumbs_p008.js` — `thumbs: ["60x60", "400x400", "1200x1200"]` für Feld `file1962578385` ✅
+- [x] `app_config.dart` — `pbThumbGroesseDetail = '400x400'`, `pbThumbGroesseVollbild = '1200x1200'` ✅
+- [x] `artikel_bild_widget.dart` — Detail-Fallback nutzt `400x400` statt Originalbild ✅
+- [x] `artikel_detail_content.dart` — `_loadRemoteBildUrl()` speichert 400x400-URL; Vollbildviewer nutzt 1200x1200 ✅
+
+**Hinweis:** Bestehende Bilder erhalten neue Thumbnails erst beim nächsten Upload.
+
+**Wirkung:** Thumbnail-Traffic von bis zu 5 MB auf ~5–300 KB pro Bild reduzierbar.
+
+
+--- 
 
 ### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung) — abgeschlossen 2026-07-21 | `1.0.7+94`
 **Beschreibung:**
