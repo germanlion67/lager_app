@@ -22,7 +22,7 @@ JSEOF
 cat > /etc/caddy/Caddyfile << CADDYEOF
 :8081 {
 	root * /srv
-	encode zstd gzip
+	encode { zstd br gzip }
 
 	# Security Headers
 	header {

@@ -48,6 +48,7 @@ ARG POCKETBASE_URL=http://localhost:8080
 
 RUN flutter build web --release \
     --wasm \
+    --pwa-strategy=none \
     --dart-define=POCKETBASE_URL=${POCKETBASE_URL} \
     --dart-define=FLUTTER_WEB_AUTO_DETECT=true \
     --no-source-maps \

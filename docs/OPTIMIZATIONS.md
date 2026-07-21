@@ -37,69 +37,7 @@ auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` versc
 Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, `style`- Formatierung, `refactor`- Code-Umbau, Future/Fix, `test`- Test hinzugefügt, `chore`- Build, Config, Dependencies
 ---
 
-## 🔴 Priorität: Hoch
-
-### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung)
-**Beschreibung:**
-Lighthouse-Timespan-Audit (P-006) zeigt TBT 1.140 ms und Speed Index 6,6 s.
-Hauptursache: `main.dart.js` mit 4.093 ms Script Evaluation (18 lange Tasks beim Start).
-Alle Build-Flags sind bereits optimal (--wasm, --tree-shake-icons, --no-source-maps).
-Die verbleibenden Hebel sind: Brotli-Komprimierung, Preload-Hints und Deferred Loading.
-
-**Ausgangslage (v0.9.9+75):**
-
-| Metrik | Aktuell | Ziel |
-|:--|:--|:--|
-| Total Blocking Time | 780 ms (ohne Login) | < 400 ms |
-| Speed Index | 6,6 s | < 4,0 s |
-| Bundle-Größe (Transfer) | ~3.077 KB | < 2.500 KB |
-
-**Tasks nach Priorität:**
-
-#### Prio 1 — Quick Wins (< 30 Minuten gesamt)
-
-- [x] **P-009.1: Brotli + Zstd in Caddy aktivieren** Service Worker entfernen: ✅ ABGESCHLOSSEN
-  `docker-entrypoint.sh`: `encode gzip` → `encode { zstd br gzip }`
-  Caddy 2.7.6 unterstützt beide nativ — kein Plugin nötig.
-  **Erwartung:** Bundle-Transfer ~527 KB kleiner (~17%)
-  **Ergebnis:** Die App läuft sauber mit: ✅ WASM-Bundle, ✅ Skia WASM-Renderer, ✅ Kein Service Worker, ✅ Alle Requests HTTP 200 
-
-- [x] **P-009.2: `modulepreload` für `main.dart.js` in `index.html`**: ✅ ABGESCHLOSSEN
-  `<link rel="modulepreload" href="main.dart.js">` direkt nach preconnect-Links.
-  Startet Download + Parse des JS-Loaders früher.
-  **Erwartung:** Speed Index -200 bis -400 ms
-  **Ergebnis:** Browser sieht `modulepreload` beim ersten HTML-Parse, `main.dart.mjs` wird sofort heruntergeladen und geparst. Wenn `flutter_bootstrap.js` es dann anfordert → bereits im Cache, kein Warten. 
-
-- [x] **P-009.3: `--pwa-strategy=none` im Dockerfile**: ✅ ABGESCHLOSSEN
-  Service Worker generiert ~50 ms extra Evaluierungszeit beim ersten Load.
-  Kein dokumentierter Offline-Bedarf für interne App.
-  ⚠️ Prüfen: Falls PWA-Installation gewünscht → `offline-first` behalten.
-
-#### Prio 2 — Strukturell (2–4 Stunden)
-
-- [x] **P-009.4: Deferred Loading für sekundäre Screens**
-  Deferred imports für: `ArtikelErfassenScreen`, `SettingsScreen`, `ConflictResolutionScreen`
-  (`SyncManagementScreen` wird nirgends importiert → übersprungen)
-  Inline deferred imports in `artikel_list_screen.dart`, `main.dart`, `sync_conflict_handler.dart`.
-  Embedded Panels (Desktop) via `FutureBuilder` + `CircularProgressIndicator.adaptive()`.
-  Mobile/Route-Navigation: navigator vor await capturen + `await loadLibrary()`.
-  **Risiko:** Mittel — Navigation-Tests müssen angepasst werden.
-  Funktioniert nur Web/WASM, Android/Desktop unverändert.
-
-#### Prio 3 — CI-Hygiene (30 Minuten)
-
-- [x] **P-009.5: Web-Build-Verifikation in `ci.yml`**
-  Neuer Job `build-web-verify` nach `test`.
-  Baut Web mit WASM-Flags und prüft ob `main.dart.wasm` vorhanden ist.
-  Verhindert dass Build-Regressions erst beim Docker-Push auffallen.
-
-**Aufwand gesamt:** ~3–5 Stunden
-**Risiko:** P-009.1–3 niedrig | P-009.4 mittel | P-009.5 niedrig
-**Abhängigkeit:** Keine Blocker. P-009.1–3 unabhängig voneinander umsetzbar.
-
---- 
-
-## 🟡 Priorität: Mittel
+##  Priorität: Mittel
 
 ---
 
@@ -361,6 +299,46 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 
 --- 
+
+
+### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung) — abgeschlossen 2026-07-21 | `1.0.6+93`
+**Beschreibung:**
+Lighthouse-Timespan-Audit (P-006) zeigt TBT 1.140 ms und Speed Index 6,6 s.
+Hauptursache: `main.dart.js` mit 4.093 ms Script Evaluation (18 lange Tasks beim Start).
+Alle Build-Flags sind bereits optimal (--wasm, --tree-shake-icons, --no-source-maps).
+Die verbleibenden Hebel sind: Brotli-Komprimierung, Preload-Hints und Deferred Loading.
+
+**Ausgangslage (v0.9.9+75):**
+
+| Metrik | Aktuell | Ziel |
+|:--|:--|:--|
+| Total Blocking Time | 780 ms (ohne Login) | < 400 ms |
+| Speed Index | 6,6 s | < 4,0 s |
+| Bundle-Größe (Transfer) | ~3.077 KB | < 2.500 KB |
+
+**Tasks:**
+
+- [x] **P-009.1: Brotli + Zstd in Caddy aktivieren** ✅
+  `docker-entrypoint.sh`: `encode gzip` → `encode { zstd br gzip }`
+  Caddy 2.7.6 unterstützt beide nativ — kein Plugin nötig.
+  **Nachbefund 2026-07-21:** `br` fehlte — nur `encode zstd gzip` war aktiv. Korrigiert auf Block-Syntax `encode { zstd br gzip }`.
+
+- [x] **P-009.2: `modulepreload` für `main.dart.mjs` in `index.html`** ✅
+  `<link rel="modulepreload" href="main.dart.mjs">` direkt nach preconnect-Links.
+  Browser sieht `modulepreload` beim ersten HTML-Parse → `main.dart.mjs` sofort heruntergeladen und geparst.
+
+- [x] **P-009.3: `--pwa-strategy=none` im Dockerfile** ✅
+  Kein Service Worker erforderlich (interne App, kein Offline-Bedarf).
+  **Nachbefund 2026-07-21:** Flag fehlte im `flutter build web`-Befehl — `flutter_bootstrap.js` enthielt noch SW-Registrierungscode → Browser-404. `--pwa-strategy=none` in `Dockerfile` und `ci.yml` ergänzt.
+
+- [x] **P-009.4: Deferred Loading für sekundäre Screens** ✅
+  `ArtikelErfassenScreen`, `SettingsScreen`, `ConflictResolutionScreen` als deferred imports.
+  Embedded Panels via `FutureBuilder` + `CircularProgressIndicator.adaptive()`.
+
+- [x] **P-009.5: Web-Build-Verifikation in `ci.yml`** ✅
+  Job `build-web-verify` prüft ob `main.dart.wasm` nach dem Build vorhanden ist.
+
+---
 
 
 ### F-012: Web-Version — UI/UX & Funktionsprobleme (Issue #67)  — abgeschlossen 2026-07-14 | `1.0.5+88`
@@ -1124,6 +1102,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-07-21 | 1.0.6+93 | P-009: TBT & Speed Index reduzieren — abgeschlossen. Nachbefund: Brotli (`br`) in Caddy ergänzt, `--pwa-strategy=none` in Dockerfile + ci.yml nachgezogen. |
 | 2026-07-14 | 1.0.5+88 | F-012: Web-Version — UI/UX & Funktionsprobleme (Issue #67)  — abgeschlossen |
 | 2026-07-13 | 1.0.4+86 | M-014: Readonly-User-Rolle — PocketBase API Rules + App-UI-Integration - Abgeschlossen |
 | 2026-07-11 | 1.0.0+78 | M-014 neu: Readonly-User-Rolle — PocketBase API Rules + App-UI-Guards dokumentiert. |

@@ -73,6 +73,7 @@ jobs:
         run: |
           flutter build web --release \
             --wasm \
+            --pwa-strategy=none \
             --dart-define=POCKETBASE_URL=http://localhost:8080 \
             --dart-define=FLUTTER_WEB_AUTO_DETECT=true \
             --no-source-maps \
