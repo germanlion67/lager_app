@@ -2,7 +2,7 @@
 
 Dieses Dokument beschreibt alle automatisierten Tests der **Lager_app**, ihre Zielsetzung und wie sie lokal ausgeführt werden.
 
-**Version:** 1.0.0+78 | **Zuletzt aktualisiert:** 11.07.2026
+**Version:** 1.0.7+94 | **Zuletzt aktualisiert:** 21.07.2026
 
 ---
 
@@ -52,7 +52,7 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/services/nextcloud_listfiles_test.dart` | Unit | 1 | — |
 | `test/services/pocketbase_sync_service_test.dart` | Unit | 66 | T-002 |
 | `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 7 | T-008 / T-001 |
-| `test/services/pocketbase_service_test.dart` | Unit | 42 | T-012 |
+| `test/services/pocketbase_service_test.dart` | Unit | 56 | T-012 |
 | `test/services/sync_error_recovery_test.dart` | Unit | 87 | T-012 |
 | `test/services/sync_progress_service_test.dart` | Unit | 61 | T-012 |
 | `test/services/settings_controller_test.dart` | Unit | 15 | O-010 / T-009 |
@@ -83,7 +83,7 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 
 ## 🔬 Test-Beschreibungen
 
-### `/services/pocketbase_service_test.dart` — T-012 (51 Tests)
+### `/services/pocketbase_service_test.dart` — T-012 (56 Tests)
 
 #### Strategie
 `PocketBaseService.testable()` + manuelle Fakes

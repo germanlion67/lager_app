@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 1.0.4+86 | **Zuletzt aktualisiert:** 13.07.2026
+**Version:** 1.0.7+94 | **Zuletzt aktualisiert:** 21.07.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -121,7 +121,7 @@ Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Pr
 
 --- 
 
-### P-008: PocketBase Thumbnail-Konfiguration optimieren — abgeschlossen 2026-07-21 | `1.0.6+93`
+### P-008: PocketBase Thumbnail-Konfiguration optimieren — abgeschlossen 2026-07-21 | `1.0.7+94`
 **Beschreibung:**
 Analyse vom 20.05.2026 ergab: Das `bild`-Feld der `artikel`-Collection hat
 `"thumbs": []` — PocketBase generiert **keine** Thumbnails.
@@ -270,7 +270,7 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 --- 
 
 
-### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung) — abgeschlossen 2026-07-21 | `1.0.6+93`
+### P-009: TBT & Speed Index reduzieren (JS-Bundle-Optimierung) — abgeschlossen 2026-07-21 | `1.0.7+94`
 **Beschreibung:**
 Lighthouse-Timespan-Audit (P-006) zeigt TBT 1.140 ms und Speed Index 6,6 s.
 Hauptursache: `main.dart.js` mit 4.093 ms Script Evaluation (18 lange Tasks beim Start).
@@ -1071,8 +1071,8 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
-| 2026-07-21 | 1.0.6+93 | P-008: PocketBase Thumbnail-Konfiguration — abgeschlossen. Migration + AppConfig-Konstanten + Widget-Anpassungen. P-006.1 damit gelöst. |
-| 2026-07-21 | 1.0.6+93 | P-009: TBT & Speed Index reduzieren — abgeschlossen. Nachbefund: Brotli (`br`) in Caddy ergänzt, `--pwa-strategy=none` in Dockerfile + ci.yml nachgezogen. |
+| 2026-07-21 | 1.0.7+94 | P-008: PocketBase Thumbnail-Konfiguration — abgeschlossen. Migration + AppConfig-Konstanten + Widget-Anpassungen. P-006.1 damit gelöst. |
+| 2026-07-21 | 1.0.7+94 | P-009: TBT & Speed Index reduzieren — abgeschlossen. Nachbefund: Brotli (`br`) in Caddy ergänzt, `--pwa-strategy=none` in Dockerfile + ci.yml nachgezogen. |
 | 2026-07-14 | 1.0.5+88 | F-012: Web-Version — UI/UX & Funktionsprobleme (Issue #67)  — abgeschlossen |
 | 2026-07-13 | 1.0.4+86 | M-014: Readonly-User-Rolle — PocketBase API Rules + App-UI-Integration - Abgeschlossen |
 | 2026-07-11 | 1.0.0+78 | M-014 neu: Readonly-User-Rolle — PocketBase API Rules + App-UI-Guards dokumentiert. |

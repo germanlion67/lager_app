@@ -539,24 +539,10 @@ Anhänge werden **fachlich getrennt** von der SQLite-basierten Artikel-Synchroni
 
 ---
 
-> **Zuletzt aktualisiert:** O-012/M-013-v0.9.5 / 0.9.4+48 (2026-05-04)  
-> Zeitstempel-Semantik (`aktualisiertAm` vs. `updated_at` vs. PocketBase `updated`) als Abschnitt 1.1e dokumentiert (T-001, 2026-05-04)
-> Sync-Metadaten `last_synced_etag` und `pending_resolution` konsolidiert dokumentiert  
-> Fehlende Konfliktbasis bei bestehendem Remote-Datensatz als konservativer Konfliktfall nachgezogen  
-> Duplicate-UUID-Recovery im Create-Pfad dokumentiert  
-> Serverseitige UUID-Absicherung (`required` + `unique`) ergänzt  
-> Bild-Nachlade-Logik auf aktuellen produktiven Stand präzisiert  
-> Historische `artikel_dokumente`-Sicht als Legacy-Hinweis eingeordnet  
-> `conflict_snapshots`-Tabelle (DB v6) ergänzt  
-> DB-Version und Migrationsübersicht ergänzt  
-> `thumbnailEtag`, `aktualisiertAm`, `device_id` in Artikel-Tabelle ergänzt  
-> `artikelnummer`-Regel auf `>= 1` korrigiert (war: 1000+)  
-> `toPocketBaseMap()` — übertragene und ausgeschlossene Felder dokumentiert  
-> `_extractBildName()` als einzige Normalisierungsstelle für PocketBase `bild` dokumentiert  
-> `clearBildInfoByUuidSilent()` in Methoden-Vergleichstabelle ergänzt  
-> Sync-Invarianten um Snapshot-Methoden, `remoteBildPfad`, Callback-Guard und Pull-Delete-Guard erweitert  
-> Indexnamen-Abweichung zwischen Prompt und Altdoku als offene Prüfung markiert  
-> Teststand: +754 / ~3 Tests, `flutter analyze` + `flutter test` grün
+> **Zuletzt aktualisiert:** P-008 / 1.0.7+94 (2026-07-21)  
+> P-008: PocketBase `artikel.bild`-Feld Thumbnails konfiguriert (`60x60`, `400x400`, `1200x1200` via Migration `1786000000_updated_artikel_thumbs_p008.js`).  
+> `pbThumbGroesseDetail` und `pbThumbGroesseVollbild` in AppConfig ergänzt. Detail-Fallback + Vollbild-URL auf Thumb-Größen umgestellt.  
+> Teststand: 1016 Tests grün.
 
 --- 
 

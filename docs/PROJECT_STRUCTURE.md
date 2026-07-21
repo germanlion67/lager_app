@@ -235,6 +235,7 @@ server/
 │   ├── 1774811640_updated_attachments.js
 │   ├── 1775000000_set_auth_rules.js
 │   ├── 1783987200_readonly_role_m014.js  # M-014: role-Feld + Readonly-Regeln
+│   ├── 1786000000_updated_artikel_thumbs_p008.js  # P-008: Thumbnails 60x60/400x400/1200x1200
 │   └── pb_schema.json                # Aktuelles Schema-Snapshot
 ├── pb_data/                          # PocketBase-Datenbank & Uploads (gitignored)
 ├── pb_public/                        # Öffentliche PocketBase-Dateien

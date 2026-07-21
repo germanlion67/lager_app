@@ -540,6 +540,12 @@ nutzen eine 4-stufige Fallback-Kette:
 | 3 | PocketBase-URL via `CachedNetworkImage` | `_buildPbFallback()` / `_buildPbDetailFallback()` |
 | 4 | Placeholder-Icon | `_BildPlaceholder` / `_Placeholder` |
 
+Seit P-008 (`1.0.7+94`) liefert PocketBase echte Thumbnails (`60x60`, `400x400`, `1200x1200`).
+Stufe 3 lädt damit:
+- Liste: `?thumb=60x60` (`pbThumbGroesse`)
+- Detail-Fallback: `?thumb=400x400` (`pbThumbGroesseDetail`)
+- Vollbildviewer: `?thumb=1200x1200` (`pbThumbGroesseVollbild`)
+
 Die Bilder werden im Hintergrund von `downloadMissingImages()` heruntergeladen.
 Beim nächsten Laden der Artikelliste (nach `SyncStatus.success`) werden die
 lokalen Dateien verwendet.
@@ -769,15 +775,9 @@ Der Artikel-Detail-Screen enthält einen dedizierten **Dokumente-Tab** für Uplo
 
 ## 19. Wartungs-Notiz
 
-> **Zuletzt aktualisiert:** O-014 / 0.9.9+70 (2026-05-16)
-> Nextcloud-Sync-Code vollständig entfernt (`nextcloud_service_interface.dart`,
-> `nextcloud_sync_service.dart`, `sync_service.dart`, `nextcloud_webdav_client.dart`,
-> `nextcloud_resync_dialog.dart`)
-> `ConflictData`, `ConflictResolution`, `SyncResult` in neue Datei
-> `lib/services/conflict_types.dart` extrahiert
-> `nextcloud_client.dart` neu implementiert — testbar via injizierbarem `http.Client`,
-> ohne Sync-Logik
-> Alle abhängigen Dateien auf `conflict_types.dart` umgestellt
+> **Zuletzt aktualisiert:** P-008/P-009 / 1.0.7+94 (2026-07-21)
+> P-008: PocketBase Thumbnails `60x60`, `400x400`, `1200x1200` aktiviert.
+> P-009: Brotli in Caddy ergänzt, `--pwa-strategy=none` in Dockerfile + CI nachgezogen.
 > `webdav_client` aus `pubspec.yaml` entfernt
 > Teststand: 755 Tests bestanden, 2 skipped
 >

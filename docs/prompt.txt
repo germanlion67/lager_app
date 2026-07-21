@@ -61,7 +61,7 @@ Sie unterstützt insbesondere:
 - `config.js` ist explizit vom `@static`-Matcher ausgenommen (`not path /config.js`)
 
 ## Aktueller Versionskontext
-- `pubspec.yaml`: **1.0.4+86**
+- `pubspec.yaml`: **1.0.7+94**
 - Offene Punkte und Roadmap: **`docs/OPTIMIZATIONS.md`**
 - Genaue Teststände: **`docs/TESTING.md`**
 - Branch: **main**
