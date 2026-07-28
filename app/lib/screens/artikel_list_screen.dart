@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:logger/logger.dart';
 
 import '../config/app_config.dart';
@@ -883,9 +884,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
                 ],
               ),
               if (!kIsWeb)
-                ValueListenableBuilder<bool>(
-                  valueListenable: showLastSyncNotifier,
-                  builder: (context, showSync, _) {
+                Consumer(
+                  builder: (context, ref, _) {
+                    final showSync = ref.watch(showLastSyncProvider);
                     if (!showSync ||
                         widget.syncStatusProvider?.lastSyncTime == null) {
                       return const SizedBox.shrink();

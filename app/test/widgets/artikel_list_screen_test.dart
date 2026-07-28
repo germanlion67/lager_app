@@ -10,6 +10,7 @@
 // - sqflite_ffi nur noch für Tests die tatsächlich DB brauchen
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -104,10 +105,12 @@ Future<void> _pumpScreen(WidgetTester tester) async {
   addTearDown(tester.view.resetDevicePixelRatio);
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: ArtikelListScreen(
-        syncStatusProvider: NoOpNextcloudService(),
-        initialArtikel: const [], // Leere Liste → _isLoading sofort false
+    ProviderScope(
+      child: MaterialApp(
+        home: ArtikelListScreen(
+          syncStatusProvider: NoOpNextcloudService(),
+          initialArtikel: const [], // Leere Liste → _isLoading sofort false
+        ),
       ),
     ),
   );
@@ -124,10 +127,12 @@ Future<void> _pumpScreenWithArtikel(WidgetTester tester) async {
   addTearDown(tester.view.resetDevicePixelRatio);
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: ArtikelListScreen(
-        syncStatusProvider: NoOpNextcloudService(),
-        initialArtikel: _testArtikelMitOrt, // Ort vorhanden → Dropdown erscheint
+    ProviderScope(
+      child: MaterialApp(
+        home: ArtikelListScreen(
+          syncStatusProvider: NoOpNextcloudService(),
+          initialArtikel: _testArtikelMitOrt, // Ort vorhanden → Dropdown erscheint
+        ),
       ),
     ),
   );

@@ -21,6 +21,7 @@ class SettingsController extends ChangeNotifier {
     PocketBaseService? pocketBaseService,
     ArtikelDbService? artikelDbService,
     AppLockService? appLockService,
+    this.onShowLastSyncChanged,
   })  : _pbService = pocketBaseService ?? PocketBaseService(),
         _db = artikelDbService ?? ArtikelDbService(),
         _appLockService = appLockService ?? AppLockService() {
@@ -50,6 +51,9 @@ class SettingsController extends ChangeNotifier {
   String _initialArtikelNummer = '';
 
   bool showLastSync = defaultShowLastSync;
+
+  /// Callback: wird bei jeder showLastSync-Änderung aufgerufen (Riverpod-Bridge).
+  void Function(bool)? onShowLastSyncChanged;
 
 // ── F-008: Sync-Intervall ───────────────────────────────────────────────
   static const String syncIntervalPrefsKey = 'sync_interval_seconds';
@@ -92,7 +96,7 @@ class SettingsController extends ChangeNotifier {
 
       showLastSync =
           prefs.getBool(showLastSyncPrefsKey) ?? defaultShowLastSync;
-      showLastSyncNotifier.value = showLastSync;
+      onShowLastSyncChanged?.call(showLastSync);
 
 // F-008: Sync-Intervall laden
       syncIntervalSeconds = prefs.getInt(syncIntervalPrefsKey)
@@ -126,7 +130,7 @@ class SettingsController extends ChangeNotifier {
     final previous = showLastSync;
 
     showLastSync = value;
-    showLastSyncNotifier.value = value;
+    onShowLastSyncChanged?.call(value);
     notifyListeners();
 
     try {
@@ -140,7 +144,7 @@ class SettingsController extends ChangeNotifier {
         stackTrace: st,
       );
       showLastSync = previous;
-      showLastSyncNotifier.value = previous;
+      onShowLastSyncChanged?.call(previous);
       notifyListeners();
       return false;
     }

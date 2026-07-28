@@ -3,6 +3,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/app_config.dart';
@@ -17,8 +18,9 @@ import '../widgets/backup_status_widget.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'settings_controller.dart';
+import 'settings_state.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onLogout;
   final void Function(int seconds)? onSyncIntervalChanged;
   // F-012.5: Im embedded-Modus kein Scaffold/AppBar — nur der Body
@@ -32,17 +34,20 @@ class SettingsScreen extends StatefulWidget {
   });
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
   late final SettingsController _controller;
 
   @override
   void initState() {
     super.initState();
-    _controller = SettingsController();
+    _controller = SettingsController(
+      onShowLastSyncChanged: (v) =>
+          ref.read(showLastSyncProvider.notifier).state = v,
+    );
     _initController();
   }
 

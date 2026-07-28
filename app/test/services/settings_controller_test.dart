@@ -62,7 +62,6 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     PocketBaseService.dispose();
-    showLastSyncNotifier.value = defaultShowLastSync;
   });
 
   tearDown(() {
@@ -77,7 +76,6 @@ void main() {
 
       expect(controller.artikelNummerController.text, '1000');
       expect(controller.showLastSync, isTrue);
-      expect(showLastSyncNotifier.value, isTrue);
 
       controller.dispose();
     });
@@ -91,7 +89,6 @@ void main() {
       await controller.init();
 
       expect(controller.showLastSync, isTrue);
-      expect(showLastSyncNotifier.value, isTrue);
 
       controller.dispose();
     });
@@ -105,7 +102,6 @@ void main() {
       await controller.init();
 
       expect(controller.showLastSync, isFalse);
-      expect(showLastSyncNotifier.value, isFalse);
 
       controller.dispose();
     });
@@ -165,7 +161,6 @@ void main() {
 
       expect(ok, isTrue);
       expect(controller.showLastSync, isTrue);
-      expect(showLastSyncNotifier.value, isTrue);
       expect(prefs.getBool(showLastSyncPrefsKey), isTrue);
 
       controller.dispose();
@@ -200,14 +195,12 @@ void main() {
       await controller.init();
 
       expect(controller.showLastSync, isTrue);
-      expect(showLastSyncNotifier.value, isTrue);
 
       final ok = await controller.setShowLastSync(false);
       final prefs = await SharedPreferences.getInstance();
 
       expect(ok, isTrue);
       expect(controller.showLastSync, isFalse);
-      expect(showLastSyncNotifier.value, isFalse);
       expect(prefs.getBool(showLastSyncPrefsKey), isFalse);
 
       controller.dispose();

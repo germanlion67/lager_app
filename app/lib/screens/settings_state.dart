@@ -1,9 +1,8 @@
 // lib/screens/settings_state.dart
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 const String showLastSyncPrefsKey = 'show_last_sync';
 const bool defaultShowLastSync = true;
 
-final ValueNotifier<bool> showLastSyncNotifier =
-    ValueNotifier<bool>(defaultShowLastSync);
+final showLastSyncProvider = StateProvider<bool>((ref) => defaultShowLastSync);
