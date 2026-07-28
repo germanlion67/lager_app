@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 1.0.7+94 | **Zuletzt aktualisiert:** 21.07.2026
+**Version:** 1.1.0+97 | **Zuletzt aktualisiert:** 28.07.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -75,14 +75,19 @@ Migration zu **Riverpod** (empfohlen) als direktem, typsicherem `provider`-Nachf
 | Compile-Sicherheit | `context.read<T>()` erst zur Laufzeit geprüft | Typen zur Compilezeit geprüft |
 | Boilerplate | `notifyListeners()` an vielen Stellen | Immutable State, ein `state = ...`-Aufruf |
 
-**Migrationsreihenfolge (empfohlen):**
-1. `SettingsController` (bereits testbar, kleinster Scope)
-2. `showLastSyncNotifier` (isolierter `ValueNotifier`-Ersatz)
-3. Sync-Status (`SyncOrchestrator`-State)
-4. Restliche Provider
+**Migrationsreihenfolge:**
+1. ✅ `showLastSyncNotifier` → `StateProvider<bool>` — abgeschlossen `1.1.0+97` (2026-07-28)
+   - `flutter_riverpod ^2.6.1` ergänzt, `ProviderScope` in `main.dart`
+   - `showLastSyncProvider` in `settings_state.dart`
+   - `SettingsController`: `onShowLastSyncChanged`-Callback als Bridge
+   - `SettingsScreen`: `ConsumerStatefulWidget`, setzt Provider via Callback
+   - `ArtikelListScreen`: `ValueListenableBuilder` → `Consumer` (`ref.watch`)
+   - Tests: `ProviderScope` in `artikel_list_screen_test` ergänzt
+2. ⬜ `SyncProgressService extends ChangeNotifier` → Riverpod (komplexer, als Konstruktorparameter übergeben)
+3. ⬜ `_rebuildNotifier ValueNotifier<int>` in `artikel_detail_screen.dart` (lokal, niedrige Priorität)
+4. ⬜ `SettingsController` selbst als `ChangeNotifierProvider.autoDispose` (optional)
 
-**Abhängigkeiten:** Keine Blocker. Migration schrittweise möglich — `provider` und Riverpod
-können parallel betrieben werden.
+**Abhängigkeiten:** Keine Blocker. Migration schrittweise möglich.
 
 **Aufwand:** ~8–12 Stunden (schrittweise Migration) | **Risiko:** Mittel
 
@@ -190,7 +195,7 @@ Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch
 Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
 
 **Aktuell besonders relevante offene Themen**
-- O-021: State Management modernisieren (Riverpod-Migration)
+- O-021: State Management modernisieren (Riverpod-Migration) — Schritt 1 ✅ abgeschlossen, Schritte 2–4 ausstehend
 
 ---
 
