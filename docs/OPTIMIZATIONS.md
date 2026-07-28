@@ -41,90 +41,50 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
 
 ---
 
-### P-006: Lighthouse Timespan-Befunde (Laufzeit-Performance, Thumbnails, API-Latenz)
-**Beschreibung:**
-Lighthouse-Timespan-Audit vom 12.05.2026 über ~21 Sekunden Nutzerinteraktion (Login → Artikelliste → Sync).
-Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Practices: 74.
-
-**Timespan-Ergebnisse:**
-
-| Metrik | Wert | Ziel | Status |
-|:--|:--|:--|:--|
-| Total Blocking Time | 1.140 ms | < 200 ms | ❌ |
-| INP (Interaction to Next Paint) | 250 ms | < 200 ms | 🟡 |
-| Cumulative Layout Shift | 0 | < 0,1 | ✅ |
-| API-Serverlatenz (`api.germanlion67.de`) | 592 ms | < 200 ms | 🟠 |
-| Main-Thread-Arbeit | 4,6 s | < 2 s | ❌ |
-
-**INP-Aufschlüsselung (250 ms):**
-
-| Unterabschnitt | Dauer | Bewertung |
-|:--|:--|:--|
-| Eingabeverzögerung | 14 ms | ✅ |
-| Verarbeitungsdauer | 35 ms | ✅ |
-| Präsentationsverzögerung | 199 ms | ❌ Flaschenhals (Flutter CanvasKit Rendering) |
-
-**Thumbnail-Größen (60×60 Thumbnails via PocketBase `?thumb=60x60`):**
-
-| Bild | Transfer | Erwartet | Faktor |
-|:--|:--|:--|:--|
-| `esp32_terminal_adapter` | 80 KB | ~3–5 KB | 16–27× zu groß |
-| `usb_a_steckerkabel` | 60 KB | ~3–5 KB | 12–20× zu groß |
-| `mh_sensor` | 19 KB | ~2–3 KB | 6–10× zu groß |
-
-**Hauptursache TBT:** `main.dart.js` mit 4.093 ms Script Evaluation (davon 18 lange Tasks, bis 264 ms einzeln).
-
----
-
-**Tasks nach Priorität:**
-
-#### Prio 1 — Thumbnail-Größe prüfen und optimieren
-
-- [x] **P-006.1: PocketBase Thumbnail-Generierung prüfen** ✅ — durch P-008 strukturell gelöst
-  Befund bestätigt: `thumbs: []` → PocketBase lieferte Originalbild aus.
-  Behoben durch Migration `1786000000_updated_artikel_thumbs_p008.js` (P-008).
-  Thumbs `60x60`, `400x400`, `1200x1200` konfiguriert.
-
-- [ ] **P-006.2: Bilder vor Upload verkleinern**
-  Prüfen ob `AppConfig.maxWidth`/`maxHeight` für Uploads ausreichend niedrig sind.
-  Große Originalbilder führen zu großen Thumbnails.
-  **Wirkung:** Kleinere Originale → kleinere Thumbnails
-
-#### Prio 2 — API-Latenz untersuchen
-
-- [ ] **P-006.3: PocketBase Thumbnail-Caching prüfen**
-  592 ms durchschnittliche Serverlatenz für Bild-API. Prüfen ob PocketBase Thumbnails
-  beim ersten Abruf on-the-fly generiert und danach cachet. Wiederholte Aufrufe sollten
-  schneller sein.
-
-  ```bash
-  # Erster Abruf (ggf. Generierung):
-  time curl -s -o /dev/null "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60"
-  # Zweiter Abruf (Cache):
-  time curl -s -o /dev/null "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60"
-  ```
-
-  **Wirkung:** Klärung ob Latenz einmalig (Generierung) oder dauerhaft
-
-#### Prio 3 — Bewusst akzeptiert
-
-- **INP Präsentationsverzögerung (199 ms)** — Flutter CanvasKit rendert auf Canvas statt
-  nativem DOM. Nicht direkt optimierbar ohne Renderer-Wechsel. WASM-Build (H-004.5)
-  könnte hier helfen.
-- **18 lange Tasks aus `main.dart.js`** — Flutter-Web-typisch. Gleiche Ursache wie bei
-  H-004 (Seitenstart). WASM-Build ist der effektivste Hebel.
-
----
-
-**Aufwand gesamt:** ~1–2 Stunden (P-006.1–P-006.3)
-**Risiko:** Niedrig
-
---- 
-
-
 ## 🟢 Priorität: Nice-to-Have
 
-### O-021: State Management modernisieren 
+### O-021: State Management modernisieren
+
+**Beschreibung:**
+Die App nutzt aktuell `provider` (ChangeNotifier-Pattern) als State-Management-Lösung.
+`provider` ist funktional, aber für eine wachsende App mit Sync-Logik, mehreren Services
+und reaktiven UI-Zuständen an seine Grenzen gestoßen: Globale `ChangeNotifier`-Ketten,
+`ValueNotifier`-Weitergaben über mehrere Widget-Ebenen und manuelle `notifyListeners()`-Aufrufe
+erhöhen die Kopplung und erschweren Testbarkeit.
+
+**Ist-Zustand:**
+- `provider` genutzt in 8 Dateien (verifiziert per grep, O-015)
+- `ValueNotifier<bool>` für `showLastSyncNotifier` — wird über mehrere Widget-Ebenen weitergegeben
+- `SettingsController` als `ChangeNotifier` — bereits testbar, aber manuelles `notifyListeners()`
+- `SyncOrchestrator`-Zustände werden über Callbacks und direkte Service-Aufrufe propagiert
+- Kein einheitliches reaktives Pattern — Mix aus `provider`, `ValueNotifier` und `setState()`
+
+**Ziel:**
+Migration zu **Riverpod** (empfohlen) als direktem, typsicherem `provider`-Nachfolger:
+- `StateNotifierProvider` ersetzt `ChangeNotifier` → kein manuelles `notifyListeners()` mehr
+- `AsyncNotifierProvider` für Sync-Zustände → Loading/Error/Data automatisch abgebildet
+- `ref.watch()` / `ref.read()` statt `context.watch()` / `context.read()`
+- Providers sind von Widget-Tree unabhängig → deutlich einfacher testbar (kein `MultiProvider`-Wrapper in Tests nötig)
+
+**Nutzen:**
+| Bereich | Heute | Mit Riverpod |
+|:--|:--|:--|
+| Testbarkeit | `ChangeNotifier` braucht Widget-Tree-Wrapper | Provider direkt instanziierbar, kein Flutter-Test-Widget nötig |
+| Sync-State | Callbacks + manuelles setState | `AsyncNotifierProvider` mit Loading/Error/Data |
+| `showLastSyncNotifier` | `ValueNotifier` über 3 Ebenen weitergegeben | `Provider<bool>` direkt konsumierbar |
+| Compile-Sicherheit | `context.read<T>()` erst zur Laufzeit geprüft | Typen zur Compilezeit geprüft |
+| Boilerplate | `notifyListeners()` an vielen Stellen | Immutable State, ein `state = ...`-Aufruf |
+
+**Migrationsreihenfolge (empfohlen):**
+1. `SettingsController` (bereits testbar, kleinster Scope)
+2. `showLastSyncNotifier` (isolierter `ValueNotifier`-Ersatz)
+3. Sync-Status (`SyncOrchestrator`-State)
+4. Restliche Provider
+
+**Abhängigkeiten:** Keine Blocker. Migration schrittweise möglich — `provider` und Riverpod
+können parallel betrieben werden.
+
+**Aufwand:** ~8–12 Stunden (schrittweise Migration) | **Risiko:** Mittel
 
 --- 
 
@@ -239,6 +199,87 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 
 
 --- 
+
+### P-006: Lighthouse Timespan-Befunde (Laufzeit-Performance, Thumbnails, API-Latenz) — abgeschlossen 2026-07-28 | `1.0.7+94`
+**Beschreibung:**
+Lighthouse-Timespan-Audit vom 12.05.2026 über ~21 Sekunden Nutzerinteraktion (Login → Artikelliste → Sync).
+Ergänzt H-004 (Seitenstart) um Laufzeit-Befunde. Performance-Score: 57, Best Practices: 74.
+
+**Timespan-Ergebnisse:**
+
+| Metrik | Wert | Ziel | Status |
+|:--|:--|:--|:--|
+| Total Blocking Time | 1.140 ms | < 200 ms | ❌ |
+| INP (Interaction to Next Paint) | 250 ms | < 200 ms | 🟡 |
+| Cumulative Layout Shift | 0 | < 0,1 | ✅ |
+| API-Serverlatenz (`api.germanlion67.de`) | 592 ms | < 200 ms | 🟠 |
+| Main-Thread-Arbeit | 4,6 s | < 2 s | ❌ |
+
+**INP-Aufschlüsselung (250 ms):**
+
+| Unterabschnitt | Dauer | Bewertung |
+|:--|:--|:--|
+| Eingabeverzögerung | 14 ms | ✅ |
+| Verarbeitungsdauer | 35 ms | ✅ |
+| Präsentationsverzögerung | 199 ms | ❌ Flaschenhals (Flutter CanvasKit Rendering) |
+
+**Thumbnail-Größen (60×60 Thumbnails via PocketBase `?thumb=60x60`):**
+
+| Bild | Transfer | Erwartet | Faktor |
+|:--|:--|:--|:--|
+| `esp32_terminal_adapter` | 80 KB | ~3–5 KB | 16–27× zu groß |
+| `usb_a_steckerkabel` | 60 KB | ~3–5 KB | 12–20× zu groß |
+| `mh_sensor` | 19 KB | ~2–3 KB | 6–10× zu groß |
+
+**Hauptursache TBT:** `main.dart.js` mit 4.093 ms Script Evaluation (davon 18 lange Tasks, bis 264 ms einzeln).
+
+---
+
+**Tasks nach Priorität:**
+
+#### Prio 1 — Thumbnail-Größe prüfen und optimieren
+
+- [x] **P-006.1: PocketBase Thumbnail-Generierung prüfen** ✅ — durch P-008 strukturell gelöst
+  Befund bestätigt: `thumbs: []` → PocketBase lieferte Originalbild aus.
+  Behoben durch Migration `1786000000_updated_artikel_thumbs_p008.js` (P-008).
+  Thumbs `60x60`, `400x400`, `1200x1200` konfiguriert.
+
+- [x] **P-006.2: Bilder vor Upload verkleinern** ✅
+  **Befund 2026-07-28:** `cameraTargetMaxWidth/Height = 800 px`, `cameraImageQuality = 85`.
+  Werte bereits sinnvoll begrenzt. Kein Handlungsbedarf.
+
+#### Prio 2 — API-Latenz untersuchen
+
+- [x] **P-006.3: PocketBase Thumbnail-Caching prüfen** ✅
+  **Befund 2026-07-28:** Erster Abruf 360 ms (Generierung), Folgeabrufe 157–218 ms (Cache).
+  PocketBase cachet Thumbnails korrekt. Die 592 ms aus dem Lighthouse-Audit waren
+  Cold-Cache-Messungen. Kein Handlungsbedarf.
+
+  ```bash
+  # Erster Abruf (ggf. Generierung):
+  time curl -s -o /dev/null "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60"
+  # Zweiter Abruf (Cache):
+  time curl -s -o /dev/null "https://api.germanlion67.de/api/files/artikel/q6zz1lqszs1ent0/27_esp32_terminal_adapter_pslchsymkr.jpg?thumb=60x60"
+  ```
+
+  **Wirkung:** Klärung ob Latenz einmalig (Generierung) oder dauerhaft
+
+#### Prio 3 — Bewusst akzeptiert
+
+- **INP Präsentationsverzögerung (199 ms)** — Flutter CanvasKit rendert auf Canvas statt
+  nativem DOM. Nicht direkt optimierbar ohne Renderer-Wechsel. WASM-Build (H-004.5)
+  könnte hier helfen.
+- **18 lange Tasks aus `main.dart.js`** — Flutter-Web-typisch. Gleiche Ursache wie bei
+  H-004 (Seitenstart). WASM-Build ist der effektivste Hebel.
+
+---
+
+**Aufwand gesamt:** ~1–2 Stunden (P-006.1–P-006.3)
+**Risiko:** Niedrig
+
+--- 
+
+
 
 ### P-008: PocketBase Thumbnail-Konfiguration optimieren — abgeschlossen 2026-07-21 | `1.0.7+94`
 **Beschreibung:**
@@ -1069,6 +1110,7 @@ Nach Sync-Erfolg/-Fehler fehlte Snackbar-Feedback (Regression aus B-007). Snackb
 
 | Datum | Version | Änderung |
 |---|---|---|
+| 2026-07-28 | 1.0.7+94 | P-006 vollständig abgeschlossen. P-006.2: `cameraTargetMaxWidth/Height = 800 px`, `cameraImageQuality = 85` — bereits sinnvoll begrenzt, kein Handlungsbedarf. P-006.3: Thumbnail-Caching verifiziert — erster Abruf 360 ms (Generierung), Folgeabrufe 157–218 ms (Cache). PocketBase cachet korrekt, die 592 ms aus dem Lighthouse-Audit waren Cold-Cache-Messungen. |
 | 2026-07-21 | 1.0.7+94 | P-008: PocketBase Thumbnail-Konfiguration — abgeschlossen. Migration + AppConfig-Konstanten + Widget-Anpassungen. P-006.1 damit gelöst. |
 | 2026-07-21 | 1.0.7+94 | P-009: TBT & Speed Index reduzieren — abgeschlossen. Nachbefund: Brotli (`br`) in Caddy ergänzt, `--pwa-strategy=none` in Dockerfile + ci.yml nachgezogen. |
 | 2026-07-14 | 1.0.5+88 | F-012: Web-Version — UI/UX & Funktionsprobleme (Issue #67)  — abgeschlossen |
