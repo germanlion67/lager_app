@@ -180,6 +180,499 @@ Alle Maßnahmen sind in `OPTIMIZATION.md` unter **H-004** und **H-005** vollstä
 
 --- 
 
+### F-012: Web-Version — UI/UX & Funktionsprobleme (Issue #67)  — abgeschlossen 2026-07-14 | `1.0.5+88`
+**Beschreibung:**
+Sammlung von Bugs und UX-Problemen die ausschließlich die Web-Version betreffen,
+gemeldet in Issue #67. Alle Änderungen ausschließlich hinter `kIsWeb`-Guards oder
+in Web-spezifischen Layout-Zweigen — Mobile- und Desktop-Native-Verhalten bleibt
+unverändert.
+
+**Betroffene Bereiche:**
+- `app/lib/screens/` — Detail-, Erfassen-, Listen-, Settings-Screen
+- `app/lib/widgets/` — NavigationRail, Sync-Button, Scanner-Button
+- `app/lib/services/` — Auth-Persistenz (Web), Speicherpfad (Web)
+
+---
+
+#### 🔴 Prio 1 — Bugs (blockierend)
+
+- [x] **F-012.1: Speichern schlägt fehl — `ArtikelDbService` im Web nicht verfügbar**
+  **Symptom:**
+  ```
+  Speichern fehlgeschlagen: Unsupported operation: ArtikelDbServive ist im Web
+  nicht verfügbar. Nutze PocketBase direkt im Web.
+  ```
+  **Ursache:** Speichern-Pfad ruft `ArtikelDbService` (SQLite) auf — im Web nicht verfügbar.
+  **Lösung:** `kIsWeb`-Guard im Speichern-Pfad ergänzen — Web speichert direkt via
+  `PocketBaseService`, Mobile/Desktop weiterhin via lokale DB + Sync.
+  **Betroffene Datei(en):** Speichern-Logik in Detail-Screen / Controller
+  **Aufwand:** ~1–2 h | **Risiko:** Mittel
+  **Erledigt:** `_speichernWeb()` via `PocketBaseService` implementiert, `kIsWeb`-Guard in `_speichern()` ergänzt.
+
+- [x] **F-012.2: Speichern-Button nicht sichtbar beim Bearbeiten**
+  **Symptom:** Speichern-Button erscheint erst nach Wechsel zur Listenansicht und zurück.
+  **Ursache:** State-Rebuild-Problem — Edit-Modus wird gesetzt, aber Button-Bereich
+  wird nicht neu gerendert. Im Master-Detail-Layout (Desktop-Web) propagiert
+  `ValueNotifier` möglicherweise nicht korrekt über Widget-Tree-Grenzen.
+  **Lösung:** `setState(() { _isEditMode = true; })` sicherstellen; `ValueNotifier`-
+  Propagierung im Desktop-Layout prüfen.
+  **Betroffene Datei(en):** `artikel_detail_content.dart` (Web-Pfad)
+  **Aufwand:** ~30 min | **Risiko:** Niedrig
+  **Erledigt:** `onStateChanged`-Callback in `ArtikelDetailContent` ergänzt — Wrapper rebuildet AppBar-Actions bei jedem `setState` des Content-Widgets.
+
+- [x] **F-012.3: Sync-Elemente im Web ausblenden**
+  **Symptom:** Sync-Zeitstempel-Toggle hat keine sichtbare Wirkung im Web. Sync-Button und Spinner erscheinen im Web-Layout.
+  **Ursache:** `ValueListenableBuilder` für `showLastSyncNotifier` und Sync-Button/-Spinner nicht hinter `kIsWeb`-Guard.
+  **Lösung:** Sync-Button/-Spinner und `showLastSyncNotifier`-Block in AppBar hinter `if (!kIsWeb)` Guard. Sync-Destination aus NavigationRail entfernt, Index angepasst.
+  **Betroffene Datei(en):** AppBar-Widget, NavigationRail-Widget
+  **Aufwand:** ~30 min | **Risiko:** Niedrig
+  **Erledigt:** Alle drei Sync-Elemente (Button, Spinner, Zeitstempel) hinter `if (!kIsWeb)` Guard. NavigationRail-Index korrigiert.
+
+- [x] **F-012.4: Detailansicht — Titel und Buttons beim ersten Klick falsch**
+  **Symptom:** Beim ersten Klick auf einen Artikel bleibt der Titel auf dem vorherigen
+  Artikel stehen. Buttons (Bearbeiten, Anhang, PDF, Löschen) fehlen beim ersten Klick komplett.
+  **Ursache:** `_DetailPanelHeader` wird von Flutter recycelt (kein Widget-Neuaufbau bei
+  Artikel-Wechsel) — `contentKey.currentState` ist beim ersten Render `null`,
+  `didUpdateWidget` greift zu spät. `GlobalKey` wurde als `final` deklariert und für
+  verschiedene Artikel wiederverwendet.
+  **Lösung:** `ValueKey(uuid)` auf `_DetailPanelHeader` → erzwingt Neuinstanziierung bei
+  Artikel-Wechsel. `_detailContentKey` von `final` auf nicht-final geändert, wird bei
+  jedem `_onArtikelTap()` neu erzeugt. `super.key` in `_DetailPanelHeader`-Konstruktor ergänzt.
+  **Betroffene Datei(en):** `artikel_list_screen.dart`
+  **Aufwand:** ~1 h | **Risiko:** Niedrig
+  **Erledigt:** 3 Änderungen in `artikel_list_screen.dart` — `super.key` ergänzt, `final`
+  entfernt, `GlobalKey()` bei jedem Artikel-Wechsel neu erzeugt.
+
+- [x] **F-012.5: NavigationRail verschwindet beim Wechsel zu Einstellungen**
+  **Symptom:** Die linke Button-Leiste mit „Artikel" und „Einstellungen" verschwindet
+  beim Wechsel zum Einstellungs-Screen.
+  **Ursache:** `SettingsScreen` wird als eigenständige `Navigator.push()`-Route
+  geöffnet und ersetzt den gesamten Screen inkl. `NavigationRail`. Im Desktop-Web-
+  Layout muss er stattdessen im Content-Bereich rechts gerendert werden.
+  **Lösung:** Web-Desktop: Settings als Content im bestehenden Layout rendern
+  (Index-basiert), nicht als neue Route pushen. Mobile: unverändert.
+  **Betroffene Datei(en):** Haupt-Navigation / Shell-Widget (Web-Pfad)
+  **Aufwand:** ~1 h | **Risiko:** Mittel
+  **Erledigt:** 
+- _PanelMode.settings ergänzt
+- _buildNavigationRail(): selectedIndex dynamisch, Desktop öffnet Panel
+- _handleMenuAction(): Desktop-Guard, Mobile unverändert
+- _buildSettingsPanel(): neues Panel konsistent mit Erfassen/Detail
+- SettingsScreen: embedded-Parameter (Default false, kein Breaking Change)
+
+---
+
+#### 🟡 Prio 2 — UX-Verbesserungen
+
+- [x] **F-012.6: Session-Verlust bei Browser-Refresh (F5)**
+  **Symptom:** Bei jedem Tab-Refresh werden Zugangsdaten verworfen, Neuanmeldung
+  erforderlich.
+  **Ursache:** Auth-Token wird nur im Speicher gehalten, nicht in `localStorage`
+  persistiert.
+  **Lösung:** Web: Auth-Token + Model in `localStorage` persistieren und beim
+  App-Start wiederherstellen. Prüfen ob PocketBase Dart SDK `AsyncAuthStore`
+  für Web bereits nutzbar ist.
+  **Betroffene Datei(en):** Auth-Initialisierung / `pocketbase_service.dart` (Web-Pfad)
+  **Aufwand:** ~1–2 h | **Risiko:** Mittel
+  **Erledigt:**
+- [x] **F-012.6 ✅ Session-Verlust bei Browser-Refresh
+- auth_store_factory.dart: conditional export (Web/Native)
+- auth_store_factory_web.dart: package:web localStorage
+- auth_store_factory_native.dart: SharedPreferences
+- pocketbase_service.dart: _createClient() mit AsyncAuthStore
+- initialize() + updateUrl(): _createClient() statt PocketBase()
+- logout(): authStore.clear() löscht localStorage automatisch
+
+
+- [x] **F-012.7: Scanner-Button — kontextabhängige Funktion je nach Plattform**
+  **Symptom:** Scanner-Button im Web macht auf Desktop keinen Sinn (kein Kamera-
+  Scanner verfügbar).
+  **Gewünschtes Verhalten:**
+  - Mobil: Kamera-Scanner öffnen (unverändert)
+  - Desktop-Web: Texteingabe-Dialog für Artikelnummer-Suche
+  - Desktop-Web mit HID-Scanner (Nice-to-have): Scanner-Input direkt verarbeiten
+    (HID-Scanner sendet Tastatureingaben — schnelle Zeichenfolge + Enter erkennbar)
+  **Lösung Stufe 1:** `kIsWeb`-Guard → Texteingabe-Dialog statt Kamera.
+  **Lösung Stufe 2 (optional):** `FocusNode` + Keyboard-Listener für HID-Scanner-
+  Erkennung (Geschwindigkeit der Eingabe als Heuristik).
+  **Betroffene Datei(en):** Scanner-Button-Widget (Web-Pfad)
+  **Aufwand:** ~1–2 h (Stufe 1: ~30 min) | **Risiko:** Niedrig
+
+- [x] **F-012.8: TAB-Navigation beim Erstellen neuer Artikel**
+  **Symptom:** Kein Weiterspringen per TAB-Taste zwischen Eingabefeldern im
+  Erfassen-Screen.
+  **Lösung:** `FocusNode`-Kette für alle Felder + `TextInputAction.next` +
+  `onSubmitted`-Handler der jeweils nächsten `FocusNode.requestFocus()` aufruft.
+  Gilt primär für Web/Desktop — Mobile-Verhalten unverändert.
+  **Betroffene Datei(en):** `artikel_erfassen_screen.dart` (Web-Pfad / Desktop)
+  **Aufwand:** ~30 min | **Risiko:** Sehr niedrig
+
+---
+
+#### 🟢 Prio 3 — Nice-to-Have
+
+- [x] **F-012.9: Sync-Button im Web prüfen und ggf. ausblenden**
+  **Symptom:** Sync-Button in der Web-Version möglicherweise nicht benötigt, da
+  Web direkt gegen PocketBase arbeitet (kein lokaler SQLite-Cache).
+  **Lösung:** Nach Klärung von F-012.1 (Speicherpfad) entscheiden ob Sync-Button
+  im Web konzeptionell sinnvoll ist. Falls nicht: `if (!kIsWeb) SyncButton()`.
+  **Abhängigkeit:** F-012.1 muss zuerst abgeschlossen sein.
+  **Betroffene Datei(en):** Sync-Button-Widget
+  **Aufwand:** ~10 min | **Risiko:** Sehr niedrig
+
+---
+
+**Aufwand gesamt:** ~7–11 Stunden
+**Risiko gesamt:** Mittel (F-012.1, F-012.5, F-012.6) | Niedrig (Rest)
+**Abhängigkeiten:**
+- F-012.9 → F-012.1 zuerst abschließen
+- F-012.2 → F-012.1 zuerst prüfen (gleicher Speicherpfad betroffen)
+
+> ⚠️ **Regel für alle F-012-Änderungen:**
+> Ausschließlich Web-Codepfade anfassen — alle Änderungen hinter `kIsWeb`-Guards
+> oder in Web-spezifischen Layout-Zweigen.
+> Mobile- und Desktop-Native-Verhalten bleibt **unverändert**.
+
+--- 
+
+### M-014: Readonly-User-Rolle — PocketBase API Rules + App-UI-Integration  — abgeschlossen 2026-07-13 | `1.0.4+86`
+
+**Beschreibung:**
+Einführung einer serverseitigen Readonly-Rolle für PocketBase-User kombiniert mit
+einer UI-seitigen Anpassung der Lager_app (Web). Ziel: Bestimmte User dürfen alle
+Artikel lesen, aber keine Änderungen (Create/Update/Delete) vornehmen.
+Die Sperre greift serverseitig (PocketBase API Rules) — die App-UI blendet
+Aktions-Buttons für Readonly-User zusätzlich aus (saubere UX).
+
+**Hintergrund:**
+Aktuell darf jeder authentifizierte User alle CRUD-Operationen ausführen:
+`createRule / updateRule / deleteRule = "@request.auth.id != \"\""`.
+Es gibt keine Rollenunterscheidung. Ein Readonly-User sieht aktuell alle
+Bearbeitungs-Buttons, die dann serverseitig mit einem Fehler abgewiesen werden.
+
+---
+
+#### Teil 1 — PocketBase: Rolle und API Rules (serverseitig)
+
+**Schritt 1: `role`-Feld in `users`-Collection ergänzen**
+- PocketBase Admin → Collections → `users` → Edit
+- Neues Feld: `role` (Typ: `text`, nicht required, Default: leer)
+- Mögliche Werte: `""` / `"user"` → Vollzugriff | `"readonly"` → Nur Lesen
+
+**Schritt 2: API Rules in `artikel`-Collection anpassen**
+
+| Regel | Aktuell | Neu |
+|---|---|---|
+| `listRule` | `@request.auth.id != ""` | `@request.auth.id != ""` *(unverändert)* |
+| `viewRule` | `@request.auth.id != ""` | `@request.auth.id != ""` *(unverändert)* |
+| `createRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
+| `updateRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
+| `deleteRule` | `@request.auth.id != ""` | `@request.auth.id != "" && @request.auth.record.role != "readonly"` |
+
+> ⚠️ Gleiches Schema für alle weiteren Collections mit Schreibzugriff wiederholen
+> (z. B. Anhänge, Dokumente — je nach vorhandenem Collection-Set).
+
+**Schritt 3: Readonly-User anlegen**
+- PocketBase Admin → Collections → `users` → New record
+- E-Mail + Passwort setzen
+- Feld `role` = `"readonly"` eintragen → Speichern ✅
+
+---
+
+#### Teil 2 — App-UI: Readonly-Modus (Flutter / Web)
+
+**Ziel:** App liest `role` des eingeloggten Users nach dem Login aus und
+blendet Aktions-Buttons (Speichern, Löschen, Bild ändern, Anhang hinzufügen)
+für Readonly-User aus — statt sie mit einem Serverfehler abzuweisen.
+
+**Betroffene Bereiche:**
+- `app/lib/services/pocketbase_service.dart` — `role`-Getter aus `authStore.model`
+- `app/lib/providers/` oder `app/lib/core/` — neuer `isReadonly`-Accessor
+- `app/lib/screens/artikel_detail_content.dart` — Bearbeiten/Löschen/Bild-Buttons
+- `app/lib/screens/artikel_erfassen_screen.dart` — Speichern-Button / Zugriff sperren
+- `app/lib/widgets/` — Sync-Button, Anhang-Button (falls vorhanden)
+
+**Implementierungsvorschlag:**
+
+```dart
+// pocketbase_service.dart — neuer Getter
+bool get isReadonlyUser {
+  final role = _client.authStore.record?.getStringValue('role') ?? '';
+  return role == 'readonly';
+}
+// In ArtikelDetailContent — Beispiel für Button-Guard
+if (!pocketBaseService.isReadonlyUser)
+  IconButton(
+    icon: const Icon(Icons.edit),
+    onPressed: _startEditMode,
+  ),
+```
+Wichtig: Alle UI-Guards ausschließlich additiv — kein Entfernen bestehender
+Logik, nur if (!isReadonly) vor betroffenen Widgets.
+Serverseitige Sperre (Teil 1) bleibt die primäre Sicherheitsebene.
+
+Tasks:
+
+role-Feld in users-Collection in PocketBase anlegen
+API Rules für artikel (und weitere Collections) anpassen
+Readonly-User in PocketBase anlegen und testen (serverseitig verifizieren)
+isReadonlyUser-Getter in pocketbase_service.dart ergänzen
+artikel_detail_content.dart: Bearbeiten/Löschen/Bild-Buttons hinter Readonly-Guard
+artikel_erfassen_screen.dart: Speichern-Button / Screen-Zugang für Readonly sperren
+Anhang- und Dokument-Buttons prüfen und ggf. ausblenden
+Manueller E2E-Test: Readonly-User Web — Lesen ✅, Schreiben ❌ (Buttons ausgeblendet)
+Manueller E2E-Test: normaler User — alle Funktionen unverändert ✅
+Unit-Test: isReadonlyUser-Getter (role = "readonly", role = "", role = "user")
+Aufwand: ~3–5 Stunden | Risiko: Niedrig
+Plattform: Primär Web — Mobile/Desktop-Native-Verhalten unverändert (kein kIsWeb-Guard
+erforderlich, da Readonly-Logik plattformunabhängig sinnvoll ist)
+Abhängigkeiten: Keine Blocker. Unabhängig von F-012 und P-009 umsetzbar.
+
+Commit-Vorschlag: feat: readonly user role — PocketBase API rules + app UI guards (M-014)
+
+
+Readonly-Rolle für PocketBase-User mit zweigeteilter Absicherung:
+
+**PocketBase (serverseitig):**  
+Migration `1783987200_readonly_role_m014.js` fügt `role`-Textfeld
+zur `users`-Collection hinzu (idempotent).  
+`createRule`/`updateRule`/`deleteRule` für `artikel` und `attachments`:  
+`@request.auth.id != "" && @request.auth.record.role != "readonly"`
+
+**Flutter App (UI-seitig):**  
+`PocketBaseService.isReadonlyUser`-Getter liest `authStore.record?.getStringValue('role')`.  
+Guards in:
+- `ArtikelDetailContent`: Edit-, Speichern-, Löschen- und Bild-Buttons ausgeblendet
+- `ArtikelListScreen`: ➕-Button und „Neuen Artikel erfassen"-Button ausgeblendet
+
+5 Unit-Tests (T-012.41–45): `isReadonlyUser` mit role=`"readonly"` → true,
+role=`""` → false, role=`"user"` → false, kein Client → false, nicht eingeloggt → false ✅
+
+Verifiziert: `flutter analyze` 0 Issues | `flutter test` 1016/1016 ✅ 
+
+---
+
+### B-019: Bild verschwindet nach Speichern im embedded Modus (Web) — abgeschlossen 2026-07-11 | `1.0.0+78`
+
+`bildEntfernt`-Bedingung in `_speichernWeb()` war im Web-Mode dauerhaft `true` sobald ein Artikel mit Bild gespeichert wurde — weil `_bildPfad` im Web immer `null` ist (kein lokales Dateisystem). Folge: `body['bild'] = ''` wurde an PocketBase gesendet → Bild gelöscht → Platzhalter angezeigt.
+
+**Root Cause:** `_bildPfad == null` kann im Web nicht als Signal für „Bild wurde entfernt" dienen.
+
+**Fix:** `_remoteBildUrl == null` als zusätzliche Bedingung in `bildEntfernt` — die URL ist nur `null` wenn der Nutzer das Bild explizit entfernt hat.
+
+**Weitere Verbesserungen im selben Commit:**
+- `_buildBildBereich`: Spinner nur wenn `_remoteBildUrl == null` — verhindert dass Lade-Indikator ein bereits sichtbares Bild überdeckt
+- `onStateChanged`-Callback via `addPostFrameCallback` verzögert — verhindert setState-during-build im AppBar-Rebuild
+
+Verifiziert: Web (Windows Chrome via `web-server`) ✅ | `flutter analyze` 0 Issues | `flutter test` 1011/1011 ✅
+
+---
+
+### H-004: Lighthouse-Befunde beheben (Web-Performance, Security-Header, SEO) — abgeschlossen 2026-05-19 | `0.9.9+75`
+**Beschreibung:**
+Lighthouse-Audit vom 12.05.2026 ergab Score 62 (Performance), 92 (Barrierefreiheit), 81 (Best Practices), 91 (SEO). Die Hauptursache für den niedrigen Performance-Score ist die `main.dart.js` (4 MB unkomprimiert, 2.510 ms Total Blocking Time). Daneben fehlen Security-Header und eine `robots.txt`.
+
+**Audit-Ergebnisse (Mobil-Emulation) — Ausgangslage 12.05.2026:**
+
+| Metrik | Wert | Ziel | Status |
+|:--|:--|:--|:--|
+| First Contentful Paint | 0,8s | < 1,8s | ✅ |
+| Largest Contentful Paint | 0,8s | < 2,5s | ✅ |
+| Total Blocking Time | 2.510 ms | < 200 ms | ❌ |
+| Cumulative Layout Shift | 0 | < 0,1 | ✅ |
+| Speed Index | 9,4s | < 3,4s | ❌ |
+| Time to Interactive | 17,0s | < 3,8s | ❌ |
+| Server Response Time | 21 ms | < 600 ms | ✅ |
+
+**Gesamtgröße Netzwerk:** 3.077 KiB (17 Requests, alle HTTP/2, Gzip aktiv)
+
+**Größte Ressourcen:**
+
+| Ressource | Transfer | Unkomprimiert | Anteil |
+|:--|:--|:--|:--|
+| `canvaskit.wasm` (Google CDN) | 1.631 KB | 5.687 KB | Flutter Engine |
+| `main.dart.js` | 1.280 KB | 4.085 KB | App-Code |
+| Fonts (Roboto + Material + Cupertino) | 139 KB | — | Schriften |
+
+---
+
+**Tasks nach Priorität:**
+
+#### Prio 1 — Quick Fixes (Nginx-Config, je 2 min)
+
+- [x] **H-004.1: `robots.txt` in Nginx bereitstellen**
+  Nginx liefert `index.html` als Fallback für `/robots.txt` → 87 SEO-Fehler.
+
+  ```nginx
+  location = /robots.txt {
+      add_header Content-Type text/plain;
+      return 200 "User-agent: *\nDisallow: /\n";
+  }
+  ```
+
+  **Wirkung:** SEO-Score ↑ 
+  **Status:** ✅ Umgesetzt in `app/web/robots.txt` als statische Datei
+
+- [x] **H-004.2: HSTS-Header setzen**
+  Kein `Strict-Transport-Security`-Header vorhanden.
+
+  ```nginx
+  add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+  ```
+
+  **Wirkung:** Best Practices ↑
+  **Status:** ✅ Umgesetzt im Caddyfile
+
+#### Prio 2 — HTML-Anpassungen (index.html, je 1 min)
+
+- [x] **H-004.3: Splash-Bild `width`/`height` und `fetchpriority` setzen**
+  LCP-Bild (`splash/img/light-2x.png`) hat keine expliziten Dimensionen und kein Priority-Hint.
+
+  ```html
+  <img class="center" aria-hidden="true"
+       src="splash/img/light-2x.png" alt=""
+       width="256" height="256" fetchpriority="high">
+  ```
+
+  **Wirkung:** LCP-Discovery-Score ↑, Unsized-Images-Warnung weg
+  **Status:** ✅ Umgesetzt in `app/web/index.html`
+
+#### Prio 3 — Build-Optimierung (CI/CD, 5–30 min)
+
+- [x] **H-004.4: `--tree-shake-icons` im Flutter-Build aktivieren**
+  Ungenutzte Material-Icons werden aktuell mitgebaut.
+
+  ```yaml
+  # In GitHub Actions Workflow:
+  flutter build web --release --tree-shake-icons
+  ```
+
+  **Wirkung:** `main.dart.js` etwas kleiner
+  **Status:** ✅ Umgesetzt im Web-Build-Befehl
+
+- [x] **H-004.5: WASM-Build evaluieren**
+  Dart 3.11.5 unterstützt `flutter build web --wasm`. WebAssembly parst deutlich schneller
+  als JavaScript → TBT sinkt signifikant.
+
+  ```bash
+  flutter build web --wasm
+  ```
+
+  **Risiko:** Experimentell — Browser-Kompatibilität und `dart:js_interop` prüfen.
+  **Wirkung:** TBT potenziell von 2.510 ms auf < 500 ms
+
+  **Status:** ✅ Abgeschlossen — `main.dart.wasm` im Build vorhanden.
+  COOP/COEP-Header (`Cross-Origin-Opener-Policy`, `Cross-Origin-Embedder-Policy`) als
+  Voraussetzung für Skwasm / SharedArrayBuffer im Caddyfile gesetzt.
+  TBT-Ziel `< 500 ms` erreicht (430 ms).
+
+  **Nebeneffekt:** Caddyfile und `config.js` werden jetzt dynamisch zur Laufzeit generiert
+  (`app/docker-entrypoint.sh`) — `POCKETBASE_URL` wird korrekt in CSP eingesetzt,
+  kein Image-Rebuild mehr bei URL-Änderung nötig. Siehe Commit `[0.9.9+73]`.
+
+#### Prio 4 — Bewusst akzeptiert (kein Fix nötig)
+
+- **`Intl.v8BreakIterator` deprecated** — kommt aus Flutter Engine (CanvasKit), wird mit
+  zukünftigem Flutter-Release behoben. Kostet 5 Punkte bei Best Practices.
+- **`meta-viewport user-scalable=no`** — Flutter setzt das automatisch. Kostet 10 Punkte
+  bei Barrierefreiheit. Für interne App akzeptabel.
+- **`main.dart.js` 55% unused code** — Flutter-Web-typisch (Tree Shaking auf JS-Ebene
+  begrenzt). Durch WASM-Build (H-004.5) ersetzt — `main.dart.js` nicht mehr primärer Pfad.
+- **Fehlende Source Maps** — `main.dart.js` ohne Source Map. Für Release-Build akzeptabel.
+- **CSP `unsafe-inline` / fehlende `strict-dynamic`** — Flutter Web benötigt Inline-Scripts.
+  Einschränkung würde App brechen.
+- **Third-Party-Cookies (Google CDN/Fonts)** — geprüft, keine Cookies gesetzt. ✅
+
+---
+
+**Aufwand gesamt:** ~1,5 Stunden (H-004.1–H-004.5 inkl. Runtime-Config-Refactoring)
+**Risiko:** Niedrig (H-004.1–H-004.4), Mittel (H-004.5 WASM) → Risiko eingetreten und gelöst
+
+**Tatsächliche Score-Entwicklung:**
+
+| Kategorie | Ausgangslage | Nach H-004.1–4 | Nach H-004.5 | Nach H-005 | Δ gesamt |
+|:--|:--|:--|:--|:--|:--|
+| Performance | 62 | 75 | 88 | 75 | +13 ✅ |
+| Barrierefreiheit | 92 | 92 | 92 | 92 | ±0 |
+| Best Practices | 81 | 81 | 81 | 81 | ±0 |
+| SEO | 91 | 63 | 63 | **100** | +9 ✅ |
+
+
+**Tatsächliche Metrik-Entwicklung (Zielzustand ohne Login, v0.9.9+75):**
+
+| Metrik | Ausgangslage | Aktuell | Ziel | Status |
+|:--|:--|:--|:--|:--|
+| First Contentful Paint | 0,8 s | 0,8 s | < 1,8 s | ✅ |
+| Largest Contentful Paint | 0,8 s | 1,5 s | < 2,5 s | ✅ |
+| Total Blocking Time | 2.510 ms | 780 ms | < 200 ms | ⚠️ verbessert, Ziel noch offen |
+| Cumulative Layout Shift | 0 | 0 | < 0,1 | ✅ |
+| Speed Index | 9,4 s | 6,6 s | < 3,4 s | ❌ Flutter-architekturbedingt |
+| Server Response Time | 21 ms | 21 ms | < 600 ms | ✅ |
+
+> **Anmerkung Performance mit Login:**  
+> TBT-Werte von 14.000–17.000 ms bei eingeloggtem Zustand sind auf den initialen
+> Sync-Vorgang zurückzuführen (PocketBase-Abfragen + SQLite-Writes + WASM-Init parallel).
+> Ohne Login normalisiert sich TBT auf ~780–1.030 ms. Strukturell bedingt, kein direkter Fix.
+
+**Nächster Schritt:** H-005 abgeschlossen — SEO 100 ✅ (ohne Login, v0.9.9+75). H-005.3 offen.
+
+---
+
+### H-005: SEO-Korrekturen & Sicherheits-Header (Lighthouse-Audit 18./19.05.2026) — abgeschlossen 2026-05-20 | `0.9.9+75`
+**Beschreibung:**
+Lighthouse-Audit vom 18.05.2026 zeigte SEO-Score 63 (Regression gegenüber 91).
+Hauptursache: `is-crawlable`-Befund (`robots.txt Disallow: /`) und fehlende Meta-Tags.
+SEO 100 erreicht in v0.9.9+75 (ohne Login gemessen).
+
+**Tasks:**
+
+- [x] **H-005.1: `robots.txt` auf `Allow: /` setzen**
+  `Disallow: /` war Hauptursache des `is-crawlable`-Befunds (SEO 63).
+  **Status:** ✅ Erledigt in v0.9.9+75
+
+- [x] **H-005.2: Meta-Description und `<title>` in `index.html` ergänzen**
+  `<meta name="description">` und `<title>Lager_app | Lagerverwaltung</title>` gesetzt.
+  **Status:** ✅ Erledigt in v0.9.9+75
+
+- [x] **H-005.3: `X-Frame-Options`-Header setzen**
+  Clickjacking-Schutz für Produktions-Deployment:
+
+```nginx
+  add_header X-Frame-Options "SAMEORIGIN" always;
+``` 
+
+Aufwand: 5 Minuten | Risiko: Sehr niedrig
+Status: ✅ Bereits im Caddyfile gesetzt (Referenz-Doku bestätigt)
+
+Tatsächliche Score-Entwicklung:
+
+| Kategorie | Vorher | Nachher |
+|:--|:--|:--|
+| SEO | 63 | **100** ✅ (ohne Login, v0.9.9+75) |
+| Best Practices | 81 | 81 |
+
+---
+
+### T-012: Testlücken bei produktiven Services schließen
+**Beschreibung:**
+6 produktiv genutzte Services haben keine Testdatei. Höchste Priorität hat
+`pocketbase_service.dart` (492 Zeilen, zentraler Client-Service).
+
+**Priorisierte Testliste:**
+
+| Priorität | Service | Status |
+|:--|:--|:--|
+| 🔴 Hoch | `pocketbase_service.dart` | ✅ 51 Tests |
+| 🟡 Mittel | `connectivity_service.dart` | ✅ 14 Tests |
+| 🟡 Mittel | `sync_progress_service.dart` | ✅ 61 Tests |
+| 🟡 Mittel | `sync_error_recovery.dart` | ✅ 87 Tests |
+| 🟢 Niedrig | `tag_service.dart` | ✅ 43 Tests |
+| 🟢 Niedrig | `database_service.dart` | ⏭️ Übersprungen — Shim ohne Logik |
+
+T-012 abgeschlossen — alle relevanten Services abgedeckt.
+
+--- 
+
 ### O-014: Nextcloud-Code entkoppeln und entfernen — abgeschlossen 2026-05-16 | `0.9.9+70`
 **Beschreibung:**
 ~1.870 Zeilen Nextcloud-Code und die Dependency `webdav_client` sind im Projekt,
