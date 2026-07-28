@@ -3,7 +3,7 @@ description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 
 publish_to: none
 
-version: 1.0.8+95
+version: 1.0.8+96
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -28,7 +28,6 @@ dependencies:
 
   # ==================== UI & NAVIGATION ====================
 
-  provider: ^6.0.3
   intl: ^0.20.2
   url_launcher: ^6.3.1
   cached_network_image: ^3.2.3
@@ -85,10 +84,6 @@ dependencies:
 
   runtime_env_config:
     path: ../packages/runtime_env_config
-
-  # GEÄNDERT: ^19.4.1 → ^21.0.0 (Major — HÖCHSTES RISIKO, siehe Schritt C.1)
-  # Breaking Changes: Initialisierung, Android-Manifest, Notification-Details
-  flutter_local_notifications: ^21.0.0
 
   logger: ">=2.7.0 <3.0.0"
   google_fonts: ^8.0.2

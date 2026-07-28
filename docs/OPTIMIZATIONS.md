@@ -90,19 +90,22 @@ können parallel betrieben werden.
 
 ### O-015: Dependency-Hygiene
 **Beschreibung:**
-`flutter_local_notifications: ^21.0.0` wird nirgends im Code importiert
-(0 Treffer bei grep). Die Dependency kann entfernt werden.
+`flutter_local_notifications: ^21.0.0` und `provider: ^6.0.3` werden nirgends
+im Code importiert (0 Treffer bei grep). Beide Dependencies wurden entfernt.
 
 Weitere Kandidaten (`webdav_client`) werden mit O-014 adressiert.
 
 **Verifiziert per grep:**
 - `flutter_local_notifications` → 0 Treffer in `app/lib/` ✅
 - `google_fonts` → genutzt in `app_theme.dart` → behalten ✅
-- `provider` → genutzt in 8 Dateien → behalten ✅
+- `provider` → **Nachbefund 2026-07-28: 0 Treffer** — `package:provider` wird nirgends
+  importiert. `ChangeNotifier` wird direkt aus `flutter/foundation.dart` genutzt,
+  nicht über das `provider`-DI-Package. Entfernt. ✅
 
 **Tasks:**
-- [ ] `flutter_local_notifications` aus pubspec.yaml entfernen
-- [ ] `flutter pub get` + `flutter test` grün
+- [x] `flutter_local_notifications` aus pubspec.yaml entfernen ✅
+- [x] `provider` aus pubspec.yaml entfernen ✅ (Nachbefund: ebenfalls ungenutzt)
+- [x] `flutter pub get` + `flutter test` grün ✅ (1016 Tests bestanden)
 
 **Aufwand:** 10 Minuten | **Risiko:** Sehr niedrig
 
@@ -187,8 +190,7 @@ Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch
 Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
 
 **Aktuell besonders relevante offene Themen**
-- P-006: Thumbnail-Größen und API-Latenz untersuchen
-- O-015: `flutter_local_notifications` entfernen
+- O-021: State Management modernisieren (Riverpod-Migration)
 
 ---
 
