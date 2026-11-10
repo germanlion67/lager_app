@@ -108,4 +108,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: flutter-windows-build
-          path: app/build/windows/x64/runner/Release
+          # path: app/build/windows/x64/runner/Release   //temporärer wechsel auf Debug
+          path: app/build/windows/x64/runner/Debug
