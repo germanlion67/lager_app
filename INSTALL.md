@@ -16,8 +16,8 @@
 - Docker Compose >= `2.40`
 
 ### Lokale Entwicklung (Flutter)
-- Flutter SDK >= `3.41.4`
-- Dart SDK >= `3.11.1`
+- Flutter SDK >= `3.47.8`
+- Dart SDK >= `3.13.7`
 - PocketBase >= `0.36.6`
 - Android Studio oder VS Code mit Flutter-Plugin
 - Linux-Tools für Desktop-Builds:

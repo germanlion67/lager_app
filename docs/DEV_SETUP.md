@@ -3,7 +3,7 @@
 ## Voraussetzungen
 
 - WSL2 (Ubuntu)
-- Flutter 3.41+
+- Flutter 3.47.9
 - Docker & Docker Compose
 - Chrome auf dem **Windows-Host**
 

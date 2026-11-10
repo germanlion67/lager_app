@@ -28,13 +28,95 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-022`, `P-010`, `T-013`
+- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-023`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
 auch dann, wenn der Punkt später verschoben, umbenannt oder nach `Future` verschoben wird.
 
 Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, `style`- Formatierung, `refactor`- Code-Umbau, Future/Fix, `test`- Test hinzugefügt, `chore`- Build, Config, Dependencies
+---
+
+## 🔴 Priorität: Hoch
+
+### O-022: Flutter auf 3.47.9 aktualisieren
+
+**Status:** ⬜ Offen | **Dringlichkeit:** Hoch (Sicherheitskorrektur)
+
+**Befund:** Flutter 3.47.8 aktualisiert Dart auf 3.13.7 und behebt die TLS-MitM-Schwachstelle durch kompromittierte eMudhra-Zertifikate (GHSA-frr6-h895-5pxp). Betroffen sind ausgehende `dart:io`-HTTPS-Verbindungen auf Android und Windows sowie Linux-Systeme mit veralteten CA-Bundles. Die App verwendet PocketBase/HTTP und veröffentlicht Android-, Windows- und Linux-Builds. Web, iOS und macOS sind von dieser konkreten Schwachstelle nicht betroffen. Bereits installierte Apps müssen neu gebaut und ausgeliefert werden.
+
+**Ziel:** Flutter 3.47.9 in Entwicklung, CI, Docker und Release-Builds konsistent verwenden; den bestehenden Flutter-Checkout 3.41.7 unverändert lassen.
+
+**Web-Hinweis:** Flutter 3.47.9 markiert `--pwa-strategy` als veraltet, akzeptiert es aber noch. `--pwa-strategy=none` bleibt in diesem Upgrade absichtlich gesetzt: Ohne Option verwendet 3.47.9 `offlineFirst` und erzeugt/registriert wieder den Flutter-Service-Worker, während Docker und CI dessen Abwesenheit erwarten. Die Option erst bei einem späteren SDK-Upgrade entfernen, wenn das neue Standardverhalten geprüft und die Web-Build-Prüfung entsprechend angepasst wurde. Siehe [Flutter #156910](https://github.com/flutter/flutter/issues/156910).
+
+**Teilaufgaben und Befehle** (aus dem Repository-Root `lager_app`, sofern nicht anders angegeben):
+
+1. ✅ Separaten Flutter-3.47.9-Worktree anlegen, damit andere Projekte weiterhin den bisherigen SDK-Checkout nutzen können:
+  ```bash
+  git -C "$HOME/dev/flutter" worktree add --detach "$HOME/dev/flutter-3.47.9" 3.47.9
+  export FLUTTER_ROOT="$HOME/dev/flutter-3.47.9"
+  export PATH="$FLUTTER_ROOT/bin:$PATH"
+  flutter --version
+  ```
+  Erwartet: Flutter 3.47.9 und Dart 3.13.7 oder neuer.
+  Die `export`-Befehle im selben Terminal wie alle folgenden Flutter-Prüfungen ausführen.
+2. ✅ Aktive Versions-Pins auf 3.47.9 setzen; nur diese Konfigurationen ändern, nicht historische Einträge oder generierte Plugin-Metadaten:
+  ```bash
+  sed -i 's/3\.41\.7/3.47.9/g' \
+    .github/workflows/ci.yml \
+    .github/workflows/flutter-maintenance.yml \
+    .github/workflows/release.yml \
+    app/Dockerfile
+  ```
+   Anschließend die Dokumentationsversionen setzen:
+   ```bash
+   sed -i 's/Flutter-3\.41\.4/Flutter-3.47.9/' README.md
+   sed -i 's/Flutter 3\.41+/Flutter 3.47.9/' docs/DEV_SETUP.md
+   sed -i 's/3\.41\.4/3.47.8/g; s/3\.11\.1/3.13.7/g' INSTALL.md
+   sed -i 's/3\.41\.7/3.47.9/g' docs/TESTING.md
+   ```
+   Historische Einträge in `docs/HISTORY.md` und `docs/OPTIMIZATIONS.md` nicht umschreiben. Generierte `.flutter-plugins-dependencies`-Dateien nicht manuell bearbeiten.
+3. ✅ Dependencies, Analyse und Tests mit dem neuen SDK ausführen; `flutter pub get` erfolgreich, Analyzer ohne Befunde, 1016 Tests bestanden und 2 übersprungen:
+  ```bash
+  cd app
+  flutter pub get
+  flutter analyze
+  flutter test
+  ```
+4. ✅ Android-Build-Toolchain schrittweise aktualisieren. Flutter 3.47.9 verlangt mindestens AGP 8.11.1 und Kotlin 2.2.20; AGP wurde auf 8.11.1, Kotlin auf 2.2.20 aktualisiert und `flutter build apk --debug` erfolgreich abgeschlossen. Gradle 8.14.0 und AGP 8.11.1 melden nur, dass die Unterstützung künftig endet; Java meldet zusätzlich obsolete Source/Target 8-Warnungen. Nicht auf AGP 9 springen: das wäre eine separate Migration mit neuer DSL/Kotlin-Konfiguration.
+5. ⬜ Plattform-Builds verifizieren: WebAssembly, Android-Debug-APK und Linux-Debug-Build erfolgreich; Windows noch offen.
+  ✅ Linux-Debug-Build: fehlendes `libsecret-1-dev` installiert; veralteter `CMAKE_INSTALL_PREFIX=/usr/local` durch Löschen des regenerierbaren `build/linux/x64/debug`-Caches behoben. Build-Artefakt: `build/linux/x64/debug/bundle/lager_app`.
+  ⬜ Windows-Debug-Build auf Windows ausführen (`cd app && flutter build windows --debug`) oder den bestehenden Windows-Maintenance-Workflow verwenden.
+  Bereits erfolgreich durchgeführt:
+  ```bash
+  flutter build web --release --wasm \
+    --pwa-strategy=none \
+    --dart-define=POCKETBASE_URL=http://localhost:8080 \
+    --dart-define=FLUTTER_WEB_AUTO_DETECT=true \
+    --no-source-maps \
+    --tree-shake-icons
+  flutter build apk --debug
+  ```
+6. ⬜ Docker-Web-Build vom Repository-Root testen:
+  ```bash
+  cd ..
+  docker build -f app/Dockerfile \
+    --build-arg FLUTTER_VERSION=3.47.9 \
+    -t lager-app:flutter-3.47.9 .
+  ```
+7. ⬜ Alte aktive Pins suchen, Diff prüfen und CI ausführen lassen:
+   ```bash
+   git grep -nE '3\.41\.7|3\.41\.4|Flutter 3\.41\+' -- \
+     .github/workflows app/Dockerfile README.md docs/DEV_SETUP.md INSTALL.md docs/TESTING.md
+   git diff --check
+   git diff
+   ```
+   Die Versionssuche soll keine aktiven Treffer liefern. Android-/Windows-Release-Artefakte mit Flutter 3.47.9 neu bauen und ausliefern; HTTPS-Verbindungen zu PocketBase/Nextcloud auf Android und Windows smoke-testen.
+
+**Abnahmekriterien:** Analyse, Tests und verfügbare Plattform-Builds erfolgreich; CI-Pins und Docker verwenden 3.47.9; keine unbeabsichtigten Lockfile-/Generierungsänderungen; betroffene native Releases neu erstellt.
+
+**Referenzen:** [Flutter 3.47.9 Changelog](https://github.com/flutter/flutter/releases/tag/3.47.9) · [Dart TLS-Sicherheitsadvisory](https://github.com/dart-lang/sdk/security/advisories/GHSA-frr6-h895-5pxp)
+
 ---
 
 ##  Priorität: Mittel

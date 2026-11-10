@@ -996,7 +996,7 @@ Sync-Logik testbarer gemacht:
 
 | Anforderung | Details |
 | :-- | :-- |
-| Flutter SDK | ≥ 3.41.7 |
+| Flutter SDK | ≥ 3.47.9 |
 | Betriebssystem | Linux, Windows oder macOS |
 | `flutter pub get` | Einmalig im `app/`-Verzeichnis ausführen |
 | `--exclude-tags performance` | Optional — nicht erforderlich |

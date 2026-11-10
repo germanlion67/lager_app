@@ -4,7 +4,7 @@
 # Pinned base image for reproducibility
 FROM debian:bookworm-20240513-slim AS build-env
 
-ARG FLUTTER_VERSION=3.41.7
+ARG FLUTTER_VERSION=3.47.9
 
 # Install dependencies and cleanup in one layer for smaller image
 RUN apt-get update && apt-get install -y --no-install-recommends \
