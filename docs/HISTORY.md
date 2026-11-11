@@ -187,7 +187,7 @@ Alle Maßnahmen sind in `OPTIMIZATION.md` unter **H-004** und **H-005** vollstä
 3. ➡️ `_rebuildNotifier` in `artikel_detail_screen.dart` bleibt bewusst lokaler `ValueNotifier` (Widget-lokaler Zustand).
 4. ✅ `SettingsController` über `settingsControllerProvider` (`ChangeNotifierProvider.autoDispose`, neue Datei `settings_providers.dart`). `SettingsScreen` hält den Provider per `ref.listenManual`, rebuildet per `Consumer`; der Controller wird nicht mehr im Widget-State erzeugt/disposed.
 
-**Bewusst offen:** `NextcloudConnectionService` nutzt weiter `ValueNotifier` (nicht Teil des Tickets).
+**Nachprüfung `NextcloudConnectionService`:** Der `ValueNotifier<NextcloudConnectionStatus>` (Getter `connectionStatus`) wird in `lib/` und `test/` von niemandem gelesen — nur intern beschrieben. Es gibt keinen Konsumenten, eine Riverpod-Migration wäre ohne Nutzen und entfällt. Auch `NextcloudSettingsScreen` wird nirgends instanziiert (Kandidat für ein eigenes Aufräum-Ticket, zusammen mit `sync_error_widgets.dart` / `SyncErrorRecoveryService`).
 
 ---
 
