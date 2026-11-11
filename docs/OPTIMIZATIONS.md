@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 1.1.1+98 | **Zuletzt aktualisiert:** 11.11.2026
+**Version:** 1.1.4+101 | **Zuletzt aktualisiert:** 11.11.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-023`, `P-010`, `T-013`
+- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-026`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -46,76 +46,19 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
 
 ## 🟢 Priorität: Nice-to-Have
 
-### O-021: State Management modernisieren
+### O-025: Ungenutzte Dependencies entfernen (Nachbefund O-015)
 
 **Beschreibung:**
-Die App nutzt aktuell `provider` (ChangeNotifier-Pattern) als State-Management-Lösung.
-`provider` ist funktional, aber für eine wachsende App mit Sync-Logik, mehreren Services
-und reaktiven UI-Zuständen an seine Grenzen gestoßen: Globale `ChangeNotifier`-Ketten,
-`ValueNotifier`-Weitergaben über mehrere Widget-Ebenen und manuelle `notifyListeners()`-Aufrufe
-erhöhen die Kopplung und erschweren Testbarkeit.
-
-**Ist-Zustand:**
-- `provider` genutzt in 8 Dateien (verifiziert per grep, O-015)
-- `ValueNotifier<bool>` für `showLastSyncNotifier` — wird über mehrere Widget-Ebenen weitergegeben
-- `SettingsController` als `ChangeNotifier` — bereits testbar, aber manuelles `notifyListeners()`
-- `SyncOrchestrator`-Zustände werden über Callbacks und direkte Service-Aufrufe propagiert
-- Kein einheitliches reaktives Pattern — Mix aus `provider`, `ValueNotifier` und `setState()`
-
-**Ziel:**
-Migration zu **Riverpod** (empfohlen) als direktem, typsicherem `provider`-Nachfolger:
-- `StateNotifierProvider` ersetzt `ChangeNotifier` → kein manuelles `notifyListeners()` mehr
-- `AsyncNotifierProvider` für Sync-Zustände → Loading/Error/Data automatisch abgebildet
-- `ref.watch()` / `ref.read()` statt `context.watch()` / `context.read()`
-- Providers sind von Widget-Tree unabhängig → deutlich einfacher testbar (kein `MultiProvider`-Wrapper in Tests nötig)
-
-**Nutzen:**
-| Bereich | Heute | Mit Riverpod |
-|:--|:--|:--|
-| Testbarkeit | `ChangeNotifier` braucht Widget-Tree-Wrapper | Provider direkt instanziierbar, kein Flutter-Test-Widget nötig |
-| Sync-State | Callbacks + manuelles setState | `AsyncNotifierProvider` mit Loading/Error/Data |
-| `showLastSyncNotifier` | `ValueNotifier` über 3 Ebenen weitergegeben | `Provider<bool>` direkt konsumierbar |
-| Compile-Sicherheit | `context.read<T>()` erst zur Laufzeit geprüft | Typen zur Compilezeit geprüft |
-| Boilerplate | `notifyListeners()` an vielen Stellen | Immutable State, ein `state = ...`-Aufruf |
-
-**Migrationsreihenfolge:**
-1. ✅ `showLastSyncNotifier` → `StateProvider<bool>` — abgeschlossen `1.1.0+97` (2026-07-28)
-   - `flutter_riverpod ^2.6.1` ergänzt, `ProviderScope` in `main.dart`
-   - `showLastSyncProvider` in `settings_state.dart`
-   - `SettingsController`: `onShowLastSyncChanged`-Callback als Bridge
-   - `SettingsScreen`: `ConsumerStatefulWidget`, setzt Provider via Callback
-   - `ArtikelListScreen`: `ValueListenableBuilder` → `Consumer` (`ref.watch`)
-   - Tests: `ProviderScope` in `artikel_list_screen_test` ergänzt
-2. ⬜ `SyncProgressService extends ChangeNotifier` → Riverpod (komplexer, als Konstruktorparameter übergeben)
-3. ⬜ `_rebuildNotifier ValueNotifier<int>` in `artikel_detail_screen.dart` (lokal, niedrige Priorität)
-4. ⬜ `SettingsController` selbst als `ChangeNotifierProvider.autoDispose` (optional)
-
-**Abhängigkeiten:** Keine Blocker. Migration schrittweise möglich.
-
-**Aufwand:** ~8–12 Stunden (schrittweise Migration) | **Risiko:** Mittel
-
---- 
-
-### O-015: Dependency-Hygiene
-**Beschreibung:**
-`flutter_local_notifications: ^21.0.0` und `provider: ^6.0.3` werden nirgends
-im Code importiert (0 Treffer bei grep). Beide Dependencies wurden entfernt.
-
-Weitere Kandidaten (`webdav_client`) werden mit O-014 adressiert.
-
-**Verifiziert per grep:**
-- `flutter_local_notifications` → 0 Treffer in `app/lib/` ✅
-- `google_fonts` → genutzt in `app_theme.dart` → behalten ✅
-- `provider` → **Nachbefund 2026-07-28: 0 Treffer** — `package:provider` wird nirgends
-  importiert. `ChangeNotifier` wird direkt aus `flutter/foundation.dart` genutzt,
-  nicht über das `provider`-DI-Package. Entfernt. ✅
+Für `intl`, `open_file`, `printing`, `crypto` und `device_info_plus` gibt es keinen `package:`-Import in `app/lib/` oder `app/test/` (grep 2026-11-11). Sie tauchen nur in generierten Plugin-Registrierungen auf (`GeneratedPluginRegistrant.java`, `generated_plugins.cmake`). `open_file` ist zusätzlich im `AndroidManifest.xml` referenziert.
 
 **Tasks:**
-- [x] `flutter_local_notifications` aus pubspec.yaml entfernen ✅
-- [x] `provider` aus pubspec.yaml entfernen ✅ (Nachbefund: ebenfalls ungenutzt)
-- [x] `flutter pub get` + `flutter test` grün ✅ (1016 Tests bestanden)
+- [ ] Verwendung je Paket erneut prüfen (Imports, `part`, Konfiguration, Manifest/CMake, transitive Abhängigkeit z. B. `intl` durch andere Pakete)
+- [ ] Ungenutzte Pakete aus `pubspec.yaml` entfernen, `flutter pub get` mit Flutter 3.47.9 (`pubspec.lock` prüfen)
+- [ ] `AndroidManifest.xml` bereinigen, falls `open_file`-Einträge nur dafür existieren
+- [ ] `flutter analyze` + `flutter test` grün
+- [ ] Build-Test Android, Windows, Linux (Maintenance-Workflow) und Web/Docker
 
-**Aufwand:** 10 Minuten | **Risiko:** Sehr niedrig
+**Aufwand:** ~1 Stunde | **Risiko:** Niedrig bis mittel (native Plugin-Listen ändern sich)
 
 --- 
 
@@ -198,7 +141,7 @@ Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch
 Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
 
 **Aktuell besonders relevante offene Themen**
-- O-021: State Management modernisieren (Riverpod-Migration) — Schritt 1 ✅ abgeschlossen, Schritte 2–4 ausstehend
+- O-025: Ungenutzte Dependencies entfernen (`intl`, `open_file`, `printing`, `crypto`, `device_info_plus`)
 
 ---
 
@@ -207,6 +150,30 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
+
+--- 
+
+### O-015: Dependency-Hygiene — abgeschlossen 2026-11-11 | `1.1.4+101`
+**Beschreibung:**
+`flutter_local_notifications` und `provider` waren ungenutzt und wurden aus der `pubspec.yaml` entfernt; `webdav_client` entfiel mit O-014. Details siehe `HISTORY.md`.
+
+--- 
+
+### O-024: Ungenutzten Sync-Error- und Nextcloud-Verbindungscode entfernen — abgeschlossen 2026-11-11 | `1.1.3+100`
+**Beschreibung:**
+Entfernt (per grep in `lib/` und `test/` ungenutzt): `sync_error_recovery.dart` samt 87 Tests, `sync_error_widgets.dart`, `nextcloud_connection_service.dart`, `nextcloud_settings_screen.dart`, `NextcloudCredentialsStore.showLogoutDialog` sowie `SyncServiceInterface.errorRecoveryService`. Details siehe `HISTORY.md`.
+
+--- 
+
+### O-021: State Management modernisieren (Riverpod) — abgeschlossen 2026-11-11 | `1.1.2+99`
+**Beschreibung:**
+Schritt 1 (`showLastSyncProvider`) in `1.1.0+97`. Schritt 2 entfiel (toter Code, siehe O-023). Schritt 3 (`_rebuildNotifier`) bleibt bewusst lokaler Zustand. Schritt 4: `SettingsController` läuft über `settingsControllerProvider` (`ChangeNotifierProvider.autoDispose`, `settings_providers.dart`). Details siehe `HISTORY.md`.
+
+--- 
+
+### O-023: Toten Sync-Progress-Code entfernen — abgeschlossen 2026-11-11 | `1.1.2+99`
+**Beschreibung:**
+`SyncProgressService`, `sync_progress_widgets.dart`, deren 61 Tests und der Getter `progressService` im `SyncServiceInterface` wurden entfernt (per grep in `lib/` und `test/` ungenutzt). Details siehe `HISTORY.md`.
 
 --- 
 

@@ -180,6 +180,47 @@ Alle Maßnahmen sind in `OPTIMIZATION.md` unter **H-004** und **H-005** vollstä
 
 --- 
 
+### O-015: Dependency-Hygiene — abgeschlossen 2026-11-11 | `1.1.4+101`
+**Ergebnis:**
+- `flutter_local_notifications: ^21.0.0` und `provider: ^6.0.3` waren nirgends importiert (0 Treffer in `app/lib/`) und wurden aus `pubspec.yaml` entfernt. `ChangeNotifier` kommt direkt aus `flutter/foundation.dart`, nicht aus dem `provider`-Package.
+- `google_fonts` wird in `app_theme.dart` genutzt und bleibt.
+- `webdav_client` entfiel mit O-014.
+- Erneute Prüfung 2026-11-11: keine der drei Dependencies mehr in `pubspec.yaml`; `flutter analyze` sauber, Tests grün.
+
+**Nachbefund (nicht Teil des Tickets):** Für `intl`, `open_file`, `printing`, `crypto` und `device_info_plus` gibt es keinen `package:`-Import in `lib/` oder `test/` (nur generierte Plugin-Registrierungen). Entfernen berührt die nativen Plugin-Listen (Android/Windows/Linux) und braucht deshalb eine eigene Prüfung samt Build.
+
+---
+
+### O-024: Ungenutzten Sync-Error- und Nextcloud-Verbindungscode entfernen — abgeschlossen 2026-11-11 | `1.1.3+100`
+**Ergebnis:**
+- Gelöscht: `services/sync_error_recovery.dart`, `widgets/sync_error_widgets.dart`, `test/services/sync_error_recovery_test.dart` (87 Tests), `services/nextcloud_connection_service.dart`, `screens/nextcloud_settings_screen.dart`.
+- Entfernt: `SyncServiceInterface.errorRecoveryService` (inkl. Feld im `PocketBaseConflictAdapter`), `NextcloudCredentialsStore.showLogoutDialog` (einziger Aufrufer des Verbindungsservices, selbst ungenutzt), Mocks neu generiert.
+- Beibehalten: `NextcloudCredentialsStore` (von Import/Export genutzt).
+- Verifiziert: keine Verwendung außerhalb der gelöschten Dateien; `flutter analyze` sauber, 868 Tests grün (+2 übersprungen). `TESTING.md` Gesamt 857.
+- Hinweis: Einen UI-Screen zum Eingeben der Nextcloud-Zugangsdaten gab es im aktiven Code schon vorher nicht (der Screen war nirgends eingebunden).
+
+---
+
+### O-021: State Management modernisieren (Riverpod) — abgeschlossen 2026-11-11 | `1.1.2+99`
+**Ergebnis:**
+1. ✅ `showLastSyncProvider` (`StateProvider<bool>`), `1.1.0+97`.
+2. ➡️ `SyncProgressService`-Migration entfiel: Code war ungenutzt und wurde mit O-023 entfernt.
+3. ➡️ `_rebuildNotifier` in `artikel_detail_screen.dart` bleibt bewusst lokaler `ValueNotifier` (Widget-lokaler Zustand).
+4. ✅ `SettingsController` über `settingsControllerProvider` (`ChangeNotifierProvider.autoDispose`, neue Datei `settings_providers.dart`). `SettingsScreen` hält den Provider per `ref.listenManual`, rebuildet per `Consumer`; der Controller wird nicht mehr im Widget-State erzeugt/disposed.
+
+**Nachprüfung `NextcloudConnectionService`:** Der `ValueNotifier<NextcloudConnectionStatus>` (Getter `connectionStatus`) wird in `lib/` und `test/` von niemandem gelesen — nur intern beschrieben. Es gibt keinen Konsumenten, eine Riverpod-Migration wäre ohne Nutzen und entfällt. Auch `NextcloudSettingsScreen` wird nirgends instanziiert — Aufräumen siehe O-024.
+
+---
+
+### O-023: Toten Sync-Progress-Code entfernen — abgeschlossen 2026-11-11 | `1.1.2+99`
+**Ergebnis:**
+- Gelöscht: `services/sync_progress_service.dart`, `widgets/sync_progress_widgets.dart`, `test/services/sync_progress_service_test.dart` (61 Tests).
+- `SyncServiceInterface.progressService` und Feld im `PocketBaseConflictAdapter` entfernt, Mocks neu generiert.
+- Verifiziert: 0 Verwendungen außerhalb der Dateien; `flutter analyze` sauber, 955 Tests grün.
+- Weiterer toter Code: siehe O-024.
+
+---
+
 ### O-022: Flutter auf 3.47.9 aktualisieren (TLS-Sicherheitskorrektur) — abgeschlossen 2026-11-11 | `1.1.1+98`
 
 **Status:** ✅ Abgeschlossen | **Dringlichkeit:** Hoch (Sicherheitskorrektur)
