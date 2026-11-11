@@ -1181,24 +1181,12 @@ Future<Artikel?> loadRemoteConflictSnapshot(String uuid) async {
     try {
       final db = await database;
 
-      // B-018: Artikelnummer in Suche einbeziehen
-      // Prüfe ob der Suchbegriff eine Zahl ist → exakte Artikelnummer-Suche
-      final artikelnummer = int.tryParse(query.trim());
-
-      final String where;
-      final List<dynamic> args;
-
-      if (artikelnummer != null) {
-        // Numerische Suche: auch Artikelnummer prüfen
-        where =
-            'deleted = 0 AND (name LIKE ? OR beschreibung LIKE ? OR artikelnummer = ?)';
-        args = ['%$query%', '%$query%', artikelnummer];
-      } else {
-        // Textsuche: nur Name und Beschreibung
-        where =
-            'deleted = 0 AND (name LIKE ? OR beschreibung LIKE ?)';
-        args = ['%$query%', '%$query%'];
-      }
+      // B-018 / Issue #74: Artikelnummer als Teilstring durchsuchen,
+      // damit die Liste nach jedem eingegebenen Zeichen eingrenzt.
+      const where = 'deleted = 0 AND (name LIKE ? OR beschreibung LIKE ? '
+          'OR CAST(artikelnummer AS TEXT) LIKE ?)';
+      final trimmed = query.trim();
+      final args = ['%$query%', '%$query%', '%$trimmed%'];
 
       final maps = await db.query(
         'artikel',

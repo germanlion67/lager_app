@@ -37,7 +37,7 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/models/attachment_model_test.dart` | Unit | 38 | O-002 |
 | `test/models/nextcloud_credentials_test.dart` | Unit | 4 | — |
 | `test/services/app_lock_service_test.dart` | Unit | 13 | O-011 |
-| `test/services/artikel_db_service_test.dart` | Integration | 116 | O-002 / T-001 |
+| `test/services/artikel_db_service_test.dart` | Integration | 117 | O-002 / T-001 |
 | `test/services/artikel_db_service_test_helper.dart` | Test-Helper | — | ArtikelDbService-Testdaten & Fixtures |
 | `test/services/artikel_export_service_test.dart` | Unit + Widget | 2 | — |
 | `test/services/artikel_import_service_test.dart` | Unit | 4 | — |
@@ -71,7 +71,7 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/helpers/no_op_nextcloud_service.dart` | Test-Helper | — | O-006 |
 | `test/mocks/sync_service_mocks.dart` | Test-Helper | — | T-001 |
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
-| **Gesamt (statisch gezählte Testdefinitionen)** |  | **857** |  |
+| **Gesamt (statisch gezählte Testdefinitionen)** |  | **858** |  |
 
 > Hinweis: Die Dateisummen dienen der Übersicht und können sich bei Testumbauten
 > ändern. Maßgeblich für den tatsächlichen Lauf bleibt die Ausgabe von
@@ -324,7 +324,7 @@ flutter test test/models/attachment_model_test.dart
 
 ---
 
-### `services/artikel_db_service_test.dart` — O-002 / T-001 (116 Tests)
+### `services/artikel_db_service_test.dart` — O-002 / T-001 (117 Tests)
 
 **Ziel:** Integrationstests für alle Methoden des `ArtikelDbService`, einschließlich der Sync-Metadaten für die Konfliktauflösung.
 

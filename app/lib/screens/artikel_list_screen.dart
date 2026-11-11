@@ -225,6 +225,7 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
           }
         }
         setState(() => _isLoading = false);
+        _pruefeNachladen();
       }
     }
   }
@@ -253,7 +254,9 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
         offset: _currentOffset,
       );
       setState(() {
-        _artikelListe.addAll(seite);
+        // Neue Listeninstanz, sonst greift der identical()-Cache in
+        // _gefilterteArtikel() und die nachgeladenen Artikel erscheinen nicht.
+        _artikelListe = [..._artikelListe, ...seite];
         _currentOffset += seite.length;
         _hasMore = seite.length >= AppConfig.paginationPageSize;
         _aktualisiereFilterOhneSetState();
@@ -261,14 +264,28 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     } catch (e, st) {
       _logger.e('Fehler beim Nachladen:', error: e, stackTrace: st);
     } finally {
-      if (mounted) setState(() => _isLoadingMore = false);
+      if (mounted) {
+        setState(() => _isLoadingMore = false);
+        _pruefeNachladen();
+      }
     }
+  }
+
+  /// Füllt die Liste nach, wenn sie den Viewport nicht ausfüllt
+  /// (kein Scrollen möglich → `_onScroll` würde nie feuern).
+  void _pruefeNachladen() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      if (_scrollController.position.maxScrollExtent <= 0) {
+        _ladeNaechsteSeite();
+      }
+    });
   }
 
   void _onSuchbegriffChanged(String value) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(
-      const Duration(milliseconds: 500),
+      const Duration(milliseconds: 200),
       () => _fuehreSucheAus(value),
     );
   }
@@ -294,13 +311,11 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
     List<Artikel> results;
     if (kIsWeb) {
       final pb = _pbService.client;
-      final trimmed = query.trim();
-      final isNumeric = int.tryParse(trimmed) != null;
+      final trimmed = query.trim().replaceAll('"', '');
 
-      final filterString = isNumeric
-          ? 'artikelnummer = ${int.parse(trimmed)} && deleted = false'
-          : '(name ~ "$trimmed" || beschreibung ~ "$trimmed" || '
-              'artikelnummer ~ "$trimmed") && deleted = false';
+      final filterString =
+          '(name ~ "$trimmed" || beschreibung ~ "$trimmed" || '
+          'artikelnummer ~ "$trimmed") && deleted = false';
 
       final records = await pb.collection('artikel').getFullList(
             filter: filterString,
@@ -312,7 +327,8 @@ class _ArtikelListScreenState extends State<ArtikelListScreen> {
       results = await _db.searchArtikel(query);
     }
 
-    if (!mounted) return;
+    // Veraltete Antwort verwerfen (Nutzer hat inzwischen weitergetippt).
+    if (!mounted || query != _suchbegriff) return;
     setState(() {
       _suchErgebnisse = results;
       _isSuche = false;
