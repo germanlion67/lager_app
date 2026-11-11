@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-025`, `P-010`, `T-013`
+- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-026`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -45,6 +45,22 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
 ---
 
 ## 🟢 Priorität: Nice-to-Have
+
+### O-025: Ungenutzte Dependencies entfernen (Nachbefund O-015)
+
+**Beschreibung:**
+Für `intl`, `open_file`, `printing`, `crypto` und `device_info_plus` gibt es keinen `package:`-Import in `app/lib/` oder `app/test/` (grep 2026-11-11). Sie tauchen nur in generierten Plugin-Registrierungen auf (`GeneratedPluginRegistrant.java`, `generated_plugins.cmake`). `open_file` ist zusätzlich im `AndroidManifest.xml` referenziert.
+
+**Tasks:**
+- [ ] Verwendung je Paket erneut prüfen (Imports, `part`, Konfiguration, Manifest/CMake, transitive Abhängigkeit z. B. `intl` durch andere Pakete)
+- [ ] Ungenutzte Pakete aus `pubspec.yaml` entfernen, `flutter pub get` mit Flutter 3.47.9 (`pubspec.lock` prüfen)
+- [ ] `AndroidManifest.xml` bereinigen, falls `open_file`-Einträge nur dafür existieren
+- [ ] `flutter analyze` + `flutter test` grün
+- [ ] Build-Test Android, Windows, Linux (Maintenance-Workflow) und Web/Docker
+
+**Aufwand:** ~1 Stunde | **Risiko:** Niedrig bis mittel (native Plugin-Listen ändern sich)
+
+--- 
 
 ### F-010: Nutzerfreundliche Aktivitäts-Logs (UserLogService)
 **Beschreibung:**  
@@ -125,7 +141,7 @@ Die Priorisierung in diesem Dokument ist maßgeblich, die Zählwerte sind jedoch
 Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerischen Summen.
 
 **Aktuell besonders relevante offene Themen**
-- Keine offenen O-021-Schritte mehr (abgeschlossen, siehe unten)
+- O-025: Ungenutzte Dependencies entfernen (`intl`, `open_file`, `printing`, `crypto`, `device_info_plus`)
 
 ---
 
