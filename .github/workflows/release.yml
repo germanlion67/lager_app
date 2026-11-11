@@ -30,7 +30,7 @@ jobs:
   # ─────────────────────────────────────────────
   create-tag:
     name: Create Version Tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       tag_name: ${{ steps.create_tag.outputs.tag_name }}
     steps:
@@ -58,7 +58,7 @@ jobs:
   # ─────────────────────────────────────────────
   test:
     name: Run Tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: create-tag
     steps:
       - name: Checkout code
@@ -69,7 +69,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.7'
+          flutter-version: '3.47.9'
           channel: 'stable'
 
       - name: Get dependencies
@@ -89,7 +89,7 @@ jobs:
   # ─────────────────────────────────────────────
   build-android:
     name: Build Android
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [create-tag, test]
     steps:
       - name: Checkout code
@@ -98,7 +98,7 @@ jobs:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
       - name: Setup Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -106,7 +106,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.7'
+          flutter-version: '3.47.9'
           channel: 'stable'
 
       - name: Get dependencies
@@ -147,13 +147,13 @@ jobs:
         run: flutter build appbundle --release ${{ steps.build-args.outputs.args }}
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-${{ github.event.inputs.version }}
           path: app/build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload App Bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-bundle-${{ github.event.inputs.version }}
           path: app/build/app/outputs/bundle/release/app-release.aab
@@ -171,7 +171,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.7'
+          flutter-version: '3.47.9'
           channel: 'stable'
 
       - name: Get dependencies
@@ -200,14 +200,14 @@ jobs:
           Compress-Archive -Path app/build/windows/x64/runner/Release/* -DestinationPath windows-release-${{ github.event.inputs.version }}.zip
 
       - name: Upload Windows Build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-release-${{ github.event.inputs.version }}
           path: windows-release-${{ github.event.inputs.version }}.zip
 
   build-linux:
     name: Build Linux
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [create-tag, test]
     steps:
       - name: Checkout code
@@ -218,7 +218,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.41.7'
+          flutter-version: '3.47.9'
           channel: 'stable'
 
       - name: Install Linux dependencies
@@ -261,14 +261,14 @@ jobs:
             -C app/build/linux/x64/release/bundle .
 
       - name: Upload Linux Build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-release-${{ github.event.inputs.version }}
           path: linux-release-${{ github.event.inputs.version }}.tar.gz
 
   build-docker-web:
     name: Build & Push Flutter Web (Docker)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [create-tag, test]
     permissions:
       contents: read
@@ -327,7 +327,7 @@ jobs:
 
   build-docker-pocketbase:
     name: Build & Push PocketBase (Docker)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [create-tag, test]
     permissions:
       contents: read
@@ -375,7 +375,7 @@ jobs:
   # ─────────────────────────────────────────────
   create-release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [create-tag, test, build-android, build-windows, build-linux, build-docker-web, build-docker-pocketbase]
     steps:
       - name: Checkout code
@@ -384,7 +384,7 @@ jobs:
           ref: ${{ needs.create-tag.outputs.tag_name }}
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
 
       - name: Generate Release Notes
         id: release_notes

@@ -3,7 +3,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/germanlion67/lager_app/ci.yml?branch=main&label=CI&logo=github)](https://github.com/germanlion67/lager_app/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/germanlion67/lager_app?label=Version&logo=github)](https://github.com/germanlion67/lager_app/releases/latest)
 [![Licenses](https://img.shields.io/badge/Licenses-documented-blueviolet.svg)](licenses/README.md)
-[![Flutter](https://img.shields.io/badge/Flutter-3.41.4-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
+[![Flutter](https://img.shields.io/badge/Flutter-3.47.9-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![PocketBase](https://img.shields.io/badge/PocketBase-0.36.6-B8DBE4?logo=pocketbase)](https://pocketbase.io)
 [![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20Web%20%7C%20Linux%20%7C%20Windows-blue)]()
 
