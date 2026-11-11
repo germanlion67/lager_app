@@ -14,7 +14,6 @@ import 'package:lager_app/models/artikel_model.dart';
 import 'package:lager_app/services/app_log_service.dart';
 import 'package:lager_app/services/artikel_db_service.dart';
 import 'package:lager_app/services/conflict_resolution_utils.dart';
-import 'package:lager_app/services/sync_error_recovery.dart';
 import 'package:lager_app/services/conflict_types.dart';
 
 
@@ -24,10 +23,6 @@ class PocketBaseConflictAdapter implements SyncServiceInterface {
   final ArtikelDbService _db;
 
   PocketBaseConflictAdapter(this._db);
-
-  @override
-  final SyncErrorRecoveryService errorRecoveryService =
-      SyncErrorRecoveryService();
 
   @override
   Future<void> applyConflictResolution(

@@ -57,7 +57,6 @@ app/lib/
 │   ├── list_screen_mobile_actions_stub.dart  # Mobile-Aktionen Stub (Web)
 │   ├── list_screen_web_actions.dart  #   Web-spezifische Aktionen
 │   ├── login_screen.dart             #   PocketBase Login
-│   ├── nextcloud_settings_screen.dart    # Nextcloud-Konfiguration
 │   ├── pdf_service_stub.dart         #   PDF-Stub für Web
 │   ├── qr_scan_screen_mobile_scanner.dart  # QR/Barcode-Scanner
 │   ├── server_setup_screen.dart      #   Server-URL Konfiguration
@@ -91,7 +90,6 @@ app/lib/
 │   ├── import_stub.dart              #   Import: Web (Upload)
 │   ├── import_nextcloud.dart         #   Import: Nextcloud-Download
 │   ├── nextcloud_client.dart         #   Nextcloud HTTP-Client (testbar, ohne Sync-Logik)
-│   ├── nextcloud_connection_service.dart  # Nextcloud Verbindungstest
 │   ├── nextcloud_credentials.dart    #   Nextcloud Zugangsdaten-Modell
 │   ├── pdf_service.dart              #   PDF-Erzeugung (Conditional Import)
 │   ├── pdf_service_io.dart           #     ↳ PDF: Native (dart:io)
@@ -107,7 +105,6 @@ app/lib/
 │   ├── scan_service.dart             #   Scanner (Conditional Import)
 │   ├── scan_service_io.dart          #     ↳ Scanner: Native
 │   ├── scan_service_stub.dart        #     ↳ Scanner: Web-Stub
-│   ├── sync_error_recovery.dart      #   Sync-Fehlerbehandlung
 │   ├── sync_orchestrator.dart        #   Sync-Steuerung / Konflikt-Weitergabe
 │   ├── sync_status_provider.dart     #   Interface: Sync-Status Stream
 │   └── tag_service.dart              #   Tag/Label-Verwaltung
@@ -125,8 +122,7 @@ app/lib/
 │   ├── attachment_upload_widget.dart #   Attachment-Upload Dialog
 │   ├── backup_status_widget.dart     #   Backup-Status Anzeige
 │   ├── image_crop_dialog.dart        #   Bild-Zuschnitt Dialog
-│   ├── sync_conflict_handler.dart    #   Sync-Konflikt UI-Handler
-│   └── sync_error_widgets.dart       #   Sync-Fehler Anzeige-Widgets
+│   └── sync_conflict_handler.dart    #   Sync-Konflikt UI-Handler
 ├── main.dart                         # App-Einstiegspunkt, Auth, Lifecycle, Sync-Orchestrierung
 ├── main_io.dart                      # Einstiegspunkt: Native (dart:io)
 └── main_stub.dart                    # Einstiegspunkt: Web (kein dart:io)

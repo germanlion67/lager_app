@@ -3,7 +3,6 @@
 // Extrahiert aus sync_service.dart + conflict_resolution_screen.dart
 
 import '../models/artikel_model.dart';
-import 'sync_error_recovery.dart';
 
 // ─────────────────────────────────────────────
 // ConflictData
@@ -63,8 +62,6 @@ class SyncResult {
 /// Entkoppelt ConflictResolutionScreen, SyncConflictHandler und main.dart
 /// von der konkreten Nextcloud/PocketBase-Implementierung.
 abstract class SyncServiceInterface {
-  SyncErrorRecoveryService get errorRecoveryService;
-
   Future<String> getDeviceId();
   Future<bool> testAndInitialize();
   Future<SyncResult> syncOnce();

@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 1.1.2+99 | **Zuletzt aktualisiert:** 11.11.2026
+**Version:** 1.1.3+100 | **Zuletzt aktualisiert:** 11.11.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-024`, `P-010`, `T-013`
+- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-025`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -157,6 +157,12 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
+
+--- 
+
+### O-024: Ungenutzten Sync-Error- und Nextcloud-Verbindungscode entfernen — abgeschlossen 2026-11-11 | `1.1.3+100`
+**Beschreibung:**
+Entfernt (per grep in `lib/` und `test/` ungenutzt): `sync_error_recovery.dart` samt 87 Tests, `sync_error_widgets.dart`, `nextcloud_connection_service.dart`, `nextcloud_settings_screen.dart`, `NextcloudCredentialsStore.showLogoutDialog` sowie `SyncServiceInterface.errorRecoveryService`. Details siehe `HISTORY.md`.
 
 --- 
 
