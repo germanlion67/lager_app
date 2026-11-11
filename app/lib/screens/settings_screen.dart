@@ -18,7 +18,7 @@ import '../widgets/backup_status_widget.dart';
 import 'package:local_auth/local_auth.dart';
 
 import 'settings_controller.dart';
-import 'settings_state.dart';
+import 'settings_providers.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   final VoidCallback? onLogout;
@@ -39,15 +39,13 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final SettingsController _controller;
+  SettingsController get _controller => ref.read(settingsControllerProvider);
 
   @override
   void initState() {
     super.initState();
-    _controller = SettingsController(
-      onShowLastSyncChanged: (v) =>
-          ref.read(showLastSyncProvider.notifier).state = v,
-    );
+    // Hält den autoDispose-Provider bis zum dispose() des Screens am Leben.
+    ref.listenManual(settingsControllerProvider, (_, __) {});
     _initController();
   }
 
@@ -63,12 +61,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
       );
     }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   // ══════════════════════════════════════════════════════════════════════
@@ -319,9 +311,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
+    return Consumer(
+      builder: (context, ref, _) {
+        ref.watch(settingsControllerProvider);
         // F-012.5: Im embedded-Modus keinen Scaffold rendern —
         // NavigationRail und Panel-Header kommen vom Wrapper.
         if (widget.embedded) {

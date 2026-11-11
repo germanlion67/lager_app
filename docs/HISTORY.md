@@ -180,6 +180,26 @@ Alle Maßnahmen sind in `OPTIMIZATION.md` unter **H-004** und **H-005** vollstä
 
 --- 
 
+### O-021: State Management modernisieren (Riverpod) — abgeschlossen 2026-11-11 | `1.1.2+99`
+**Ergebnis:**
+1. ✅ `showLastSyncProvider` (`StateProvider<bool>`), `1.1.0+97`.
+2. ➡️ `SyncProgressService`-Migration entfiel: Code war ungenutzt und wurde mit O-023 entfernt.
+3. ➡️ `_rebuildNotifier` in `artikel_detail_screen.dart` bleibt bewusst lokaler `ValueNotifier` (Widget-lokaler Zustand).
+4. ✅ `SettingsController` über `settingsControllerProvider` (`ChangeNotifierProvider.autoDispose`, neue Datei `settings_providers.dart`). `SettingsScreen` hält den Provider per `ref.listenManual`, rebuildet per `Consumer`; der Controller wird nicht mehr im Widget-State erzeugt/disposed.
+
+**Bewusst offen:** `NextcloudConnectionService` nutzt weiter `ValueNotifier` (nicht Teil des Tickets).
+
+---
+
+### O-023: Toten Sync-Progress-Code entfernen — abgeschlossen 2026-11-11 | `1.1.2+99`
+**Ergebnis:**
+- Gelöscht: `services/sync_progress_service.dart`, `widgets/sync_progress_widgets.dart`, `test/services/sync_progress_service_test.dart` (61 Tests).
+- `SyncServiceInterface.progressService` und Feld im `PocketBaseConflictAdapter` entfernt, Mocks neu generiert.
+- Verifiziert: 0 Verwendungen außerhalb der Dateien; `flutter analyze` sauber, 955 Tests grün.
+- Hinweis: `sync_error_widgets.dart` / `SyncErrorRecoveryService` wirken ebenfalls ungenutzt, nicht Teil dieses Tickets.
+
+---
+
 ### O-022: Flutter auf 3.47.9 aktualisieren (TLS-Sicherheitskorrektur) — abgeschlossen 2026-11-11 | `1.1.1+98`
 
 **Status:** ✅ Abgeschlossen | **Dringlichkeit:** Hoch (Sicherheitskorrektur)

@@ -62,6 +62,7 @@ app/lib/
 │   ├── qr_scan_screen_mobile_scanner.dart  # QR/Barcode-Scanner
 │   ├── server_setup_screen.dart      #   Server-URL Konfiguration
 │   ├── settings_controller.dart      #   O-010: Settings-Logik (Dirty-Tracking, Save, PB-URL)
+│   ├── settings_providers.dart       #   O-021: settingsControllerProvider (Riverpod)
 │   ├── settings_screen.dart          #   App-Einstellungen (inkl. Entwickler-Card seit O-013)
 │   ├── settings_state.dart           #   UI-neutraler geteilter Settings-State
 │   └── sync_management_screen.dart   #   Sync-Übersicht & Steuerung
@@ -108,7 +109,6 @@ app/lib/
 │   ├── scan_service_stub.dart        #     ↳ Scanner: Web-Stub
 │   ├── sync_error_recovery.dart      #   Sync-Fehlerbehandlung
 │   ├── sync_orchestrator.dart        #   Sync-Steuerung / Konflikt-Weitergabe
-│   ├── sync_progress_service.dart    #   Sync-Fortschritt Stream
 │   ├── sync_status_provider.dart     #   Interface: Sync-Status Stream
 │   └── tag_service.dart              #   Tag/Label-Verwaltung
 ├── utils/                            # Helfer
@@ -126,8 +126,7 @@ app/lib/
 │   ├── backup_status_widget.dart     #   Backup-Status Anzeige
 │   ├── image_crop_dialog.dart        #   Bild-Zuschnitt Dialog
 │   ├── sync_conflict_handler.dart    #   Sync-Konflikt UI-Handler
-│   ├── sync_error_widgets.dart       #   Sync-Fehler Anzeige-Widgets
-│   └── sync_progress_widgets.dart    #   Sync-Fortschritt Anzeige
+│   └── sync_error_widgets.dart       #   Sync-Fehler Anzeige-Widgets
 ├── main.dart                         # App-Einstiegspunkt, Auth, Lifecycle, Sync-Orchestrierung
 ├── main_io.dart                      # Einstiegspunkt: Native (dart:io)
 └── main_stub.dart                    # Einstiegspunkt: Web (kein dart:io)

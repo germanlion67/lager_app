@@ -54,7 +54,6 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/services/pocketbase_sync_service_conflict_test.dart` | Unit | 7 | T-008 / T-001 |
 | `test/services/pocketbase_service_test.dart` | Unit | 56 | T-012 |
 | `test/services/sync_error_recovery_test.dart` | Unit | 87 | T-012 |
-| `test/services/sync_progress_service_test.dart` | Unit | 61 | T-012 |
 | `test/services/settings_controller_test.dart` | Unit | 15 | O-010 / T-009 |
 | `test/services/sync_orchestrator_test.dart` | Unit | 13 | T-008 |
 | `test/services/sync_status_provider_test.dart` | Unit | 6 | K-006 |
@@ -73,7 +72,7 @@ ValueNotifier-Rebuild, _ladeAnhangCount try/catch).
 | `test/helpers/no_op_nextcloud_service.dart` | Test-Helper | — | O-006 |
 | `test/mocks/sync_service_mocks.dart` | Test-Helper | — | T-001 |
 | `test/mocks/sync_service_mocks.mocks.dart` | Generated Mock | — | T-001 |
-| **Gesamt (statisch gezählte Testdefinitionen)** |  | **1005** |  |
+| **Gesamt (statisch gezählte Testdefinitionen)** |  | **944** |  |
 
 > Hinweis: Die Dateisummen dienen der Übersicht und können sich bei Testumbauten
 > ändern. Maßgeblich für den tatsächlichen Lauf bleibt die Ausgabe von
@@ -153,42 +152,6 @@ flutter test test/services/sync_error_recovery_test.dart
 ```
 
 ---
-
-### `services/sync_progress_service_test.dart` — T-012 (61 Tests)
-
-**Ziel:** Unit-Tests für `SyncProgressService` — Operation-Lifecycle, Stream-Events, Stats-Tracking, History-Limit und ChangeNotifier-Integration.
-
-#### Strategie
-- `SyncProgressService()` direkt instanziiert — kein Fake nötig
-- `service.dispose()` in `tearDown` für sauberen Stream-Cleanup
-- `Future.microtask(() {})` für Stream-Event-Assertions (kein `pumpAndSettle`)
-- Kein Netzwerk, kein Dateisystem, kein `build_runner`
-
-| Gruppe | Tests | Was wird geprüft |
-| :-- | :--: | :-- |
-| `startOperation()` | 6 | ID-Format `sync_<timestamp>`, `currentOperation` mit Status initializing, `isSyncing` true, Stats-Reset, Event auf `operationStream`, Event auf `statsStream` |
-| `updateOperation()` | 3 | Status/Progress/Message aktualisiert, kein Crash ohne aktive Operation, Event auf `operationStream` |
-| `completeOperation()` | 6 | `currentOperation` null + `isSyncing` false, History-Eintrag mit completed+progress 1.0, Standard-Nachricht enthält „erfolgreich", benutzerdefinierte Nachricht, kein Crash ohne aktive Operation, `totalDuration` in Stats gesetzt |
-| `failOperation()` | 5 | Status error in History, Error-Objekt gespeichert, Fehlermeldung in `stats.errors`, StackTrace gespeichert, kein Crash ohne aktive Operation |
-| `cancelOperation()` | 3 | Status cancelled in History, Standard-Nachricht enthält „abgebrochen", kein Crash ohne aktive Operation |
-| `setTotalItems()` | 3 | Korrekt gesetzt, negative Werte ignoriert, 0 akzeptiert |
-| `incrementStat()` | 7 | processed/uploaded/downloaded/conflict/error/skipped je +1, unbekannter Typ → `AssertionError` |
-| `decrementStat()` | 3 | processed dekrementiert, Underflow-Schutz bei 0, Underflow-Schutz für alle Typen |
-| `updateStats()` Progress-Berechnung | 4 | Progress aus processedItems/totalItems, clamp auf 1.0, kein Update bei totalItems=0, error-String zu `stats.errors` |
-| History-Limit | 2 | Max 100 Einträge, älteste werden entfernt (Op 0–4 weg, Op 5 ist erster) |
-| `clearHistory()` | 1 | History wird geleert |
-| `getLastOperationReport()` | 5 | Leere Map bei leerer History, enthält operation/statistics/performance, successRate 0% bei totalItems=0, itemsPerSecond 0 bei duration=0, successRate korrekt berechnet ((processed-errors)/total) |
-| `SyncOperation` Getter | 4 | `isActive` true bei laufender Op, `isCompleted` true nach complete, `isError` true nach fail, `statusText` gibt deutschen Text zurück |
-| `SyncStats` Getter | 5 | `progressPercentage` 0 bei totalItems=0, korrekt berechnet, `hasErrors` true bei errorItems>0, `hasConflicts` true bei conflictItems>0, `isCompleted` true bei processedItems≥totalItems |
-| `ChangeNotifier` | 2 | `notifyListeners` bei startOperation, `notifyListeners` bei completeOperation |
-| `dispose()` | 2 | Schließt StreamController ohne Fehler, Streams nach dispose geschlossen |
-
-```bash
-flutter test test/services/sync_progress_service_test.dart
-```
-
---- 
-
 
 ### `services/nextcloud_client_test.dart` — T-003 (39 Tests)
 
@@ -901,9 +864,8 @@ flutter test --reporter expanded
 # Bei Fehlern: Stack-Trace anzeigen
 flutter test --reporter expanded --no-pub
 
-# Nur Sync-Recovery + Progress (T-012)
-flutter test test/services/sync_error_recovery_test.dart \
-             test/services/sync_progress_service_test.dart
+# Nur Sync-Recovery (T-012)
+flutter test test/services/sync_error_recovery_test.dart
 
 ``` 
 

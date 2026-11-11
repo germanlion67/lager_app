@@ -3,17 +3,16 @@
 // Do not manually edit this file.
 
 // ignore_for_file: no_leading_underscores_for_library_prefixes
-import 'dart:async' as _i7;
+import 'dart:async' as _i6;
 
-import 'package:lager_app/models/artikel_model.dart' as _i11;
-import 'package:lager_app/services/artikel_db_service.dart' as _i10;
-import 'package:lager_app/services/conflict_types.dart' as _i5;
-import 'package:lager_app/services/pocketbase_sync_service.dart' as _i8;
-import 'package:lager_app/services/sync_error_recovery.dart' as _i4;
-import 'package:lager_app/services/sync_orchestrator.dart' as _i6;
-import 'package:lager_app/services/sync_progress_service.dart' as _i3;
+import 'package:lager_app/models/artikel_model.dart' as _i10;
+import 'package:lager_app/services/artikel_db_service.dart' as _i9;
+import 'package:lager_app/services/conflict_types.dart' as _i4;
+import 'package:lager_app/services/pocketbase_sync_service.dart' as _i7;
+import 'package:lager_app/services/sync_error_recovery.dart' as _i3;
+import 'package:lager_app/services/sync_orchestrator.dart' as _i5;
 import 'package:mockito/mockito.dart' as _i1;
-import 'package:mockito/src/dummies.dart' as _i9;
+import 'package:mockito/src/dummies.dart' as _i8;
 import 'package:sqflite/sqflite.dart' as _i2;
 
 // ignore_for_file: type=lint
@@ -41,9 +40,9 @@ class _FakeDatabase_0 extends _i1.SmartFake implements _i2.Database {
         );
 }
 
-class _FakeSyncProgressService_1 extends _i1.SmartFake
-    implements _i3.SyncProgressService {
-  _FakeSyncProgressService_1(
+class _FakeSyncErrorRecoveryService_1 extends _i1.SmartFake
+    implements _i3.SyncErrorRecoveryService {
+  _FakeSyncErrorRecoveryService_1(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -52,19 +51,8 @@ class _FakeSyncProgressService_1 extends _i1.SmartFake
         );
 }
 
-class _FakeSyncErrorRecoveryService_2 extends _i1.SmartFake
-    implements _i4.SyncErrorRecoveryService {
-  _FakeSyncErrorRecoveryService_2(
-    Object parent,
-    Invocation parentInvocation,
-  ) : super(
-          parent,
-          parentInvocation,
-        );
-}
-
-class _FakeSyncResult_3 extends _i1.SmartFake implements _i5.SyncResult {
-  _FakeSyncResult_3(
+class _FakeSyncResult_2 extends _i1.SmartFake implements _i4.SyncResult {
+  _FakeSyncResult_2(
     Object parent,
     Invocation parentInvocation,
   ) : super(
@@ -76,16 +64,16 @@ class _FakeSyncResult_3 extends _i1.SmartFake implements _i5.SyncResult {
 /// A class which mocks [SyncOrchestrator].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockSyncOrchestrator extends _i1.Mock implements _i6.SyncOrchestrator {
+class MockSyncOrchestrator extends _i1.Mock implements _i5.SyncOrchestrator {
   MockSyncOrchestrator() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i7.Stream<_i6.SyncStatus> get syncStatus => (super.noSuchMethod(
+  _i6.Stream<_i5.SyncStatus> get syncStatus => (super.noSuchMethod(
         Invocation.getter(#syncStatus),
-        returnValue: _i7.Stream<_i6.SyncStatus>.empty(),
-      ) as _i7.Stream<_i6.SyncStatus>);
+        returnValue: _i6.Stream<_i5.SyncStatus>.empty(),
+      ) as _i6.Stream<_i5.SyncStatus>);
 
   @override
   bool get isSyncing => (super.noSuchMethod(
@@ -94,7 +82,7 @@ class MockSyncOrchestrator extends _i1.Mock implements _i6.SyncOrchestrator {
       ) as bool);
 
   @override
-  void setConflictCallback(_i8.ConflictCallback? callback) =>
+  void setConflictCallback(_i7.ConflictCallback? callback) =>
       super.noSuchMethod(
         Invocation.method(
           #setConflictCallback,
@@ -104,14 +92,14 @@ class MockSyncOrchestrator extends _i1.Mock implements _i6.SyncOrchestrator {
       );
 
   @override
-  _i7.Future<void> runOnce() => (super.noSuchMethod(
+  _i6.Future<void> runOnce() => (super.noSuchMethod(
         Invocation.method(
           #runOnce,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
   void startPeriodicSync({
@@ -153,7 +141,7 @@ class MockSyncOrchestrator extends _i1.Mock implements _i6.SyncOrchestrator {
 ///
 /// See the documentation for Mockito's code generation for more information.
 class MockPocketBaseSyncService extends _i1.Mock
-    implements _i8.PocketBaseSyncService {
+    implements _i7.PocketBaseSyncService {
   MockPocketBaseSyncService() {
     _i1.throwOnMissingStub(this);
   }
@@ -161,7 +149,7 @@ class MockPocketBaseSyncService extends _i1.Mock
   @override
   String get collectionName => (super.noSuchMethod(
         Invocation.getter(#collectionName),
-        returnValue: _i9.dummyValue<String>(
+        returnValue: _i8.dummyValue<String>(
           this,
           Invocation.getter(#collectionName),
         ),
@@ -174,7 +162,7 @@ class MockPocketBaseSyncService extends _i1.Mock
       ) as bool);
 
   @override
-  set onConflictDetected(_i8.ConflictCallback? value) => super.noSuchMethod(
+  set onConflictDetected(_i7.ConflictCallback? value) => super.noSuchMethod(
         Invocation.setter(
           #onConflictDetected,
           value,
@@ -183,54 +171,54 @@ class MockPocketBaseSyncService extends _i1.Mock
       );
 
   @override
-  _i7.Future<void> syncOnce() => (super.noSuchMethod(
+  _i6.Future<void> syncOnce() => (super.noSuchMethod(
         Invocation.method(
           #syncOnce,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> downloadMissingImages() => (super.noSuchMethod(
+  _i6.Future<void> downloadMissingImages() => (super.noSuchMethod(
         Invocation.method(
           #downloadMissingImages,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 }
 
 /// A class which mocks [ArtikelDbService].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
+class MockArtikelDbService extends _i1.Mock implements _i9.ArtikelDbService {
   MockArtikelDbService() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i7.Future<_i2.Database> get database => (super.noSuchMethod(
+  _i6.Future<_i2.Database> get database => (super.noSuchMethod(
         Invocation.getter(#database),
-        returnValue: _i7.Future<_i2.Database>.value(_FakeDatabase_0(
+        returnValue: _i6.Future<_i2.Database>.value(_FakeDatabase_0(
           this,
           Invocation.getter(#database),
         )),
-      ) as _i7.Future<_i2.Database>);
+      ) as _i6.Future<_i2.Database>);
 
   @override
-  _i7.Future<int> insertArtikel(_i11.Artikel? artikel) => (super.noSuchMethod(
+  _i6.Future<int> insertArtikel(_i10.Artikel? artikel) => (super.noSuchMethod(
         Invocation.method(
           #insertArtikel,
           [artikel],
         ),
-        returnValue: _i7.Future<int>.value(0),
-      ) as _i7.Future<int>);
+        returnValue: _i6.Future<int>.value(0),
+      ) as _i6.Future<int>);
 
   @override
-  _i7.Future<List<_i11.Artikel>> getAlleArtikel({
+  _i6.Future<List<_i10.Artikel>> getAlleArtikel({
     int? limit = 500,
     int? offset = 0,
   }) =>
@@ -243,31 +231,31 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             #offset: offset,
           },
         ),
-        returnValue: _i7.Future<List<_i11.Artikel>>.value(<_i11.Artikel>[]),
-      ) as _i7.Future<List<_i11.Artikel>>);
+        returnValue: _i6.Future<List<_i10.Artikel>>.value(<_i10.Artikel>[]),
+      ) as _i6.Future<List<_i10.Artikel>>);
 
   @override
-  _i7.Future<void> updateArtikel(_i11.Artikel? artikel) => (super.noSuchMethod(
+  _i6.Future<void> updateArtikel(_i10.Artikel? artikel) => (super.noSuchMethod(
         Invocation.method(
           #updateArtikel,
           [artikel],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> deleteArtikel(_i11.Artikel? artikel) => (super.noSuchMethod(
+  _i6.Future<void> deleteArtikel(_i10.Artikel? artikel) => (super.noSuchMethod(
         Invocation.method(
           #deleteArtikel,
           [artikel],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<int> updateBildPfad(
+  _i6.Future<int> updateBildPfad(
     int? artikelId,
     String? bildPfad,
   ) =>
@@ -279,11 +267,11 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             bildPfad,
           ],
         ),
-        returnValue: _i7.Future<int>.value(0),
-      ) as _i7.Future<int>);
+        returnValue: _i6.Future<int>.value(0),
+      ) as _i6.Future<int>);
 
   @override
-  _i7.Future<int> updateRemoteBildPfad(
+  _i6.Future<int> updateRemoteBildPfad(
     int? artikelId,
     String? remotePfad,
   ) =>
@@ -295,11 +283,11 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             remotePfad,
           ],
         ),
-        returnValue: _i7.Future<int>.value(0),
-      ) as _i7.Future<int>);
+        returnValue: _i6.Future<int>.value(0),
+      ) as _i6.Future<int>);
 
   @override
-  _i7.Future<void> setBildPfadByUuid(
+  _i6.Future<void> setBildPfadByUuid(
     String? uuid,
     String? bildPfad,
   ) =>
@@ -311,12 +299,12 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             bildPfad,
           ],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> setThumbnailPfadByUuid(
+  _i6.Future<void> setThumbnailPfadByUuid(
     String? uuid,
     String? thumbnailPfad,
   ) =>
@@ -328,12 +316,12 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             thumbnailPfad,
           ],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> setThumbnailEtagByUuid(
+  _i6.Future<void> setThumbnailEtagByUuid(
     String? uuid,
     String? thumbnailEtag,
   ) =>
@@ -345,12 +333,12 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             thumbnailEtag,
           ],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> setBildPfadByUuidSilent(
+  _i6.Future<void> setBildPfadByUuidSilent(
     String? uuid,
     String? bildPfad,
   ) =>
@@ -362,12 +350,12 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             bildPfad,
           ],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> setRemoteBildPfadByUuid(
+  _i6.Future<void> setRemoteBildPfadByUuid(
     String? uuid,
     String? remoteBildPfad,
   ) =>
@@ -379,50 +367,50 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             remoteBildPfad,
           ],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<_i11.Artikel?> getArtikelByUUID(String? uuid) =>
+  _i6.Future<_i10.Artikel?> getArtikelByUUID(String? uuid) =>
       (super.noSuchMethod(
         Invocation.method(
           #getArtikelByUUID,
           [uuid],
         ),
-        returnValue: _i7.Future<_i11.Artikel?>.value(),
-      ) as _i7.Future<_i11.Artikel?>);
+        returnValue: _i6.Future<_i10.Artikel?>.value(),
+      ) as _i6.Future<_i10.Artikel?>);
 
   @override
-  _i7.Future<_i11.Artikel?> getArtikelByRemotePath(String? remotePath) =>
+  _i6.Future<_i10.Artikel?> getArtikelByRemotePath(String? remotePath) =>
       (super.noSuchMethod(
         Invocation.method(
           #getArtikelByRemotePath,
           [remotePath],
         ),
-        returnValue: _i7.Future<_i11.Artikel?>.value(),
-      ) as _i7.Future<_i11.Artikel?>);
+        returnValue: _i6.Future<_i10.Artikel?>.value(),
+      ) as _i6.Future<_i10.Artikel?>);
 
   @override
-  _i7.Future<List<_i11.Artikel>> getUnsyncedArtikel() => (super.noSuchMethod(
+  _i6.Future<List<_i10.Artikel>> getUnsyncedArtikel() => (super.noSuchMethod(
         Invocation.method(
           #getUnsyncedArtikel,
           [],
         ),
-        returnValue: _i7.Future<List<_i11.Artikel>>.value(<_i11.Artikel>[]),
-      ) as _i7.Future<List<_i11.Artikel>>);
+        returnValue: _i6.Future<List<_i10.Artikel>>.value(<_i10.Artikel>[]),
+      ) as _i6.Future<List<_i10.Artikel>>);
 
   @override
-  _i7.Future<List<_i11.Artikel>> getPendingChanges() => (super.noSuchMethod(
+  _i6.Future<List<_i10.Artikel>> getPendingChanges() => (super.noSuchMethod(
         Invocation.method(
           #getPendingChanges,
           [],
         ),
-        returnValue: _i7.Future<List<_i11.Artikel>>.value(<_i11.Artikel>[]),
-      ) as _i7.Future<List<_i11.Artikel>>);
+        returnValue: _i6.Future<List<_i10.Artikel>>.value(<_i10.Artikel>[]),
+      ) as _i6.Future<List<_i10.Artikel>>);
 
   @override
-  _i7.Future<void> markSynced(
+  _i6.Future<void> markSynced(
     String? uuid,
     String? etag, {
     String? remotePath,
@@ -440,13 +428,13 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             #remoteBildPfad: remoteBildPfad,
           },
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> upsertArtikel(
-    _i11.Artikel? artikel, {
+  _i6.Future<void> upsertArtikel(
+    _i10.Artikel? artikel, {
     String? etag,
   }) =>
       (super.noSuchMethod(
@@ -455,12 +443,12 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
           [artikel],
           {#etag: etag},
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> upsertFromRemote(
+  _i6.Future<void> upsertFromRemote(
     String? remotePath,
     String? etag,
     String? jsonBody,
@@ -474,83 +462,83 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             jsonBody,
           ],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> setLastSyncTime() => (super.noSuchMethod(
+  _i6.Future<void> setLastSyncTime() => (super.noSuchMethod(
         Invocation.method(
           #setLastSyncTime,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<DateTime?> getLastSyncTime() => (super.noSuchMethod(
+  _i6.Future<DateTime?> getLastSyncTime() => (super.noSuchMethod(
         Invocation.method(
           #getLastSyncTime,
           [],
         ),
-        returnValue: _i7.Future<DateTime?>.value(),
-      ) as _i7.Future<DateTime?>);
+        returnValue: _i6.Future<DateTime?>.value(),
+      ) as _i6.Future<DateTime?>);
 
   @override
-  _i7.Future<void> openDatabase() => (super.noSuchMethod(
+  _i6.Future<void> openDatabase() => (super.noSuchMethod(
         Invocation.method(
           #openDatabase,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> markAsModified(String? uuid) => (super.noSuchMethod(
+  _i6.Future<void> markAsModified(String? uuid) => (super.noSuchMethod(
         Invocation.method(
           #markAsModified,
           [uuid],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> markForForceLocal(String? uuid) => (super.noSuchMethod(
+  _i6.Future<void> markForForceLocal(String? uuid) => (super.noSuchMethod(
         Invocation.method(
           #markForForceLocal,
           [uuid],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> markForForceMerge(String? uuid) => (super.noSuchMethod(
+  _i6.Future<void> markForForceMerge(String? uuid) => (super.noSuchMethod(
         Invocation.method(
           #markForForceMerge,
           [uuid],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> clearPendingResolution(String? uuid) => (super.noSuchMethod(
+  _i6.Future<void> clearPendingResolution(String? uuid) => (super.noSuchMethod(
         Invocation.method(
           #clearPendingResolution,
           [uuid],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> saveRemoteConflictSnapshot({
+  _i6.Future<void> saveRemoteConflictSnapshot({
     required String? uuid,
-    required _i11.Artikel? remoteArtikel,
+    required _i10.Artikel? remoteArtikel,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -561,22 +549,22 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             #remoteArtikel: remoteArtikel,
           },
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<_i11.Artikel?> loadRemoteConflictSnapshot(String? uuid) =>
+  _i6.Future<_i10.Artikel?> loadRemoteConflictSnapshot(String? uuid) =>
       (super.noSuchMethod(
         Invocation.method(
           #loadRemoteConflictSnapshot,
           [uuid],
         ),
-        returnValue: _i7.Future<_i11.Artikel?>.value(),
-      ) as _i7.Future<_i11.Artikel?>);
+        returnValue: _i6.Future<_i10.Artikel?>.value(),
+      ) as _i6.Future<_i10.Artikel?>);
 
   @override
-  _i7.Future<List<_i11.Artikel>> searchArtikel(
+  _i6.Future<List<_i10.Artikel>> searchArtikel(
     String? query, {
     int? limit = 100,
   }) =>
@@ -586,11 +574,11 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
           [query],
           {#limit: limit},
         ),
-        returnValue: _i7.Future<List<_i11.Artikel>>.value(<_i11.Artikel>[]),
-      ) as _i7.Future<List<_i11.Artikel>>);
+        returnValue: _i6.Future<List<_i10.Artikel>>.value(<_i10.Artikel>[]),
+      ) as _i6.Future<List<_i10.Artikel>>);
 
   @override
-  _i7.Future<bool> existsKombination({
+  _i6.Future<bool> existsKombination({
     required String? name,
     required String? ort,
     required String? fach,
@@ -605,210 +593,201 @@ class MockArtikelDbService extends _i1.Mock implements _i10.ArtikelDbService {
             #fach: fach,
           },
         ),
-        returnValue: _i7.Future<bool>.value(false),
-      ) as _i7.Future<bool>);
+        returnValue: _i6.Future<bool>.value(false),
+      ) as _i6.Future<bool>);
 
   @override
-  _i7.Future<bool> existsArtikelnummer(int? nummer) => (super.noSuchMethod(
+  _i6.Future<bool> existsArtikelnummer(int? nummer) => (super.noSuchMethod(
         Invocation.method(
           #existsArtikelnummer,
           [nummer],
         ),
-        returnValue: _i7.Future<bool>.value(false),
-      ) as _i7.Future<bool>);
+        returnValue: _i6.Future<bool>.value(false),
+      ) as _i6.Future<bool>);
 
   @override
-  _i7.Future<void> resetDatabase({int? startId = 1000}) => (super.noSuchMethod(
+  _i6.Future<void> resetDatabase({int? startId = 1000}) => (super.noSuchMethod(
         Invocation.method(
           #resetDatabase,
           [],
           {#startId: startId},
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> deleteAlleArtikel() => (super.noSuchMethod(
+  _i6.Future<void> deleteAlleArtikel() => (super.noSuchMethod(
         Invocation.method(
           #deleteAlleArtikel,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> insertArtikelList(List<_i11.Artikel>? artikelList) =>
+  _i6.Future<void> insertArtikelList(List<_i10.Artikel>? artikelList) =>
       (super.noSuchMethod(
         Invocation.method(
           #insertArtikelList,
           [artikelList],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<bool> isDatabaseEmpty() => (super.noSuchMethod(
+  _i6.Future<bool> isDatabaseEmpty() => (super.noSuchMethod(
         Invocation.method(
           #isDatabaseEmpty,
           [],
         ),
-        returnValue: _i7.Future<bool>.value(false),
-      ) as _i7.Future<bool>);
+        returnValue: _i6.Future<bool>.value(false),
+      ) as _i6.Future<bool>);
 
   @override
-  _i7.Future<int> getNextArtikelNummer() => (super.noSuchMethod(
+  _i6.Future<int> getNextArtikelNummer() => (super.noSuchMethod(
         Invocation.method(
           #getNextArtikelNummer,
           [],
         ),
-        returnValue: _i7.Future<int>.value(0),
-      ) as _i7.Future<int>);
+        returnValue: _i6.Future<int>.value(0),
+      ) as _i6.Future<int>);
 
   @override
-  _i7.Future<int?> getMaxArtikelnummer() => (super.noSuchMethod(
+  _i6.Future<int?> getMaxArtikelnummer() => (super.noSuchMethod(
         Invocation.method(
           #getMaxArtikelnummer,
           [],
         ),
-        returnValue: _i7.Future<int?>.value(),
-      ) as _i7.Future<int?>);
+        returnValue: _i6.Future<int?>.value(),
+      ) as _i6.Future<int?>);
 
   @override
-  _i7.Future<void> closeDatabase() => (super.noSuchMethod(
+  _i6.Future<void> closeDatabase() => (super.noSuchMethod(
         Invocation.method(
           #closeDatabase,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> clearBildInfoByUuidSilent(String? uuid) =>
+  _i6.Future<void> clearBildInfoByUuidSilent(String? uuid) =>
       (super.noSuchMethod(
         Invocation.method(
           #clearBildInfoByUuidSilent,
           [uuid],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<void> injectDatabase(_i2.Database? db) => (super.noSuchMethod(
+  _i6.Future<void> injectDatabase(_i2.Database? db) => (super.noSuchMethod(
         Invocation.method(
           #injectDatabase,
           [db],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 }
 
 /// A class which mocks [SyncServiceInterface].
 ///
 /// See the documentation for Mockito's code generation for more information.
-class MockSyncService extends _i1.Mock implements _i5.SyncServiceInterface {
+class MockSyncService extends _i1.Mock implements _i4.SyncServiceInterface {
   MockSyncService() {
     _i1.throwOnMissingStub(this);
   }
 
   @override
-  _i3.SyncProgressService get progressService => (super.noSuchMethod(
-        Invocation.getter(#progressService),
-        returnValue: _FakeSyncProgressService_1(
-          this,
-          Invocation.getter(#progressService),
-        ),
-      ) as _i3.SyncProgressService);
-
-  @override
-  _i4.SyncErrorRecoveryService get errorRecoveryService => (super.noSuchMethod(
+  _i3.SyncErrorRecoveryService get errorRecoveryService => (super.noSuchMethod(
         Invocation.getter(#errorRecoveryService),
-        returnValue: _FakeSyncErrorRecoveryService_2(
+        returnValue: _FakeSyncErrorRecoveryService_1(
           this,
           Invocation.getter(#errorRecoveryService),
         ),
-      ) as _i4.SyncErrorRecoveryService);
+      ) as _i3.SyncErrorRecoveryService);
 
   @override
-  _i7.Future<String> getDeviceId() => (super.noSuchMethod(
+  _i6.Future<String> getDeviceId() => (super.noSuchMethod(
         Invocation.method(
           #getDeviceId,
           [],
         ),
-        returnValue: _i7.Future<String>.value(_i9.dummyValue<String>(
+        returnValue: _i6.Future<String>.value(_i8.dummyValue<String>(
           this,
           Invocation.method(
             #getDeviceId,
             [],
           ),
         )),
-      ) as _i7.Future<String>);
+      ) as _i6.Future<String>);
 
   @override
-  _i7.Future<bool> testAndInitialize() => (super.noSuchMethod(
+  _i6.Future<bool> testAndInitialize() => (super.noSuchMethod(
         Invocation.method(
           #testAndInitialize,
           [],
         ),
-        returnValue: _i7.Future<bool>.value(false),
-      ) as _i7.Future<bool>);
+        returnValue: _i6.Future<bool>.value(false),
+      ) as _i6.Future<bool>);
 
   @override
-  _i7.Future<_i5.SyncResult> syncOnce() => (super.noSuchMethod(
+  _i6.Future<_i4.SyncResult> syncOnce() => (super.noSuchMethod(
         Invocation.method(
           #syncOnce,
           [],
         ),
-        returnValue: _i7.Future<_i5.SyncResult>.value(_FakeSyncResult_3(
+        returnValue: _i6.Future<_i4.SyncResult>.value(_FakeSyncResult_2(
           this,
           Invocation.method(
             #syncOnce,
             [],
           ),
         )),
-      ) as _i7.Future<_i5.SyncResult>);
+      ) as _i6.Future<_i4.SyncResult>);
 
   @override
-  _i7.Future<void> syncAttachments() => (super.noSuchMethod(
+  _i6.Future<void> syncAttachments() => (super.noSuchMethod(
         Invocation.method(
           #syncAttachments,
           [],
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 
   @override
-  _i7.Future<List<_i5.ConflictData>> detectConflicts() => (super.noSuchMethod(
+  _i6.Future<List<_i4.ConflictData>> detectConflicts() => (super.noSuchMethod(
         Invocation.method(
           #detectConflicts,
           [],
         ),
         returnValue:
-            _i7.Future<List<_i5.ConflictData>>.value(<_i5.ConflictData>[]),
-      ) as _i7.Future<List<_i5.ConflictData>>);
+            _i6.Future<List<_i4.ConflictData>>.value(<_i4.ConflictData>[]),
+      ) as _i6.Future<List<_i4.ConflictData>>);
 
   @override
-  _i7.Future<Map<String, dynamic>> syncWithConflictResolution() =>
+  _i6.Future<Map<String, dynamic>> syncWithConflictResolution() =>
       (super.noSuchMethod(
         Invocation.method(
           #syncWithConflictResolution,
           [],
         ),
         returnValue:
-            _i7.Future<Map<String, dynamic>>.value(<String, dynamic>{}),
-      ) as _i7.Future<Map<String, dynamic>>);
+            _i6.Future<Map<String, dynamic>>.value(<String, dynamic>{}),
+      ) as _i6.Future<Map<String, dynamic>>);
 
   @override
-  _i7.Future<void> applyConflictResolution(
-    _i5.ConflictData? conflict,
-    _i5.ConflictResolution? resolution, {
-    _i11.Artikel? mergedVersion,
+  _i6.Future<void> applyConflictResolution(
+    _i4.ConflictData? conflict,
+    _i4.ConflictResolution? resolution, {
+    _i10.Artikel? mergedVersion,
   }) =>
       (super.noSuchMethod(
         Invocation.method(
@@ -819,7 +798,7 @@ class MockSyncService extends _i1.Mock implements _i5.SyncServiceInterface {
           ],
           {#mergedVersion: mergedVersion},
         ),
-        returnValue: _i7.Future<void>.value(),
-        returnValueForMissingStub: _i7.Future<void>.value(),
-      ) as _i7.Future<void>);
+        returnValue: _i6.Future<void>.value(),
+        returnValueForMissingStub: _i6.Future<void>.value(),
+      ) as _i6.Future<void>);
 }
