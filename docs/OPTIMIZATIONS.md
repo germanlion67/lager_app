@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 1.1.3+100 | **Zuletzt aktualisiert:** 11.11.2026
+**Version:** 1.1.4+101 | **Zuletzt aktualisiert:** 11.11.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -45,29 +45,6 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
 ---
 
 ## 🟢 Priorität: Nice-to-Have
-
-### O-015: Dependency-Hygiene
-**Beschreibung:**
-`flutter_local_notifications: ^21.0.0` und `provider: ^6.0.3` werden nirgends
-im Code importiert (0 Treffer bei grep). Beide Dependencies wurden entfernt.
-
-Weitere Kandidaten (`webdav_client`) werden mit O-014 adressiert.
-
-**Verifiziert per grep:**
-- `flutter_local_notifications` → 0 Treffer in `app/lib/` ✅
-- `google_fonts` → genutzt in `app_theme.dart` → behalten ✅
-- `provider` → **Nachbefund 2026-07-28: 0 Treffer** — `package:provider` wird nirgends
-  importiert. `ChangeNotifier` wird direkt aus `flutter/foundation.dart` genutzt,
-  nicht über das `provider`-DI-Package. Entfernt. ✅
-
-**Tasks:**
-- [x] `flutter_local_notifications` aus pubspec.yaml entfernen ✅
-- [x] `provider` aus pubspec.yaml entfernen ✅ (Nachbefund: ebenfalls ungenutzt)
-- [x] `flutter pub get` + `flutter test` grün ✅ (1016 Tests bestanden)
-
-**Aufwand:** 10 Minuten | **Risiko:** Sehr niedrig
-
---- 
 
 ### F-010: Nutzerfreundliche Aktivitäts-Logs (UserLogService)
 **Beschreibung:**  
@@ -157,6 +134,12 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
+
+--- 
+
+### O-015: Dependency-Hygiene — abgeschlossen 2026-11-11 | `1.1.4+101`
+**Beschreibung:**
+`flutter_local_notifications` und `provider` waren ungenutzt und wurden aus der `pubspec.yaml` entfernt; `webdav_client` entfiel mit O-014. Details siehe `HISTORY.md`.
 
 --- 
 

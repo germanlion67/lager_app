@@ -3,7 +3,7 @@ description: Eine App zur Verwaltung von Elektronik- und Bastelartikeln
 
 publish_to: none
 
-version: 1.1.3+100
+version: 1.1.4+101
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

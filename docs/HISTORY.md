@@ -180,6 +180,17 @@ Alle Maßnahmen sind in `OPTIMIZATION.md` unter **H-004** und **H-005** vollstä
 
 --- 
 
+### O-015: Dependency-Hygiene — abgeschlossen 2026-11-11 | `1.1.4+101`
+**Ergebnis:**
+- `flutter_local_notifications: ^21.0.0` und `provider: ^6.0.3` waren nirgends importiert (0 Treffer in `app/lib/`) und wurden aus `pubspec.yaml` entfernt. `ChangeNotifier` kommt direkt aus `flutter/foundation.dart`, nicht aus dem `provider`-Package.
+- `google_fonts` wird in `app_theme.dart` genutzt und bleibt.
+- `webdav_client` entfiel mit O-014.
+- Erneute Prüfung 2026-11-11: keine der drei Dependencies mehr in `pubspec.yaml`; `flutter analyze` sauber, Tests grün.
+
+**Nachbefund (nicht Teil des Tickets):** Für `intl`, `open_file`, `printing`, `crypto` und `device_info_plus` gibt es keinen `package:`-Import in `lib/` oder `test/` (nur generierte Plugin-Registrierungen). Entfernen berührt die nativen Plugin-Listen (Android/Windows/Linux) und braucht deshalb eine eigene Prüfung samt Build.
+
+---
+
 ### O-024: Ungenutzten Sync-Error- und Nextcloud-Verbindungscode entfernen — abgeschlossen 2026-11-11 | `1.1.3+100`
 **Ergebnis:**
 - Gelöscht: `services/sync_error_recovery.dart`, `widgets/sync_error_widgets.dart`, `test/services/sync_error_recovery_test.dart` (87 Tests), `services/nextcloud_connection_service.dart`, `screens/nextcloud_settings_screen.dart`.
