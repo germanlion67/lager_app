@@ -104,7 +104,7 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
     --build-arg FLUTTER_VERSION=3.47.9 \
     -t lager-app:flutter-3.47.9 .
   ```
-7. ⬜ Alte aktive Pins suchen, Diff prüfen und CI ausführen lassen:
+7. ⬜ (Maintenance- und CI-Lauf erfolgreich; Version auf 1.1.1+98 angehoben, Release-Workflow mit Version `1.1.1` offen) Alte aktive Pins suchen, Diff prüfen und CI ausführen lassen:
    ```bash
    git grep -nE '3\.41\.7|3\.41\.4|Flutter 3\.41\+' -- \
      .github/workflows app/Dockerfile README.md docs/DEV_SETUP.md INSTALL.md docs/TESTING.md
