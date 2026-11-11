@@ -180,6 +180,18 @@ Alle Maßnahmen sind in `OPTIMIZATION.md` unter **H-004** und **H-005** vollstä
 
 --- 
 
+### B-020: Listenansicht lädt nicht nach / Suche leer (Issue #74) — abgeschlossen 2026-11-11 | `1.1.5+102`
+**Probleme:**
+1. Die Liste zeigte nur 30 Einträge: `_artikelListe.addAll` behielt die Listeninstanz, der `identical()`-Cache in `_gefilterteArtikel()` blieb veraltet.
+2. Die Suche war bei 2–3 Zeichen leer: `searchArtikel` verglich die Artikelnummer nur exakt; Debounce 500 ms.
+
+**Lösung:**
+- Liste wird beim Nachladen neu zugewiesen; automatisches Nachladen, wenn der Viewport nicht gefüllt ist.
+- `searchArtikel`: `CAST(artikelnummer AS TEXT) LIKE ?` (Teilstring); Debounce 200 ms; veraltete Suchantworten werden verworfen.
+- Neuer Test für Teil-Artikelnummer.
+
+--- 
+
 ### O-015: Dependency-Hygiene — abgeschlossen 2026-11-11 | `1.1.4+101`
 **Ergebnis:**
 - `flutter_local_notifications: ^21.0.0` und `provider: ^6.0.3` waren nirgends importiert (0 Treffer in `app/lib/`) und wurden aus `pubspec.yaml` entfernt. `ChangeNotifier` kommt direkt aus `flutter/foundation.dart`, nicht aus dem `provider`-Package.

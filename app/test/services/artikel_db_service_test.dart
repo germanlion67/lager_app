@@ -1487,6 +1487,23 @@ group('toPocketBaseMap()', () {
         expect(result.length, equals(2));
       });
 
+      test('Artikelnummer wird als Teilstring gefunden (Issue #74)', () async {
+        await service.insertArtikel(
+          _makeArtikel(name: 'Alpha', artikelnummer: 1001),
+        );
+        await service.insertArtikel(
+          _makeArtikel(name: 'Beta', artikelnummer: 1015),
+        );
+        await service.insertArtikel(
+          _makeArtikel(name: 'Gamma', artikelnummer: 2040),
+        );
+
+        expect((await service.searchArtikel('1')).length, equals(2));
+        expect((await service.searchArtikel('10')).length, equals(2));
+        expect((await service.searchArtikel('100')).length, equals(1));
+        expect((await service.searchArtikel('1001')).single.name, 'Alpha');
+      });
+
       test('Suche ist case-insensitive (SQLite LIKE)', () async {
         await service.insertArtikel(_makeArtikel(name: 'Widerstand'));
         // ✅ SQLite LIKE ist case-insensitive für ASCII

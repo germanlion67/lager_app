@@ -2,7 +2,7 @@
 
 Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstatus**, **offene Aufgaben**, **Prioritäten** und **technische Optimierungen** der **Lager_app**.
 
-**Version:** 1.1.4+101 | **Zuletzt aktualisiert:** 11.11.2026
+**Version:** 1.1.5+102 | **Zuletzt aktualisiert:** 11.11.2026
 
 > **Hinweis:**  
 > Diese `OPTIMIZATIONS.md` ist das **laufende Arbeitsdokument** für Status, Prioritäten und Roadmap.  
@@ -28,7 +28,7 @@ Dieses Dokument ist die zentrale Arbeitsübersicht über **aktuellen Projektstat
 - `T` = Tests / Testinfrastruktur / Testausbau
 
 ### Nächste freie Kürzel
-- `B-020`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-026`, `P-010`, `T-013`
+- `B-021`, `F-013`, `H-006`, `K-008`, `M-015`, `N-007`, `O-026`, `P-010`, `T-013`
 
 ### Vergaberegel
 Ein Kürzel gilt **ab dem ersten dokumentierten Auftreten als dauerhaft reserviert** —  
@@ -150,6 +150,12 @@ Im Zweifel gilt der inhaltliche Status der einzelnen Punkte über den numerische
 > **Hinweis:** Details zu den abgeschlossenen Punkten stehen in `HISTORY.md`.  
 > Hier bleiben sie als kompakter Überblick mit Versionsbezug erhalten.
 
+
+--- 
+
+### B-020: Listenansicht lädt nicht nach / Suche leer (Issue #74) — abgeschlossen 2026-11-11 | `1.1.5+102`
+**Beschreibung:**
+Nachgeladene Seiten erschienen wegen des `identical()`-Filter-Caches nicht; die native Suche verglich die Artikelnummer nur exakt. Details siehe `HISTORY.md`.
 
 --- 
 
