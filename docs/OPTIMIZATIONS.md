@@ -72,7 +72,7 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
    ```bash
    sed -i 's/Flutter-3\.41\.4/Flutter-3.47.9/' README.md
    sed -i 's/Flutter 3\.41+/Flutter 3.47.9/' docs/DEV_SETUP.md
-   sed -i 's/3\.41\.4/3.47.8/g; s/3\.11\.1/3.13.7/g' INSTALL.md
+   sed -i 's/3\.41\.4/3.47.9/g; s/3\.11\.1/3.13.7/g' INSTALL.md
    sed -i 's/3\.41\.7/3.47.9/g' docs/TESTING.md
    ```
    Historische Einträge in `docs/HISTORY.md` und `docs/OPTIMIZATIONS.md` nicht umschreiben. Generierte `.flutter-plugins-dependencies`-Dateien nicht manuell bearbeiten.
@@ -84,9 +84,9 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
   flutter test
   ```
 4. ✅ Android-Build-Toolchain schrittweise aktualisieren. Flutter 3.47.9 verlangt mindestens AGP 8.11.1 und Kotlin 2.2.20; AGP wurde auf 8.11.1, Kotlin auf 2.2.20 aktualisiert und `flutter build apk --debug` erfolgreich abgeschlossen. Gradle 8.14.0 und AGP 8.11.1 melden nur, dass die Unterstützung künftig endet; Java meldet zusätzlich obsolete Source/Target 8-Warnungen. Nicht auf AGP 9 springen: das wäre eine separate Migration mit neuer DSL/Kotlin-Konfiguration.
-5. ⬜ Plattform-Builds verifizieren: WebAssembly, Android-Debug-APK und Linux-Debug-Build erfolgreich; Windows noch offen.
+5. ✅ Plattform-Builds verifiziert: WebAssembly, Android-Debug-APK, Linux-Debug-Build und Windows-Debug-Build erfolgreich.
   ✅ Linux-Debug-Build: fehlendes `libsecret-1-dev` installiert; veralteter `CMAKE_INSTALL_PREFIX=/usr/local` durch Löschen des regenerierbaren `build/linux/x64/debug`-Caches behoben. Build-Artefakt: `build/linux/x64/debug/bundle/lager_app`.
-  ⬜ Windows-Debug-Build auf Windows ausführen (`cd app && flutter build windows --debug`) oder den bestehenden Windows-Maintenance-Workflow verwenden.
+  ✅ Windows-Debug-Build über den Maintenance-Workflow erfolgreich. Der Workflow baut und lädt danach wieder `Release` hoch (temporäre Debug-Umstellung zurückgenommen).
   Bereits erfolgreich durchgeführt:
   ```bash
   flutter build web --release --wasm \
@@ -97,7 +97,7 @@ Commit-Meldungen  `fix:`- Bugfix,  `feat:`-Neues Future, `docs`- Dokumentation, 
     --tree-shake-icons
   flutter build apk --debug
   ```
-6. ⬜ Docker-Web-Build vom Repository-Root testen:
+6. ✅ Docker-Web-Build vom Repository-Root erfolgreich getestet:
   ```bash
   cd ..
   docker build -f app/Dockerfile \
